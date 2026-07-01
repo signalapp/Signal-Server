@@ -5,7 +5,9 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -56,6 +58,8 @@ import org.signal.chat.keys.SetOneTimeEcPreKeysRequest;
 import org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -68,9 +72,11 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
 
@@ -642,5 +648,69 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     }
     assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getPreKeys(builder.build()));
     verify(preKeysRateLimiter).validate(expectedRateLimitKey);
+  }
+
+  @CartesianTest
+  void getPreKeysUnidentifiedInfo(
+      @CartesianTest.Enum(names = {"IDENTITY_TYPE_ACI", "IDENTITY_TYPE_PNI"}) final org.signal.chat.common.IdentityType grpcIdentityType,
+      @CartesianTest.Values(booleans = {false , true}) final boolean hasUak,
+      @CartesianTest.Values(booleans = {false , true}) final boolean hasUua) {
+    final Account targetAccount = mock(Account.class);
+
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
+    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+    final UUID identifier = UUID.randomUUID();
+
+    final IdentityType identityType = IdentityTypeUtil.fromGrpcIdentityType(grpcIdentityType);
+    final org.whispersystems.textsecuregcm.identity.ServiceIdentifier serviceIdentifier = switch (identityType) {
+      case PNI -> new PniServiceIdentifier(identifier);
+      case ACI -> new AciServiceIdentifier(identifier);
+    };
+
+    when(targetAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(targetAccount.getIdentifier(identityType)).thenReturn(identifier);
+    when(targetAccount.getIdentityKey(identityType)).thenReturn(identityKey);
+    when(accountsManager.getByServiceIdentifier(serviceIdentifier))
+        .thenReturn(Optional.of(targetAccount));
+
+    final byte deviceId1 = 1;
+    final int registrationId = 123;
+
+    final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(3, identityKeyPair);
+    final Optional<ECPreKey> maybeEcPreKey = Optional.of(new ECPreKey(1, ECKeyPair.generate().getPublicKey()));
+    final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(2, identityKeyPair);
+    when(keysManager.takeDevicePreKeys(eq(deviceId1), eq(serviceIdentifier), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(new KeysManager.DevicePreKeys(ecSignedPreKey, maybeEcPreKey, kemSignedPreKey))));
+
+    final Device device = mock(Device.class);
+    when(device.getId()).thenReturn(deviceId1);
+    when(device.getRegistrationId(any())).thenReturn(registrationId);
+
+    final Map<Byte, Device> devices = Map.of(deviceId1, device);
+    when(targetAccount.getDevice(deviceId1)).thenReturn(Optional.of(device));
+    when(targetAccount.getDevices()).thenReturn(new ArrayList<>(devices.values()));
+
+    final byte[] uak = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+    when(targetAccount.getUnidentifiedAccessKey()).thenReturn(hasUak ? Optional.of(uak) : Optional.empty());
+    when(targetAccount.isUnrestrictedUnidentifiedAccess()).thenReturn(hasUua);
+
+    final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
+        .setTargetIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(grpcIdentityType)
+            .setUuid(UUIDUtil.toByteString(identifier))
+            .build())
+        .setDeviceId(1)
+        .build());
+
+    assertTrue(response.hasPreKeys());
+    assertEquals(identityType == IdentityType.ACI && hasUua,
+        response.getPreKeys().getUnrestrictedUnidentifiedAccess());
+    if (identityType == IdentityType.ACI && hasUak) {
+      assertArrayEquals(UnidentifiedAccessChecksum.generateFor(uak),
+          response.getPreKeys().getUnidentifiedAccessKeyFingerprint().toByteArray());
+    } else {
+      assertTrue(response.getPreKeys().getUnidentifiedAccessKeyFingerprint().isEmpty());
+    }
+
   }
 }

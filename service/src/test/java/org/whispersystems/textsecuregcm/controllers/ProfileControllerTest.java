@@ -45,6 +45,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -80,6 +81,7 @@ import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequestContext;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
+import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -160,9 +162,23 @@ class ProfileControllerTest {
           accountsManager,
           profilesManager,
           dynamicConfigurationManager,
-          (acceptableLanguages, accountBadges, isSelf) -> List.of(new Badge("TEST", "other", "Test Badge",
-              "This badge is in unit tests.", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld")))
-          ),
+          new ProfileBadgeConverter() {
+            @Override
+            public List<String> visibleBadgeIds(final List<AccountBadge> badges) {
+              return List.of("TEST");
+            }
+
+            @Override
+            public List<Badge> convert(final List<Locale> acceptableLanguages, final List<AccountBadge> accountBadges,
+                final boolean isSelf) {
+              return List.of(new Badge("TEST", "other", "Test Badge",
+                  "This badge is in unit tests.",
+                  List.of("l", "m", "h", "x", "xx", "xxx"),
+                  "SVG", List.of(new BadgeSvg("sl", "sd"),
+                  new BadgeSvg("ml", "md"),
+                  new BadgeSvg("ll", "ld"))));
+            }
+          },
           new BadgesConfiguration(List.of(
               new BadgeConfiguration("TEST", "other", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))),
               new BadgeConfiguration("TEST1", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))),

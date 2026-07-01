@@ -12,6 +12,12 @@ import org.whispersystems.textsecuregcm.storage.AccountBadge;
 
 public interface ProfileBadgeConverter {
 
+  /// Determine displayable badge ids for an account's badges
+  ///
+  /// @param badges The full list of badges on an account
+  /// @return The list of badge-ids that should appear on this account's profile to other users
+  List<String> visibleBadgeIds(final List<AccountBadge> badges);
+
   /**
    * Converts the {@link AccountBadge}s for an account into the objects
    * that can be returned on a profile fetch.

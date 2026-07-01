@@ -146,6 +146,15 @@ message AccountPreKeyBundles {
 
   // A map of device IDs to pre-key "bundles" for the targeted account.
   map<uint32, DevicePreKeyBundle> device_pre_keys = 2;
+
+  // Whether the account has enabled sealed sender from anyone. Always false
+  // if the request was for a PNI, which does not allow any unidentified access.
+  bool unrestricted_unidentified_access = 3;
+
+  // If the target supports unidentified access and has an unidentified access
+  // key, a fingerprint of the target's UAK. This may be used to detect a change
+  // in the UAK that the sender has for the target before actually sending a message. Otherwise, empty.
+  bytes unidentified_access_key_fingerprint = 4;
 }
 
 message GetPreKeysResponse {

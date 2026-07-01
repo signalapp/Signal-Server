@@ -8,11 +8,10 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -52,24 +51,20 @@ import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
-import org.signal.chat.profile.DataEtag;
 import org.signal.chat.profile.GetAvatarCredentialsRequest;
 import org.signal.chat.profile.GetAvatarCredentialsResponse;
-import org.signal.chat.profile.GetUnversionedProfileRequest;
-import org.signal.chat.profile.GetUnversionedProfileResponse;
-import org.signal.chat.profile.GetUnversionedProfileResult;
-import org.signal.chat.profile.GetVersionedProfileRequest;
-import org.signal.chat.profile.GetVersionedProfileResponse;
-import org.signal.chat.profile.GetVersionedProfileResult;
-import org.signal.chat.profile.GetVersionedProfileV1Response;
+import org.signal.chat.profile.GetProfileRequest;
+import org.signal.chat.profile.GetProfileResponse;
+import org.signal.chat.profile.LegacyProfileResult;
 import org.signal.chat.profile.ProfileGrpc;
+import org.signal.chat.profile.ProfileResult;
+import org.signal.chat.profile.AccountInfo;
 import org.signal.chat.profile.SetProfileRequest;
 import org.signal.chat.profile.SetProfileResponse;
 import org.signal.chat.profile.SetProfileResult;
@@ -93,11 +88,8 @@ import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPaymentsConfiguration;
-import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
@@ -610,107 +602,13 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   }
 
   @ParameterizedTest
-  @EnumSource(value = org.signal.chat.common.IdentityType.class, names = {"IDENTITY_TYPE_ACI", "IDENTITY_TYPE_PNI"})
-  void getUnversionedProfile(final IdentityType identityType) throws Exception {
-    final UUID targetUuid = UUID.randomUUID();
-    final org.whispersystems.textsecuregcm.identity.ServiceIdentifier targetIdentifier =
-        identityType == IdentityType.IDENTITY_TYPE_ACI ? new AciServiceIdentifier(targetUuid) : new PniServiceIdentifier(targetUuid);
-
-    final GetUnversionedProfileRequest request = GetUnversionedProfileRequest.newBuilder()
-        .setServiceIdentifier(ServiceIdentifier.newBuilder()
-            .setIdentityType(identityType)
-            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
-            .build())
-        .build();
-    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+  @MethodSource
+  void getProfile(final byte[] requestVersion, @Nullable final byte[] accountVersion, final boolean expectResponseHasPaymentAddress) {
     final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+    final List<String> badgeIds = List.of("TEST-BADGE");
 
-    final List<Badge> badges = List.of(new Badge(
-        "TEST",
-        "other",
-        "Test Badge",
-        "This badge is in unit tests.",
-        List.of("l", "m", "h", "x", "xx", "xxx"),
-        "SVG",
-        List.of(
-            new BadgeSvg("sl", "sd"),
-            new BadgeSvg("ml", "md"),
-            new BadgeSvg("ll", "ld")))
-    );
-
-    when(account.getIdentityKey(IdentityTypeUtil.fromGrpcIdentityType(identityType))).thenReturn(identityKey);
-    when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-    when(account.getBadges()).thenReturn(Collections.emptyList());
-    when(account.hasCapability(any())).thenReturn(false);
-    when(profileBadgeConverter.convert(any(), any(), anyBoolean())).thenReturn(badges);
-    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
-
-    final GetUnversionedProfileResponse response = authenticatedServiceStub().getUnversionedProfile(request);
-
-    final byte[] unidentifiedAccessChecksum = UnidentifiedAccessChecksum.generateFor(unidentifiedAccessKey);
-    final GetUnversionedProfileResult prototypeExpectedResult = GetUnversionedProfileResult.newBuilder()
-        .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
-        .setUnidentifiedAccess(ByteString.copyFrom(unidentifiedAccessChecksum))
-        .setUnrestrictedUnidentifiedAccess(true)
-        .addAllBadges(badges.stream().map(BadgeGrpcHelper::toGrpcBadge).toList())
-        .build();
-
-    final GetUnversionedProfileResult expectedResponse;
-    if (identityType == IdentityType.IDENTITY_TYPE_PNI) {
-      expectedResponse = GetUnversionedProfileResult.newBuilder(prototypeExpectedResult)
-          .clearUnidentifiedAccess()
-          .clearBadges()
-          .setUnrestrictedUnidentifiedAccess(false)
-          .build();
-    } else {
-      expectedResponse = prototypeExpectedResult;
-    }
-
-    verify(rateLimiter).validate(AUTHENTICATED_ACI);
-    verify(accountsManager).getByServiceIdentifier(targetIdentifier);
-
-    assertTrue(response.hasResult());
-    assertEquals(expectedResponse, response.getResult());
-  }
-
-  @Test
-  void getUnversionedProfileTargetAccountNotFound() {
-    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
-
-    final GetUnversionedProfileRequest request = GetUnversionedProfileRequest.newBuilder()
-        .setServiceIdentifier(ServiceIdentifier.newBuilder()
-            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
-            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
-            .build())
-        .build();
-
-    final GetUnversionedProfileResponse response = authenticatedServiceStub().getUnversionedProfile(request);
-    assertTrue(response.hasNotFound());
-  }
-
-  @ParameterizedTest
-  @EnumSource(value = org.signal.chat.common.IdentityType.class, names = {"IDENTITY_TYPE_ACI", "IDENTITY_TYPE_PNI"})
-  void getUnversionedProfileRatelimited(final IdentityType identityType) throws Exception {
-    final Duration retryAfterDuration = Duration.ofMinutes(7);
-    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
-    doThrow(new RateLimitExceededException(retryAfterDuration))
-        .when(rateLimiter).validate(any(UUID.class));
-
-    final GetUnversionedProfileRequest request = GetUnversionedProfileRequest.newBuilder()
-        .setServiceIdentifier(ServiceIdentifier.newBuilder()
-            .setIdentityType(identityType)
-            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
-            .build())
-        .build();
-
-    assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getUnversionedProfile(request), accountsManager);
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void getVersionedProfile(final byte[] requestVersion, @Nullable final byte[] accountVersion, final boolean expectResponseHasPaymentAddress) {
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
@@ -721,7 +619,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final Optional<VersionedProfileV1> profile = Optional.of(new VersionedProfileV1(HexFormat.of().formatHex(requestVersion), name, avatar, emoji, about, paymentAddress,
         phoneNumberSharing, new byte[0]));
 
-    final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
+    final GetProfileRequest request = GetProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
@@ -733,29 +631,35 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
     when(profilesManager.getV1(any(), any())).thenReturn(profile);
 
-    final GetVersionedProfileResponse response = authenticatedServiceStub().getVersionedProfile(request);
+    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+    when(account.getBadges()).thenReturn(Collections.emptyList());
+    when(account.hasCapability(any())).thenReturn(false);
+    when(profileBadgeConverter.visibleBadgeIds(anyList())).thenReturn(badgeIds);
 
-    final GetVersionedProfileResult.Builder expectedResultBuilder = GetVersionedProfileResult.newBuilder()
-        .setV1Response(GetVersionedProfileV1Response.newBuilder()
-            .setName(ByteString.copyFrom(name))
-            .setAbout(ByteString.copyFrom(about))
-            .setAboutEmoji(ByteString.copyFrom(emoji))
-            .setAvatar(avatar)
-            .setPhoneNumberSharing(ByteString.copyFrom(phoneNumberSharing))
-            .build());
+    final GetProfileResponse response = authenticatedServiceStub().getProfile(request);
 
+    final LegacyProfileResult.Builder expectedV1ResponseBuilder = LegacyProfileResult.newBuilder()
+        .setName(ByteString.copyFrom(name))
+        .setAbout(ByteString.copyFrom(about))
+        .setAboutEmoji(ByteString.copyFrom(emoji))
+        .setAvatar(avatar)
+        .setPhoneNumberSharing(ByteString.copyFrom(phoneNumberSharing))
+        .setAccountInfo(AccountInfo.newBuilder()
+            .addAllBadgeIds(badgeIds)
+            .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+            .setUnrestrictedUnidentifiedAccess(true)
+            .setUnidentifiedAccessKeyFingerprint(ByteString.copyFrom(UnidentifiedAccessChecksum.generateFor(unidentifiedAccessKey))));
     if (expectResponseHasPaymentAddress) {
-      expectedResultBuilder.setPaymentAddressDataEtag(
-          DataEtag.newBuilder().setData(ByteString.copyFrom(paymentAddress))
-              .setEtagSha256(ByteString.copyFrom(ProfileGrpcHelper.hash(paymentAddress)))
-              .build());
-
+      expectedV1ResponseBuilder.setPaymentAddress(ByteString.copyFrom(paymentAddress));
     }
 
-    assertTrue(response.hasResult());
-    assertEquals(expectedResultBuilder.build(), response.getResult());
+    assertTrue(response.hasLegacyProfile());
+    assertEquals(expectedV1ResponseBuilder.build(), response.getLegacyProfile());
   }
-  private static Collection<Arguments> getVersionedProfile() {
+
+  private static Collection<Arguments> getProfile() {
     final byte[] version1 = TestRandomUtil.nextBytes(32);
     final byte[] version2 = TestRandomUtil.nextBytes(32);
     return List.of(
@@ -766,7 +670,12 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   }
 
   @Test
-  void getVersionedProfileV2() {
+  void getProfileV2() {
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
+    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+    final List<String> badgeIds = List.of("TEST-BADGE");
+
     final byte[] data = TestRandomUtil.nextBytes(128);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     final byte[] commitment = TestRandomUtil.nextBytes(97);
@@ -775,17 +684,21 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final UUID targetAci = UUID.randomUUID();
     final VersionedProfile v2Profile = new VersionedProfile(version, data, paymentAddress, commitment);
 
-    final Account targetAccount = mock(Account.class);
+    when(account.getUuid()).thenReturn(targetAci);
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
+    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
+    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+    when(account.getBadges()).thenReturn(Collections.emptyList());
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAci)))
-        .thenReturn(Optional.of(targetAccount));
-    when(targetAccount.getUuid()).thenReturn(targetAci);
-    when(targetAccount.getCurrentProfileVersion()).thenReturn(Optional.of(version));
-    when(targetAccount.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
+        .thenReturn(Optional.of(account));
 
+    when(profileBadgeConverter.visibleBadgeIds(anyList())).thenReturn(badgeIds);
     when(profilesManager.get(eq(targetAci), aryEq(version))).thenReturn(Optional.of(v2Profile));
     when(profilesManager.getV1(any(), any())).thenReturn(Optional.empty());
 
-    final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
+    final GetProfileRequest request = GetProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetAci)))
@@ -793,23 +706,30 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setVersion(ByteString.copyFrom(version))
         .build();
 
-    final GetVersionedProfileResponse response = authenticatedServiceStub().getVersionedProfile(request);
-    assertTrue(response.hasResult());
-    final GetVersionedProfileResult result = response.getResult();
+    final GetProfileResponse response = authenticatedServiceStub().getProfile(request);
 
-    assertTrue(result.hasDataEtag());
-    assertEquals(ByteString.copyFrom(data), result.getDataEtag().getData());
-    assertEquals(ByteString.copyFrom(v2Profile.dataHash()), result.getDataEtag().getEtagSha256());
-    assertTrue(result.hasPaymentAddressDataEtag());
-    assertEquals(ByteString.copyFrom(paymentAddress), result.getPaymentAddressDataEtag().getData());
-    assertEquals(ByteString.copyFrom(v2Profile.paymentAddressHash()), result.getPaymentAddressDataEtag().getEtagSha256());
-    assertFalse(result.getDataEtagMatched());
-    assertFalse(result.getPaymentAddressEtagMatched());
-    assertFalse(result.hasV1Response());
+    final ProfileResult.Builder expectedBuilder = ProfileResult.newBuilder()
+        .setData(ByteString.copyFrom(data))
+        .setPaymentAddress(ByteString.copyFrom(paymentAddress))
+        .setAccountInfo(AccountInfo.newBuilder()
+            .addAllBadgeIds(badgeIds)
+            .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+            .setUnrestrictedUnidentifiedAccess(true)
+            .setUnidentifiedAccessKeyFingerprint(ByteString.copyFrom(UnidentifiedAccessChecksum.generateFor(unidentifiedAccessKey))));
+    expectedBuilder.setEtag(ByteString.copyFrom(ProfileGrpcHelper.etag(expectedBuilder)));
+
+    assertTrue(response.hasProfile());
+    final ProfileResult result = response.getProfile();
+    assertEquals(expectedBuilder.build(), result);
   }
 
   @Test
-  void getVersionedProfileV2EtagMatched() {
+  void getProfileV2EtagMatched() {
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
+    final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+    final List<String> badgeIds = List.of("TEST-BADGE");
+
     final byte[] data = TestRandomUtil.nextBytes(128);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     final byte[] commitment = TestRandomUtil.nextBytes(97);
@@ -817,44 +737,48 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final VersionedProfile v2Profile = new VersionedProfile(version, data, paymentAddress, commitment);
 
     final UUID targetAci = UUID.randomUUID();
-    final Account targetAccount = mock(Account.class);
-    when(targetAccount.getUuid()).thenReturn(targetAci);
-    when(targetAccount.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
-    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAci))).thenReturn(Optional.of(targetAccount));
+    when(account.getUuid()).thenReturn(targetAci);
+    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAci))).thenReturn(Optional.of(account));
 
-    when(targetAccount.getCurrentProfileVersion()).thenReturn(Optional.of(version));
+    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+    when(account.getBadges()).thenReturn(Collections.emptyList());
+    when(profileBadgeConverter.visibleBadgeIds(anyList())).thenReturn(badgeIds);
+
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(profilesManager.get(targetAci, version)).thenReturn(Optional.of(v2Profile));
     when(profilesManager.getV1(any(), any())).thenReturn(Optional.empty());
 
-    final GetVersionedProfileRequest.Builder builder = GetVersionedProfileRequest.newBuilder()
+    final byte[] expectedEtag = ProfileGrpcHelper.etag(ProfileResult.newBuilder()
+        .setData(ByteString.copyFrom(data))
+        .setPaymentAddress(ByteString.copyFrom(paymentAddress))
+        .setAccountInfo(AccountInfo.newBuilder()
+            .addAllBadgeIds(badgeIds)
+            .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+            .setUnrestrictedUnidentifiedAccess(true)
+            .setUnidentifiedAccessKeyFingerprint(ByteString.copyFrom(UnidentifiedAccessChecksum.generateFor(unidentifiedAccessKey)))));
+
+    final GetProfileRequest.Builder builder = GetProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetAci)))
             .build())
         .setVersion(ByteString.copyFrom(version))
-        .setDataEtag(ByteString.copyFrom(v2Profile.dataHash()));
+        .setEtag(ByteString.copyFrom(expectedEtag));
 
-    if (v2Profile.paymentAddressHash() != null) {
-      builder.setPaymentAddressEtag(ByteString.copyFrom(v2Profile.paymentAddressHash()));
-    }
+    final GetProfileRequest request = builder.build();
 
-    final GetVersionedProfileRequest request = builder.build();
-
-    final GetVersionedProfileResponse response = authenticatedServiceStub().getVersionedProfile(request);
-    assertTrue(response.hasResult());
-    final GetVersionedProfileResult result = response.getResult();
-
-    assertTrue(result.getDataEtagMatched());
-    assertTrue(result.getPaymentAddressEtagMatched());
-    assertFalse(result.hasDataEtag());
-    assertFalse(result.hasPaymentAddressDataEtag());
-    assertFalse(result.hasV1Response());
+    final GetProfileResponse response = authenticatedServiceStub().getProfile(request);
+    assertTrue(response.hasEtagMatched());
+    assertTrue(response.getEtagMatched());
   }
 
   @ParameterizedTest
   @MethodSource
-  void getVersionedProfileAccountOrProfileNotFound(final boolean missingAccount, final boolean missingProfile) {
-    final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
+  void getProfileAccountOrProfileNotFound(final boolean missingAccount, final boolean missingProfile) {
+    final GetProfileRequest request = GetProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
@@ -864,11 +788,11 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(missingAccount ? Optional.empty() : Optional.of(account));
     when(profilesManager.getV1(any(), any())).thenReturn(missingProfile ? Optional.empty() : Optional.of(profile));
 
-    final GetVersionedProfileResponse response = authenticatedServiceStub().getVersionedProfile(request);
+    final GetProfileResponse response = authenticatedServiceStub().getProfile(request);
     assertTrue(response.hasNotFound());
   }
 
-  private static Stream<Arguments> getVersionedProfileAccountOrProfileNotFound() {
+  private static Stream<Arguments> getProfileAccountOrProfileNotFound() {
     return Stream.of(
         Arguments.of(true, false),
         Arguments.of(false, true)
@@ -876,10 +800,10 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   }
 
   @Test
-  void getVersionedProfileRatelimited() {
+  void getProfileRatelimited() {
     final Duration retryAfterDuration = MockUtils.updateRateLimiterResponseToFail(rateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(7));
 
-    final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
+    final GetProfileRequest request = GetProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
@@ -887,12 +811,12 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setVersion(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
         .build();
 
-    assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getVersionedProfile(request), accountsManager, profilesManager);
+    assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getProfile(request), accountsManager, profilesManager);
   }
 
   @Test
-  void getVersionedProfilePniInvalidArgument() {
-    final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
+  void getProfilePniInvalidArgument() {
+    final GetProfileRequest request = GetProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_PNI)
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
@@ -900,7 +824,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setVersion(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
         .build();
 
-    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().getVersionedProfile(request));
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().getProfile(request));
   }
 
   @Test

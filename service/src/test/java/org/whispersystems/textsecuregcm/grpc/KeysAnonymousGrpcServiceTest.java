@@ -55,6 +55,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -129,6 +130,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final GetPreKeysAnonymousResponse expectedResponse = GetPreKeysAnonymousResponse.newBuilder()
         .setPreKeys(AccountPreKeyBundles.newBuilder()
             .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+            .setUnidentifiedAccessKeyFingerprint(ByteString.copyFrom(UnidentifiedAccessChecksum.generateFor(unidentifiedAccessKey)))
             .putDevicePreKeys(Device.PRIMARY_ID, DevicePreKeyBundle.newBuilder()
                 .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
                 .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))
@@ -182,6 +184,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final GetPreKeysAnonymousResponse expectedResponse = GetPreKeysAnonymousResponse.newBuilder()
         .setPreKeys(AccountPreKeyBundles.newBuilder()
             .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+            .setUnidentifiedAccessKeyFingerprint(ByteString.copyFrom(UnidentifiedAccessChecksum.generateFor(unidentifiedAccessKey)))
             .putDevicePreKeys(Device.PRIMARY_ID, DevicePreKeyBundle.newBuilder()
                 .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
                 .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))
@@ -235,6 +238,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final GetPreKeysAnonymousResponse expectedResponse = GetPreKeysAnonymousResponse.newBuilder()
         .setPreKeys(AccountPreKeyBundles.newBuilder()
             .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+            .setUnidentifiedAccessKeyFingerprint(ByteString.copyFrom(UnidentifiedAccessChecksum.generateFor(unidentifiedAccessKey)))
+            .setUnrestrictedUnidentifiedAccess(true)
             .putDevicePreKeys(Device.PRIMARY_ID, DevicePreKeyBundle.newBuilder()
                 .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
                 .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))

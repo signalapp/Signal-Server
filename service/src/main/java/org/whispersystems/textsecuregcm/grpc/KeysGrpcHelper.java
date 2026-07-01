@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -24,9 +25,12 @@ import org.signal.libsignal.protocol.kem.KEMPublicKey;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 
@@ -71,7 +75,16 @@ class KeysGrpcHelper {
     }
 
     final AccountPreKeyBundles.Builder preKeyBundlesBuilder = AccountPreKeyBundles.newBuilder()
-        .setIdentityKey(ByteString.copyFrom(targetAccount.getIdentityKey(targetServiceIdentifier.identityType()).serialize()));
+        .setIdentityKey(ByteString.copyFrom(targetAccount.getIdentityKey(targetServiceIdentifier.identityType()).serialize()))
+        .setUnrestrictedUnidentifiedAccess(targetServiceIdentifier.identityType() == IdentityType.ACI && targetAccount.isUnrestrictedUnidentifiedAccess());
+
+    // Set the UAK hash if the account has a UAK and we're targeting an ACI. PNIs don't allow unidentified access.
+    targetAccount
+        .getUnidentifiedAccessKey()
+        .filter(_ -> targetServiceIdentifier.identityType() == IdentityType.ACI)
+        .map(UnidentifiedAccessChecksum::generateFor)
+        .map(ByteString::copyFrom)
+        .ifPresent(preKeyBundlesBuilder::setUnidentifiedAccessKeyFingerprint);
 
     preKeysByDeviceId.forEach((deviceId, devicePreKeys) -> {
       final Device device = targetAccount.getDevice(deviceId).orElseThrow();

@@ -22,10 +22,8 @@ import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.profile.GetAvatarCredentialsRequest;
 import org.signal.chat.profile.GetAvatarCredentialsResponse;
-import org.signal.chat.profile.GetUnversionedProfileRequest;
-import org.signal.chat.profile.GetUnversionedProfileResponse;
-import org.signal.chat.profile.GetVersionedProfileRequest;
-import org.signal.chat.profile.GetVersionedProfileResponse;
+import org.signal.chat.profile.GetProfileRequest;
+import org.signal.chat.profile.GetProfileResponse;
 import org.signal.chat.profile.PaymentsForbiddenInRegion;
 import org.signal.chat.profile.ProfilesV2CapabilityRequired;
 import org.signal.chat.profile.SetProfileRequest;
@@ -252,43 +250,27 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
   }
 
   @Override
-  public GetUnversionedProfileResponse getUnversionedProfile(final GetUnversionedProfileRequest request) throws RateLimitExceededException {
-    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-    final ServiceIdentifier targetIdentifier =
-        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getServiceIdentifier());
-    final Optional<Account> maybeAccount = validateRateLimitAndGetAccount(authenticatedDevice.accountIdentifier(), targetIdentifier);
-
-    return maybeAccount.map(account -> GetUnversionedProfileResponse.newBuilder()
-        .setResult(ProfileGrpcHelper.buildUnversionedProfileResult(targetIdentifier,
-            account,
-            profileBadgeConverter))
-        .build()).orElseGet(() -> GetUnversionedProfileResponse.newBuilder()
-        .setNotFound(NotFound.getDefaultInstance())
-        .build());
-  }
-
-  @Override
-  public GetVersionedProfileResponse getVersionedProfile(final GetVersionedProfileRequest request) throws RateLimitExceededException {
+  public GetProfileResponse getProfile(final GetProfileRequest request) throws RateLimitExceededException {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
     final ServiceIdentifier targetIdentifier =
         GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getAccountIdentifier());
+    final byte[] version = request.getVersion().toByteArray();
+    final Optional<Account> maybeAccount =
+        validateRateLimitAndGetAccount(authenticatedDevice.accountIdentifier(), targetIdentifier);
 
-    final Optional<Account> maybeAccount = validateRateLimitAndGetAccount(authenticatedDevice.accountIdentifier(), targetIdentifier);
+    return maybeAccount.flatMap(account -> ProfileGrpcHelper
+            .getProfile(account, profilesManager, profileBadgeConverter, version)
 
-    return maybeAccount.map(account ->
-        ProfileGrpcHelper.getVersionedProfile(account, profilesManager,
-                request.getVersion().toByteArray(),
-                request.getDataEtag().toByteArray(),
-                request.getPaymentAddressEtag().toByteArray())
-            .map(result ->
-                GetVersionedProfileResponse.newBuilder()
-                    .setResult(result)
-                    .build())
-            .orElseGet(() -> GetVersionedProfileResponse.newBuilder()
-                .setNotFound(NotFound.getDefaultInstance())
-                .build())).orElseGet(() -> GetVersionedProfileResponse.newBuilder()
-        .setNotFound(NotFound.getDefaultInstance())
-        .build());
+            // If the etag matches, drop the result
+            .map(profileResult -> request.getEtag().equals(profileResult.getEtag())
+                ? GetProfileResponse.newBuilder().setEtagMatched(true).build()
+                : GetProfileResponse.newBuilder().setProfile(profileResult).build())
+
+            // If we didn't find a v2 profile, try a v1 profile
+            .or(() -> ProfileGrpcHelper
+                .getProfileV1(account, profilesManager, profileBadgeConverter, version)
+                .map(v1Result -> GetProfileResponse.newBuilder().setLegacyProfile(v1Result).build())))
+        .orElseGet(() -> GetProfileResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build());
   }
 
   private Optional<Account> validateRateLimitAndGetAccount(final UUID requesterUuid,

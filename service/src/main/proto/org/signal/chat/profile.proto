@@ -23,13 +23,9 @@ service Profile {
   // Sets profile data and, if needed, returns credentials used by clients to upload a v1 avatar.
   rpc SetProfile(SetProfileRequest) returns (SetProfileResponse) {}
 
-  // Retrieves versioned profile data. Callers with an unidentified access key for the account
+  // Retrieves profile data. Callers with an unidentified access key for the account
   // should use the version of this method in `ProfileAnonymous` instead.
-  rpc GetVersionedProfile(GetVersionedProfileRequest) returns (GetVersionedProfileResponse) {}
-
-  // Retrieves unversioned profile data. Callers with an unidentified access key for the account
-  // should use the version of this method in `ProfileAnonymous` instead.
-  rpc GetUnversionedProfile(GetUnversionedProfileRequest) returns (GetUnversionedProfileResponse) {}
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse) {}
 
   // Returns anonymous credentials that may be presented with avatar operations in ProfilesAnonymous
   //
@@ -46,10 +42,9 @@ service Profile {
 service ProfileAnonymous {
   option (require.auth) = AUTH_ONLY_ANONYMOUS;
 
-  // Retrieves versioned profile data.
-  rpc GetVersionedProfile(GetVersionedProfileAnonymousRequest) returns (GetVersionedProfileAnonymousResponse) {}
-  // Retrieves unversioned profile data.
-  rpc GetUnversionedProfile(GetUnversionedProfileAnonymousRequest) returns (GetUnversionedProfileAnonymousResponse) {}
+  // Retrieves profile data.
+  rpc GetProfile(GetProfileAnonymousRequest) returns (GetProfileAnonymousResponse) {}
+
   // Retrieves a profile key credential.
   rpc GetExpiringProfileKeyCredential(GetExpiringProfileKeyCredentialAnonymousRequest) returns (GetExpiringProfileKeyCredentialAnonymousResponse) {}
 
@@ -177,27 +172,21 @@ message SetProfileResponse {
   }
 }
 
-message GetVersionedProfileRequest {
+message GetProfileRequest {
   // The ACI of the account for which to get profile data.
-  common.ServiceIdentifier accountIdentifier = 1 [(require.present) = true, (require.identityType) = IDENTITY_TYPE_ACI];
+  common.ServiceIdentifier account_identifier = 1 [(require.present) = true, (require.identityType) = IDENTITY_TYPE_ACI];
   // The profile version to retrieve.
   bytes version = 2 [(require.exactlySize) = 32];
 
-  // The `data_etag` from the previous request for this Profile version. If
-  // unchanged, the response will omit `data` and `data_etag_matched` will be
+  // The `etag` from the previous request for this Profile version. If
+  // unchanged, the response will omit `profile` and `etag_matched` will be
   // `true`.
-  bytes data_etag = 3 [(require.exactlySize) = 0, (require.exactlySize) = 32];
-
-  // The `payment_address_etag` from the previous request for this account’s
-  // profile. If unchanged, the response will omit `payment_address` and
-  // `payment_address_etag_matched` will be `true`.
-  bytes payment_address_etag = 4 [(require.exactlySize) = 0, (require.exactlySize) = 32];
+  bytes etag = 3 [(require.exactlySize) = 0, (require.exactlySize) = 10];
 }
 
-message GetVersionedProfileAnonymousRequest {
-  // Contains the data necessary to request a versioned profile.
-  GetVersionedProfileRequest request = 1 [(require.present) = true];
-
+message GetProfileAnonymousRequest {
+  // Contains the data necessary to request a profile.
+  GetProfileRequest request = 1 [(require.present) = true];
   oneof authentication {
     // The unidentified access key for the targeted account.
     bytes unidentified_access_key = 2 [(require.exactlySize) = 16];
@@ -207,60 +196,62 @@ message GetVersionedProfileAnonymousRequest {
   }
 }
 
-message DataEtag {
+message AccountInfo {
+  // The account identity key of the targeted account.
+  bytes identity_key = 1;
+
+  // A checksum of the unidentified access key for the targeted account.
+  bytes unidentified_access_key_fingerprint = 2;
+
+  // Whether the account has enabled sealed sender from anyone.
+  bool unrestricted_unidentified_access = 3;
+
+  // A list of the badges ids associated with the account. Metadata to display
+  // badges may be obtained by cross-referencing badge ids with
+  // ProductConfiguration.GetConfiguration.
+  repeated string badge_ids = 4;
+}
+
+message ProfileResult {
+  // The ciphertext of the requested version of the profile
   bytes data = 1;
-  // An entity tag for `data`. This may be used in subsequent requests for
-  // this profile version to optimize bandwidth.
+
+  // The ciphertext of the MobileCoin wallet ID on the profile.
+  bytes payment_address = 2;
+
+  // Information about the targeted account
+  AccountInfo account_info = 3;
+
+  // An entity tag for the profile. This may be used in subsequent requests
+  // for this profile version to optimize bandwidth.
   //
-  // Clients may validate that the value has been correctly calculated by deriving
-  // the SHA-256 digest of `data`.
-  bytes etag_sha256 = 2;
+  // Note that this hash will not match the expected_data_hash used on
+  // SetProfile for concurrency control.
+  //
+  // Clients may validate that the value has been correctly calculated by
+  // calculating a 10-byte truncated TupleHash256 as follows:
+  //
+  // ```
+  // TupleHash256(S = "ProfileETag/v1", L = 80 bits, tuple = [
+  //     data,
+  //     payment_address,
+  //     account_info.identity_key,
+  //     account_info.unidentified_access_key_fingerprint,
+  //     account_info.unrestricted_unidentified_access ? 0x01 : 0x00,
+  //     uint32BE(count(account_info.badge_ids)),
+  //     utf8(id) for each id in sortLexAscendingByUtf8Bytes(account_info.badge_ids),
+  // ])
+  //```
+  //
+  // Absent/empty fields contribute an empty element (not zero bytes omitted):
+  // a missing payment_address is still a present, zero-length tuple element.
+  //
+  // This etag will always exclusively cover the documented fields. If fields
+  // are added in the future, a new etag field must be introduced.
+  bytes etag = 4;
 }
 
-
-message GetVersionedProfileResult {
-
-  oneof data_result {
-    // The ciphertext of a serialized Profile.
-    // Absent if a v2 Profile is not available
-    // for this version, in which the client should use `v1_response`.
-    DataEtag data_etag = 1;
-    // Indicates that the request’s ETag matched the stored `data`
-    bool data_etag_matched = 2;
-
-    // Will be present if there is no v2 Profile data for this version.
-    //
-    // Because this is a temporary field during the migration, it has the highest
-    // field number without serialization overhead. This is purely aesthetic.
-    GetVersionedProfileV1Response v1_response = 15;
-  }
-
-  oneof payment_address_result {
-    // The ciphertext of the MobileCoin wallet ID on the profile.
-    DataEtag payment_address_data_etag = 3;
-    // Indicates that the request’s ETag matched the stored `payment_address`
-    bool payment_address_etag_matched = 4;
-  }
-
-  // next: 5
-}
-
-message GetVersionedProfileResponse {
-  oneof response {
-    GetVersionedProfileResult result = 1;
-    errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
-  }
-}
-
-message GetVersionedProfileAnonymousResponse {
-  oneof response {
-    GetVersionedProfileResult result = 1;
-    errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
-    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3 [(tag.reason) = "failed_unidentified_authorization"];
-  }
-}
-
-message GetVersionedProfileV1Response {
+message LegacyProfileResult {
 
   // The ciphertext of the name on the profile.
   bytes name = 1;
@@ -270,61 +261,54 @@ message GetVersionedProfileV1Response {
   bytes about_emoji = 3;
   // The cdn0 path of the avatar on the profile.
   string avatar = 4;
-
   // The ciphertext of the phone-number sharing setting on the profile.
   bytes phone_number_sharing = 5;
+  // The ciphertext of the MobileCoin wallet ID on the profile.
+  bytes payment_address = 6;
+  // Information about the targeted account
+  AccountInfo account_info = 7;
 }
 
-message GetUnversionedProfileRequest {
-  // The service identifier of the account for which to get profile data.
-  common.ServiceIdentifier service_identifier = 1 [(require.present) = true];
-}
 
-message GetUnversionedProfileAnonymousRequest {
-  // Note: Only ACI service identifiers are permitted for anonymous requests.
-  GetUnversionedProfileRequest request = 1 [(require.present) = true];
-
-  oneof authentication {
-    // The unidentified access key for the targeted account.
-    bytes unidentified_access_key = 2;
-
-    // A group send endorsement token for the targeted account.
-    bytes group_send_token = 3;
-  }
-}
-
-message GetUnversionedProfileResult {
-  // The identity key of the targeted account/identity type.
-  bytes identity_key = 1;
-  // A checksum of the unidentified access key for the targeted account. Absent
-  // if the request was for a PNI.
-  bytes unidentified_access = 2;
-  // Whether the account has enabled sealed sender from anyone. Always false
-  // if the request was for a PNI.
-  bool unrestricted_unidentified_access = 3;
-  // A list of capabilities enabled on the account.
-  repeated common.DeviceCapability capabilities = 4;
-  // A list of badges associated with the account. Absent if the request was for
-  // a PNI.
-  repeated common.Badge badges = 5;
-}
-
-message GetUnversionedProfileResponse {
+message GetProfileResponse {
   oneof response {
-    GetUnversionedProfileResult result = 1;
-    errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
+    // The full profile data. The current profile did not match the provided
+    // etag (or no etag was provided).
+    ProfileResult profile = 1;
+
+    // The current profile matched the provided etag. If present, this will always be true.
+    bool etag_matched = 2 [(tag.reason) = "etag_match"];
+
+    errors.NotFound not_found = 3 [(tag.reason) = "not_found"];
+
+    // Will be present if there is no v2 Profile data for this version.
+    //
+    // Because this is a temporary field during the migration, it has the highest
+    // field number without serialization overhead. This is purely aesthetic.
+    LegacyProfileResult legacy_profile = 15 [(tag.reason) = "legacy_profile"];
   }
+  // next: 4
 }
 
-message GetUnversionedProfileAnonymousResponse {
+message GetProfileAnonymousResponse {
   oneof response {
-    GetUnversionedProfileResult result = 1;
-    // The target profile was not found
-    errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
-    // The unidentified access key or group send endorsement were not valid for
-    // the request.
-    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3 [(tag.reason) = "failed_unidentified_authorization"];
+    // The full profile data. The current profile did not match the provided
+    // etag (or no etag was provided).
+    ProfileResult profile = 1;
+
+    // The current profile matched the provided etag. If present, this will always be true.
+    bool etag_matched = 2 [(tag.reason) = "etag_match"];
+
+    errors.NotFound not_found = 3 [(tag.reason) = "not_found"];
+    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 4 [(tag.reason) = "failed_unidentified_authorization"];
+
+    // Will be present if there is no v2 Profile data for this version.
+    //
+    // Because this is a temporary field during the migration, it has the highest
+    // field number without serialization overhead. This is purely aesthetic.
+    LegacyProfileResult profile_v1 = 15 [(tag.reason) = "profile_v1"];
   }
+  // next: 5
 }
 
 message GetExpiringProfileKeyCredentialRequest {

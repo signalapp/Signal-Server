@@ -573,6 +573,12 @@
     </dependency>
 
     <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
       <groupId>com.stripe</groupId>
       <artifactId>stripe-java</artifactId>
     </dependency>

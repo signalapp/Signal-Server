@@ -22,10 +22,8 @@ import org.signal.chat.profile.GetAvatarUploadFormRequest;
 import org.signal.chat.profile.GetAvatarUploadFormResponse;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse;
-import org.signal.chat.profile.GetUnversionedProfileAnonymousRequest;
-import org.signal.chat.profile.GetUnversionedProfileAnonymousResponse;
-import org.signal.chat.profile.GetVersionedProfileAnonymousRequest;
-import org.signal.chat.profile.GetVersionedProfileAnonymousResponse;
+import org.signal.chat.profile.GetProfileAnonymousRequest;
+import org.signal.chat.profile.GetProfileAnonymousResponse;
 import org.signal.chat.profile.SimpleProfileAnonymousGrpc;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -36,7 +34,6 @@ import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
@@ -101,44 +98,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
   }
 
   @Override
-  public GetUnversionedProfileAnonymousResponse getUnversionedProfile(final GetUnversionedProfileAnonymousRequest request) {
-    final ServiceIdentifier targetIdentifier =
-        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getServiceIdentifier());
-
-    // Callers must be authenticated to request unversioned profiles by PNI
-    if (targetIdentifier.identityType() == IdentityType.PNI) {
-      throw GrpcExceptions.invalidArguments("aci service identifier type required");
-    }
-
-    final Optional<Account> targetAccount = accountsManager.getByServiceIdentifier(targetIdentifier);
-
-    final boolean authorized = switch (request.getAuthenticationCase()) {
-      case GROUP_SEND_TOKEN -> groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), targetIdentifier);
-      case UNIDENTIFIED_ACCESS_KEY ->
-          targetAccount.map(a -> UnidentifiedAccessUtil.checkUnidentifiedAccess(a, request.getUnidentifiedAccessKey().toByteArray()))
-              .orElse(false);
-      default -> throw GrpcExceptions.invalidArguments("invalid authentication");
-    };
-
-    if (!authorized) {
-      return GetUnversionedProfileAnonymousResponse.newBuilder()
-          .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
-          .build();
-    }
-
-    return targetAccount.map(account ->
-            GetUnversionedProfileAnonymousResponse.newBuilder()
-                .setResult(ProfileGrpcHelper.buildUnversionedProfileResult(targetIdentifier,
-                    account,
-                    profileBadgeConverter))
-                .build())
-        .orElseGet(() -> GetUnversionedProfileAnonymousResponse.newBuilder()
-            .setNotFound(NotFound.getDefaultInstance())
-            .build());
-  }
-
-  @Override
-  public GetVersionedProfileAnonymousResponse getVersionedProfile(final GetVersionedProfileAnonymousRequest request) {
+  public GetProfileAnonymousResponse getProfile(final GetProfileAnonymousRequest request) {
     final ServiceIdentifier targetIdentifier = GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
 
     final Optional<Account> targetAccount = accountsManager.getByServiceIdentifier(targetIdentifier);
@@ -152,25 +112,25 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
     };
 
     if (!authorized) {
-      return GetVersionedProfileAnonymousResponse.newBuilder()
+      return GetProfileAnonymousResponse.newBuilder()
           .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
           .build();
     }
+    final byte[] version = request.getRequest().getVersion().toByteArray();
 
-    return targetAccount.flatMap(account ->
-        ProfileGrpcHelper.getVersionedProfile(account,
-                profilesManager,
-                request.getRequest().getVersion().toByteArray(),
-                request.getRequest().getDataEtag().toByteArray(),
-                request.getRequest().getPaymentAddressEtag().toByteArray()))
-        .map(result ->
-            GetVersionedProfileAnonymousResponse.newBuilder()
-                .setResult(result)
-                .build())
-        .orElseGet(() ->
-            GetVersionedProfileAnonymousResponse.newBuilder()
-                .setNotFound(NotFound.getDefaultInstance())
-                .build());
+    return targetAccount.flatMap(account -> ProfileGrpcHelper
+            .getProfile(account, profilesManager, profileBadgeConverter, version)
+
+            // If the etag matches, drop the result
+            .map(profileResult -> request.getRequest().getEtag().equals(profileResult.getEtag())
+                ? GetProfileAnonymousResponse.newBuilder().setEtagMatched(true).build()
+                : GetProfileAnonymousResponse.newBuilder().setProfile(profileResult).build())
+
+            // If we didn't find a v2 profile, try a v1 profile
+            .or(() -> ProfileGrpcHelper
+                .getProfileV1(account, profilesManager, profileBadgeConverter, version)
+                .map(v1Result -> GetProfileAnonymousResponse.newBuilder().setProfileV1(v1Result).build())))
+        .orElseGet(() -> GetProfileAnonymousResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build());
   }
 
   @Override

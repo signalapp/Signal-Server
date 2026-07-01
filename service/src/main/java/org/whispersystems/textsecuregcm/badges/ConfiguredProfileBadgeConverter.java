@@ -66,6 +66,21 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
   }
 
   @Override
+  public List<String> visibleBadgeIds(final List<AccountBadge> accountBadges) {
+    if (accountBadges.isEmpty()) {
+      return List.of();
+    }
+
+    final Instant now = clock.instant();
+    return accountBadges.stream()
+        .filter(accountBadge -> accountBadge.visible()
+            && now.isBefore(accountBadge.expiration())
+            && knownBadges.containsKey(accountBadge.id()))
+        .map(AccountBadge::id)
+        .toList();
+  }
+
+  @Override
   public List<Badge> convert(
       final List<Locale> acceptableLanguages,
       final List<AccountBadge> accountBadges,
