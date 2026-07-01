@@ -71,10 +71,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  private DynamicBackupConfiguration backup = new DynamicBackupConfiguration();
-
-  @JsonProperty
-  @Valid
   private DynamicCarrierDataLookupConfiguration carrierDataLookup = new DynamicCarrierDataLookupConfiguration();
 
   @JsonProperty
@@ -141,10 +137,6 @@ public class DynamicConfiguration {
 
   public DynamicRestDeprecationConfiguration restDeprecation() {
     return restDeprecation;
-  }
-
-  public DynamicBackupConfiguration getBackupConfiguration() {
-    return backup;
   }
 
   public DynamicCarrierDataLookupConfiguration getCarrierDataLookupConfiguration() {

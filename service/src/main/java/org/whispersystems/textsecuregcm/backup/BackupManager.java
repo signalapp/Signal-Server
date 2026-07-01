@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
@@ -34,19 +35,17 @@ import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
+import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicBackupConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.BackupConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
-import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -55,7 +54,6 @@ import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
-import javax.annotation.Nullable;
 
 public class BackupManager {
 
@@ -89,7 +87,7 @@ public class BackupManager {
   private final ExternalServiceCredentialsGenerator secureValueRecoveryBCredentialsGenerator;
   private final SecureValueRecoveryClient secureValueRecoveryBClient;
   private final Clock clock;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final BackupConfiguration backupConfiguration;
 
   public BackupManager(
       final BackupsDb backupsDb,
@@ -101,7 +99,7 @@ public class BackupManager {
       final ExternalServiceCredentialsGenerator secureValueRecoveryBCredentialsGenerator,
       final SecureValueRecoveryClient secureValueRecoveryBClient,
       final Clock clock,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      final BackupConfiguration backupConfiguration) {
     this.backupsDb = backupsDb;
     this.serverSecretParams = serverSecretParams;
     this.rateLimiters = rateLimiters;
@@ -111,7 +109,7 @@ public class BackupManager {
     this.secureValueRecoveryBClient = secureValueRecoveryBClient;
     this.clock = clock;
     this.secureValueRecoveryBCredentialsGenerator = secureValueRecoveryBCredentialsGenerator;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.backupConfiguration = backupConfiguration;
   }
 
 
@@ -196,8 +194,7 @@ public class BackupManager {
     // update message backup TTL
     final StoredBackupAttributes storedBackupAttributes = backupsDb.ttlRefresh(backupUser).join();
     if (backupUser.credentialType() == BackupCredentialType.MEDIA) {
-      final long maxTotalMediaSize =
-          dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
+      final long maxTotalMediaSize = backupConfiguration.maxTotalMediaSize();
 
       // Report that the backup is out of quota if it is within 100MiB of the limit
       final boolean quotaExhausted = storedBackupAttributes.bytesUsed() >=
@@ -258,8 +255,6 @@ public class BackupManager {
    */
   public Flux<CopyResult> copyToBackup(final CopyQuota copyQuota) {
     final AuthenticatedBackupUser backupUser = copyQuota.backupUser();
-    final DynamicBackupConfiguration backupConfiguration =
-        dynamicConfigurationManager.getConfiguration().getBackupConfiguration();
 
     return Flux.concat(
 
@@ -347,8 +342,6 @@ public class BackupManager {
     }
     final long totalBytesAdded = toCopy.stream().mapToLong(CopyParameters::destinationObjectSize).sum();
 
-    final DynamicBackupConfiguration backupConfiguration =
-        dynamicConfigurationManager.getConfiguration().getBackupConfiguration();
     final Duration maxQuotaStaleness = backupConfiguration.maxQuotaStaleness();
     final long maxTotalMediaSize = backupConfiguration.maxTotalMediaSize();
 
@@ -491,8 +484,7 @@ public class BackupManager {
   public void deleteEntireBackup(final AuthenticatedBackupUser backupUser) throws BackupPermissionException {
     checkBackupLevel(backupUser, BackupLevel.FREE);
 
-    final int deletionConcurrency =
-        dynamicConfigurationManager.getConfiguration().getBackupConfiguration().deletionConcurrency();
+    final int deletionConcurrency = backupConfiguration.deletionConcurrency();
 
     // Clients only include SVRB data with their messages backup-id
     if (backupUser.credentialType() == BackupCredentialType.MESSAGES) {
@@ -523,8 +515,6 @@ public class BackupManager {
     if (storageDescriptors.stream().anyMatch(sd -> sd.cdn() != remoteStorageManager.cdnNumber())) {
       return Flux.error(new BackupInvalidArgumentException("unsupported media cdn provided"));
     }
-    final DynamicBackupConfiguration backupConfiguration =
-        dynamicConfigurationManager.getConfiguration().getBackupConfiguration();
 
     return Flux.usingWhen(
 

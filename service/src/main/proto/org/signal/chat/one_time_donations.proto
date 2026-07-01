@@ -7,7 +7,7 @@ syntax = "proto3";
 
 option java_multiple_files = true;
 
-package org.signal.chat.one_time_donations;
+package org.signal.chat.purchase;
 
 import "org/signal/chat/require.proto";
 import "org/signal/chat/errors.proto";
@@ -16,9 +16,7 @@ import "org/signal/chat/subscriptions.proto";
 
 // Service for making one-time donation payments (boost and gift)
 //
-// Note that these are siblings of the RPCs in the Subscriptions service. One-time payments do
-// not require the subscription management methods in that service, though the configuration at
-// Subscriptions.GetConfiguration is shared between subscription and one-time payments.
+// Configuration for one-time donations can be found in ProductConfiguration.
 service OneTimeDonations {
   option (require.auth) = AUTH_ONLY_ANONYMOUS;
 
@@ -59,7 +57,7 @@ message CreateBoostRequest {
   // The level for the boost payment
   uint64 level = 3 [(require.range).min = 1];
   // The payment method
-  subscriptions.PaymentMethod payment_method = 4 [(require.specified) = true];
+  PaymentMethod payment_method = 4 [(require.specified) = true];
   // A donation permit retrieved from Donations.createDonationPermit
   bytes donation_permit = 5 [(require.nonEmpty) = true];
 }
@@ -146,7 +144,7 @@ message CreateBoostReceiptCredentialsRequest {
   // ZK blind-signature receipt credential request bytes
   bytes receipt_credential_request = 2 [(require.nonEmpty) = true];
   // The processor that handled the payment
-  subscriptions.PaymentProvider processor = 3 [(require.specified) = true];
+  PaymentProvider processor = 3 [(require.specified) = true];
 }
 
 message CreateBoostReceiptCredentialsResponse {
@@ -158,7 +156,7 @@ message CreateBoostReceiptCredentialsResponse {
     // Payment is still processing; client should retry
     errors.FailedPrecondition payment_still_processing = 2 [(tag.reason) = "payment_still_processing"];
     // Payment failed
-    subscriptions.PaymentRequired payment_required = 3 [(tag.reason) = "payment_required"];
+    PaymentRequired payment_required = 3 [(tag.reason) = "payment_required"];
     // Payment intent not found
     errors.NotFound payment_not_found = 4 [(tag.reason) = "payment_not_found"];
     // A receipt credential was already issued for this payment

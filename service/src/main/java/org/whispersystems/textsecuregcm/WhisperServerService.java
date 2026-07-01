@@ -944,7 +944,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         svrbCredentialsGenerator,
         secureValueRecoveryBClient,
         clock,
-        dynamicConfigurationManager);
+        config.getBackupConfiguration());
     final BackupMetrics backupMetrics = new BackupMetrics();
 
     final AppleDeviceChecks appleDeviceChecks = new AppleDeviceChecks(
@@ -1101,9 +1101,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
             new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
             new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC())),
-            new SubscriptionsGrpcService(clock, config.getSubscription(), config.getOneTimeDonations(), subscriptionManager,
-                donationPermitsManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
-                profileBadgeConverter, bankMandateTranslator, dynamicConfigurationManager),
+            new SubscriptionsGrpcService(clock, config.getSubscription(), subscriptionManager, donationPermitsManager,
+                stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager, bankMandateTranslator),
             new OneTimeDonationsGrpcService(config.getOneTimeDonations(), stripeManager, braintreeManager,
                 payPalDonationsTranslator, oneTimeDonationsManager, issuedReceiptsManager,
                 zkReceiptOperations, clock, rateLimiters, donationPermitsManager))
@@ -1259,7 +1258,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             dynamicConfigurationManager, experimentEnrollmentManager, clock),
         new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
             subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
-            profileBadgeConverter, bankMandateTranslator, donationPermitsManager, dynamicConfigurationManager),
+            profileBadgeConverter, bankMandateTranslator, donationPermitsManager,
+            config.getBackupConfiguration().maxTotalMediaSize()),
         new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
             payPalDonationsTranslator, zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager,
             donationPermitsManager)

@@ -17,6 +17,7 @@ import org.whispersystems.textsecuregcm.configuration.AppleAppStoreConfiguration
 import org.whispersystems.textsecuregcm.configuration.AppleDeviceCheckConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsCredentialsProviderFactory;
+import org.whispersystems.textsecuregcm.configuration.BackupConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CallQualitySurveyConfiguration;
@@ -129,6 +130,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private GcpAttachmentsConfiguration gcpAttachments;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private BackupConfiguration backup = new BackupConfiguration();
 
   @NotNull
   @Valid
@@ -426,6 +432,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public GcpAttachmentsConfiguration getGcpAttachmentsConfiguration() {
     return gcpAttachments;
+  }
+
+  public BackupConfiguration getBackupConfiguration() {
+    return backup;
   }
 
   public FaultTolerantRedisClusterFactory getCacheClusterConfiguration() {

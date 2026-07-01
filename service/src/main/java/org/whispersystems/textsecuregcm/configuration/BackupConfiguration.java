@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.configuration.dynamic;
+package org.whispersystems.textsecuregcm.configuration;
 
 import io.dropwizard.util.DataSize;
 import jakarta.validation.constraints.NotNull;
@@ -17,14 +17,14 @@ import java.time.Duration;
  * @param maxQuotaStaleness The maximum age of a quota estimate that can be used to enforce a quota limit
  * @param maxTotalMediaSize The number of media bytes a paid-tier user may store
  */
-public record DynamicBackupConfiguration(
+public record BackupConfiguration(
   @NotNull Integer deletionConcurrency,
   @NotNull Integer copyConcurrency,
   @NotNull Integer usageCheckpointCount,
   @NotNull Duration maxQuotaStaleness,
   @NotNull Long maxTotalMediaSize) {
 
-  public DynamicBackupConfiguration {
+  public BackupConfiguration {
     if (deletionConcurrency == null) {
       deletionConcurrency = 10;
     }
@@ -42,7 +42,7 @@ public record DynamicBackupConfiguration(
     }
   }
 
-  public DynamicBackupConfiguration() {
+  public BackupConfiguration() {
     this(null, null, null, null, null);
   }
 }

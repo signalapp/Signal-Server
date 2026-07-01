@@ -162,9 +162,9 @@ public class SubscriptionsUtil {
         .increment();
   }
 
-  public static org.signal.chat.subscriptions.ChargeFailure toChargeFailure(final PaymentProvider processor,
+  public static org.signal.chat.purchase.ChargeFailure toChargeFailure(final PaymentProvider processor,
       final ChargeFailure chargeFailure) {
-    final org.signal.chat.subscriptions.ChargeFailure.Builder builder = org.signal.chat.subscriptions.ChargeFailure.newBuilder()
+    final org.signal.chat.purchase.ChargeFailure.Builder builder = org.signal.chat.purchase.ChargeFailure.newBuilder()
         .setProcessor(processor.toProto()).setCode(chargeFailure.code()).setMessage(chargeFailure.message());
     if (chargeFailure.outcomeNetworkStatus() != null) {
       builder.setOutcomeNetworkStatus(chargeFailure.outcomeNetworkStatus());

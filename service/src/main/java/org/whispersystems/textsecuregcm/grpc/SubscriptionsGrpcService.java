@@ -5,60 +5,47 @@ import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getPayPalL
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
-import java.math.BigDecimal;
-import java.time.Clock;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import java.time.Clock;
+import java.util.Locale;
+import java.util.Optional;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.chat.errors.NotFound;
-import org.signal.chat.subscriptions.CreatePayPalPaymentMethodRequest;
-import org.signal.chat.subscriptions.CreatePayPalPaymentMethodResponse;
-import org.signal.chat.subscriptions.CreatePaymentMethodRequest;
-import org.signal.chat.subscriptions.CreatePaymentMethodResponse;
-import org.signal.chat.subscriptions.DeleteSubscriberRequest;
-import org.signal.chat.subscriptions.DeleteSubscriberResponse;
-import org.signal.chat.subscriptions.GetBankMandateRequest;
-import org.signal.chat.subscriptions.GetBankMandateResponse;
-import org.signal.chat.subscriptions.GetConfigurationRequest;
-import org.signal.chat.subscriptions.GetConfigurationResponse;
-import org.signal.chat.subscriptions.GetReceiptCredentialsRequest;
-import org.signal.chat.subscriptions.GetReceiptCredentialsResponse;
-import org.signal.chat.subscriptions.GetSubscriptionInformationRequest;
-import org.signal.chat.subscriptions.GetSubscriptionInformationResponse;
-import org.signal.chat.subscriptions.PaymentMethod;
-import org.signal.chat.subscriptions.PaymentRequired;
-import org.signal.chat.subscriptions.SetDefaultPaymentMethodRequest;
-import org.signal.chat.subscriptions.SetDefaultPaymentMethodResponse;
-import org.signal.chat.subscriptions.SetIapSubscriptionRequest;
-import org.signal.chat.subscriptions.SetIapSubscriptionResponse;
-import org.signal.chat.subscriptions.SetSubscriptionLevelRequest;
-import org.signal.chat.subscriptions.SetSubscriptionLevelResponse;
-import org.signal.chat.subscriptions.SimpleSubscriptionsGrpc;
-import org.signal.chat.subscriptions.UpdateSubscriberRequest;
-import org.signal.chat.subscriptions.UpdateSubscriberResponse;
+import org.signal.chat.purchase.CreatePayPalPaymentMethodRequest;
+import org.signal.chat.purchase.CreatePayPalPaymentMethodResponse;
+import org.signal.chat.purchase.CreatePaymentMethodRequest;
+import org.signal.chat.purchase.CreatePaymentMethodResponse;
+import org.signal.chat.purchase.DeleteSubscriberRequest;
+import org.signal.chat.purchase.DeleteSubscriberResponse;
+import org.signal.chat.purchase.GetBankMandateRequest;
+import org.signal.chat.purchase.GetBankMandateResponse;
+import org.signal.chat.purchase.GetReceiptCredentialsRequest;
+import org.signal.chat.purchase.GetReceiptCredentialsResponse;
+import org.signal.chat.purchase.GetSubscriptionInformationRequest;
+import org.signal.chat.purchase.GetSubscriptionInformationResponse;
+import org.signal.chat.purchase.PaymentRequired;
+import org.signal.chat.purchase.SetDefaultPaymentMethodRequest;
+import org.signal.chat.purchase.SetDefaultPaymentMethodResponse;
+import org.signal.chat.purchase.SetIapSubscriptionRequest;
+import org.signal.chat.purchase.SetIapSubscriptionResponse;
+import org.signal.chat.purchase.SetSubscriptionLevelRequest;
+import org.signal.chat.purchase.SetSubscriptionLevelResponse;
+import org.signal.chat.purchase.SimpleSubscriptionsGrpc;
+import org.signal.chat.purchase.UpdateSubscriberRequest;
+import org.signal.chat.purchase.UpdateSubscriberResponse;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.donation.DonationPermit;
-import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
-import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.entities.Badge;
-import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
@@ -66,7 +53,6 @@ import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
-import org.whispersystems.textsecuregcm.subscriptions.CurrencyConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
@@ -91,41 +77,37 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
 
   private final Clock clock;
   private final SubscriptionConfiguration subscriptionConfiguration;
-  private final OneTimeDonationConfiguration oneTimeDonationConfiguration;
   private final SubscriptionManager subscriptionManager;
   private final DonationPermitsManager donationPermitsManager;
   private final StripeManager stripeManager;
   private final BraintreeManager braintreeManager;
   private final GooglePlayBillingManager googlePlayBillingManager;
   private final AppleAppStoreManager appleAppStoreManager;
-  private final BadgeTranslator badgeTranslator;
   private final BankMandateTranslator bankMandateTranslator;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionsGrpcService.class, "receiptIssued");
   static final String PROCESSOR_TAG_NAME = "processor";
   static final String TYPE_TAG_NAME = "type";
   private static final String SUBSCRIPTION_TYPE_TAG_NAME = "subscriptionType";
 
-  public SubscriptionsGrpcService(final Clock clock, final SubscriptionConfiguration subscriptionConfiguration,
-      final OneTimeDonationConfiguration oneTimeDonationConfiguration, final SubscriptionManager subscriptionManager,
-      final DonationPermitsManager donationPermitsManager, final StripeManager stripeManager,
-      final BraintreeManager braintreeManager, final GooglePlayBillingManager googlePlayBillingManager,
-      final AppleAppStoreManager appleAppStoreManager, final BadgeTranslator badgeTranslator,
-      final BankMandateTranslator bankMandateTranslator,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+  public SubscriptionsGrpcService(final Clock clock,
+      final SubscriptionConfiguration subscriptionConfiguration,
+      final SubscriptionManager subscriptionManager,
+      final DonationPermitsManager donationPermitsManager,
+      final StripeManager stripeManager,
+      final BraintreeManager braintreeManager,
+      final GooglePlayBillingManager googlePlayBillingManager,
+      final AppleAppStoreManager appleAppStoreManager,
+      final BankMandateTranslator bankMandateTranslator) {
     this.clock = clock;
     this.subscriptionConfiguration = subscriptionConfiguration;
-    this.oneTimeDonationConfiguration = oneTimeDonationConfiguration;
     this.subscriptionManager = subscriptionManager;
     this.donationPermitsManager = donationPermitsManager;
     this.stripeManager = stripeManager;
     this.braintreeManager = braintreeManager;
     this.googlePlayBillingManager = googlePlayBillingManager;
     this.appleAppStoreManager = appleAppStoreManager;
-    this.badgeTranslator = badgeTranslator;
     this.bankMandateTranslator = bankMandateTranslator;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   @Override
@@ -446,7 +428,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
         .setLevel(info.level()).setEndOfCurrentPeriod(info.endOfCurrentPeriod().getEpochSecond())
         .setActive(info.active()).setCancelAtPeriodEnd(info.cancelAtPeriodEnd()).setCurrency(info.price().currency())
         .setAmount(info.price().amount().longValue()).setStatus(toProtoSubscriptionStatus(info.status()))
-        .setProcessor(info.paymentProvider().toProto()).setPaymentMethod(toProtoPaymentMethod(info.paymentMethod()))
+        .setProcessor(info.paymentProvider().toProto()).setPaymentMethod(info.paymentMethod().toProtoPaymentMethod())
         .setPaymentProcessing(info.paymentProcessing());
     if (info.billingCycleAnchor() != null) {
       subscription.setBillingCycleAnchor(info.billingCycleAnchor().getEpochSecond());
@@ -503,97 +485,16 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
     }
   }
 
-  private static org.signal.chat.subscriptions.SubscriptionStatus toProtoSubscriptionStatus(
+  private static org.signal.chat.purchase.SubscriptionStatus toProtoSubscriptionStatus(
       final SubscriptionStatus status) {
     return switch (status) {
-      case ACTIVE -> org.signal.chat.subscriptions.SubscriptionStatus.SUBSCRIPTION_STATUS_ACTIVE;
-      case INCOMPLETE -> org.signal.chat.subscriptions.SubscriptionStatus.SUBSCRIPTION_STATUS_INCOMPLETE;
-      case PAST_DUE -> org.signal.chat.subscriptions.SubscriptionStatus.SUBSCRIPTION_STATUS_PAST_DUE;
-      case CANCELED -> org.signal.chat.subscriptions.SubscriptionStatus.SUBSCRIPTION_STATUS_CANCELED;
-      case UNPAID -> org.signal.chat.subscriptions.SubscriptionStatus.SUBSCRIPTION_STATUS_UNPAID;
-      case UNKNOWN -> org.signal.chat.subscriptions.SubscriptionStatus.SUBSCRIPTION_STATUS_UNKNOWN;
+      case ACTIVE -> org.signal.chat.purchase.SubscriptionStatus.SUBSCRIPTION_STATUS_ACTIVE;
+      case INCOMPLETE -> org.signal.chat.purchase.SubscriptionStatus.SUBSCRIPTION_STATUS_INCOMPLETE;
+      case PAST_DUE -> org.signal.chat.purchase.SubscriptionStatus.SUBSCRIPTION_STATUS_PAST_DUE;
+      case CANCELED -> org.signal.chat.purchase.SubscriptionStatus.SUBSCRIPTION_STATUS_CANCELED;
+      case UNPAID -> org.signal.chat.purchase.SubscriptionStatus.SUBSCRIPTION_STATUS_UNPAID;
+      case UNKNOWN -> org.signal.chat.purchase.SubscriptionStatus.SUBSCRIPTION_STATUS_UNKNOWN;
     };
-  }
-
-  private static PaymentMethod toProtoPaymentMethod(
-      final org.whispersystems.textsecuregcm.subscriptions.PaymentMethod paymentMethod) {
-    if (paymentMethod == null) {
-      return PaymentMethod.PAYMENT_METHOD_UNKNOWN;
-    }
-    return switch (paymentMethod) {
-      case CARD -> PaymentMethod.PAYMENT_METHOD_CARD;
-      case SEPA_DEBIT -> PaymentMethod.PAYMENT_METHOD_SEPA_DEBIT;
-      case IDEAL -> PaymentMethod.PAYMENT_METHOD_IDEAL;
-      case PAYPAL -> PaymentMethod.PAYMENT_METHOD_PAYPAL;
-      case GOOGLE_PLAY_BILLING -> PaymentMethod.PAYMENT_METHOD_GOOGLE_PLAY_BILLING;
-      case APPLE_APP_STORE -> PaymentMethod.PAYMENT_METHOD_APPLE_APP_STORE;
-      case UNKNOWN -> PaymentMethod.PAYMENT_METHOD_UNKNOWN;
-    };
-  }
-
-  @Override
-  public GetConfigurationResponse getConfiguration(final GetConfigurationRequest request) {
-    final long maxBackupBytes = dynamicConfigurationManager.getConfiguration().getBackupConfiguration()
-        .maxTotalMediaSize();
-
-    final Map<Long, GetConfigurationResponse.BackupLevelConfiguration> backupLevels = subscriptionConfiguration.getBackupLevels()
-        .entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
-            e -> GetConfigurationResponse.BackupLevelConfiguration.newBuilder().setStorageAllowanceBytes(maxBackupBytes)
-                .setPlayProductId(e.getValue().playProductId()).setMediaTtlDays(e.getValue().mediaTtl().toDays())
-                .build()));
-
-    return GetConfigurationResponse.newBuilder().putAllCurrencies(buildCurrencyConfigurations())
-        .putAllLevels(buildLevelConfigurations()).setBackup(
-            GetConfigurationResponse.BackupConfiguration.newBuilder().putAllLevels(backupLevels)
-                .setFreeTierMediaDays(subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays()).build())
-        .setSepaMaximumEuros(oneTimeDonationConfiguration.sepaMaximumEuros().toString()).build();
-  }
-
-  private Map<String, GetConfigurationResponse.CurrencyConfiguration> buildCurrencyConfigurations() {
-    return SubscriptionsUtil.buildCurrencyConfiguration(List.of(stripeManager, braintreeManager),
-            oneTimeDonationConfiguration, subscriptionConfiguration).entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, e -> toProtoCurrencyConfiguration(e.getKey(), e.getValue())));
-  }
-
-  private Map<Long, GetConfigurationResponse.LevelConfiguration> buildLevelConfigurations() {
-    return SubscriptionsUtil.buildDonationLevelsConfiguration(subscriptionConfiguration, oneTimeDonationConfiguration,
-        badgeTranslator, RequestAttributesUtil.getAvailableAcceptedLocales()).entrySet().stream().collect(
-        Collectors.toMap(Map.Entry::getKey, entry -> GetConfigurationResponse.LevelConfiguration.newBuilder()
-            .setBadge(toProtoBadge(entry.getValue().badge())).build()));
-  }
-
-  private static GetConfigurationResponse.CurrencyConfiguration toProtoCurrencyConfiguration(final String currency,
-      final CurrencyConfiguration config) {
-    final GetConfigurationResponse.CurrencyConfiguration.Builder builder = GetConfigurationResponse.CurrencyConfiguration.newBuilder()
-        .setMinimum(config.minimum().toString())
-        .addAllSupportedPaymentMethods(
-            config.supportedPaymentMethods().stream().map(SubscriptionsGrpcService::toProtoPaymentMethod).toList());
-    config.oneTime().forEach((levelId, amounts) -> builder.putOneTime(levelId,
-        GetConfigurationResponse.AmountList.newBuilder()
-            .addAllAmounts(
-                amounts.stream().map(BigDecimal::toString).toList())
-            .build()));
-    config.subscription()
-        .forEach((levelId, amount) -> builder.putSubscription(levelId,
-            amount.toString()));
-    config.backupSubscription()
-        .forEach((levelId, amount) -> builder.putBackupSubscription(levelId,
-            amount.toString()));
-    return builder.build();
-  }
-
-  private static GetConfigurationResponse.Badge toProtoBadge(final Badge badge) {
-    final org.signal.chat.common.Badge commonBadge = org.signal.chat.common.Badge.newBuilder().setId(badge.getId())
-        .setCategory(badge.getCategory()).setName(badge.getName()).setDescription(badge.getDescription())
-        .addAllSprites6(badge.getSprites6()).setSvg(badge.getSvg()).addAllSvgs(badge.getSvgs().stream()
-            .map(s -> org.signal.chat.common.BadgeSvg.newBuilder().setLight(s.getLight()).setDark(s.getDark()).build())
-            .toList()).build();
-    final GetConfigurationResponse.Badge.Builder builder = GetConfigurationResponse.Badge.newBuilder()
-        .setBadge(commonBadge);
-    if (badge instanceof final PurchasableBadge purchasableBadge) {
-      builder.setDurationSeconds(purchasableBadge.getDuration().toSeconds());
-    }
-    return builder.build();
   }
 
   @Override

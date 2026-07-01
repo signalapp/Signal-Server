@@ -67,7 +67,6 @@ import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -75,7 +74,6 @@ import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
@@ -114,7 +112,7 @@ public class SubscriptionController {
   private final BadgeTranslator badgeTranslator;
   private final BankMandateTranslator bankMandateTranslator;
   private final DonationPermitsManager donationPermitsManager;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final long backupMediaStorageAllowanceBytes;
   static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
   static final String PROCESSOR_TAG_NAME = "processor";
   static final String TYPE_TAG_NAME = "type";
@@ -132,7 +130,7 @@ public class SubscriptionController {
       BadgeTranslator badgeTranslator,
       BankMandateTranslator bankMandateTranslator,
       DonationPermitsManager donationPermitsManager,
-      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      long backupMediaStorageAllowanceBytes) {
     this.subscriptionManager = subscriptionManager;
     this.clock = Objects.requireNonNull(clock);
     this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
@@ -144,7 +142,7 @@ public class SubscriptionController {
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
     this.donationPermitsManager = donationPermitsManager;
-    this.dynamicConfigurationManager = Objects.requireNonNull(dynamicConfigurationManager);
+    this.backupMediaStorageAllowanceBytes = backupMediaStorageAllowanceBytes;
   }
 
 
@@ -152,14 +150,12 @@ public class SubscriptionController {
   GetSubscriptionConfigurationResponse buildGetSubscriptionConfigurationResponse(
       final List<Locale> acceptableLanguages) {
 
-    final long maxTotalBackupMediaBytes =
-        dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
     final Map<String, BackupLevelConfiguration> backupLevels = subscriptionConfiguration.getBackupLevels()
         .entrySet().stream()
         .collect(Collectors.toMap(
             e -> String.valueOf(e.getKey()),
             e -> new BackupLevelConfiguration(
-                maxTotalBackupMediaBytes,
+                backupMediaStorageAllowanceBytes,
                 e.getValue().playProductId(),
                 e.getValue().mediaTtl().toDays())));
 

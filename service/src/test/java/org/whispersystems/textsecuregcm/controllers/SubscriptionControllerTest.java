@@ -61,15 +61,12 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicBackupConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetBankMandateResponse;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSubscriptionConfigurationResponse;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
@@ -112,12 +109,11 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
-  private static final DynamicConfigurationManager<DynamicConfiguration> DYNAMIC_CONFIGURATION_MANAGER = mock(DynamicConfigurationManager.class);
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK,
       SUBSCRIPTION_CONFIG, ONETIME_CONFIG,
       new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
           ZK_OPS, ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER,
-      BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR, DONATION_PERMITS_MANAGER, DYNAMIC_CONFIGURATION_MANAGER);
+      BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR, DONATION_PERMITS_MANAGER, MAX_TOTAL_BACKUP_MEDIA_BYTES);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -139,10 +135,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
     when(STRIPE_MANAGER.getProvider()).thenReturn(PaymentProvider.STRIPE);
     when(BRAINTREE_MANAGER.getProvider()).thenReturn(PaymentProvider.BRAINTREE);
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfiguration.getBackupConfiguration())
-        .thenReturn(new DynamicBackupConfiguration(null, null, null, null, MAX_TOTAL_BACKUP_MEDIA_BYTES));
-    when(DYNAMIC_CONFIGURATION_MANAGER.getConfiguration()).thenReturn(dynamicConfiguration);
 
     List.of(STRIPE_MANAGER, BRAINTREE_MANAGER)
         .forEach(manager -> when(manager.supportsPaymentMethod(any()))

@@ -7,7 +7,7 @@ syntax = "proto3";
 
 option java_multiple_files = true;
 
-package org.signal.chat.subscriptions;
+package org.signal.chat.purchase;
 
 import "google/protobuf/empty.proto";
 import "org/signal/chat/common.proto";
@@ -15,6 +15,9 @@ import "org/signal/chat/require.proto";
 import "org/signal/chat/errors.proto";
 import "org/signal/chat/tag.proto";
 
+// Service for creating donation subscriptions
+//
+// Configuration for subscription levels can be found in ProductConfiguration.
 service Subscriptions {
   option (require.auth) = AUTH_ONLY_ANONYMOUS;
   // Creates a subscriber record if it does not exist, otherwise refreshes its last access time.
@@ -98,10 +101,6 @@ service Subscriptions {
   // method. A different playbilling purchaseToken can be posted to the same subscriberId, in this case the subscription
   // associated with the old purchaseToken will be cancelled.
   rpc SetIapSubscription(SetIapSubscriptionRequest) returns (SetIapSubscriptionResponse) {}
-
-  // Returns all configuration for badges, donation subscriptions, backup subscriptions, and one-time donation (
-  // "boost" and "gift") minimum and suggested amounts.
-  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
 
   // Returns a localized bank mandate for the specified bank transfer type
   rpc GetBankMandate(GetBankMandateRequest) returns (GetBankMandateResponse) {}
@@ -424,65 +423,6 @@ message GetSubscriptionInformationResponse {
     // subscriberId authentication failure
     errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 4 [(tag.reason) = "subscriber_id_mismatch"];
   }
-}
-
-message GetConfigurationRequest {}
-
-message GetConfigurationResponse {
-  message Badge {
-    common.Badge badge = 1;
-    // Present only for one-time (purchasable) badges
-    optional uint64 duration_seconds = 2;
-  }
-
-  message AmountList {
-    // NOTE: this is a string instead of a numeric type because it is intended
-    // for display purposes only
-    repeated string amounts = 1;
-  }
-
-  message CurrencyConfiguration {
-    // Minimum one-time donation
-    // NOTE: this is a string instead of a numeric type because it is intended
-    // for display purposes only
-    string minimum = 1;
-    // Map of one-time donation level IDs to suggested amounts
-    map<uint64, AmountList> one_time = 2;
-    // Map of subscription level IDs to the amount charged
-    map<uint64, string> subscription = 3;
-    // Map of backup subscription level IDs to the amount charged
-    map<uint64, string> backup_subscription = 4;
-    repeated PaymentMethod supported_payment_methods = 5;
-  }
-
-  message LevelConfiguration {
-    Badge badge = 1;
-  }
-
-  // Configuration for a backup level - use to present appropriate client interfaces
-  message BackupLevelConfiguration {
-    // The amount of media storage in bytes that a paying subscriber may store
-    uint64 storage_allowance_bytes = 1;
-    // The play billing productID associated with this backup level
-    string play_product_id = 2;
-    // The duration, in days, for which your backed up media is retained on the server after you stop refreshing with a paid credential
-    uint64 media_ttl_days = 3;
-  }
-
-  message BackupConfiguration {
-    // A map of numeric backup level IDs to level-specific backup configuration
-    map<uint64, BackupLevelConfiguration> levels = 1;
-    // The number of days of media a free tier backup user gets
-    uint64 free_tier_media_days = 2;
-  }
-
-  // Map of lower-cased ISO 3 currency codes to currency-specific configuration
-  map<string, CurrencyConfiguration> currencies = 1;
-  // Map of numeric donation level IDs to level-specific badge configuration
-  map<uint64, LevelConfiguration> levels = 2;
-  BackupConfiguration backup = 3;
-  // Maximum value of a one-time SEPA donation
-  string sepa_maximum_euros = 4;
 }
 
 enum BankTransferType {

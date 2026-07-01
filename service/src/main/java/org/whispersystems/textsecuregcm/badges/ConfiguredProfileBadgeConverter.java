@@ -46,6 +46,11 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
   }
 
   @Override
+  public Locale resolveLocale(final List<Locale> acceptableLanguages) {
+    return headerControlledResourceBundleLookup.getResourceBundle(BASE_NAME, acceptableLanguages).getLocale();
+  }
+
+  @Override
   public Badge translate(final List<Locale> acceptableLanguages, final String badgeId) {
     final ResourceBundle resourceBundle = headerControlledResourceBundleLookup.getResourceBundle(BASE_NAME,
         acceptableLanguages);

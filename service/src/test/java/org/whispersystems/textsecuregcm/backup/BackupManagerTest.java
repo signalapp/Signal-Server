@@ -72,14 +72,12 @@ import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.configuration.BackupConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicBackupConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -114,7 +112,7 @@ public class BackupManagerTest {
   private final RemoteStorageManager remoteStorageManager = mock(RemoteStorageManager.class);
   private final byte[] backupKey = TestRandomUtil.nextBytes(32);
   private final UUID aci = UUID.randomUUID();
-  private final DynamicBackupConfiguration backupConfiguration = new DynamicBackupConfiguration(
+  private final BackupConfiguration backupConfiguration = new BackupConfiguration(
     3, 4, 5, Duration.ofSeconds(30), MAX_TOTAL_MEDIA_BYTES);
 
 
@@ -146,11 +144,6 @@ public class BackupManagerTest {
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.BACKUPS.tableName(),
         testClock);
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfiguration.getBackupConfiguration()).thenReturn(backupConfiguration);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     this.backupManager = new BackupManager(
         backupsDb,
@@ -162,7 +155,7 @@ public class BackupManagerTest {
         svrbCredentialGenerator,
         svrbClient,
         testClock,
-        dynamicConfigurationManager);
+        backupConfiguration);
   }
 
   @ParameterizedTest

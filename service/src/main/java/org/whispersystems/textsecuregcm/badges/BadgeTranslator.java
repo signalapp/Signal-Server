@@ -10,5 +10,8 @@ import java.util.Locale;
 import org.whispersystems.textsecuregcm.entities.Badge;
 
 public interface BadgeTranslator {
+
+  Locale resolveLocale(List<Locale> acceptableLanguages);
+
   Badge translate(List<Locale> acceptableLanguages, String badgeId);
 }

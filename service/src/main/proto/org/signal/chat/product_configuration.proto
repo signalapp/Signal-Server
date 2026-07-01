@@ -1,0 +1,109 @@
+/*
+ * Copyright 2026 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.purchase;
+
+import "org/signal/chat/common.proto";
+import "org/signal/chat/require.proto";
+import "org/signal/chat/tag.proto";
+import "org/signal/chat/subscriptions.proto";
+
+// Retrieve product metadata for one-time donations, subscriptions, and backups
+service ProductConfiguration {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
+
+  // Returns all configuration for badges, donation subscriptions, backup subscriptions, and one-time donation (
+  // "boost" and "gift") minimum and suggested amounts.
+  //
+  // Product descriptions may contain localized strings. Callers should set
+  // their language preferences via an "Accept-Language" header on the request
+  // https://datatracker.ietf.org/doc/html/rfc3282#section-3
+  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
+}
+
+message GetConfigurationRequest {
+  // If present, the etag from a prior GetConfigurationResponse. If the
+  // provided etag matches the current configuration etag, the server may elide
+  // the configuration response.
+  bytes etag = 1;
+}
+
+message GetConfigurationResponse {
+  oneof response {
+    // The full configuration and corresponding ETag.
+    TaggedConfiguration tagged_configuration = 1;
+
+    // The etag in the request matched the current configuration ETag
+    bool etag_matched = 2 [(tag.reason) = "etag_match"];
+  }
+}
+
+message AmountList {
+  // NOTE: this is a string instead of a numeric type because it is intended
+  // for display purposes only
+  repeated string amounts = 1;
+}
+
+message CurrencyConfiguration {
+  // Minimum one-time donation
+  // NOTE: this is a string instead of a numeric type because it is intended
+  // for display purposes only
+  string minimum = 1;
+  // Map of one-time donation level IDs to suggested amounts
+  map<uint64, AmountList> one_time = 2;
+  // Map of subscription level IDs to the amount charged
+  map<uint64, string> subscription = 3;
+  // Map of backup subscription level IDs to the amount charged
+  map<uint64, string> backup_subscription = 4;
+  repeated PaymentMethod supported_payment_methods = 5;
+}
+
+message LevelConfiguration {
+  common.Badge badge = 1;
+
+  // The duration for which a badge is valid. Present only for
+  // one-time (boost, gift) badges
+  optional uint64 badge_duration_seconds = 2;
+}
+
+// Configuration for a backup level - use to present appropriate client interfaces
+message BackupLevelConfiguration {
+  // The amount of media storage in bytes that a paying subscriber may store
+  uint64 storage_allowance_bytes = 1;
+  // The play billing productID associated with this backup level
+  string play_product_id = 2;
+  // The duration, in days, for which your backed up media is retained on the server after you stop refreshing with a paid credential
+  uint64 media_ttl_days = 3;
+}
+
+message BackupConfiguration {
+  // A map of numeric backup level IDs to level-specific backup configuration
+  map<uint64, BackupLevelConfiguration> levels = 1;
+  // The number of days of media a free tier backup user gets
+  uint64 free_tier_media_days = 2;
+}
+
+message Configuration {
+  // Map of lower-cased ISO 3 currency codes to currency-specific configuration
+  map<string, CurrencyConfiguration> currencies = 1;
+  // Map of numeric donation level IDs to level-specific badge configuration
+  map<uint64, LevelConfiguration> badge_levels = 2;
+  // Configuration for backup subscription options
+  BackupConfiguration backup = 3;
+  // Maximum value of a one-time SEPA donation
+  string sepa_maximum_euros = 4;
+}
+
+message TaggedConfiguration {
+  Configuration configuration = 1;
+
+  // An entity tag for `configuration`. This may be used in subsequent
+  // requests for the configuration version to optimize bandwidth.
+  bytes etag = 2;
+}

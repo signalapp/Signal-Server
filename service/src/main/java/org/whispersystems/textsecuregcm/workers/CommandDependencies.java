@@ -368,7 +368,7 @@ public record CommandDependencies(
         secureValueRecoveryBCredentialsGenerator,
         secureValueRecoveryBClient,
         clock,
-        dynamicConfigurationManager);
+        configuration.getBackupConfiguration());
 
     final IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         configuration.getDynamoDbTables().getIssuedReceipts().getTableName(),

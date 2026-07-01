@@ -24,7 +24,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -35,30 +34,28 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
-import org.signal.chat.subscriptions.CreatePayPalPaymentMethodRequest;
-import org.signal.chat.subscriptions.CreatePayPalPaymentMethodResponse;
-import org.signal.chat.subscriptions.CreatePaymentMethodRequest;
-import org.signal.chat.subscriptions.CreatePaymentMethodResponse;
-import org.signal.chat.subscriptions.DeleteSubscriberRequest;
-import org.signal.chat.subscriptions.DeleteSubscriberResponse;
-import org.signal.chat.subscriptions.GetBankMandateRequest;
-import org.signal.chat.subscriptions.GetBankMandateResponse;
-import org.signal.chat.subscriptions.GetConfigurationRequest;
-import org.signal.chat.subscriptions.GetConfigurationResponse;
-import org.signal.chat.subscriptions.GetReceiptCredentialsRequest;
-import org.signal.chat.subscriptions.GetReceiptCredentialsResponse;
-import org.signal.chat.subscriptions.GetSubscriptionInformationRequest;
-import org.signal.chat.subscriptions.GetSubscriptionInformationResponse;
-import org.signal.chat.subscriptions.PaymentMethod;
-import org.signal.chat.subscriptions.SetDefaultPaymentMethodRequest;
-import org.signal.chat.subscriptions.SetDefaultPaymentMethodResponse;
-import org.signal.chat.subscriptions.SetIapSubscriptionRequest;
-import org.signal.chat.subscriptions.SetIapSubscriptionResponse;
-import org.signal.chat.subscriptions.SetSubscriptionLevelRequest;
-import org.signal.chat.subscriptions.SetSubscriptionLevelResponse;
-import org.signal.chat.subscriptions.SubscriptionsGrpc;
-import org.signal.chat.subscriptions.UpdateSubscriberRequest;
-import org.signal.chat.subscriptions.UpdateSubscriberResponse;
+import org.signal.chat.purchase.CreatePayPalPaymentMethodRequest;
+import org.signal.chat.purchase.CreatePayPalPaymentMethodResponse;
+import org.signal.chat.purchase.CreatePaymentMethodRequest;
+import org.signal.chat.purchase.CreatePaymentMethodResponse;
+import org.signal.chat.purchase.DeleteSubscriberRequest;
+import org.signal.chat.purchase.DeleteSubscriberResponse;
+import org.signal.chat.purchase.GetBankMandateRequest;
+import org.signal.chat.purchase.GetBankMandateResponse;
+import org.signal.chat.purchase.GetReceiptCredentialsRequest;
+import org.signal.chat.purchase.GetReceiptCredentialsResponse;
+import org.signal.chat.purchase.GetSubscriptionInformationRequest;
+import org.signal.chat.purchase.GetSubscriptionInformationResponse;
+import org.signal.chat.purchase.PaymentMethod;
+import org.signal.chat.purchase.SetDefaultPaymentMethodRequest;
+import org.signal.chat.purchase.SetDefaultPaymentMethodResponse;
+import org.signal.chat.purchase.SetIapSubscriptionRequest;
+import org.signal.chat.purchase.SetIapSubscriptionResponse;
+import org.signal.chat.purchase.SetSubscriptionLevelRequest;
+import org.signal.chat.purchase.SetSubscriptionLevelResponse;
+import org.signal.chat.purchase.SubscriptionsGrpc;
+import org.signal.chat.purchase.UpdateSubscriberRequest;
+import org.signal.chat.purchase.UpdateSubscriberResponse;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.donation.DonationPermit;
@@ -66,17 +63,10 @@ import org.signal.libsignal.zkgroup.donation.DonationPermitRequest;
 import org.signal.libsignal.zkgroup.donation.DonationPermitRequestContext;
 import org.signal.libsignal.zkgroup.donation.DonationPermitResponse;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
-import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
-import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicBackupConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.entities.Badge;
-import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.storage.DonationPermits;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
@@ -118,9 +108,6 @@ public class SubscriptionsGrpcServiceTest extends
   private final SubscriptionConfiguration subscriptionConfiguration =
       SubscriptionConfigTestHelper.getSubscriptionConfig();
 
-  private final OneTimeDonationConfiguration oneTimeDonationConfiguration =
-      SubscriptionConfigTestHelper.getOneTimeConfig();
-
   @Mock
   private DonationPermits donationPermits;
 
@@ -143,13 +130,7 @@ public class SubscriptionsGrpcServiceTest extends
   private AppleAppStoreManager appleAppStoreManager;
 
   @Mock
-  private BadgeTranslator badgeTranslator;
-
-  @Mock
   private BankMandateTranslator bankMandateTranslator;
-
-  @Mock
-  private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private static final ByteString SUBSCRIBER_ID = ByteString.copyFrom(TestRandomUtil.nextBytes(32));
   private static final long LEVEL = 5L;
@@ -167,9 +148,8 @@ public class SubscriptionsGrpcServiceTest extends
     when(donationPermits.spend(any(byte[].class), any(Instant.class)))
         .thenAnswer(answer -> spent.add(new String(answer.getArgument(0, byte[].class))));
 
-    return new SubscriptionsGrpcService(clock, subscriptionConfiguration, oneTimeDonationConfiguration,
-        subscriptionManager, donationPermitsManager, stripeManager, braintreeManager, googlePlayBillingManager,
-        appleAppStoreManager, badgeTranslator, bankMandateTranslator, dynamicConfigurationManager);
+    return new SubscriptionsGrpcService(clock, subscriptionConfiguration, subscriptionManager, donationPermitsManager,
+        stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager, bankMandateTranslator);
   }
 
   @Test
@@ -267,7 +247,7 @@ public class SubscriptionsGrpcServiceTest extends
     final CreatePaymentMethodResponse response = unauthenticatedServiceStub().createPaymentMethod(builder.build());
     assertEquals(CreatePaymentMethodResponse.ResponseCase.RESULT, response.getResponseCase());
     // Currently, only stripe is chosen as the payment provider for all supported payment methods
-    assertEquals(org.signal.chat.subscriptions.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
+    assertEquals(org.signal.chat.purchase.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
         response.getResult().getPaymentProvider());
     assertEquals("test-client-secret", response.getResult().getClientSecret());
   }
@@ -540,7 +520,7 @@ public class SubscriptionsGrpcServiceTest extends
             .setLevel(LEVEL).setCurrency(CURRENCY).setIdempotencyKey("test-idempotency-key")
             .build());
     assertEquals(SetSubscriptionLevelResponse.ResponseCase.CHARGE_FAILURE, response.getResponseCase());
-    assertEquals(org.signal.chat.subscriptions.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
+    assertEquals(org.signal.chat.purchase.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
         response.getChargeFailure().getProcessor());
     assertEquals("card_declined", response.getChargeFailure().getCode());
     assertEquals("Insufficient funds", response.getChargeFailure().getMessage());
@@ -573,7 +553,7 @@ public class SubscriptionsGrpcServiceTest extends
     assertEquals(1000L, response.getSuccess().getEndOfCurrentPeriod());
     assertTrue(response.getSuccess().getActive());
     assertFalse(response.getSuccess().getCancelAtPeriodEnd());
-    assertEquals(org.signal.chat.subscriptions.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
+    assertEquals(org.signal.chat.purchase.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
         response.getSuccess().getProcessor());
     assertEquals(PaymentMethod.PAYMENT_METHOD_CARD, response.getSuccess().getPaymentMethod());
   }
@@ -640,7 +620,7 @@ public class SubscriptionsGrpcServiceTest extends
             .setReceiptCredentialRequest(ByteString.copyFrom(TestRandomUtil.nextBytes(97)))
             .build());
     assertEquals(GetReceiptCredentialsResponse.ResponseCase.PAYMENT_REQUIRED, response.getResponseCase());
-    assertEquals(org.signal.chat.subscriptions.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
+    assertEquals(org.signal.chat.purchase.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
         response.getPaymentRequired().getChargeFailure().getProcessor());
     assertEquals("card_declined", response.getPaymentRequired().getChargeFailure().getCode());
   }
@@ -704,103 +684,11 @@ public class SubscriptionsGrpcServiceTest extends
   }
 
   @Test
-  void getConfiguration() {
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-    when(dynamicConfiguration.getBackupConfiguration())
-        .thenReturn(new DynamicBackupConfiguration(null, null, null, null, 1234L));
-
-    when(stripeManager.supportsPaymentMethod(any())).thenCallRealMethod();
-    when(stripeManager.getSupportedCurrenciesForPaymentMethod(
-        org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.CARD))
-        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
-    when(stripeManager.getSupportedCurrenciesForPaymentMethod(
-        org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.SEPA_DEBIT))
-        .thenReturn(Set.of("eur"));
-    when(stripeManager.getSupportedCurrenciesForPaymentMethod(
-        org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.IDEAL))
-        .thenReturn(Set.of("eur"));
-    when(braintreeManager.supportsPaymentMethod(any())).thenCallRealMethod();
-    when(braintreeManager.getSupportedCurrenciesForPaymentMethod(
-        org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.PAYPAL))
-        .thenReturn(Set.of("usd", "jpy"));
-
-    when(badgeTranslator.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"))));
-    when(badgeTranslator.translate(any(), eq("B2"))).thenReturn(new Badge("B2", "cat2", "name2", "desc2",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"))));
-    when(badgeTranslator.translate(any(), eq("B3"))).thenReturn(new Badge("B3", "cat3", "name3", "desc3",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"))));
-    when(badgeTranslator.translate(any(), eq("BOOST"))).thenReturn(new Badge("BOOST", "boost1", "boost1", "boost1",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"))));
-    when(badgeTranslator.translate(any(), eq("GIFT"))).thenReturn(new Badge("GIFT", "gift1", "gift1", "gift1",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"))));
-
-    final GetConfigurationResponse response = unauthenticatedServiceStub()
-        .getConfiguration(GetConfigurationRequest.newBuilder().build());
-
-    assertEquals("10000", response.getSepaMaximumEuros());
-
-    assertEquals(30L, response.getBackup().getFreeTierMediaDays());
-    final GetConfigurationResponse.BackupLevelConfiguration backupLevel =
-        response.getBackup().getLevelsOrThrow(201L);
-    assertEquals(1234L, backupLevel.getStorageAllowanceBytes());
-    assertEquals("testPlayProductId", backupLevel.getPlayProductId());
-    assertEquals(40L, backupLevel.getMediaTtlDays());
-
-    final GetConfigurationResponse.CurrencyConfiguration usd = response.getCurrenciesOrThrow("usd");
-    assertEquals("2.50", usd.getMinimum());
-    assertEquals(List.of(PaymentMethod.PAYMENT_METHOD_CARD, PaymentMethod.PAYMENT_METHOD_PAYPAL),
-        usd.getSupportedPaymentMethodsList());
-    assertEquals(List.of("5.50", "6", "7", "8", "9", "10"), usd.getOneTimeOrThrow(1L).getAmountsList());
-    assertEquals(List.of("20"), usd.getOneTimeOrThrow(100L).getAmountsList());
-    assertEquals(Map.of(5L, "5", 15L, "15", 35L, "35"), usd.getSubscriptionMap());
-    assertEquals(Map.of(201L, "5"), usd.getBackupSubscriptionMap());
-
-    final GetConfigurationResponse.CurrencyConfiguration jpy = response.getCurrenciesOrThrow("jpy");
-    assertEquals("250", jpy.getMinimum());
-    assertEquals(List.of(PaymentMethod.PAYMENT_METHOD_CARD, PaymentMethod.PAYMENT_METHOD_PAYPAL),
-        jpy.getSupportedPaymentMethodsList());
-    assertEquals(List.of("550", "600", "700", "800", "900", "1000"), jpy.getOneTimeOrThrow(1L).getAmountsList());
-    assertEquals(List.of("2000"), jpy.getOneTimeOrThrow(100L).getAmountsList());
-    assertEquals(Map.of(5L, "500", 15L, "1500", 35L, "3500"), jpy.getSubscriptionMap());
-    assertEquals(Map.of(201L, "500"), jpy.getBackupSubscriptionMap());
-
-    final GetConfigurationResponse.CurrencyConfiguration bif = response.getCurrenciesOrThrow("bif");
-    assertEquals("2500", bif.getMinimum());
-    assertEquals(List.of(PaymentMethod.PAYMENT_METHOD_CARD), bif.getSupportedPaymentMethodsList());
-    assertEquals(List.of("5500", "6000", "7000", "8000", "9000", "10000"), bif.getOneTimeOrThrow(1L).getAmountsList());
-    assertEquals(List.of("20000"), bif.getOneTimeOrThrow(100L).getAmountsList());
-    assertEquals(Map.of(5L, "5000", 15L, "15000", 35L, "35000"), bif.getSubscriptionMap());
-    assertEquals(Map.of(201L, "5000"), bif.getBackupSubscriptionMap());
-
-    final GetConfigurationResponse.CurrencyConfiguration eur = response.getCurrenciesOrThrow("eur");
-    assertEquals("3", eur.getMinimum());
-    assertEquals(
-        List.of(PaymentMethod.PAYMENT_METHOD_CARD, PaymentMethod.PAYMENT_METHOD_SEPA_DEBIT,
-            PaymentMethod.PAYMENT_METHOD_IDEAL),
-        eur.getSupportedPaymentMethodsList());
-    assertEquals(List.of("5", "10", "20", "30", "50", "100"), eur.getOneTimeOrThrow(1L).getAmountsList());
-    assertEquals(List.of("5"), eur.getOneTimeOrThrow(100L).getAmountsList());
-    assertEquals(Map.of(5L, "5", 15L, "15", 35L, "35"), eur.getSubscriptionMap());
-    assertEquals(Map.of(201L, "5"), eur.getBackupSubscriptionMap());
-
-    assertEquals("B1", response.getLevelsOrThrow(5L).getBadge().getBadge().getId());
-    assertEquals(0L, response.getLevelsOrThrow(5L).getBadge().getDurationSeconds());
-    assertEquals("B2", response.getLevelsOrThrow(15L).getBadge().getBadge().getId());
-    assertEquals("B3", response.getLevelsOrThrow(35L).getBadge().getBadge().getId());
-    assertEquals("BOOST", response.getLevelsOrThrow(1L).getBadge().getBadge().getId());
-    assertTrue(response.getLevelsOrThrow(1L).getBadge().getDurationSeconds() > 0);
-    assertEquals("GIFT", response.getLevelsOrThrow(100L).getBadge().getBadge().getId());
-    assertTrue(response.getLevelsOrThrow(100L).getBadge().getDurationSeconds() > 0);
-  }
-
-  @Test
   void getBankMandate() {
     when(bankMandateTranslator.translate(any(), eq(BankTransferType.SEPA_DEBIT))).thenReturn("test-mandate");
     final GetBankMandateResponse response = unauthenticatedServiceStub().getBankMandate(
         GetBankMandateRequest.newBuilder()
-            .setBankTransferType(org.signal.chat.subscriptions.BankTransferType.BANK_TRANSFER_TYPE_SEPA_DEBIT)
+            .setBankTransferType(org.signal.chat.purchase.BankTransferType.BANK_TRANSFER_TYPE_SEPA_DEBIT)
             .build());
     assertEquals("test-mandate", response.getMandate());
   }
