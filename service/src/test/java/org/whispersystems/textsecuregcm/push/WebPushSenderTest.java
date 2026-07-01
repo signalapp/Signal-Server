@@ -209,7 +209,7 @@ class WebPushSenderTest {
     final SendPushNotificationResult result = webPushSender.sendNotification(pushNotification).join();
 
     verify(httpClient).sendAsync(any(), eq(HttpResponse.BodyHandlers.ofByteArray()));
-    verify(cmd, atLeastOnce()).set(any(), eq(WebPushSender.RATE_LIMITED), any());
+    verify(cmd, atLeastOnce()).set(eq("WP_END::https://domain.tld/random1"), eq(WebPushSender.RATE_LIMITED), any());
     assertFalse(result.accepted());
     assertEquals(Optional.of("Rate limited"), result.errorCode());
     assertFalse(result.unregistered());

@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.push;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -27,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 
 import javax.annotation.Nullable;
 
+import org.signal.libsignal.protocol.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
@@ -42,6 +44,7 @@ import com.google.crypto.tink.apps.webpush.WebPushHybridEncrypt;
 import com.google.crypto.tink.subtle.EllipticCurves;
 
 import io.lettuce.core.SetArgs;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import net.logstash.logback.util.StringUtils;
@@ -100,7 +103,7 @@ public class WebPushSender implements PushNotificationSender {
 
     String authorization;
     try {
-      authorization = getCachedAuthorization(aud);
+      authorization = getCachedAuthorization(aud, sub.endpoint());
     } catch (RateLimitedException e) {
       return CompletableFuture.completedFuture(
         new SendPushNotificationResult(false, Optional.of("Rate limited"), false, Optional.empty())
@@ -188,7 +191,7 @@ public class WebPushSender implements PushNotificationSender {
              } catch (NumberFormatException e) {
                retryAfterS = DEFAULT_RETRY_AFTER;
              }
-             cacheRateLimit(aud, retryAfterS);
+             cacheRateLimit(sub.endpoint(), retryAfterS);
              yield new SendPushNotificationResult(false, Optional.of("Rate limited"), false, Optional.empty());
            }
            default ->
@@ -198,35 +201,53 @@ public class WebPushSender implements PushNotificationSender {
   }
 
   /**
+   * Key to cache rate limited endpoints
+   */
+  private static String rateLimitKey(final String endpoint) {
+    return "WebPush::RateLimit::" + endpoint;
+  }
+
+  /**
+   * Key to cache VAPID header for push servers
+   */
+  private static String headerKey(final String aud) {
+    return "WebPush::Auth::" + aud;
+  }
+
+  /**
    * @throws RateLimitedException if the aud server previously returned a 429 (Too Many Requests)
    * @return the cached authorization header
    */
-  private @Nullable String getCachedAuthorization(final String aud) throws RateLimitedException {
-    final String cached = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
+  private @Nullable String getCachedAuthorization(final String aud, final URI endpoint) throws RateLimitedException {
+    final Pair<String, String> cached = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
     .executeSupplier(() ->
-      redisClient.withCluster(cluster -> cluster.sync().get(aud))
+      redisClient.withCluster(cluster -> {
+        RedisAdvancedClusterCommands<String, String> cmd = cluster.sync();
+        String rateLimited = cmd.get(rateLimitKey(endpoint.toString()));
+        String cachedHeader = cmd.get(headerKey(aud));
+        return new Pair<String, String>(rateLimited, cachedHeader);
+      })
     );
-    if (cached == RATE_LIMITED) {
+    if (cached.first() == RATE_LIMITED) {
       throw new RateLimitedException();
     }
-    return cached;
+    return cached.second();
   }
 
-  private void cacheRateLimit(final String aud, final int retryAfterS) {
+  private void cacheRateLimit(final URI endpoint, final int retryAfterS) {
     final SetArgs args = new SetArgs().ex(retryAfterS);
     ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
     .executeSupplier(() ->
-      redisClient.withCluster(cluster -> cluster.sync().set(aud, RATE_LIMITED, args))
+      redisClient.withCluster(cluster -> cluster.sync().set(rateLimitKey(endpoint.toString()), RATE_LIMITED, args))
     );
   }
 
   private void cacheAuthorization(final String aud, final String authHeader) {
     // NX: only set the value if the key doesn't already exists
-    // to be sure we never override a RATE_LIMITED
     final SetArgs args = new SetArgs().ex(AUTH_CACHE_DURATION).nx();
     ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
     .executeSupplier(() ->
-      redisClient.withCluster(cluster -> cluster.sync().set(aud, authHeader, args))
+      redisClient.withCluster(cluster -> cluster.sync().set(headerKey(aud), authHeader, args))
     );
   }
 
