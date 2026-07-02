@@ -283,11 +283,12 @@ public class MessagesManager {
         new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
             destinationUuid, destinationDevice);
 
-    return experimentEnrollmentManager.isEnrolled(destinationUuid, MIRROR_DELETIONS_EXPERIMENT_NAME)
-        ? new AcknowledgementMirroringMessageStream(
+    return new DeletionMirroringMessageStream(
         redisDynamoDbMessageStream,
-        foundationDbMessageStore.getMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId()))
-        : redisDynamoDbMessageStream;
+        foundationDbMessageStore,
+        experimentEnrollmentManager,
+        destinationUuid,
+        destinationDevice.getId());
   }
 
   Publisher<Envelope> getMessagesForDevice(final UUID destinationUuid, final Device destinationDevice) {
