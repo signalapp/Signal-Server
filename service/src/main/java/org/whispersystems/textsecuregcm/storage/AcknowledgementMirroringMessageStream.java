@@ -34,6 +34,9 @@ public class AcknowledgementMirroringMessageStream implements MessageStream {
   @VisibleForTesting
   static final int MAX_PENDING_ACKNOWLEDGEMENTS = 8192;
 
+  @VisibleForTesting
+  static final int FOUNDATIONDB_REQUEST_SIZE = 100;
+
   private static final Counter HIGH_PENDING_ACKNOWLEDGEMENT_COUNT_WARNING_COUNTER =
       Metrics.counter(MetricsUtil.name(AcknowledgementMirroringMessageStream.class, "highPendingAcknowledgementCount"));
 
@@ -43,6 +46,9 @@ public class AcknowledgementMirroringMessageStream implements MessageStream {
   private static class FoundationDbSubscriber extends BaseSubscriber<MessageStreamEntry.Envelope> {
 
     private final BiConsumer<UUID, Long> mirroredMessageHandler;
+
+    private long mirroredEntriesDelivered = 0;
+    private long requested = 0;
 
     private FoundationDbSubscriber(final BiConsumer<UUID, Long> mirroredMessageHandler) {
       this.mirroredMessageHandler = mirroredMessageHandler;
@@ -56,8 +62,22 @@ public class AcknowledgementMirroringMessageStream implements MessageStream {
         case MessageStreamEntry.QueueEmpty _ -> false;
       };
 
-      if (isMirroredMessage) {
-        request(1);
+      if (!isMirroredMessage) {
+        return;
+      }
+
+      final boolean requestMore;
+
+      synchronized (this) {
+        requestMore = ++mirroredEntriesDelivered > requested;
+
+        if (requestMore) {
+          requested += FOUNDATIONDB_REQUEST_SIZE;
+        }
+      }
+
+      if (requestMore) {
+        request(FOUNDATIONDB_REQUEST_SIZE);
       }
     }
 

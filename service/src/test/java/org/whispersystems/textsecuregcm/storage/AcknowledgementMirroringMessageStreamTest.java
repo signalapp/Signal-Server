@@ -64,7 +64,7 @@ class AcknowledgementMirroringMessageStreamTest {
   void acknowledgeMessages(final UUIDVersion uuidVersion) {
     final List<MessageStreamEntry> entries = new ArrayList<>();
     {
-      for (int i = 0; i < 256; i++) {
+      for (int i = 0; i < AcknowledgementMirroringMessageStream.FOUNDATIONDB_REQUEST_SIZE + 1; i++) {
         entries.add(generateEnvelopeEntry(uuidVersion));
       }
 
