@@ -5667,12 +5667,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        spendId:
-          type: string
-          format: byte
         expiration:
           type: string
           format: date-time
+        spendId:
+          type: string
+          format: byte
         internalContentsForJNI:
           type: string
           format: byte
