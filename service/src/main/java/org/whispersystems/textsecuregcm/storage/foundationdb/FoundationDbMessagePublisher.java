@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.Mono;
 
 /// Publishes a message stream from a device queue in FoundationDB. Capable of publishing both a finite stream for
 /// catching up to end-of-queue,and an infinite stream for live updates.
@@ -150,30 +151,31 @@ class FoundationDbMessagePublisher {
       Objects.requireNonNull(presenceRenewalExecutorService);
     }
 
-    this.messagePublisher = Flux.<FoundationDbMessageStreamEntry.Message>create(emitter -> {
-      this.emitter = emitter;
-      emitter.onRequest(n -> {
-        final long totalRequestedCount = totalRequested.addAndGet(n);
-        if (totalRequestedCount > totalEmitted.get()) {
-          transitionStateOnEvent(Event.DEMAND_REQUESTED);
-        }
-      });
-      emitter.onDispose(this::onDispose);
-    }).doOnSubscribe(_ -> {
-      if (!terminateOnQueueEmpty) {
-        // Establish presence immediately and block until we do. We must establish presence for watches to work as
-        // expected. If we fail to establish presence, then this non-terminating stream will never learn about new
-        // messages. If establishing presence throws an exception, then the whole publisher will terminate with that
-        // exception.
-        database.run(transaction -> {
-          setPresence(transaction);
-          return null;
-        });
-
-        // Refresh presence at regular intervals
-        startPresenceRenewal(presenceRenewalExecutorService);
-      }
-    });
+    this.messagePublisher = Mono.fromFuture(() -> {
+          if (!terminateOnQueueEmpty) {
+            // Establish presence before attempting to fetch messages. We must establish presence for watches to work as
+            // expected. If we fail to establish presence, then this non-terminating stream will never learn about new
+            // messages. If establishing presence throws an exception, then the whole publisher will terminate with that
+            // exception.
+            return database.runAsync(transaction -> {
+                  setPresence(transaction);
+                  return CompletableFuture.completedFuture(null);
+                })
+                .thenRun(() -> startPresenceRenewal(presenceRenewalExecutorService));
+          } else {
+            return CompletableFuture.completedFuture(null);
+          }
+        })
+        .thenMany(Flux.create(emitter -> {
+          this.emitter = emitter;
+          emitter.onRequest(n -> {
+            final long totalRequestedCount = totalRequested.addAndGet(n);
+            if (totalRequestedCount > totalEmitted.get()) {
+              transitionStateOnEvent(Event.DEMAND_REQUESTED);
+            }
+          });
+          emitter.onDispose(this::onDispose);
+        }));
   }
 
   /// Creates a [FoundationDbMessagePublisher] that publishes a stream of messages in a queue that terminates when it
