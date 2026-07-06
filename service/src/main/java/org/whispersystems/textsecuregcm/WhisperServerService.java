@@ -210,6 +210,7 @@ import org.whispersystems.textsecuregcm.mappers.JsonMappingExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ObsoletePhoneNumberFormatExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.RegistrationLockFailureExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
@@ -1069,8 +1070,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getDeliveryCertificate().expiresDays(),
             config.getDeliveryCertificate().embedSigner());
 
+    final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
+        phoneNumberIdentifiers, registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker);
+
+    final ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager,
+        phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters,
+        changeNumberWaitingPeriodManager, Clock.systemUTC());
+
     final List<ServerServiceDefinition> authenticatedServices = Stream.of(
-            new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager, Clock.systemUTC()),
+            new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager, Clock.systemUTC(), changeNumberManager),
             new CallingGrpcService(cloudflareTurnCredentialsManager, rateLimiters),
             new CredentialsGrpcService(accountsManager, certificateGenerator, zkAuthOperations, callingGenericZkSecretParams, rateLimiters, Clock.systemUTC(), ExternalServiceDefinitions.createExternalServiceList(config, Clock.systemUTC())),
             new KeysGrpcService(accountsManager, keysManager, rateLimiters),
@@ -1217,13 +1225,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final PersistentTimer persistentTimer = new PersistentTimer(rateLimitersCluster, clock);
 
-    final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
-        phoneNumberIdentifiers, registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker);
-
-    final ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager,
-        phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters,
-        changeNumberWaitingPeriodManager, Clock.systemUTC());
-
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, registrationRecoveryPasswordsManager,
             usernameHashZkProofVerifier),
@@ -1340,7 +1341,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RegistrationServiceSenderExceptionMapper(),
         new SubscriptionExceptionMapper(),
         new BackupExceptionMapper(),
-        new JsonMappingExceptionMapper()
+        new JsonMappingExceptionMapper(),
+        new RegistrationLockFailureExceptionMapper()
     ).forEach(exceptionMapper -> {
       environment.jersey().register(exceptionMapper);
       webSocketEnvironment.jersey().register(exceptionMapper);

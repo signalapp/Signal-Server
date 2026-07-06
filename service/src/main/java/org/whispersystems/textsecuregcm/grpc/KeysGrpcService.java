@@ -11,9 +11,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import org.signal.chat.common.EcPreKey;
-import org.signal.chat.common.EcSignedPreKey;
-import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.keys.GetPreKeyCountRequest;
 import org.signal.chat.keys.GetPreKeyCountResponse;
@@ -26,16 +23,10 @@ import org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest;
 import org.signal.chat.keys.SetPreKeyResponse;
 import org.signal.chat.keys.SimpleKeysGrpc;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.InvalidKeyException;
-import org.signal.libsignal.protocol.ecc.ECPublicKey;
-import org.signal.libsignal.protocol.kem.KEMPublicKey;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitKeys;
-import org.whispersystems.textsecuregcm.entities.ECPreKey;
-import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
-import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -136,7 +127,7 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     storeOneTimePreKeys(authenticatedDevice.accountIdentifier(),
         request.getPreKeysList(),
         IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType()),
-        (requestPreKey, _) -> checkEcPreKey(requestPreKey),
+        (requestPreKey, _) -> KeysGrpcHelper.checkEcPreKey(requestPreKey, INVALID_PUBLIC_KEY_EXCEPTION),
         (identifier, preKeys) -> keysManager.storeEcOneTimePreKeys(identifier, authenticatedDevice.deviceId(), preKeys));
 
     return SetPreKeyResponse.getDefaultInstance();
@@ -149,7 +140,7 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     storeOneTimePreKeys(authenticatedDevice.accountIdentifier(),
         request.getPreKeysList(),
         IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType()),
-        KeysGrpcService::checkKemSignedPreKey,
+        (preKey, identityKey) -> KeysGrpcHelper.checkKemSignedPreKey(preKey, identityKey, INVALID_PUBLIC_KEY_EXCEPTION, INVALID_SIGNATURE_EXCEPTION),
         (identifier, preKeys) -> keysManager.storeKemOneTimePreKeys(identifier, authenticatedDevice.deviceId(), preKeys));
 
     return SetPreKeyResponse.getDefaultInstance();
@@ -177,7 +168,7 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     storeRepeatedUseKey(authenticatedDevice.accountIdentifier(),
         request.getIdentityType(),
         request.getSignedPreKey(),
-        KeysGrpcService::checkEcSignedPreKey,
+        (preKey, identityKey) -> KeysGrpcHelper.checkEcSignedPreKey(preKey, identityKey, INVALID_PUBLIC_KEY_EXCEPTION, INVALID_SIGNATURE_EXCEPTION),
         (account, signedPreKey) -> {
           final IdentityType identityType = IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType());
           final UUID identifier = account.getIdentifier(identityType);
@@ -195,7 +186,7 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     storeRepeatedUseKey(authenticatedDevice.accountIdentifier(),
         request.getIdentityType(),
         request.getSignedPreKey(),
-        KeysGrpcService::checkKemSignedPreKey,
+        (preKey, identityKey) -> KeysGrpcHelper.checkKemSignedPreKey(preKey, identityKey, INVALID_PUBLIC_KEY_EXCEPTION, INVALID_SIGNATURE_EXCEPTION),
         (account, lastResortKey) -> {
           final UUID identifier =
               account.getIdentifier(IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType()));
@@ -220,45 +211,6 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     storeKeyFunction.apply(account, key).join();
   }
 
-  private static ECPreKey checkEcPreKey(final EcPreKey preKey) {
-    try {
-      return new ECPreKey(preKey.getKeyId(), new ECPublicKey(preKey.getPublicKey().toByteArray()));
-    } catch (final InvalidKeyException e) {
-      throw INVALID_PUBLIC_KEY_EXCEPTION;
-    }
-  }
-
-  private static ECSignedPreKey checkEcSignedPreKey(final EcSignedPreKey preKey, final IdentityKey identityKey) {
-    try {
-      final ECSignedPreKey ecSignedPreKey = new ECSignedPreKey(preKey.getKeyId(),
-          new ECPublicKey(preKey.getPublicKey().toByteArray()),
-          preKey.getSignature().toByteArray());
-
-      if (ecSignedPreKey.signatureValid(identityKey)) {
-        return ecSignedPreKey;
-      } else {
-        throw INVALID_SIGNATURE_EXCEPTION;
-      }
-    } catch (final InvalidKeyException e) {
-      throw INVALID_PUBLIC_KEY_EXCEPTION;
-    }
-  }
-
-  private static KEMSignedPreKey checkKemSignedPreKey(final KemSignedPreKey preKey, final IdentityKey identityKey) {
-    try {
-      final KEMSignedPreKey kemSignedPreKey = new KEMSignedPreKey(preKey.getKeyId(),
-          new KEMPublicKey(preKey.getPublicKey().toByteArray()),
-          preKey.getSignature().toByteArray());
-
-      if (kemSignedPreKey.signatureValid(identityKey)) {
-        return kemSignedPreKey;
-      } else {
-        throw INVALID_SIGNATURE_EXCEPTION;
-      }
-    } catch (final InvalidKeyException e) {
-      throw INVALID_PUBLIC_KEY_EXCEPTION;
-    }
-  }
 
   private Account getAuthenticatedAccount(final UUID authenticatedAccountId) {
     return accountsManager.getByAccountIdentifier(authenticatedAccountId)

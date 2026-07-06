@@ -6,6 +6,7 @@ package org.signal.chat.account;
 
 import "org/signal/chat/common.proto";
 import "org/signal/chat/errors.proto";
+import "org/signal/chat/messages.proto";
 import "org/signal/chat/require.proto";
 import "org/signal/chat/tag.proto";
 
@@ -65,6 +66,12 @@ service Accounts {
 
   // Store a public key used to issue and verify zero-knowledge (anonymous) credentials for the account.
   rpc SetZkCredentialKey(SetZkCredentialKeyRequest) returns (SetZkCredentialKeyResponse) {}
+
+  // Changes the phone number associated with the authenticated account.
+  rpc ChangeNumber(ChangeNumberRequest) returns (ChangeNumberResponse) {}
+
+  // Produces a report of non-ephemeral account data stored by the service
+  rpc GetAccountDataReport(GetAccountDataReportRequest) returns (GetAccountDataReportResponse) {}
 }
 
 // Provides methods for looking up Signal accounts. Callers must not provide
@@ -315,4 +322,115 @@ message SetZkCredentialKeyResponse {
   // This value allows the server to ratchet the resulting binding identity,
   // as reverting to the previous key will result in a new rotation ID.
   uint64 rotation_id = 1;
+}
+
+message ChangeNumberRequest {
+  // A means of authenticating the change-number request for the new phone
+  // number. Exactly one must be provided.
+  oneof verification {
+    // A verified registration session ID (as returned by the registration
+    // service) for the new phone number.
+    bytes session_id = 1 [(require.nonEmpty) = true];
+
+    // A registration recovery password for the new phone number.
+    bytes recovery_password = 2 [(require.exactlySize) = 32];
+  }
+
+  // The new phone number for the authenticated account.
+  string number = 3 [(require.e164) = true];
+
+  // The registration lock secret for the new phone number, if the account
+  // associated with the new phone number has a registration lock configured.
+  bytes registration_lock = 4 [(require.exactlySize) = 0, (require.exactlySize) = 32];
+
+  // The new public identity key to use for the phone-number identity (PNI)
+  // associated with the new phone number.
+  bytes pni_identity_key = 5 [(require.nonEmpty) = true];
+
+  // Synchronization messages to send to companion devices to supply the private
+  // keys associated with the new identity key and their new pre-keys. Exactly
+  // one message must be supplied for each device other than the sending
+  // (primary) device. May be omitted if no companion devices are linked to the
+  // account.
+  messages.IndividualRecipientMessageBundle device_messages = 6;
+
+  // A new signed EC pre-key for each device on the account, including the
+  // sending device, keyed by device ID. Each must be accompanied by a valid
+  // signature from the identity key in this request.
+  map<uint32, common.EcSignedPreKey> device_pni_signed_pre_keys = 7;
+
+  // A new signed post-quantum last-resort pre-key for each device on the
+  // account, including the sending device, keyed by device ID. Each must be
+  // accompanied by a valid signature from the identity key in this request.
+  map<uint32, common.KemSignedPreKey> device_pni_pq_last_resort_pre_keys = 8;
+
+  // The new phone-number-identity registration ID for each device on the
+  // account, including the sending device, keyed by device ID.
+  map<uint32, uint32> pni_registration_ids = 9;
+}
+
+message ChangeNumberResponse {
+  oneof response {
+    // The identifiers of the account after the successful
+    // number change.
+    common.AccountIdentifiers account_identifiers = 1;
+
+    // Mismatched number of devices or device ids in 'devices to notify' list
+    messages.MismatchedDevices mismatched_devices = 2 [(tag.reason) = "mismatched_devices"];
+
+    // The account associated with the new phone number has a registration lock,
+    // and the provided registration lock secret was missing or incorrect.
+    RegistrationLockFailure registration_lock_failure = 3 [(tag.reason) = "registration_lock_failure"];
+
+    // Mismatched registration ids in 'devices to notify' list
+    StaleDevices stale_devices = 4 [(tag.reason) = "stale_devices"];
+
+    // One or more device messages was too large
+    errors.FailedPrecondition message_too_large = 5 [(tag.reason) = "message_too_large"];
+
+    // The registration session is unverified
+    errors.FailedPrecondition unverified_registration_session = 6 [(tag.reason) = "unverified_registration_session"];
+
+    // The number does not match the registration session, or the registration session is invalid
+    errors.FailedPrecondition invalid_registration_session = 7 [(tag.reason) = "invalid_registration_session"];
+
+    errors.FailedPrecondition recovery_password_verification_failed = 8 [(tag.reason) = "recovery_password_verification_failed"];
+  }
+}
+
+// Information about the current Registration lock and SVR credentials. With a correct PIN, the credentials can
+// be used to recover the secret used to derive the registration lock password.
+message RegistrationLockFailure {
+  // Time remaining in milliseconds before the existing registration lock expires
+  uint64 time_remaining_millis = 1;
+
+  // Credentials that can be used with SVR2
+  ExternalServiceCredentials svr2_credentials = 2;
+}
+
+// A username/password pair for authenticating with an external service.
+message ExternalServiceCredentials {
+  // A username that can be presented to authenticate with the external service.
+  string username = 1;
+
+  // A password that can be presented to authenticate with the external service.
+  string password = 2;
+}
+
+// A list of devices that are linked to the account but presented a stale
+// registration ID (indicating the device has likely been replaced by another
+// device).
+message StaleDevices {
+  // The IDs of devices that are no longer active.
+  repeated uint32 stale_devices = 1 [(require.each) = {range: {max: 0x7f}}];
+}
+
+message GetAccountDataReportRequest {
+}
+
+message GetAccountDataReportResponse {
+  // The JSON representation of the data report
+  string json = 3;
+  // A plaintext representation of the data report
+  string text = 4;
 }

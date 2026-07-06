@@ -14,11 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.grpc.Status;
-import jakarta.ws.rs.BadRequestException;
-import jakarta.ws.rs.ForbiddenException;
-import jakarta.ws.rs.NotAuthorizedException;
-import jakarta.ws.rs.ServerErrorException;
-import jakarta.ws.rs.container.ContainerRequestContext;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -79,8 +75,11 @@ class PhoneVerificationTokenManagerTest {
           .thenReturn(Optional.of(
               new RegistrationServiceSession(sessionId, PHONE_NUMBER, true, null, null, null, 0)));
 
-      assertDoesNotThrow(() -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
+      assertDoesNotThrow(() -> phoneVerificationTokenManager.verify(
           PHONE_NUMBER,
+          null,
+          null,
+          null,
           sessionId,
           null));
     }
@@ -92,8 +91,11 @@ class PhoneVerificationTokenManagerTest {
       when(registrationServiceClient.getSession(eq(sessionId), any()))
           .thenReturn(Optional.empty());
 
-      assertThrows(NotAuthorizedException.class, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
+      assertThrows(UnverifiedRegistrationSessionException.class, () -> phoneVerificationTokenManager.verify(
           PHONE_NUMBER,
+          null,
+          null,
+          null,
           sessionId,
           null));
     }
@@ -106,8 +108,11 @@ class PhoneVerificationTokenManagerTest {
           .thenReturn(Optional.of(
               new RegistrationServiceSession(sessionId, PHONE_NUMBER + "0", true, null, null, null, 0)));
 
-      assertThrows(BadRequestException.class, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
+      assertThrows(InvalidRegistrationSessionException.class, () -> phoneVerificationTokenManager.verify(
           PHONE_NUMBER,
+          null,
+          null,
+          null,
           sessionId,
           null));
     }
@@ -120,8 +125,11 @@ class PhoneVerificationTokenManagerTest {
           .thenReturn(Optional.of(
               new RegistrationServiceSession(sessionId, PHONE_NUMBER, false, null, null, null, 0)));
 
-      assertThrows(NotAuthorizedException.class, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
+      assertThrows(UnverifiedRegistrationSessionException.class, () -> phoneVerificationTokenManager.verify(
           PHONE_NUMBER,
+          null,
+          null,
+          null,
           sessionId,
           null));
     }
@@ -133,17 +141,20 @@ class PhoneVerificationTokenManagerTest {
 
       when(registrationServiceClient.getSession(any(), any())).thenThrow(registrationServiceClientException);
 
-      assertThrows(expectedExceptionClass, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
+      assertThrows(expectedExceptionClass, () -> phoneVerificationTokenManager.verify(
           PHONE_NUMBER,
+          null,
+          null,
+          null,
           TestRandomUtil.nextBytes(16),
           null));
     }
 
     private static List<Arguments> verifyRegistrationServiceClientException() {
       return List.of(
-          Arguments.arguments(Status.INVALID_ARGUMENT.asRuntimeException(), BadRequestException.class),
-          Arguments.arguments(Status.RESOURCE_EXHAUSTED.asRuntimeException(), ServerErrorException.class),
-          Arguments.arguments(Status.DEADLINE_EXCEEDED.asRuntimeException(), ServerErrorException.class)
+          Arguments.arguments(Status.INVALID_ARGUMENT.asRuntimeException(), InvalidRegistrationSessionException.class),
+          Arguments.arguments(Status.RESOURCE_EXHAUSTED.asRuntimeException(), IOException.class),
+          Arguments.arguments(Status.DEADLINE_EXCEEDED.asRuntimeException(), IOException.class)
       );
     }
   }
@@ -153,51 +164,57 @@ class PhoneVerificationTokenManagerTest {
 
     @Test
     void verify() {
-      final ContainerRequestContext containerRequestContext = mock(ContainerRequestContext.class);
       final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
 
-      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(containerRequestContext, PHONE_NUMBER))
+      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(PHONE_NUMBER, null, null, null))
           .thenReturn(true);
 
       when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
           .thenReturn(true);
 
-      assertDoesNotThrow(() -> phoneVerificationTokenManager.verify(containerRequestContext,
+      assertDoesNotThrow(() -> phoneVerificationTokenManager.verify(
           PHONE_NUMBER,
+          null,
+          null,
+          null,
           null,
           recoveryPassword));
     }
 
     @Test
     void verifyRecoveryCheckerDeclined() {
-      final ContainerRequestContext containerRequestContext = mock(ContainerRequestContext.class);
       final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
 
-      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(containerRequestContext, PHONE_NUMBER))
+      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(PHONE_NUMBER, null, null, null))
           .thenReturn(false);
 
       when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
           .thenReturn(true);
 
-      assertThrows(ForbiddenException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
+      assertThrows(RecoveryPasswordVerificationFailedException.class, () -> phoneVerificationTokenManager.verify(
           PHONE_NUMBER,
+          null,
+          null,
+          null,
           null,
           recoveryPassword));
     }
 
     @Test
     void verifyRecoveryPasswordNotVerified() {
-      final ContainerRequestContext containerRequestContext = mock(ContainerRequestContext.class);
       final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
 
-      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(containerRequestContext, PHONE_NUMBER))
+      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(PHONE_NUMBER, null, null, null))
           .thenReturn(true);
 
       when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
           .thenReturn(false);
 
-      assertThrows(ForbiddenException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
+      assertThrows(RecoveryPasswordVerificationFailedException.class, () -> phoneVerificationTokenManager.verify(
           PHONE_NUMBER,
+          null,
+          null,
+          null,
           null,
           recoveryPassword));
     }
@@ -206,17 +223,19 @@ class PhoneVerificationTokenManagerTest {
     @MethodSource
     void verifyPhoneNumberIdentifiersException(final Throwable phoneNumberIdentifiersException) {
 
-      final ContainerRequestContext containerRequestContext = mock(ContainerRequestContext.class);
       final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
 
-      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(containerRequestContext, PHONE_NUMBER))
+      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(PHONE_NUMBER, null, null, null))
           .thenReturn(true);
 
       when(phoneNumberIdentifiers.getPhoneNumberIdentifier(PHONE_NUMBER))
           .thenReturn(CompletableFuture.failedFuture(phoneNumberIdentifiersException));
 
-      assertThrows(ServerErrorException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
+      assertThrows(IOException.class, () -> phoneVerificationTokenManager.verify(
           PHONE_NUMBER,
+          null,
+          null,
+          null,
           null,
           recoveryPassword));
     }

@@ -1,6 +1,6 @@
 package org.whispersystems.textsecuregcm.spam;
 
-import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.annotation.Nullable;
 
 public interface RegistrationRecoveryChecker {
 
@@ -11,9 +11,9 @@ public interface RegistrationRecoveryChecker {
    * @param e164           The E164 formatted phone number of the requester
    * @return true if the registration recovery attempt is allowed, false otherwise.
    */
-  boolean checkRegistrationRecoveryAttempt(final ContainerRequestContext requestContext, final String e164);
+  boolean checkRegistrationRecoveryAttempt(String e164, @Nullable String userAgent, @Nullable String acceptLanguage, @Nullable String mostRecentProxy);
 
   static RegistrationRecoveryChecker noop() {
-    return (ignoredCtx, ignoredE164) ->  true;
+    return (_, _, _, _) -> true;
   }
 }

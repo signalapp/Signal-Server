@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 
 public record VerificationSessionResponse(
-    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "A URL-safe ID for the session")
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "A URL-safe base64-encoded ID for the session")
     String id,
 
     @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = "Duration in seconds after which next SMS can be requested for this session")

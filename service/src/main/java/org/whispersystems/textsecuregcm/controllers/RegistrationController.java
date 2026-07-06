@@ -19,16 +19,21 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -38,13 +43,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
+import org.whispersystems.textsecuregcm.auth.InvalidRegistrationSessionException;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
+import org.whispersystems.textsecuregcm.auth.RecoveryPasswordVerificationFailedException;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockFailureException;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
+import org.whispersystems.textsecuregcm.auth.UnverifiedRegistrationSessionException;
 import org.whispersystems.textsecuregcm.entities.AccountCreationResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
+import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
@@ -116,7 +126,8 @@ public class RegistrationController {
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String signalAgent,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @Valid final RegistrationRequest registrationRequest,
-      @Context final ContainerRequestContext requestContext) throws RateLimitExceededException, InterruptedException {
+      @Context final ContainerRequestContext requestContext)
+      throws RateLimitExceededException, InterruptedException, RegistrationLockFailureException {
 
     final String number = authorizationHeader.getUsername();
     final String password = authorizationHeader.getPassword();
@@ -134,11 +145,24 @@ public class RegistrationController {
 
     rateLimiters.getRegistrationLimiter().validate(number);
 
-    final PhoneVerificationRequest.VerificationType verificationType =
-        phoneVerificationTokenManager.verify(requestContext,
-            number,
-            StringUtils.isNotBlank(registrationRequest.sessionId()) ? registrationRequest.decodeSessionId() : null,
-            registrationRequest.recoveryPassword());
+    final PhoneVerificationRequest.VerificationType verificationType;
+    try {
+      verificationType = phoneVerificationTokenManager.verify(
+          number,
+          requestContext.getHeaderString(HttpHeaders.USER_AGENT),
+          requestContext.getHeaderString(HttpHeaders.ACCEPT_LANGUAGE),
+          (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME),
+          StringUtils.isNotBlank(registrationRequest.sessionId()) ? registrationRequest.decodeSessionId() : null,
+          registrationRequest.recoveryPassword());
+    } catch (final UnverifiedRegistrationSessionException e) {
+      throw new NotAuthorizedException("registration session is unverified");
+    } catch (final InvalidRegistrationSessionException e) {
+      throw new BadRequestException(e.getMessage());
+    } catch (final IOException e) {
+      throw new ServiceUnavailableException(e.getMessage());
+    } catch (final RecoveryPasswordVerificationFailedException e) {
+      throw new ForbiddenException("recovery password could not be verified");
+    }
 
     // There can be at most one existing account for a set of numbers in the same equivalence class, so it's sufficient
     // to find the first one.

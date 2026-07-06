@@ -20,8 +20,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.protobuf.ByteString;
-import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.container.ContainerRequestContext;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -41,6 +39,7 @@ import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockFailureException;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
@@ -50,6 +49,7 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
+import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
@@ -85,8 +85,8 @@ public class ChangeNumberManagerTest {
     changeNumberWaitingPeriodManager = mock(ChangeNumberWaitingPeriodManager.class);
     rateLimiter = mock(RateLimiter.class);
 
-    when(phoneVerificationTokenManager.verify(any(), any(), any(), any())).thenAnswer(invocation -> {
-      final byte[] sessionId = invocation.getArgument(2);
+    when(phoneVerificationTokenManager.verify(any(), any(), any(), any(), any(), any())).thenAnswer(invocation -> {
+      final byte[] sessionId = invocation.getArgument(4);
 
       return sessionId != null
           ? PhoneVerificationRequest.VerificationType.SESSION
@@ -164,7 +164,7 @@ public class ChangeNumberManagerTest {
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
 
-    changeNumberManager.changeNumber(accountIdentifier, null, null, null, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), mock(ContainerRequestContext.class));
+    changeNumberManager.changeNumber(accountIdentifier, null, null, null, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), null, null, null);
     verify(accountsManager).changeNumber(accountIdentifier, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyMap());
     verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
   }
@@ -233,7 +233,7 @@ public class ChangeNumberManagerTest {
         kemLastResortPreKeys,
         List.of(incomingMessage),
         registrationIds,
-        mock(ContainerRequestContext.class));
+        null, null, null);
 
     verify(accountsManager).changeNumber(aci,
         targetNumber,
@@ -288,7 +288,7 @@ public class ChangeNumberManagerTest {
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
 
-    changeNumberManager.changeNumber(accountIdentifier, null, null, null, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), mock(ContainerRequestContext.class));
+    changeNumberManager.changeNumber(accountIdentifier, null, null, null, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), null, null, null);
 
     verifyNoInteractions(rateLimiter);
     verifyNoInteractions(phoneVerificationTokenManager);
@@ -340,7 +340,7 @@ public class ChangeNumberManagerTest {
         kemLastResortPreKeys,
         Collections.emptyList(),
         Collections.emptyMap(),
-        mock(ContainerRequestContext.class)));
+        null, null, null));
 
     verify(accountsManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
     verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
@@ -348,7 +348,7 @@ public class ChangeNumberManagerTest {
 
   @Test
   void changeNumberRegistrationLockFailed()
-      throws MismatchedDevicesException, InterruptedException, MessageTooLargeException, RateLimitExceededException, MessageDeliveryNotAllowedException {
+      throws Exception {
     final String originalNumber = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164);
 
@@ -378,10 +378,10 @@ public class ChangeNumberManagerTest {
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.of(existingAccount)));
 
-    doThrow(new WebApplicationException(423))
+    doThrow(new RegistrationLockFailureException(new RegistrationLockFailure(0L, null)))
         .when(registrationLockVerificationManager).verifyRegistrationLock(eq(existingAccount), any(), any(), any(), any());
 
-    assertThrows(WebApplicationException.class, () -> changeNumberManager.changeNumber(accountIdentifier,
+    assertThrows(RegistrationLockFailureException.class, () -> changeNumberManager.changeNumber(accountIdentifier,
         null,
         null,
         null,
@@ -391,7 +391,7 @@ public class ChangeNumberManagerTest {
         kemLastResortPreKeys,
         Collections.emptyList(),
         Collections.emptyMap(),
-        mock(ContainerRequestContext.class)));
+        null, null, null));
 
     verify(accountsManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
     verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
@@ -445,7 +445,7 @@ public class ChangeNumberManagerTest {
         kemLastResortPreKeys,
         Collections.emptyList(),
         Collections.emptyMap(),
-        mock(ContainerRequestContext.class));
+        null, null, null);
     if (expectRateLimited) {
       final RateLimitExceededException e = assertThrows(RateLimitExceededException.class, changeNumberOperation);
       assertEquals(waitingPeriod, e.getRetryDuration().orElseThrow());

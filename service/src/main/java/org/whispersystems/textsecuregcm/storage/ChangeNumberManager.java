@@ -6,11 +6,10 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.google.common.net.HttpHeaders;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
-import jakarta.ws.rs.container.ContainerRequestContext;
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
@@ -22,8 +21,12 @@ import javax.annotation.Nullable;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.InvalidRegistrationSessionException;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
+import org.whispersystems.textsecuregcm.auth.RecoveryPasswordVerificationFailedException;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockFailureException;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
+import org.whispersystems.textsecuregcm.auth.UnverifiedRegistrationSessionException;
 import org.whispersystems.textsecuregcm.controllers.AccountControllerV2;
 import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
@@ -88,10 +91,10 @@ public class ChangeNumberManager {
       final Map<Byte, KEMSignedPreKey> devicePqLastResortPreKeys,
       final List<IncomingMessage> deviceMessages,
       final Map<Byte, Integer> pniRegistrationIds,
-      final ContainerRequestContext containerRequestContext)
-      throws InterruptedException, MismatchedDevicesException, MessageTooLargeException, RateLimitExceededException, MessageDeliveryNotAllowedException {
-
-    final String senderUserAgent = containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT);
+      @Nullable final String userAgent,
+      @Nullable final String acceptLanguage,
+      @Nullable final String mostRecentProxy)
+      throws InterruptedException, MismatchedDevicesException, MessageTooLargeException, RateLimitExceededException, MessageDeliveryNotAllowedException, RegistrationLockFailureException, UnverifiedRegistrationSessionException, InvalidRegistrationSessionException, IOException, RecoveryPasswordVerificationFailedException {
 
     final Pair<Account, Optional<Account>> accountAndMaybeExistingAccount =
         accountsManager.getAccountsForChangeNumber(accountIdentifier, number);
@@ -110,16 +113,16 @@ public class ChangeNumberManager {
       rateLimiters.getRegistrationLimiter().validate(number);
 
       final PhoneVerificationRequest.VerificationType verificationType =
-          phoneVerificationTokenManager.verify(containerRequestContext, number, sessionId, recoveryPassword);
+          phoneVerificationTokenManager.verify(number, userAgent, acceptLanguage, mostRecentProxy, sessionId, recoveryPassword);
 
       final Optional<Account> existingAccount = accountAndMaybeExistingAccount.second();
 
       if (existingAccount.isPresent()) {
         registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), registrationLock,
-            senderUserAgent, RegistrationLockVerificationManager.Flow.CHANGE_NUMBER, verificationType);
+            userAgent, RegistrationLockVerificationManager.Flow.CHANGE_NUMBER, verificationType);
       }
 
-      Metrics.counter(CHANGE_NUMBER_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(senderUserAgent),
+      Metrics.counter(CHANGE_NUMBER_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
               Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name())))
           .increment();
     }
@@ -152,7 +155,7 @@ public class ChangeNumberManager {
           messagesByDeviceId,
           registrationIdsByDeviceId,
           Optional.of(Device.PRIMARY_ID),
-          senderUserAgent);
+          userAgent);
     }
 
     final Account updatedAccount = accountsManager.changeNumber(
@@ -170,7 +173,7 @@ public class ChangeNumberManager {
             messagesByDeviceId,
             registrationIdsByDeviceId,
             Optional.of(Device.PRIMARY_ID),
-            senderUserAgent);
+            userAgent);
       } catch (final RuntimeException e) {
         logger.warn("Changed number but could not send all device messages for {}",
             account.getIdentifier(IdentityType.ACI), e);

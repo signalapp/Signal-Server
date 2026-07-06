@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,7 +18,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import jakarta.ws.rs.WebApplicationException;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -101,9 +99,8 @@ class RegistrationLockVerificationManagerTest {
     final Pair<Class<? extends Exception>, Consumer<Exception>> exceptionType = switch (error) {
       case MISMATCH -> {
         when(existingRegistrationLock.verify(clientRegistrationLock)).thenReturn(false);
-        yield new Pair<>(WebApplicationException.class, e -> {
-          if (e instanceof WebApplicationException wae) {
-            assertEquals(RegistrationLockVerificationManager.FAILURE_HTTP_STATUS, wae.getResponse().getStatus());
+        yield new Pair<>(RegistrationLockFailureException.class, e -> {
+          if (e instanceof RegistrationLockFailureException) {
             if (!verificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
               verify(registrationRecoveryPasswordsManager).remove(account.getIdentifier(IdentityType.PNI));
             } else {

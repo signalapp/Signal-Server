@@ -21,22 +21,27 @@ import static org.mockito.Mockito.when;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.signal.chat.account.AccountsGrpc;
+import org.signal.chat.account.ChangeNumberRequest;
+import org.signal.chat.account.ChangeNumberResponse;
 import org.signal.chat.account.ClearRegistrationLockRequest;
 import org.signal.chat.account.ClearRegistrationLockResponse;
 import org.signal.chat.account.ConfigureUnidentifiedAccessRequest;
@@ -46,10 +51,14 @@ import org.signal.chat.account.DeleteAccountRequest;
 import org.signal.chat.account.DeleteAccountResponse;
 import org.signal.chat.account.DeleteUsernameHashRequest;
 import org.signal.chat.account.DeleteUsernameLinkRequest;
+import org.signal.chat.account.ExternalServiceCredentials;
+import org.signal.chat.account.GetAccountDataReportRequest;
+import org.signal.chat.account.GetAccountDataReportResponse;
 import org.signal.chat.account.GetAccountIdentityRequest;
 import org.signal.chat.account.GetAccountIdentityResponse;
 import org.signal.chat.account.GetEntitlementsRequest;
 import org.signal.chat.account.GetEntitlementsResponse;
+import org.signal.chat.account.RegistrationLockFailure;
 import org.signal.chat.account.ReserveUsernameHashRequest;
 import org.signal.chat.account.ReserveUsernameHashResponse;
 import org.signal.chat.account.SetDiscoverableByPhoneNumberRequest;
@@ -60,31 +69,50 @@ import org.signal.chat.account.SetUsernameLinkRequest;
 import org.signal.chat.account.SetUsernameLinkResponse;
 import org.signal.chat.account.SetZkCredentialKeyRequest;
 import org.signal.chat.account.SetZkCredentialKeyResponse;
+import org.signal.chat.account.StaleDevices;
 import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
+import org.signal.chat.common.EcSignedPreKey;
+import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.errors.FailedPrecondition;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.signal.libsignal.zkgroup.ZkCredentialKeyPair;
 import org.signal.libsignal.zkgroup.ZkCredentialPublicKey;
+import org.whispersystems.textsecuregcm.auth.InvalidRegistrationSessionException;
+import org.whispersystems.textsecuregcm.auth.RecoveryPasswordVerificationFailedException;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockFailureException;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
+import org.whispersystems.textsecuregcm.auth.UnverifiedRegistrationSessionException;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
+import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.EncryptedUsername;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.tests.util.AccountsTestHelper;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
@@ -105,6 +133,9 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   private final TestClock testClock = TestClock.pinned(Instant.now());
 
+  @Mock
+  private ChangeNumberManager changeNumberManager;
+
   @Override
   protected AccountsGrpcService createServiceBeforeEachTest() {
     AccountsHelper.setupMockUpdate(accountsManager);
@@ -120,7 +151,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         rateLimiters,
         usernameHashZkProofVerifier,
         registrationRecoveryPasswordsManager,
-        testClock);
+        testClock,
+        changeNumberManager);
   }
 
   @Test
@@ -154,6 +186,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     assertEquals(expectedResponse, authenticatedServiceStub().getAccountIdentity(GetAccountIdentityRequest.newBuilder().build()));
   }
+
 
   @Test
   void deleteAccount() {
@@ -810,5 +843,200 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         .setBadgeId(badge.id())
         .setVisible(badge.visible())
         .build();
+  }
+
+  @Test
+  void changeNumber() throws Exception {
+    final String newNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+
+    final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(1, pniIdentityKeyPair);
+    final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair);
+
+    final byte[] sessionId = TestRandomUtil.nextBytes(16);
+    final UUID updatedPni = UUID.randomUUID();
+
+    final Account updatedAccount = mock(Account.class);
+    when(updatedAccount.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(updatedAccount.getNumber()).thenReturn(newNumber);
+    when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(updatedPni);
+    when(updatedAccount.getUsernameHash()).thenReturn(Optional.empty());
+
+    when(changeNumberManager.changeNumber(eq(AUTHENTICATED_ACI), any(), any(), any(), eq(newNumber),
+        any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(updatedAccount);
+
+    final ChangeNumberResponse response = authenticatedServiceStub().changeNumber(ChangeNumberRequest.newBuilder()
+        .setSessionId(ByteString.copyFrom(sessionId))
+        .setNumber(newNumber)
+        .setRegistrationLock(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
+        .setPniIdentityKey(ByteString.copyFrom(pniIdentityKey.serialize()))
+        .putDevicePniSignedPreKeys(Device.PRIMARY_ID, EcSignedPreKey.newBuilder()
+            .setKeyId(KeyIdUtil.toUnsignedInt(ecSignedPreKey.keyId()))
+            .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
+            .setSignature(ByteString.copyFrom(ecSignedPreKey.signature()))
+            .build())
+        .putDevicePniPqLastResortPreKeys(Device.PRIMARY_ID, KemSignedPreKey.newBuilder()
+            .setKeyId(KeyIdUtil.toUnsignedInt(kemSignedPreKey.keyId()))
+            .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
+            .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))
+            .build())
+        .putPniRegistrationIds(Device.PRIMARY_ID, 17)
+        .build());
+
+    final ChangeNumberResponse expectedResponse = ChangeNumberResponse.newBuilder()
+        .setAccountIdentifiers(AccountIdentifiers.newBuilder()
+            .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(AUTHENTICATED_ACI)))
+            .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new PniServiceIdentifier(updatedPni)))
+            .setE164(newNumber))
+        .build();
+
+    assertEquals(expectedResponse, response);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void changeNumberErrorResponse(final Exception exceptionToThrow, final ChangeNumberResponse expectedResponse)
+      throws Exception {
+
+    when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(exceptionToThrow);
+
+    assertEquals(expectedResponse, authenticatedServiceStub().changeNumber(createChangeNumberRequest()));
+  }
+
+  private static List<Arguments> changeNumberErrorResponse() {
+    return List.of(
+        Arguments.argumentSet("Invalid registration session",
+            new InvalidRegistrationSessionException("invalid registration session"),
+            ChangeNumberResponse.newBuilder()
+                .setInvalidRegistrationSession(FailedPrecondition.newBuilder().setDescription("invalid registration session"))
+                .build()),
+        Arguments.argumentSet("Unverified registration session",
+            new UnverifiedRegistrationSessionException(),
+            ChangeNumberResponse.newBuilder()
+                .setUnverifiedRegistrationSession(FailedPrecondition.getDefaultInstance())
+                .build()),
+        Arguments.argumentSet("Recovery password verification failed",
+            new RecoveryPasswordVerificationFailedException(),
+            ChangeNumberResponse.newBuilder()
+                .setRecoveryPasswordVerificationFailed(FailedPrecondition.getDefaultInstance())
+                .build()),
+        Arguments.argumentSet("Message too large",
+            new MessageTooLargeException(),
+            ChangeNumberResponse.newBuilder()
+                .setMessageTooLarge(FailedPrecondition.newBuilder().setDescription("one or more device messages was too large"))
+                .build()));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void changeNumberUnavailable(final Exception exceptionToThrow) throws Exception {
+    when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(exceptionToThrow);
+
+    //noinspection ResultOfMethodCallIgnored
+    GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
+        () -> authenticatedServiceStub().changeNumber(createChangeNumberRequest()));
+  }
+
+  private static List<Arguments> changeNumberUnavailable() {
+    return List.of(
+        Arguments.argumentSet("Message delivery not allowed", new MessageDeliveryNotAllowedException()),
+        Arguments.argumentSet("Registration service unavailable", new IOException("unavailable")));
+  }
+
+  @Test
+  void changeNumberRegistrationLockFailure() throws Exception {
+    final long timeRemaining = Duration.ofDays(7).toMillis();
+
+    when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(new RegistrationLockFailureException(new org.whispersystems.textsecuregcm.entities.RegistrationLockFailure(
+            timeRemaining,
+            new org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials("test-username", "test-password"))));
+
+    final ChangeNumberResponse expectedResponse = ChangeNumberResponse.newBuilder()
+        .setRegistrationLockFailure(RegistrationLockFailure.newBuilder()
+            .setTimeRemainingMillis(timeRemaining)
+            .setSvr2Credentials(ExternalServiceCredentials.newBuilder()
+                .setUsername("test-username")
+                .setPassword("test-password")))
+        .build();
+
+    assertEquals(expectedResponse, authenticatedServiceStub().changeNumber(createChangeNumberRequest()));
+  }
+
+  @Test
+  void changeNumberStaleDevices() throws Exception {
+    final byte staleDeviceId = (byte) (Device.PRIMARY_ID + 1);
+
+    when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(new MismatchedDevicesException(new MismatchedDevices(Set.of(), Set.of(), Set.of(staleDeviceId))));
+
+    final ChangeNumberResponse expectedResponse = ChangeNumberResponse.newBuilder()
+        .setStaleDevices(StaleDevices.newBuilder().addStaleDevices(staleDeviceId))
+        .build();
+
+    assertEquals(expectedResponse, authenticatedServiceStub().changeNumber(createChangeNumberRequest()));
+  }
+
+  @Test
+  void changeNumberMismatchedDevices() throws Exception {
+    final byte missingDeviceId = (byte) (Device.PRIMARY_ID + 1);
+    final byte extraDeviceId = (byte) (Device.PRIMARY_ID + 2);
+
+    when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(new MismatchedDevicesException(new MismatchedDevices(Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of())));
+
+    final ChangeNumberResponse expectedResponse = ChangeNumberResponse.newBuilder()
+        .setMismatchedDevices(org.signal.chat.messages.MismatchedDevices.newBuilder()
+            .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(AUTHENTICATED_ACI)))
+            .addMissingDevices(missingDeviceId)
+            .addExtraDevices(extraDeviceId))
+        .build();
+
+    assertEquals(expectedResponse, authenticatedServiceStub().changeNumber(createChangeNumberRequest()));
+  }
+
+  private static ChangeNumberRequest createChangeNumberRequest() {
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
+
+    final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(1, pniIdentityKeyPair);
+    final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair);
+
+    return ChangeNumberRequest.newBuilder()
+        .setSessionId(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))
+        .setNumber(PhoneNumberUtil.getInstance().format(
+            PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164))
+        .setPniIdentityKey(ByteString.copyFrom(pniIdentityKey.serialize()))
+        .putDevicePniSignedPreKeys(Device.PRIMARY_ID, EcSignedPreKey.newBuilder()
+            .setKeyId(KeyIdUtil.toUnsignedInt(ecSignedPreKey.keyId()))
+            .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
+            .setSignature(ByteString.copyFrom(ecSignedPreKey.signature()))
+            .build())
+        .putDevicePniPqLastResortPreKeys(Device.PRIMARY_ID, KemSignedPreKey.newBuilder()
+            .setKeyId(KeyIdUtil.toUnsignedInt(kemSignedPreKey.keyId()))
+            .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
+            .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))
+            .build())
+        .putPniRegistrationIds(Device.PRIMARY_ID, 17)
+        .build();
+  }
+
+  @ParameterizedTest
+  @ArgumentsSource(AccountsTestHelper.AccountsDataReportArgumentProvider.class)
+  void getAccountDataReport(final Account account, final String expectedTextAfterHeader) {
+    getMockAuthenticationInterceptor().setAuthenticatedDevice(account.getUuid(), Device.PRIMARY_ID);
+    when(accountsManager.getByAccountIdentifier(account.getUuid())).thenReturn(Optional.of(account));
+
+    final GetAccountDataReportResponse response =
+        authenticatedServiceStub().getAccountDataReport(GetAccountDataReportRequest.newBuilder().build());
+
+    final String actualText = response.getText();
+    AccountsTestHelper.verifyAccountDataReportText(actualText, expectedTextAfterHeader);
   }
 }

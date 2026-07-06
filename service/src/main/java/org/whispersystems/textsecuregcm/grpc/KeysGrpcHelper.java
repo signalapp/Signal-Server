@@ -11,11 +11,19 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import io.grpc.StatusRuntimeException;
 import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.keys.AccountPreKeyBundles;
 import org.signal.chat.keys.DevicePreKeyBundle;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.InvalidKeyException;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.signal.libsignal.protocol.kem.KEMPublicKey;
+import org.whispersystems.textsecuregcm.entities.ECPreKey;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -88,5 +96,47 @@ class KeysGrpcHelper {
     });
 
     return Optional.of(preKeyBundlesBuilder.build());
+  }
+
+  public static ECPreKey checkEcPreKey(final EcPreKey preKey, final StatusRuntimeException invalidPublicKeyException) {
+    try {
+      return new ECPreKey(preKey.getKeyId(), new ECPublicKey(preKey.getPublicKey().toByteArray()));
+    } catch (final InvalidKeyException e) {
+      throw invalidPublicKeyException;
+    }
+  }
+
+  public static ECSignedPreKey checkEcSignedPreKey(final EcSignedPreKey preKey, final IdentityKey identityKey,
+      final StatusRuntimeException invalidPublicKeyException, final StatusRuntimeException invalidSignatureException) {
+    try {
+      final ECSignedPreKey ecSignedPreKey = new ECSignedPreKey(preKey.getKeyId(),
+          new ECPublicKey(preKey.getPublicKey().toByteArray()),
+          preKey.getSignature().toByteArray());
+
+      if (ecSignedPreKey.signatureValid(identityKey)) {
+        return ecSignedPreKey;
+      } else {
+        throw invalidSignatureException;
+      }
+    } catch (final InvalidKeyException e) {
+      throw invalidPublicKeyException;
+    }
+  }
+
+  public static KEMSignedPreKey checkKemSignedPreKey(final KemSignedPreKey preKey, final IdentityKey identityKey,
+      final StatusRuntimeException invalidPublicKeyException, final StatusRuntimeException invalidSignatureException) {
+    try {
+      final KEMSignedPreKey kemSignedPreKey = new KEMSignedPreKey(preKey.getKeyId(),
+          new KEMPublicKey(preKey.getPublicKey().toByteArray()),
+          preKey.getSignature().toByteArray());
+
+      if (kemSignedPreKey.signatureValid(identityKey)) {
+        return kemSignedPreKey;
+      } else {
+        throw invalidSignatureException;
+      }
+    } catch (final InvalidKeyException e) {
+      throw invalidPublicKeyException;
+    }
   }
 }

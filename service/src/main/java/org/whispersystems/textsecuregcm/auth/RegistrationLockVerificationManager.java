@@ -12,8 +12,6 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
-import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.Response;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -80,13 +78,13 @@ public class RegistrationLockVerificationManager {
    * @param account
    * @param clientRegistrationLock
    * @throws RateLimitExceededException
-   * @throws WebApplicationException
+   * @throws RegistrationLockFailureException
    */
   public void verifyRegistrationLock(final Account account, @Nullable final String clientRegistrationLock,
-      final String userAgent,
+      @Nullable final String userAgent,
       final Flow flow,
       final PhoneVerificationRequest.VerificationType phoneVerificationType
-  ) throws RateLimitExceededException, WebApplicationException {
+  ) throws RateLimitExceededException, RegistrationLockFailureException {
 
     final Tags expiredTags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
         Tag.of(REGISTRATION_LOCK_VERIFICATION_FLOW_TAG_NAME, flow.name()),
@@ -165,11 +163,10 @@ public class RegistrationLockVerificationManager {
         Metrics.counter(CHALLENGED_DEVICE_NOT_PUSH_REGISTERED_COUNTER_NAME).increment();
       }
 
-      throw new WebApplicationException(Response.status(FAILURE_HTTP_STATUS)
-          .entity(new RegistrationLockFailure(
+      throw new RegistrationLockFailureException(
+          new RegistrationLockFailure(
               existingRegistrationLock.getTimeRemaining().toMillis(),
-              svr2FailureCredentials(existingRegistrationLock, updatedAccount)))
-          .build());
+              svr2FailureCredentials(existingRegistrationLock, updatedAccount)));
     }
 
     rateLimiters.getPinLimiter().clear(phoneNumber);

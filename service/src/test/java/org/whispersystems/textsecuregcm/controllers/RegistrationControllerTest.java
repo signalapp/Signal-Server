@@ -20,15 +20,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
-import jakarta.ws.rs.BadRequestException;
-import jakarta.ws.rs.ForbiddenException;
-import jakarta.ws.rs.NotAuthorizedException;
-import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.Invocation;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
+import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -60,9 +57,12 @@ import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.auth.InvalidRegistrationSessionException;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
+import org.whispersystems.textsecuregcm.auth.RecoveryPasswordVerificationFailedException;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
+import org.whispersystems.textsecuregcm.auth.UnverifiedRegistrationSessionException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountCreationResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
@@ -120,7 +120,7 @@ class RegistrationControllerTest {
       .build();
 
   @BeforeEach
-  void setUp() throws InterruptedException {
+  void setUp() throws Exception {
     when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
 
     when(accountsManager.update(any(UUID.class), any())).thenAnswer(invocation -> {
@@ -135,8 +135,8 @@ class RegistrationControllerTest {
     reset(registrationFraudChecker);
     reset(phoneVerificationTokenManager);
 
-    when(phoneVerificationTokenManager.verify(any(), any(), any(), any())).thenAnswer(invocation -> {
-      final byte[] sessionId = invocation.getArgument(2);
+    when(phoneVerificationTokenManager.verify(any(), any(), any(), any(), any(), any())).thenAnswer(invocation -> {
+      final byte[] sessionId = invocation.getArgument(4);
 
       return sessionId != null
           ? PhoneVerificationRequest.VerificationType.SESSION
@@ -235,9 +235,9 @@ class RegistrationControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void phoneVerificationException(final Exception exception, final int expectedStatus) throws InterruptedException {
+  void phoneVerificationException(final Exception exception, final int expectedStatus) throws Exception {
     doThrow(exception)
-        .when(phoneVerificationTokenManager).verify(any(), any(), any(), any());
+        .when(phoneVerificationTokenManager).verify(any(), any(), any(), any(), any(), any());
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
@@ -251,10 +251,10 @@ class RegistrationControllerTest {
 
   private static List<Arguments> phoneVerificationException() {
     return List.of(
-        Arguments.argumentSet("Bad request", new BadRequestException(), HttpStatus.SC_BAD_REQUEST),
-        Arguments.argumentSet("Not authorized", new NotAuthorizedException("test"), HttpStatus.SC_UNAUTHORIZED),
-        Arguments.argumentSet("Forbidden", new ForbiddenException(), HttpStatus.SC_FORBIDDEN),
-        Arguments.argumentSet("Unexpected exception", new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE), HttpStatus.SC_SERVICE_UNAVAILABLE)
+        Arguments.argumentSet("Bad request", new InvalidRegistrationSessionException("invalid registration session"), HttpStatus.SC_BAD_REQUEST),
+        Arguments.argumentSet("Not authorized", new UnverifiedRegistrationSessionException(), HttpStatus.SC_UNAUTHORIZED),
+        Arguments.argumentSet("Forbidden", new RecoveryPasswordVerificationFailedException(), HttpStatus.SC_FORBIDDEN),
+        Arguments.argumentSet("Unexpected exception", new IOException("unavailable"), HttpStatus.SC_SERVICE_UNAVAILABLE)
     );
   }
 

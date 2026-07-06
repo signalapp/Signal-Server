@@ -28,7 +28,7 @@ public record AccountDataReportResponse(UUID reportId,
 
   @JsonProperty
   @Schema(description = "A plaintext representation of the data report")
-  String text() {
+  public String text() {
 
     final StringBuilder builder = new StringBuilder();
 
