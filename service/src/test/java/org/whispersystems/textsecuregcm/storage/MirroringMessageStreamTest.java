@@ -22,12 +22,12 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 
-class DeletionMirroringMessageStreamTest {
+class MirroringMessageStreamTest {
 
   private FoundationDbMessageStore foundationDbMessageStore;
   private ExperimentEnrollmentManager experimentEnrollmentManager;
 
-  private DeletionMirroringMessageStream deletionMirroringMessageStream;
+  private MirroringMessageStream mirroringMessageStream;
 
   private static final AciServiceIdentifier ACCOUNT_IDENTIFIER = new AciServiceIdentifier(UUID.randomUUID());
   private static final byte DEVICE_ID = Device.PRIMARY_ID;
@@ -37,7 +37,7 @@ class DeletionMirroringMessageStreamTest {
     foundationDbMessageStore = mock(FoundationDbMessageStore.class);
     experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
-    deletionMirroringMessageStream = new DeletionMirroringMessageStream(
+    mirroringMessageStream = new MirroringMessageStream(
         mock(RedisDynamoDbMessageStream.class),
         foundationDbMessageStore,
         experimentEnrollmentManager,
@@ -51,7 +51,7 @@ class DeletionMirroringMessageStreamTest {
     when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(MessagesManager.MIRROR_DELETIONS_EXPERIMENT_NAME)))
         .thenReturn(enrolled);
 
-    deletionMirroringMessageStream.acknowledgeMessage(messageGuid, System.currentTimeMillis());
+    mirroringMessageStream.acknowledgeMessage(messageGuid, System.currentTimeMillis());
 
     verify(foundationDbMessageStore, times(expectFoundationDbDeletion ? 1 : 0))
         .delete(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid);

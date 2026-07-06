@@ -13,9 +13,11 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
+import reactor.adapter.JdkFlowAdapter;
+import reactor.core.Disposable;
 
 /// A temporary message stream that can mirror message acknowledgements (deletion requests) to FoundationDB
-public class DeletionMirroringMessageStream implements MessageStream {
+public class MirroringMessageStream implements MessageStream {
 
   private final RedisDynamoDbMessageStream redisDynamoDbMessageStream;
   private final FoundationDbMessageStore foundationDbMessageStore;
@@ -24,9 +26,9 @@ public class DeletionMirroringMessageStream implements MessageStream {
   private final AciServiceIdentifier accountIdentifier;
   private final byte deviceId;
 
-  private static final Logger logger = LoggerFactory.getLogger(DeletionMirroringMessageStream.class);
+  private static final Logger logger = LoggerFactory.getLogger(MirroringMessageStream.class);
 
-  public DeletionMirroringMessageStream(final RedisDynamoDbMessageStream redisDynamoDbMessageStream,
+  public MirroringMessageStream(final RedisDynamoDbMessageStream redisDynamoDbMessageStream,
       final FoundationDbMessageStore foundationDbMessageStore,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
       final UUID accountIdentifier,
@@ -42,6 +44,22 @@ public class DeletionMirroringMessageStream implements MessageStream {
 
   @Override
   public Flow.Publisher<MessageStreamEntry> getMessages() {
+    if (experimentEnrollmentManager.isEnrolled(accountIdentifier.uuid(), MessagesManager.MIRROR_READS_EXPERIMENT_NAME)) {
+      final Disposable foundationDbDisposable =
+          foundationDbMessageStore.getMessages(accountIdentifier, deviceId).getFiniteMessageStream()
+              .limitRate(100)
+              .subscribe();
+
+      return JdkFlowAdapter.publisherToFlowPublisher(
+          JdkFlowAdapter.flowPublisherToFlux(redisDynamoDbMessageStream.getMessages())
+              .doFinally(_ -> {
+                try {
+                  foundationDbDisposable.dispose();
+                } catch (final Exception _) {
+                }
+              }));
+    }
+
     return redisDynamoDbMessageStream.getMessages();
   }
 

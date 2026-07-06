@@ -67,6 +67,9 @@ public class MessagesManager {
   @VisibleForTesting
   static final String MIRROR_DELETIONS_EXPERIMENT_NAME = "foundationDbMirrorDeletions";
 
+  @VisibleForTesting
+  static final String MIRROR_READS_EXPERIMENT_NAME = "foundationDbMirrorReads";
+
   private static final long FOUNDATIONDB_INSERT_TIMEOUT_MILLIS = Duration.ofSeconds(2).toMillis();
 
   private final MessagesDynamoDb messagesDynamoDb;
@@ -283,7 +286,7 @@ public class MessagesManager {
         new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
             destinationUuid, destinationDevice);
 
-    return new DeletionMirroringMessageStream(
+    return new MirroringMessageStream(
         redisDynamoDbMessageStream,
         foundationDbMessageStore,
         experimentEnrollmentManager,
