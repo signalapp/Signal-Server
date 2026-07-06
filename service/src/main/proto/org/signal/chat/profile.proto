@@ -193,8 +193,14 @@ message GetVersionedProfileRequest {
 message GetVersionedProfileAnonymousRequest {
   // Contains the data necessary to request a versioned profile.
   GetVersionedProfileRequest request = 1 [(require.present) = true];
-  // The unidentified access key for the targeted account.
-  bytes unidentified_access_key = 2 [(require.exactlySize) = 16];
+
+  oneof authentication {
+    // The unidentified access key for the targeted account.
+    bytes unidentified_access_key = 2 [(require.exactlySize) = 16];
+
+    // A group send endorsement token for the targeted account.
+    bytes group_send_token = 3 [(require.nonEmpty) = true];
+  }
 }
 
 message DataEtag {

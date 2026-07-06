@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.EnumSource.Mode.EXCLUDE;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -49,8 +50,10 @@ import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
@@ -399,7 +402,9 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   @MethodSource
   void getVersionedProfile(final byte[] requestVersion,
       @Nullable final byte[] accountVersion,
-      final boolean expectResponseHasPaymentAddress) {
+      final boolean expectResponseHasPaymentAddress,
+      final GetVersionedProfileAnonymousRequest.AuthenticationCase authenticationCase) throws Exception {
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     final byte[] name = TestRandomUtil.nextBytes(81);
@@ -418,18 +423,23 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
     when(profilesManager.getV1(any(), any())).thenReturn(profile);
 
-    final GetVersionedProfileAnonymousRequest request = GetVersionedProfileAnonymousRequest.newBuilder()
-        .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
+    final GetVersionedProfileAnonymousRequest.Builder requestBuilder = GetVersionedProfileAnonymousRequest.newBuilder()
         .setRequest(GetVersionedProfileRequest.newBuilder()
-            .setAccountIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
-                .build())
+            .setAccountIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
             .setVersion(ByteString.copyFrom(requestVersion))
-            .build())
-        .build();
+            .build());
 
-    final GetVersionedProfileAnonymousResponse response = unauthenticatedServiceStub().getVersionedProfile(request);
+    switch (authenticationCase) {
+      case GROUP_SEND_TOKEN -> {
+        final Instant expiration = Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.DAYS);
+        final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(serviceIdentifier), expiration);
+        requestBuilder.setGroupSendToken(ByteString.copyFrom(token));
+      }
+      case UNIDENTIFIED_ACCESS_KEY -> requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
+    }
+
+    final GetVersionedProfileAnonymousResponse response = unauthenticatedServiceStub().getVersionedProfile(
+        requestBuilder.build());
 
     final GetVersionedProfileResult.Builder expectedResultBuilder = GetVersionedProfileResult.newBuilder()
         .setV1Response(GetVersionedProfileV1Response.newBuilder()
@@ -454,14 +464,22 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final byte[] version1 = TestRandomUtil.nextBytes(32);
     final byte[] version2 = TestRandomUtil.nextBytes(32);
     return List.of(
-        Arguments.argumentSet("current profile version matches", version1, version1, true),
-        Arguments.argumentSet("current profile version absent",version1, null, true),
-        Arguments.argumentSet("current profile version mismatch",version1, version2, false)
+        Arguments.argumentSet("current profile version matches, unidentified access key auth", version1, version1, true,
+            GetVersionedProfileAnonymousRequest.AuthenticationCase.UNIDENTIFIED_ACCESS_KEY),
+        Arguments.argumentSet("current profile version absent, unidentified access key auth",version1, null, true,
+            GetVersionedProfileAnonymousRequest.AuthenticationCase.UNIDENTIFIED_ACCESS_KEY),
+        Arguments.argumentSet("current profile version mismatch, unidentified access key auth",version1, version2, false,
+            GetVersionedProfileAnonymousRequest.AuthenticationCase.UNIDENTIFIED_ACCESS_KEY),
+        Arguments.argumentSet("current profile version matches, group send endorsement auth", version1, version1, true,
+            GetVersionedProfileAnonymousRequest.AuthenticationCase.GROUP_SEND_TOKEN)
     );
   }
 
-  @Test
-  void getVersionedProfileV2() {
+  @ParameterizedTest
+  @EnumSource(mode = EXCLUDE, names = "AUTHENTICATION_NOT_SET")
+  void getVersionedProfileV2(
+      final GetVersionedProfileAnonymousRequest.AuthenticationCase authenticationCase) throws Exception {
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final byte[] data = TestRandomUtil.nextBytes(128);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
@@ -477,18 +495,22 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(profilesManager.get(any(), any())).thenReturn(Optional.of(v2Profile));
     when(profilesManager.getV1(any(), any())).thenReturn(Optional.empty());
 
-    final GetVersionedProfileAnonymousRequest request = GetVersionedProfileAnonymousRequest.newBuilder()
-        .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
+    final GetVersionedProfileAnonymousRequest.Builder requestBuilder = GetVersionedProfileAnonymousRequest.newBuilder()
         .setRequest(GetVersionedProfileRequest.newBuilder()
-            .setAccountIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
-                .build())
+            .setAccountIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
             .setVersion(ByteString.copyFrom(version))
-            .build())
-        .build();
+            .build());
 
-    final GetVersionedProfileAnonymousResponse response = unauthenticatedServiceStub().getVersionedProfile(request);
+    switch (authenticationCase) {
+      case GROUP_SEND_TOKEN -> {
+        final Instant expiration = Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.DAYS);
+        final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(serviceIdentifier), expiration);
+        requestBuilder.setGroupSendToken(ByteString.copyFrom(token));
+      }
+      case UNIDENTIFIED_ACCESS_KEY -> requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
+    }
+
+    final GetVersionedProfileAnonymousResponse response = unauthenticatedServiceStub().getVersionedProfile(requestBuilder.build());
     assertTrue(response.hasResult());
 
     final GetVersionedProfileResult result = response.getResult();
@@ -576,44 +598,38 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   }
 
   @ParameterizedTest
-  @MethodSource
-  void getVersionedProfileUnauthenticated(final boolean missingUnidentifiedAccessKey, final boolean accountNotFound) {
+  @EnumSource(mode = EXCLUDE, names = "AUTHENTICATION_NOT_SET")
+  void getVersionedProfileAccountNotFound(
+      final GetVersionedProfileAnonymousRequest.AuthenticationCase authenticationCase
+  ) throws Exception {
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-    when(accountsManager.getByServiceIdentifier(any())).thenReturn(
-        accountNotFound ? Optional.empty() : Optional.of(account));
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
 
     final GetVersionedProfileAnonymousRequest.Builder requestBuilder = GetVersionedProfileAnonymousRequest.newBuilder()
         .setRequest(GetVersionedProfileRequest.newBuilder()
-            .setAccountIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
-                .build())
+            .setAccountIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
             .setVersion(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
             .build());
 
-
-    if (missingUnidentifiedAccessKey) {
-      assertStatusException(Status.INVALID_ARGUMENT,
-          () -> unauthenticatedServiceStub().getVersionedProfile(requestBuilder.build()));
-    } else {
-      requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
-      final GetVersionedProfileAnonymousResponse response = unauthenticatedServiceStub().getVersionedProfile(
-          requestBuilder.build());
-
-      assertEquals(accountNotFound, response.hasNotFound());
-      assertNotEquals(accountNotFound, response.hasFailedUnidentifiedAuthorization());
+    switch (authenticationCase) {
+      case GROUP_SEND_TOKEN -> {
+        final Instant expiration = Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.DAYS);
+        final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(serviceIdentifier), expiration);
+        requestBuilder.setGroupSendToken(ByteString.copyFrom(token));
+      }
+      case UNIDENTIFIED_ACCESS_KEY -> requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
     }
 
+    final GetVersionedProfileAnonymousResponse response = unauthenticatedServiceStub().getVersionedProfile(requestBuilder.build());
 
-  }
-  private static Stream<Arguments> getVersionedProfileUnauthenticated() {
-    return Stream.of(
-        Arguments.of(true, false),
-        Arguments.of(false, true)
-    );
+   switch (authenticationCase) {
+     case GROUP_SEND_TOKEN -> assertTrue(response.hasNotFound());
+     case UNIDENTIFIED_ACCESS_KEY, AUTHENTICATION_NOT_SET -> assertTrue(response.hasFailedUnidentifiedAuthorization());
+   }
   }
 
   @Test
@@ -631,7 +647,79 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
             .build())
         .build();
 
+    //noinspection ThrowableNotThrown
     assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getVersionedProfile(request));
+  }
+
+  @Test
+  void getVersionedProfileNoAuth() {
+    final GetVersionedProfileAnonymousRequest request = GetVersionedProfileAnonymousRequest.newBuilder()
+        .setRequest(GetVersionedProfileRequest.newBuilder()
+            .setAccountIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID()))))
+        .build();
+
+    //noinspection ThrowableNotThrown
+    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getVersionedProfile(request));
+  }
+
+  @Test
+  void getVersionedProfileIncorrectUnidentifiedAccessKey() {
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+
+    when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
+
+    final GetVersionedProfileAnonymousRequest request = GetVersionedProfileAnonymousRequest.newBuilder()
+        .setUnidentifiedAccessKey(ByteString.copyFrom(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]))
+        .setRequest(GetVersionedProfileRequest.newBuilder()
+            .setAccountIdentifier(ServiceIdentifier.newBuilder()
+                .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(UUID.randomUUID())))
+                .build())
+            .setVersion(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
+            .build())
+        .build();
+
+    final GetVersionedProfileAnonymousResponse response = unauthenticatedServiceStub().getVersionedProfile(request);
+
+    assertTrue(response.hasFailedUnidentifiedAuthorization());
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void getVersionedProfileFailingGroupSendEndorsement(final boolean expired, final boolean wrongIdentifier) throws Exception {
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+    final AciServiceIdentifier wrongServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+    when(accountsManager.getByServiceIdentifier(serviceIdentifier))
+        .thenReturn(Optional.of(mock(Account.class)));
+
+    final Instant expiration = expired ? Instant.now().truncatedTo(ChronoUnit.DAYS) : Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.DAYS);
+
+    final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS,
+        List.of(wrongIdentifier ? wrongServiceIdentifier : serviceIdentifier), expiration);
+
+    final GetVersionedProfileAnonymousRequest request = GetVersionedProfileAnonymousRequest.newBuilder()
+        .setGroupSendToken(ByteString.copyFrom(token))
+        .setRequest(GetVersionedProfileRequest.newBuilder()
+            .setAccountIdentifier(
+                GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+            .setVersion(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
+            .build())
+        .build();
+
+    final GetVersionedProfileAnonymousResponse response = unauthenticatedServiceStub().getVersionedProfile(request);
+
+    assertTrue(response.hasFailedUnidentifiedAuthorization());
+  }
+
+  private static List<Arguments> getVersionedProfileFailingGroupSendEndorsement() {
+    return List.of(
+        Arguments.of(true, true),
+        Arguments.of(true, false),
+        Arguments.of(false, true)
+    );
   }
 
   @Test

@@ -142,7 +142,21 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
   public GetVersionedProfileAnonymousResponse getVersionedProfile(final GetVersionedProfileAnonymousRequest request) {
     final ServiceIdentifier targetIdentifier = GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
 
-    final Optional<Account> targetAccount = getTargetAccountAndValidateUnidentifiedAccess(targetIdentifier, request.getUnidentifiedAccessKey().toByteArray());
+    final Optional<Account> targetAccount = accountsManager.getByServiceIdentifier(targetIdentifier);
+
+    final boolean authorized = switch (request.getAuthenticationCase()) {
+      case GROUP_SEND_TOKEN -> groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), targetIdentifier);
+      case UNIDENTIFIED_ACCESS_KEY ->
+          targetAccount.map(a -> UnidentifiedAccessUtil.checkUnidentifiedAccess(a, request.getUnidentifiedAccessKey().toByteArray()))
+              .orElse(false);
+      default -> throw GrpcExceptions.invalidArguments("invalid authentication");
+    };
+
+    if (!authorized) {
+      return GetVersionedProfileAnonymousResponse.newBuilder()
+          .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+          .build();
+    }
 
     return targetAccount.flatMap(account ->
         ProfileGrpcHelper.getVersionedProfile(account,
