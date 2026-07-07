@@ -17,6 +17,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      issues: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
@@ -35,3 +36,11 @@ jobs:
           echo "${INTEGRATION_TEST_CONFIG}" > integration-tests/src/main/resources/config.yml
       - name: Run and verify integration tests
         run: ./mvnw clean compile test-compile failsafe:integration-test failsafe:verify -P aws-sso
+      - name: Open an issue on failure
+        if: ${{ failure() && github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "Failed server integration tests ($(date +'%Y-%m-%d'))" \
+            --body "Workflow **${{ github.workflow }}** failed. See the run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
