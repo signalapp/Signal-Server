@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
@@ -334,7 +335,9 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     final SetPushTokenResponse ignored = authenticatedServiceStub().setPushToken(request);
 
-    verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
+    // Update push token even if it matches the stored value for apns (to update the timestamp)
+    verify(accountsManager, apnsToken == null ? never() : times(1))
+        .updateDevice(any(), anyByte(), any());
   }
 
   private static Stream<Arguments> setPushTokenUnchanged() {

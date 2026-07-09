@@ -138,7 +138,9 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
     final Device device = account.getDevice(authenticatedDevice.deviceId())
         .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
-    if (!Objects.equals(device.getApnId(), apnsToken) || !Objects.equals(device.getGcmId(), fcmToken)) {
+    // Unlike FCM tokens, we need current "last updated" timestamps for APNs tokens and so update device records
+    // unconditionally if it's an APNS request
+    if (request.hasApnsTokenRequest() || !Objects.equals(device.getGcmId(), fcmToken)) {
       accountsManager.updateDevice(account.getIdentifier(IdentityType.ACI), authenticatedDevice.deviceId(), d -> {
         d.setApnId(apnsToken);
         d.setGcmId(fcmToken);
