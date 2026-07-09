@@ -295,7 +295,7 @@ public class MessagesManager {
 
     return new MirroringMessageStream(
         redisDynamoDbMessageStream,
-        foundationDbMessageStore,
+        foundationDbMessageStore.getMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId()),
         experimentEnrollmentManager,
         destinationUuid,
         destinationDevice.getId());

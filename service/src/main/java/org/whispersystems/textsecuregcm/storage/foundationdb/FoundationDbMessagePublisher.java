@@ -20,8 +20,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,10 +58,6 @@ class FoundationDbMessagePublisher {
 
   /// Listener to watch for state machine transitions; used for testing.
   private final BiConsumer<State, State> stateChangeListener;
-
-  /// A supplier that returns a function to execute before we begin fetching a page; it is passed the transaction that
-  /// is started for the page fetch operations.
-  private final Supplier<Consumer<Transaction>> beforePageFetch;
 
   /// Whether the publisher is finite or infinite.
   private final boolean terminateOnQueueEmpty;
@@ -132,8 +126,7 @@ class FoundationDbMessagePublisher {
       @Nullable final byte[] presenceKey,
       @Nullable final ScheduledExecutorService presenceRenewalExecutorService,
       @Nullable final byte[] messagesAvailableWatchKey,
-      @Nullable final BiConsumer<State, State> stateChangeListener,
-      final Supplier<Consumer<Transaction>> beforePageFetch) {
+      @Nullable final BiConsumer<State, State> stateChangeListener) {
 
     this.database = database;
     this.clock = clock;
@@ -144,7 +137,6 @@ class FoundationDbMessagePublisher {
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
     this.terminateOnQueueEmpty = messagesAvailableWatchKey == null;
     this.stateChangeListener = stateChangeListener != null ? stateChangeListener : (_, _) -> {};
-    this.beforePageFetch = beforePageFetch;
 
     if (!terminateOnQueueEmpty) {
       Objects.requireNonNull(presenceKey);
@@ -187,8 +179,7 @@ class FoundationDbMessagePublisher {
       final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
-      final int maxMessagesPerScan,
-      final Supplier<Consumer<Transaction>> beforePageFetch) {
+      final int maxMessagesPerScan) {
 
     return new FoundationDbMessagePublisher(database,
         clock,
@@ -198,8 +189,7 @@ class FoundationDbMessagePublisher {
         null,
         null,
         null,
-        null,
-        beforePageFetch);
+        null);
   }
 
   /// Creates a [FoundationDbMessagePublisher] that publishes a non-terminating stream of messages from a device queue.
@@ -213,8 +203,7 @@ class FoundationDbMessagePublisher {
       final int maxMessagesPerScan,
       final byte[] presenceKey,
       final ScheduledExecutorService presenceRenewalExecutorService,
-      final byte[] messagesAvailableWatchKey,
-      final Supplier<Consumer<Transaction>> beforePageFetch) {
+      final byte[] messagesAvailableWatchKey) {
 
     return new FoundationDbMessagePublisher(database,
         clock,
@@ -224,8 +213,7 @@ class FoundationDbMessagePublisher {
         presenceKey,
         presenceRenewalExecutorService,
         messagesAvailableWatchKey,
-        null,
-        beforePageFetch);
+        null);
   }
 
   private synchronized void setState(final State newState, final Event event) {
@@ -314,26 +302,19 @@ class FoundationDbMessagePublisher {
 
   /// Fetch messages using a range query limiting batch size to [#maxMessagesPerScan]. If the query returns fewer than
   /// [#maxMessagesPerScan], emit [Event#FETCHED_ALL_AVAILABLE_MESSAGES]. In the case of an infinite publisher, also set
-  /// a watch for new messages. Execute the function supplied by [#beforePageFetch] in the context of the transaction.
-  /// Additionally, the cursor is updated so that we begin fetching from the right key on
+  /// a watch for new messages. Additionally, the cursor is updated so that we begin fetching from the right key on
   /// subsequent scans
   ///
   /// @return a future of a list of [FoundationDbMessageStreamEntry.Message] with a max size of [#maxMessagesPerScan]
   private CompletableFuture<List<FoundationDbMessageStreamEntry.Message>> getMessagesBatch() {
-    final Consumer<Transaction> doBeforePageFetch = beforePageFetch.get();
+    return database.runAsync(transaction -> getItemsInRange(transaction, beginKeyCursor, endKeyExclusive, maxMessagesPerScan)
+        .thenApply(lastKeyReadAndItems -> {
+          if (lastKeyReadAndItems.second().size() < maxMessagesPerScan && !terminateOnQueueEmpty) {
+            setWatch(transaction);
+          }
 
-    return database.runAsync(transaction -> {
-          doBeforePageFetch.accept(transaction);
-
-          return getItemsInRange(transaction, beginKeyCursor, endKeyExclusive, maxMessagesPerScan)
-              .thenApply(lastKeyReadAndItems -> {
-                if (lastKeyReadAndItems.second().size() < maxMessagesPerScan && !terminateOnQueueEmpty) {
-                  setWatch(transaction);
-                }
-
-                return lastKeyReadAndItems;
-              });
-        })
+          return lastKeyReadAndItems;
+        }))
         // Defer any state mutations until after the transaction has been committed. The transaction block can
         // fail/retry, and we don't want to trigger spurious state transitions when that happens.
         .thenApply(lastKeyReadAndItems -> {

@@ -349,13 +349,11 @@ public class FoundationDbMessageStore {
         });
   }
 
-  // Note that this method is intended only for initial migration support; in general, callers should clear messages
-  // by acknowledging messages via a `FoundationDbMessageStream`.
-  public CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final UUID messageGuid) {
+  CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final UUID messageGuid) {
     return delete(aci, deviceId, versionstampUUIDCipher.decryptVersionstamp(messageGuid, aci.uuid(), deviceId));
   }
 
-  private CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final Versionstamp versionstamp) {
+  CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final Versionstamp versionstamp) {
     final Timer.Sample sample = Timer.start();
 
     final byte[] messageKey = getDeviceQueueSubspace(aci, deviceId).pack(Tuple.from(versionstamp));
@@ -393,15 +391,13 @@ public class FoundationDbMessageStore {
   }
 
   public FoundationDbMessageStream getMessages(final AciServiceIdentifier aci, final byte deviceId) {
-    return getMessages(aci, deviceId, FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
-        FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES, Util.NOOP);
+    return getMessages(aci, deviceId, FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN, Util.NOOP);
   }
 
   @VisibleForTesting
   FoundationDbMessageStream getMessages(final AciServiceIdentifier aci,
       final byte deviceId,
       final int maxMessagesPerScan,
-      final int maxUnacknowledgedMessages,
       final Runnable doAfterCleanup) {
 
     // For each configured database epoch, which database held (or holds) the messages for this ACI/device pair?
@@ -411,13 +407,15 @@ public class FoundationDbMessageStore {
       databasesForQueueByEpoch[epoch] = getShardForAci(aci, epoch);
     }
 
-    return new FoundationDbMessageStream(getDeviceQueueSubspace(aci, deviceId),
+    return new FoundationDbMessageStream(this,
+        aci,
+        deviceId,
+        getDeviceQueueSubspace(aci, deviceId),
         getPresenceKey(aci, deviceId),
         getMessagesAvailableWatchKey(aci),
         databasesForQueueByEpoch,
         new MessageGuidCodec(aci.uuid(), deviceId, versionstampUUIDCipher),
         maxMessagesPerScan,
-        maxUnacknowledgedMessages,
         doAfterCleanup,
         presenceRenewalExecutorService,
         clock);

@@ -594,7 +594,7 @@ class FoundationDbMessageStoreTest {
         .toList();
 
     final MessageStream messageStream =
-        foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, batchSize, numMessages, Util.NOOP);
+        foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, batchSize, Util.NOOP);
 
     final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
@@ -908,7 +908,6 @@ class FoundationDbMessageStoreTest {
     final CountDownLatch latch = new CountDownLatch(1);
     final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
         FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
-        FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
         latch::countDown);
     final List<CompletableFuture<Void>> acknowledgeFutures = new ArrayList<>();
     final AtomicInteger messageCounter = new AtomicInteger(0);
@@ -979,7 +978,6 @@ class FoundationDbMessageStoreTest {
       final MessageStream messageStream = foundationDbMessageStore.getMessages(aci,
           deviceId,
           FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
-          FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
           cleanupLatch::countDown);
 
       final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
@@ -1021,28 +1019,6 @@ class FoundationDbMessageStoreTest {
   }
 
   @Test
-  void outstandingUnacknowledgedMessages() {
-    final int numMessages = 5;
-    final int maxUnacknowledgedMessages = 3;
-
-    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
-
-    for (int i = 0; i < numMessages; i++) {
-      foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join();
-    }
-
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
-        FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
-        maxUnacknowledgedMessages,
-        Util.NOOP);
-
-    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()), numMessages)
-        .expectNextCount(maxUnacknowledgedMessages)
-        .expectError(TooManyUnacknowledgedMessagesException.class)
-        .verify();
-  }
-
-  @Test
   void discardStaleEphemeralMessages() throws InterruptedException {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final MessageGuidCodec messageGuidCodec =
@@ -1078,7 +1054,6 @@ class FoundationDbMessageStoreTest {
 
     final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
         FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
-        FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
         cleanUpLatch::countDown);
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
         // We should have discarded the already-inserted ephemeral message

@@ -35,9 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,8 +63,6 @@ class FoundationDbMessagePublisherTest {
 
   private static final byte[] MESSAGES_AVAILABLE_WATCH_KEY =
       FoundationDbMessageStore.getMessagesAvailableWatchKey(SERVICE_IDENTIFIER);
-
-  private static final Supplier<Consumer<Transaction>> NOOP_ON_PAGE_FETCH = () -> _ -> {};
 
   private static final Clock CLOCK = Clock.systemUTC();
 
@@ -131,8 +127,7 @@ class FoundationDbMessagePublisherTest {
         null,
         null,
         null,
-        (_, newState) -> stateTransitions.add(newState),
-        NOOP_ON_PAGE_FETCH
+        (_, newState) -> stateTransitions.add(newState)
     );
 
     StepVerifier.create(finitePublisher.getMessages())
@@ -219,8 +214,7 @@ class FoundationDbMessagePublisherTest {
               watchFuture2.complete(null);
             }
           }
-        },
-        NOOP_ON_PAGE_FETCH
+        }
     );
 
     StepVerifier.create(infinitePublisher.getMessages())
@@ -302,8 +296,7 @@ class FoundationDbMessagePublisherTest {
                   .count() == 1) {
             watchFuture1.complete(null);
           }
-        },
-        NOOP_ON_PAGE_FETCH
+        }
     );
 
     StepVerifier.create(infinitePublisher.getMessages())
@@ -338,8 +331,7 @@ class FoundationDbMessagePublisherTest {
         100,
         FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
         presenceRenewalExecutorService,
-        MESSAGES_AVAILABLE_WATCH_KEY,
-        () -> _ -> {});
+        MESSAGES_AVAILABLE_WATCH_KEY);
     final MessageProtos.Envelope message = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final Transaction transaction = mock(Transaction.class);
     final KeyValue keyValue = mockKeyValue((byte) 5, message);
@@ -399,8 +391,7 @@ class FoundationDbMessagePublisherTest {
         FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
         presenceRenewalExecutorService,
         MESSAGES_AVAILABLE_WATCH_KEY,
-        (_, newState) -> stateTransitions.add(newState),
-        NOOP_ON_PAGE_FETCH
+        (_, newState) -> stateTransitions.add(newState)
     );
 
     final RuntimeException streamTerminationException = new RuntimeException("Stream terminated");
@@ -464,8 +455,7 @@ class FoundationDbMessagePublisherTest {
               && newState == FoundationDbMessagePublisher.State.MESSAGES_AVAILABLE) {
             latch.countDown();
           }
-        },
-        NOOP_ON_PAGE_FETCH
+        }
     );
 
     // Request two messages one at a time and verify that we only fetch a single batch (batch size = 2) and not two batches

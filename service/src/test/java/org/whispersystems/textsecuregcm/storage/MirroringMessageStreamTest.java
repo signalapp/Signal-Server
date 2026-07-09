@@ -6,9 +6,10 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,11 +21,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStream;
 
 class MirroringMessageStreamTest {
 
-  private FoundationDbMessageStore foundationDbMessageStore;
+  private FoundationDbMessageStream foundationDbMessageStream;
   private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private MirroringMessageStream mirroringMessageStream;
@@ -34,12 +35,12 @@ class MirroringMessageStreamTest {
 
   @BeforeEach
   void setUp() {
-    foundationDbMessageStore = mock(FoundationDbMessageStore.class);
+    foundationDbMessageStream = mock(FoundationDbMessageStream.class);
     experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
     mirroringMessageStream = new MirroringMessageStream(
         mock(RedisDynamoDbMessageStream.class),
-        foundationDbMessageStore,
+        foundationDbMessageStream,
         experimentEnrollmentManager,
         ACCOUNT_IDENTIFIER.uuid(),
         DEVICE_ID);
@@ -51,10 +52,15 @@ class MirroringMessageStreamTest {
     when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(MessagesManager.MIRROR_DELETIONS_EXPERIMENT_NAME)))
         .thenReturn(enrolled);
 
-    mirroringMessageStream.acknowledgeMessage(messageGuid, System.currentTimeMillis());
+    final long serverTimestamp = System.currentTimeMillis();
 
-    verify(foundationDbMessageStore, times(expectFoundationDbDeletion ? 1 : 0))
-        .delete(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid);
+    mirroringMessageStream.acknowledgeMessage(messageGuid, serverTimestamp);
+
+    if (expectFoundationDbDeletion) {
+      verify(foundationDbMessageStream).acknowledgeMessage(messageGuid, serverTimestamp);
+    } else {
+      verify(foundationDbMessageStream, never()).acknowledgeMessage(any(), anyLong());
+    }
   }
 
   private static List<Arguments> acknowledgeMessage() {

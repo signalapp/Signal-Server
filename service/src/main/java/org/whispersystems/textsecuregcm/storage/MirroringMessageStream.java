@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStream;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.Disposable;
 
@@ -20,7 +20,7 @@ import reactor.core.Disposable;
 public class MirroringMessageStream implements MessageStream {
 
   private final RedisDynamoDbMessageStream redisDynamoDbMessageStream;
-  private final FoundationDbMessageStore foundationDbMessageStore;
+  private final FoundationDbMessageStream foundationDbMessageStream;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private final AciServiceIdentifier accountIdentifier;
@@ -29,13 +29,13 @@ public class MirroringMessageStream implements MessageStream {
   private static final Logger logger = LoggerFactory.getLogger(MirroringMessageStream.class);
 
   public MirroringMessageStream(final RedisDynamoDbMessageStream redisDynamoDbMessageStream,
-      final FoundationDbMessageStore foundationDbMessageStore,
+      final FoundationDbMessageStream foundationDbMessageStream,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
       final UUID accountIdentifier,
       final byte deviceId) {
 
     this.redisDynamoDbMessageStream = redisDynamoDbMessageStream;
-    this.foundationDbMessageStore = foundationDbMessageStore;
+    this.foundationDbMessageStream = foundationDbMessageStream;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
 
     this.accountIdentifier = new AciServiceIdentifier(accountIdentifier);
@@ -46,7 +46,7 @@ public class MirroringMessageStream implements MessageStream {
   public Flow.Publisher<MessageStreamEntry> getMessages() {
     if (experimentEnrollmentManager.isEnrolled(accountIdentifier.uuid(), MessagesManager.MIRROR_READS_EXPERIMENT_NAME)) {
       final Disposable foundationDbDisposable =
-          foundationDbMessageStore.getMessages(accountIdentifier, deviceId).getFiniteMessageStream()
+          foundationDbMessageStream.getFiniteMessageStream()
               .limitRate(100)
               .subscribe();
 
@@ -70,7 +70,7 @@ public class MirroringMessageStream implements MessageStream {
     if (messageGuid.version() == 8 &&
         experimentEnrollmentManager.isEnrolled(accountIdentifier.uuid(), MessagesManager.MIRROR_DELETIONS_EXPERIMENT_NAME)) {
 
-      foundationDbMessageStore.delete(accountIdentifier, deviceId, messageGuid)
+      foundationDbMessageStream.acknowledgeMessage(messageGuid, serverTimestamp)
           .whenComplete((_, throwable) -> {
             if (throwable != null) {
               logger.warn("Failed to delete message {}/{}/{} from FoundationDb", accountIdentifier.uuid(), deviceId,
