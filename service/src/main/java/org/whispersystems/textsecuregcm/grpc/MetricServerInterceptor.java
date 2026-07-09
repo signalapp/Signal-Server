@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.LongAdder;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,12 +66,19 @@ public class MetricServerInterceptor implements ServerInterceptor {
   @VisibleForTesting
   static final String DURATION_TIMER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "processingDuration");
 
+  private static final String ACTIVE_REQUESTS_GAUGE_NAME =
+      MetricsUtil.name(MetricServerInterceptor.class, "activeRequests");
+
   private final MeterRegistry meterRegistry;
   private final ClientReleaseManager clientReleaseManager;
+
+  private final LongAdder activeRequests;
 
   public MetricServerInterceptor(final MeterRegistry meterRegistry, final ClientReleaseManager clientReleaseManager) {
     this.meterRegistry = meterRegistry;
     this.clientReleaseManager = clientReleaseManager;
+
+    this.activeRequests = meterRegistry.gauge(ACTIVE_REQUESTS_GAUGE_NAME, new LongAdder());
   }
 
   @Override
@@ -194,6 +202,8 @@ public class MetricServerInterceptor implements ServerInterceptor {
       this.requestBytesCounter = meterRegistry.counter(REQUEST_BYTES_COUNTER_NAME, tags);
       this.responseTimer = meterRegistry.timer(DURATION_TIMER_NAME, tags);
       this.sample = Timer.start(meterRegistry);
+
+      activeRequests.increment();
     }
 
     @Override
@@ -210,12 +220,14 @@ public class MetricServerInterceptor implements ServerInterceptor {
     @Override
     public void onComplete() {
       this.sample.stop(responseTimer);
+      activeRequests.decrement();
       super.onComplete();
     }
 
     @Override
     public void onCancel() {
       this.sample.stop(responseTimer);
+      activeRequests.decrement();
       super.onCancel();
     }
   }
