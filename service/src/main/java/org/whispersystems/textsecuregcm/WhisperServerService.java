@@ -178,6 +178,7 @@ import org.whispersystems.textsecuregcm.grpc.MessagesGrpcService;
 import org.whispersystems.textsecuregcm.grpc.MetricServerInterceptor;
 import org.whispersystems.textsecuregcm.grpc.OneTimeDonationsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
+import org.whispersystems.textsecuregcm.grpc.ProductConfigurationGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
@@ -1082,7 +1083,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                 config.getAttachments().maxAttachmentUploadSizeInBytes(), Clock.systemUTC()),
             new PaymentsGrpcService(currencyManager),
             new ChallengeGrpcService(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
-            new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new, donationPermitsManager, rateLimiters))
+            new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new, donationPermitsManager, rateLimiters),
+            new ProductConfigurationGrpcService(config.getSubscription(), config.getOneTimeDonations(),
+                List.of(stripeManager, braintreeManager), profileBadgeConverter,
+                config.getBackupConfiguration().maxTotalMediaSize()))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
