@@ -2004,7 +2004,8 @@ the request.</p></td>
           <span>bytes</span>
         </code>
       </td>
-      <td class="content"><p>A checksum of the unidentified access key for the targeted account.</p></td>
+      <td class="content"><p>A checksum of the unidentified access key for the targeted account. Absent
+if the request was for a PNI.</p></td>
       
     </tr>
     
@@ -2019,7 +2020,8 @@ the request.</p></td>
           <span>bool</span>
         </code>
       </td>
-      <td class="content"><p>Whether the account has enabled sealed sender from anyone.</p></td>
+      <td class="content"><p>Whether the account has enabled sealed sender from anyone. Always false
+if the request was for a PNI.</p></td>
       
     </tr>
     
@@ -2055,7 +2057,8 @@ the request.</p></td>
     </a>
         </code>
       </td>
-      <td class="content"><p>A list of badges associated with the account.</p></td>
+      <td class="content"><p>A list of badges associated with the account. Absent if the request was for
+a PNI.</p></td>
       
     </tr>
     

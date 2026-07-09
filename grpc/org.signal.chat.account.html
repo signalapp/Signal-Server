@@ -88,6 +88,24 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.account.GetEntitlementsResponse.BackupEntitlement">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>BackupEntitlement</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetEntitlementsResponse.BadgeEntitlement">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>BadgeEntitlement</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.account.CheckAccountExistenceRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>CheckAccountExistenceRequest</code> 
@@ -235,6 +253,24 @@
         <a href="#message-org.signal.chat.account.GetAccountIdentityResponse">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>GetAccountIdentityResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetEntitlementsRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetEntitlementsRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetEntitlementsResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetEntitlementsResponse</code> 
         </a>
       </p>
       
@@ -437,6 +473,26 @@
   
   <div class="block">
     <p><p>Returns basic identifiers for the authenticated account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-GetEntitlements">
+      <a href="#service-org.signal.chat.account.Accounts-GetEntitlements">
+        rpc <code>GetEntitlements</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetEntitlementsRequest"><span title="org.signal.chat.account.GetEntitlementsRequest">org.signal.chat.account.GetEntitlementsRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetEntitlementsResponse"><span title="org.signal.chat.account.GetEntitlementsResponse">org.signal.chat.account.GetEntitlementsResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns entitlements for the authenticated account.</p></p>
   </div>
   
 </div>
@@ -781,6 +837,159 @@ username hash.</p></p>
       Messages
     </h3>
 
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetEntitlementsResponse.BackupEntitlement">
+  <span>
+    <a href="#message-org.signal.chat.account.GetEntitlementsResponse.BackupEntitlement" title="org.signal.chat.account.GetEntitlementsResponse.BackupEntitlement">message BackupEntitlement</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.GetEntitlementsResponse"><span title="org.signal.chat.account.GetEntitlementsResponse">org.signal.chat.account.GetEntitlementsResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        level
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The backup level of the account</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        expiration_epoch_seconds
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>When the backup entitlement expires, in number of seconds since epoch</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetEntitlementsResponse.BadgeEntitlement">
+  <span>
+    <a href="#message-org.signal.chat.account.GetEntitlementsResponse.BadgeEntitlement" title="org.signal.chat.account.GetEntitlementsResponse.BadgeEntitlement">message BadgeEntitlement</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.GetEntitlementsResponse"><span title="org.signal.chat.account.GetEntitlementsResponse">org.signal.chat.account.GetEntitlementsResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        badge_id
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The id of the badge the account is entitled. Metadata to display for
+badges may be obtained by cross-referencing badge ids with
+ProductConfiguration.GetConfiguration.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        expiration_epoch_seconds
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>When the badge expires, in number of seconds since epoch</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        visible
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Whether the badge is currently configured to be visible</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
     
       
       <div class="block">
@@ -1602,6 +1811,110 @@ another caller.</p></td>
         </code>
       </td>
       <td class="content"><p>A set of account identifiers for the authenticated account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetEntitlementsRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.GetEntitlementsRequest" title="org.signal.chat.account.GetEntitlementsRequest">message GetEntitlementsRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetEntitlementsResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.GetEntitlementsResponse" title="org.signal.chat.account.GetEntitlementsResponse">message GetEntitlementsResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        badges
+      </td>
+      <td>
+        <code title="org.signal.chat.account.GetEntitlementsResponse.BadgeEntitlement">
+          
+            repeated
+          
+          <a href="org.signal.chat.account.html#message-org.signal.chat.account.GetEntitlementsResponse.BadgeEntitlement"><span title="org.signal.chat.account.GetEntitlementsResponse.BadgeEntitlement">org.signal.chat.account.GetEntitlementsResponse.BadgeEntitlement</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>Active badges added via Donations.redeemReceipt</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        backup
+      </td>
+      <td>
+        <code title="org.signal.chat.account.GetEntitlementsResponse.BackupEntitlement">
+          
+          <a href="org.signal.chat.account.html#message-org.signal.chat.account.GetEntitlementsResponse.BackupEntitlement"><span title="org.signal.chat.account.GetEntitlementsResponse.BackupEntitlement">org.signal.chat.account.GetEntitlementsResponse.BackupEntitlement</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>If present, the backup level set via Backups.redeemReceipt</p></td>
       
     </tr>
     
