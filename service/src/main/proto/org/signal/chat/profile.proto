@@ -18,6 +18,8 @@ import "org/signal/chat/tag.proto";
 
 // Provides methods for working with profiles and profile-related data.
 service Profile {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
+
   // Sets profile data and, if needed, returns credentials used by clients to upload a v1 avatar.
   rpc SetProfile(SetProfileRequest) returns (SetProfileResponse) {}
 
@@ -42,6 +44,8 @@ service Profile {
 // without an unidentified access key should use the equivalent, authenticated
 // methods in `Profile` instead.
 service ProfileAnonymous {
+  option (require.auth) = AUTH_ONLY_ANONYMOUS;
+
   // Retrieves versioned profile data.
   rpc GetVersionedProfile(GetVersionedProfileAnonymousRequest) returns (GetVersionedProfileAnonymousResponse) {}
   // Retrieves unversioned profile data.

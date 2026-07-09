@@ -18,6 +18,7 @@ import "org/signal/chat/tag.proto";
 
 // Provides methods for working with pre-keys.
 service Keys {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
 
   // Retrieves an approximate count of the number of the various kinds of
   // pre-keys stored for the authenticated device.
@@ -57,6 +58,7 @@ service Keys {
 // Provides methods for working with pre-keys using "unidentified access"
 // credentials.
 service KeysAnonymous {
+  option (require.auth) = AUTH_ONLY_ANONYMOUS;
 
   // Retrieves a set of pre-keys for establishing a session with the targeted
   // device or devices. Callers must not submit any self-identifying credentials

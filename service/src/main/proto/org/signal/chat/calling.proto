@@ -9,9 +9,12 @@ option java_multiple_files = true;
 
 package org.signal.chat.calling;
 
+import "org/signal/chat/require.proto";
+
 // Provides methods for getting credentials and relay options for one-on-one
 // calls.
 service Calling {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
 
   // Retrieves TURN credentials and relay options for one-on-one calls.
   rpc GetCallingRelays(GetCallingRelaysRequest) returns (GetCallingRelaysResponse) {}

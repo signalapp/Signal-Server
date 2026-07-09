@@ -11,6 +11,8 @@ import "org/signal/chat/tag.proto";
 
 // Provides methods for working with Signal accounts.
 service Accounts {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
+
   // Returns basic identifiers for the authenticated account.
   rpc GetAccountIdentity(GetAccountIdentityRequest) returns (GetAccountIdentityResponse) {}
 
@@ -68,6 +70,8 @@ service Accounts {
 // Provides methods for looking up Signal accounts. Callers must not provide
 // identifying credentials when calling methods in this service.
 service AccountsAnonymous {
+  option (require.auth) = AUTH_ONLY_ANONYMOUS;
+
   // Checks whether an account with the given service identifier exists.
   rpc CheckAccountExistence(CheckAccountExistenceRequest) returns (CheckAccountExistenceResponse) {}
 

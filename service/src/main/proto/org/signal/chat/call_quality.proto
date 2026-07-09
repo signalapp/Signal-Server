@@ -9,8 +9,11 @@ option java_multiple_files = true;
 
 package org.signal.chat.calling.quality;
 
+import "org/signal/chat/require.proto";
+
 // Provides methods for submitting call quality surveys
 service CallQuality {
+  option (require.auth) = AUTH_ONLY_ANONYMOUS;
 
   // Submits a call quality survey response.
   rpc SubmitCallQualitySurvey(SubmitCallQualitySurveyRequest) returns (SubmitCallQualitySurveyResponse) {}

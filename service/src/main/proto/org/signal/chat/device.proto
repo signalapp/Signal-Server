@@ -18,6 +18,8 @@ import "org/signal/chat/tag.proto";
 
 // Provides methods for working with devices attached to a Signal account.
 service Devices {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
+
   // Returns a list of devices associated with the caller's account.
   rpc GetDevices(GetDevicesRequest) returns (GetDevicesResponse) {}
 
