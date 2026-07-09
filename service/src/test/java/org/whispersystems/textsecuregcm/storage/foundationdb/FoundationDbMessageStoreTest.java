@@ -1082,7 +1082,6 @@ class FoundationDbMessageStoreTest {
   }
 
   @Test
-  @Disabled("flaky test")
   void deleteExpiredMessages() {
     final Instant oldTime = CLOCK.instant();
     final Instant threshold = oldTime.plus(Duration.ofDays(1));
