@@ -67,7 +67,7 @@
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>2.3.20</kotlin.version>
-    <logback.version>1.5.32</logback.version>
+    <logback.version>1.5.33</logback.version>
     <logback-access-common.version>2.0.12</logback-access-common.version>
     <lettuce.version>7.5.1.RELEASE</lettuce.version>
     <libphonenumber.version>9.0.21</libphonenumber.version>
