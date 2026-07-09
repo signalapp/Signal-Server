@@ -61,6 +61,9 @@ public class MessagesManager {
   private static final String PRESENCE_MATCH_COUNTER_NAME =
       MetricsUtil.name(MessagesManager.class, "presenceMatch");
 
+  private static final Counter INSERT_TIMEOUT_COUNTER =
+      Metrics.counter(name(MessagesManager.class, "insertTimeout"));
+
   @VisibleForTesting
   static final String MIRROR_INSERTS_EXPERIMENT_NAME = "foundationDbMirrorInserts";
 
@@ -132,10 +135,14 @@ public class MessagesManager {
           foundationDbMessageStore.insert(new AciServiceIdentifier(accountIdentifier), minimizedMessagesByDeviceId)
               .orTimeout(FOUNDATIONDB_INSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
               .exceptionally(e -> {
-                logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
-                    minimizedMessagesByDeviceId.size(),
-                    accountIdentifier,
-                    e);
+                if (e instanceof TimeoutException) {
+                  INSERT_TIMEOUT_COUNTER.increment();
+                } else {
+                  logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
+                      minimizedMessagesByDeviceId.size(),
+                      accountIdentifier,
+                      e);
+                }
 
                 return Collections.emptyMap();
               });
