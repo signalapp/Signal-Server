@@ -74,6 +74,7 @@ import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.adapter.JdkFlowAdapter;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 @Timeout(value = 5, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
@@ -1121,22 +1122,23 @@ class FoundationDbMessageStoreTest {
         threshold);
 
     // make sure we have new but not old messages
-    for (AciServiceIdentifier aci : acis) {
-      final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, deviceId);
-      final List<MessageProtos.Envelope> messages =
-        JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages())
-            .takeUntil(entry -> entry instanceof MessageStreamEntry.QueueEmpty)
-            .filter(entry -> entry instanceof MessageStreamEntry.Envelope)
-            .cast(MessageStreamEntry.Envelope.class)
-            .map(MessageStreamEntry.Envelope::message)
-            .collectList()
-            .blockOptional()
-            .orElseGet(Collections::emptyList);
-      assertEquals(10, messages.size());
-      for (MessageProtos.Envelope m : messages) {
-        assertEquals(newTime.toEpochMilli(), m.getServerTimestamp());
-      }
-    }
+    Flux.fromIterable(acis)
+        .flatMap(aci ->
+          JdkFlowAdapter.flowPublisherToFlux(foundationDbMessageStore.getMessages(aci, deviceId).getMessages())
+              .takeUntil(entry -> entry instanceof MessageStreamEntry.QueueEmpty)
+              .filter(entry -> entry instanceof MessageStreamEntry.Envelope)
+              .cast(MessageStreamEntry.Envelope.class)
+              .map(MessageStreamEntry.Envelope::message)
+              .collectList())
+        .doOnNext(
+            messages -> {
+              assertEquals(10, messages.size());
+              for (MessageProtos.Envelope m : messages) {
+                assertEquals(newTime.toEpochMilli(), m.getServerTimestamp());
+              }
+            })
+        .then()
+        .block();
   }
 
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
