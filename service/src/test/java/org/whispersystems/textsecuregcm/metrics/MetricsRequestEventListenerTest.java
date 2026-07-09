@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.metrics;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -77,6 +78,8 @@ class MetricsRequestEventListenerTest {
   @BeforeEach
   void setup() {
     meterRegistry = mock(MeterRegistry.class);
+    when(meterRegistry.gauge(anyString(), any(Number.class))).thenAnswer(invocation -> invocation.getArgument(1));
+
     counter = mock(Counter.class);
     responseBytesCounter = mock(Counter.class);
     requestBytesCounter = mock(Counter.class);

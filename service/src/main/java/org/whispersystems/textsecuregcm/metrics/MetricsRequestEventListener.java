@@ -16,6 +16,7 @@ import io.micrometer.core.instrument.Tags;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.LongAdder;
 import javax.annotation.Nullable;
 import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
@@ -44,6 +45,8 @@ public class MetricsRequestEventListener implements RequestEventListener {
   public static final String RESPONSE_BYTES_COUNTER_NAME = name(MetricsRequestEventListener.class, "responseBytes");
   public static final String REQUEST_BYTES_COUNTER_NAME = name(MetricsRequestEventListener.class, "requestBytes");
 
+  private static final String ACTIVE_REQUESTS_GAUGE_NAME = name(MetricsRequestEventListener.class, "activeRequests");
+
   @VisibleForTesting
   static final String PATH_TAG = "path";
 
@@ -65,6 +68,8 @@ public class MetricsRequestEventListener implements RequestEventListener {
   private final TrafficSource trafficSource;
   private final MeterRegistry meterRegistry;
 
+  private final LongAdder activeRequests;
+
   public MetricsRequestEventListener(final TrafficSource trafficSource, final ClientReleaseManager clientReleaseManager) {
     this(trafficSource, Metrics.globalRegistry, clientReleaseManager);
 
@@ -81,10 +86,20 @@ public class MetricsRequestEventListener implements RequestEventListener {
     this.trafficSource = trafficSource;
     this.meterRegistry = meterRegistry;
     this.clientReleaseManager = clientReleaseManager;
+
+    this.activeRequests = meterRegistry.gauge(ACTIVE_REQUESTS_GAUGE_NAME, new LongAdder());
   }
 
   @Override
   public void onEvent(final RequestEvent event) {
+    if (event.getType() == RequestEvent.Type.RESOURCE_METHOD_START) {
+      activeRequests.increment();
+    }
+
+    if (event.getType() == RequestEvent.Type.RESOURCE_METHOD_FINISHED) {
+      activeRequests.decrement();
+    }
+
     if (event.getType() == RequestEvent.Type.FINISHED) {
       if (!event.getUriInfo().getMatchedTemplates().isEmpty()) {
         @Nullable final UserAgent userAgent;
