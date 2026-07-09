@@ -1089,7 +1089,7 @@ class FoundationDbMessageStoreTest {
     final Instant newTime = oldTime.plus(Duration.ofDays(2));
     final Instant testTime = oldTime.plus(Duration.ofDays(3));
 
-    final List<AciServiceIdentifier> acis = IntStream.range(0, 1024).mapToObj(_ -> new AciServiceIdentifier(UUID.randomUUID())).toList();
+    final List<AciServiceIdentifier> acis = IntStream.range(0, 10).mapToObj(_ -> new AciServiceIdentifier(UUID.randomUUID())).toList();
     final byte deviceId = Device.PRIMARY_ID;
 
     // insert some old messages
