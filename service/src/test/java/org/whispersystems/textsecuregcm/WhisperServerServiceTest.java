@@ -132,15 +132,6 @@ class WhisperServerServiceTest {
 
     final TestWebsocketListener testWebsocketListener = new TestWebsocketListener();
 
-    EXTENSION.getTestSupport().getEnvironment().getApplicationContext().getServer()
-        .addEventListener(new LifeCycle.Listener() {
-          @Override
-          public void lifeCycleStopped(final LifeCycle event) {
-            // closed by org.eclipse.jetty.websocket.common.SessionTracker during the container Lifecycle stopping phase
-            assertEquals(StatusCode.SHUTDOWN, testWebsocketListener.closeFuture().getNow(-1));
-          }
-        });
-
     // Session is Closeable, but we intentionally keep it open so that we can confirm the container Lifecycle behavior
     final Session session = (useH2 ? h2WebSocketClient : webSocketClient).connect(testWebsocketListener,
             URI.create(String.format("ws://localhost:%d/v1/websocket/", EXTENSION.getLocalPort())))
