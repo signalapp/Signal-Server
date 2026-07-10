@@ -18,6 +18,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.ScheduledExecutorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
@@ -61,6 +63,8 @@ public class FoundationDbMessageStream implements MessageStream {
 
   private static final Comparator<FoundationDbMessageStreamEntry.Message> STREAM_ENTRY_TIMESTAMP_COMPARATOR =
       Comparator.comparingLong(streamEntry -> streamEntry.partialEnvelope().getServerTimestamp());
+
+  private static final Logger logger = LoggerFactory.getLogger(FoundationDbMessageStream.class);
 
   FoundationDbMessageStream(final FoundationDbMessageStore foundationDbMessageStore,
       final AciServiceIdentifier aciServiceIdentifier,
@@ -240,12 +244,17 @@ public class FoundationDbMessageStream implements MessageStream {
   private CompletableFuture<Optional<KeySelector>> getEndOfQueueKeyExclusive(final Database database) {
     return database.runAsync(transaction ->
             transaction.getRange(deviceQueueSubspace.range(), 1, true, StreamingMode.EXACT).asList())
-        .thenApply(items -> {
+        .<Optional<KeySelector>>thenApply(items -> {
           if (items.isEmpty()) {
             return Optional.empty();
           }
           assert items.size() == 1;
           return Optional.of(KeySelector.firstGreaterThan(items.getFirst().getKey()));
+        })
+        .whenComplete((_, throwable) -> {
+          if (throwable != null) {
+            logger.warn("Failed to fetch end-of-queue key", throwable);
+          }
         });
   }
 
