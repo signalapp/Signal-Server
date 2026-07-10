@@ -2,7 +2,6 @@ package org.whispersystems.textsecuregcm.storage.foundationdb;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -27,7 +26,9 @@ import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -125,14 +126,14 @@ class FoundationDbMessagePublisherTest {
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),
-        2, // With 3 messages and batch size set to 2, we'll need to grab 2 batches.
         null,
         null,
         null,
         (_, newState) -> stateTransitions.add(newState)
     );
 
-    StepVerifier.create(finitePublisher.getMessages())
+    // With 3 messages and batch size set to 2, we'll need to grab 2 batches.
+    StepVerifier.create(finitePublisher.getMessages().limitRate(2))
         .expectNext(getExpectedMessageStreamEntry(keyValue1))
         .expectNext(getExpectedMessageStreamEntry(keyValue2))
         .expectNext(getExpectedMessageStreamEntry(keyValue3))
@@ -198,7 +199,6 @@ class FoundationDbMessagePublisherTest {
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
-        2,
         FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
         presenceRenewalExecutorService,
         MESSAGES_AVAILABLE_WATCH_KEY,
@@ -282,7 +282,6 @@ class FoundationDbMessagePublisherTest {
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
-        2,
         FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
         presenceRenewalExecutorService,
         MESSAGES_AVAILABLE_WATCH_KEY,
@@ -330,7 +329,6 @@ class FoundationDbMessagePublisherTest {
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterThan(SUBSPACE_RANGE.end),
-        100,
         FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
         presenceRenewalExecutorService,
         MESSAGES_AVAILABLE_WATCH_KEY);
@@ -389,7 +387,6 @@ class FoundationDbMessagePublisherTest {
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
-        2,
         FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
         presenceRenewalExecutorService,
         MESSAGES_AVAILABLE_WATCH_KEY,
@@ -423,23 +420,30 @@ class FoundationDbMessagePublisherTest {
     final KeyValue keyValue2 = mockKeyValue((byte) 6, message2);
     final KeyValue keyValue3 = mockKeyValue((byte) 7, message3);
 
-    final AsyncIterable<KeyValue> batch1 = mock(AsyncIterable.class);
-    when(batch1.asList()).thenReturn(CompletableFuture.completedFuture(List.of(keyValue1, keyValue2)));
-
-    final AsyncIterable<KeyValue> batch2 = mock(AsyncIterable.class);
-    when(batch2.asList()).thenReturn(CompletableFuture.completedFuture(List.of(keyValue3)));
+    final Deque<KeyValue> keyValues = new ArrayDeque<>(List.of(keyValue1, keyValue2, keyValue3));
 
     final Transaction transaction = mock(Transaction.class);
-    when(transaction.getRange(any(KeySelector.class), any(KeySelector.class), anyInt(), anyBoolean(), any(
-        StreamingMode.class)))
-        .thenReturn(batch1)
-        .thenReturn(batch2);
+    when(transaction.getRange(any(KeySelector.class), any(), anyInt(), anyBoolean(), any(StreamingMode.class)))
+        .thenAnswer(invocation -> {
+          final int limit = invocation.getArgument(2);
+          final List<KeyValue> results = new ArrayList<>();
+
+          for (int i = 0; i < limit && !keyValues.isEmpty(); i++) {
+            results.add(keyValues.removeFirst());
+          }
+
+          final AsyncIterable<KeyValue> asyncIterable = mock(AsyncIterable.class);
+          when(asyncIterable.asList()).thenReturn(CompletableFuture.completedFuture(results));
+
+          return asyncIterable;
+        });
 
     when(database.runAsync(any(Function.class))).thenAnswer(
-        (Answer<CompletableFuture<List<? extends MessageStreamEntry>>>) invocationOnMock -> {
-          final Function<Transaction, CompletableFuture<List<? extends MessageStreamEntry>>> f = invocationOnMock.getArgument(
-              0);
-          return f.apply(transaction);
+        (Answer<CompletableFuture<List<? extends MessageStreamEntry>>>) invocation -> {
+          final Function<Transaction, CompletableFuture<List<? extends MessageStreamEntry>>> retryable =
+              invocation.getArgument(0);
+
+          return retryable.apply(transaction);
         });
 
     final CountDownLatch latch = new CountDownLatch(1);
@@ -448,7 +452,6 @@ class FoundationDbMessagePublisherTest {
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),
-        2,
         null,
         null,
         null,
@@ -460,24 +463,21 @@ class FoundationDbMessagePublisherTest {
         }
     );
 
-    // Request two messages one at a time and verify that we only fetch a single batch (batch size = 2) and not two batches
-    StepVerifier.create(finitePublisher.getMessages(), 1)
+    StepVerifier.create(finitePublisher.getMessages(), 2)
         .expectNext(getExpectedMessageStreamEntry(keyValue1))
-        .then(() -> {
-          // Wait for the whole batch to have completed publishing before requesting the next message
-          try {
-            assertTrue(latch.await(500, TimeUnit.MILLISECONDS));
-          } catch (final InterruptedException e) {
-            fail(e);
-          }
-        })
-        .thenRequest(1)
         .expectNext(getExpectedMessageStreamEntry(keyValue2))
-        .verifyTimeout(Duration.ofMillis(500));
+        .thenRequest(1)
+        .expectNext(getExpectedMessageStreamEntry(keyValue3))
+        .thenRequest(1)
+        .verifyComplete();
 
-    verify(transaction, times(1)).getRange(any(KeySelector.class), any(KeySelector.class), anyInt(), anyBoolean(),
-        any());
-
+    // We expect three invocations:
+    //
+    // 1. The first batch of 2 messages
+    // 2. The second batch of a single message
+    // 3. The third request for a single message that returns nothing and causes the stream to complete
+    verify(transaction, times(3))
+        .getRange(any(KeySelector.class), any(KeySelector.class), anyInt(), anyBoolean(), any());
   }
 
   @Test
@@ -509,7 +509,6 @@ class FoundationDbMessagePublisherTest {
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),
-        1,
         FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
         presenceRenewalExecutorService,
         MESSAGES_AVAILABLE_WATCH_KEY,

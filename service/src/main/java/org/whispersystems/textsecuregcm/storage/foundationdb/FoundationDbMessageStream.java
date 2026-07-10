@@ -44,7 +44,6 @@ public class FoundationDbMessageStream implements MessageStream {
   private final Database[] databasesByEpoch;
   private final MessageGuidCodec messageGuidCodec;
   /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
-  private final int maxMessagesPerScan;
   private final Flow.Publisher<MessageStreamEntry> messageStreamPublisher;
   private final Runnable doAfterCleanup;
   private final ScheduledExecutorService presenceRenewalExecutorService;
@@ -59,10 +58,10 @@ public class FoundationDbMessageStream implements MessageStream {
   private final Counter staleEphemeralMessagesCounter =
       Metrics.counter(name(FoundationDbMessageStream.class, "staleEphemeralMessages"));
 
-  static final int DEFAULT_MAX_MESSAGES_PER_SCAN = 100;
-
   private static final Comparator<FoundationDbMessageStreamEntry.Message> STREAM_ENTRY_TIMESTAMP_COMPARATOR =
       Comparator.comparingLong(streamEntry -> streamEntry.partialEnvelope().getServerTimestamp());
+
+  private static final int PREFETCH = 128;
 
   private static final Logger logger = LoggerFactory.getLogger(FoundationDbMessageStream.class);
 
@@ -71,7 +70,6 @@ public class FoundationDbMessageStream implements MessageStream {
       final byte deviceId,
       final Database[] databasesByEpoch,
       final MessageGuidCodec messageGuidCodec,
-      final int maxMessagesPerScan,
       final Runnable doAfterCleanup,
       final ScheduledExecutorService presenceRenewalExecutorService,
       final Clock clock) {
@@ -83,7 +81,6 @@ public class FoundationDbMessageStream implements MessageStream {
     this.messagesAvailableWatchKey = FoundationDbMessageStore.getMessagesAvailableWatchKey(aciServiceIdentifier);
     this.databasesByEpoch = databasesByEpoch;
     this.messageGuidCodec = messageGuidCodec;
-    this.maxMessagesPerScan = maxMessagesPerScan;
     this.messageStreamPublisher = JdkFlowAdapter.publisherToFlowPublisher(createMessagePublisher());
     this.doAfterCleanup = doAfterCleanup;
     this.presenceRenewalExecutorService = presenceRenewalExecutorService;
@@ -144,8 +141,7 @@ public class FoundationDbMessageStream implements MessageStream {
                                 database,
                                 clock,
                                 KeySelector.firstGreaterOrEqual(deviceQueueSubspace.range().begin),
-                                endOfQueueKeyExclusive,
-                                maxMessagesPerScan)
+                                endOfQueueKeyExclusive)
                             .getMessages())
                         .orElseGet(Flux::empty)
                         .handle((fdbMessageStreamEntry, sink) -> {
@@ -177,7 +173,6 @@ public class FoundationDbMessageStream implements MessageStream {
                         clock,
                         infinitePublisherBeginKey,
                         KeySelector.firstGreaterThan(deviceQueueSubspace.range().end),
-                        maxMessagesPerScan,
                         presenceKey,
                         presenceRenewalExecutorService,
                         messagesAvailableWatchKey).getMessages();
@@ -185,7 +180,7 @@ public class FoundationDbMessageStream implements MessageStream {
                   .toArray(Flux[]::new);
 
           return Flux.concat(
-              Flux.mergeComparing(maxMessagesPerScan, STREAM_ENTRY_TIMESTAMP_COMPARATOR, finitePublishers),
+              Flux.mergeComparing(PREFETCH, STREAM_ENTRY_TIMESTAMP_COMPARATOR, finitePublishers),
               Mono.just(new FoundationDbMessageStreamEntry.QueueEmpty()),
 
               // Note that we use `mergePriority` instead of `mergeComparing` for the "live"/non-terminating publishers
@@ -196,7 +191,7 @@ public class FoundationDbMessageStream implements MessageStream {
               // where messages arrive at different servers while somebody is connected and a migration is in progress,
               // but that should be (again) exceedingly rare and also minimally-disruptive (i.e. it would self-correct
               // so quickly that end users would likely never even notice).
-              Flux.mergePriority(maxMessagesPerScan, STREAM_ENTRY_TIMESTAMP_COMPARATOR, infinitePublishers));
+              Flux.mergePriority(PREFETCH, STREAM_ENTRY_TIMESTAMP_COMPARATOR, infinitePublishers));
         });
   }
 

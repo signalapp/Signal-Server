@@ -424,7 +424,7 @@ public class FoundationDbMessageStore {
   }
 
   public FoundationDbMessageStream getMessages(final AciServiceIdentifier aci, final byte deviceId) {
-    return getMessages(aci, deviceId, FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN, Util.NOOP);
+    return getMessages(aci, deviceId, Util.NOOP);
   }
 
   Database[] getDatabasesByEpochForAci(final AciServiceIdentifier aci) {
@@ -441,7 +441,6 @@ public class FoundationDbMessageStore {
   @VisibleForTesting
   FoundationDbMessageStream getMessages(final AciServiceIdentifier aci,
       final byte deviceId,
-      final int maxMessagesPerScan,
       final Runnable doAfterCleanup) {
 
    final Database[] databasesForQueueByEpoch = getDatabasesByEpochForAci(aci);
@@ -451,7 +450,6 @@ public class FoundationDbMessageStore {
         deviceId,
         databasesForQueueByEpoch,
         new MessageGuidCodec(aci.uuid(), deviceId, versionstampUUIDCipher),
-        maxMessagesPerScan,
         doAfterCleanup,
         presenceRenewalExecutorService,
         clock);

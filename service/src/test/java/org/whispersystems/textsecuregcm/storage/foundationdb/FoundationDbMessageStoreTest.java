@@ -599,10 +599,10 @@ class FoundationDbMessageStoreTest {
         .toList();
 
     final MessageStream messageStream =
-        foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, batchSize, Util.NOOP);
+        foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, Util.NOOP);
 
     final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
-    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()).limitRate(batchSize))
         .recordWith(() -> retrievedEntries)
         .expectNextCount(numMessages)
         .expectNext(new MessageStreamEntry.QueueEmpty())
@@ -911,9 +911,7 @@ class FoundationDbMessageStoreTest {
         .toList();
 
     final CountDownLatch latch = new CountDownLatch(1);
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
-        FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
-        latch::countDown);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, latch::countDown);
     final List<CompletableFuture<Void>> acknowledgeFutures = new ArrayList<>();
     final AtomicInteger messageCounter = new AtomicInteger(0);
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages())
@@ -979,12 +977,7 @@ class FoundationDbMessageStoreTest {
 
     {
       final CountDownLatch cleanupLatch = new CountDownLatch(1);
-
-      final MessageStream messageStream = foundationDbMessageStore.getMessages(aci,
-          deviceId,
-          FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
-          cleanupLatch::countDown);
-
+      final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, deviceId, cleanupLatch::countDown);
       final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
 
       StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
@@ -1057,9 +1050,9 @@ class FoundationDbMessageStoreTest {
       }
     });
 
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
-        FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
-        cleanUpLatch::countDown);
+    final MessageStream messageStream =
+        foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, cleanUpLatch::countDown);
+
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
         // We should have discarded the already-inserted ephemeral message
         .expectNext(new MessageStreamEntry.QueueEmpty())
@@ -1216,9 +1209,7 @@ class FoundationDbMessageStoreTest {
     final long lastTimestampInInactiveEpoch = inactiveEpochMessages.getLast().getServerTimestamp();
     final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
 
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
-        FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
-        Util.NOOP);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, Util.NOOP);
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
         .recordWith(() -> retrievedEntries)
         .expectNextMatches(entry -> entry instanceof MessageStreamEntry.Envelope(MessageProtos.Envelope message)

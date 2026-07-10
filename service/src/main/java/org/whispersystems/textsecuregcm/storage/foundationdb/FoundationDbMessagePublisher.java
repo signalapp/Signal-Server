@@ -18,7 +18,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 import io.micrometer.core.instrument.Metrics;
@@ -41,9 +40,6 @@ class FoundationDbMessagePublisher {
   /// The end key at which we stop reading messages. For finite publisher, this is just past the end-of-queue key at the
   /// time the publisher was created. For an infinite publisher, this is the end of subspace range.
   private final KeySelector endKeyExclusive;
-
-  /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
-  private final int maxMessagesPerScan;
 
   /// The key that stores the server ID/timestamp indicating when/where the connected client was last known to be
   /// present. Active publishers refresh this key at regular intervals (see [#renewPresenceFuture]).
@@ -80,13 +76,15 @@ class FoundationDbMessagePublisher {
   /// A future that represents the next pending presence renewal.
   @Nullable private CompletableFuture<?> renewPresenceFuture;
 
-  private final AtomicLong totalRequested = new  AtomicLong(0);
-  private final AtomicLong totalEmitted = new AtomicLong(0);
+  private long totalRequested;
+  private long totalEmitted;
 
   private static final AtomicInteger NEXT_STREAM_ID = new AtomicInteger();
 
   private static final long RENEWAL_INTERVAL_MILLIS =
       FoundationDbMessageStore.PRESENCE_STALE_THRESHOLD.multipliedBy(4).dividedBy(5).toMillis();
+
+  private static final int MAX_MESSAGES_PER_PAGE = 1024;
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessagePublisher.class);
 
@@ -132,7 +130,6 @@ class FoundationDbMessagePublisher {
       final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
-      final int maxMessagesPerScan,
       @Nullable final byte[] presenceKey,
       @Nullable final ScheduledExecutorService presenceRenewalExecutorService,
       @Nullable final byte[] messagesAvailableWatchKey,
@@ -142,7 +139,6 @@ class FoundationDbMessagePublisher {
     this.clock = clock;
     this.beginKeyCursor = beginKeyInclusive;
     this.endKeyExclusive = endKeyExclusive;
-    this.maxMessagesPerScan = maxMessagesPerScan;
     this.presenceKey = presenceKey;
     this.presenceRenewalExecutorService = presenceRenewalExecutorService;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
@@ -165,12 +161,7 @@ class FoundationDbMessagePublisher {
     this.messagePublisher = establishPresence
         .thenMany(Flux.create(emitter -> {
           this.emitter = emitter;
-          emitter.onRequest(n -> {
-            final long totalRequestedCount = totalRequested.addAndGet(n);
-            if (totalRequestedCount > totalEmitted.get()) {
-              transitionStateOnEvent(Event.DEMAND_REQUESTED);
-            }
-          });
+          emitter.onRequest(this::addDemand);
           emitter.onDispose(this::onDispose);
         }));
   }
@@ -183,14 +174,12 @@ class FoundationDbMessagePublisher {
       final Database database,
       final Clock clock,
       final KeySelector beginKeyInclusive,
-      final KeySelector endKeyExclusive,
-      final int maxMessagesPerScan) {
+      final KeySelector endKeyExclusive) {
 
     return new FoundationDbMessagePublisher(database,
         clock,
         beginKeyInclusive,
         endKeyExclusive,
-        maxMessagesPerScan,
         null,
         null,
         null,
@@ -205,7 +194,6 @@ class FoundationDbMessagePublisher {
       final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
-      final int maxMessagesPerScan,
       final byte[] presenceKey,
       final ScheduledExecutorService presenceRenewalExecutorService,
       final byte[] messagesAvailableWatchKey) {
@@ -214,7 +202,6 @@ class FoundationDbMessagePublisher {
         clock,
         beginKeyInclusive,
         endKeyExclusive,
-        maxMessagesPerScan,
         presenceKey,
         presenceRenewalExecutorService,
         messagesAvailableWatchKey,
@@ -305,24 +292,30 @@ class FoundationDbMessagePublisher {
     }
   }
 
-  /// Fetch messages using a range query limiting batch size to [#maxMessagesPerScan]. If the query returns fewer than
-  /// [#maxMessagesPerScan], emit [Event#FETCHED_ALL_AVAILABLE_MESSAGES]. In the case of an infinite publisher, also set
+  /// Fetch messages using a range query limiting batch size to `maxMessages`. If the query returns fewer than
+  /// `maxMessages`, emit [Event#FETCHED_ALL_AVAILABLE_MESSAGES]. In the case of an infinite publisher, also set
   /// a watch for new messages. Additionally, the cursor is updated so that we begin fetching from the right key on
   /// subsequent scans.
   ///
-  /// @return a future of a list of [FoundationDbMessageStreamEntry.Message] with a max size of [#maxMessagesPerScan]
-  private CompletableFuture<List<FoundationDbMessageStreamEntry.Message>> getMessagesBatch() {
+  /// @param maxMessages the maximum number of messages to retrieve
+  ///
+  /// @return a future of a list of [FoundationDbMessageStreamEntry.Message] with a max size of `maxMessages`
+  private CompletableFuture<List<FoundationDbMessageStreamEntry.Message>> getMessagesBatch(final int maxMessages) {
+    if (maxMessages <= 0) {
+      throw new IllegalArgumentException("Max messages must be positive");
+    }
+
     return FoundationDbUtil.safeRunAsync(database, transaction ->
-            transaction.getRange(beginKeyCursor, endKeyExclusive, maxMessagesPerScan, false, StreamingMode.EXACT).asList()
+            transaction.getRange(beginKeyCursor, endKeyExclusive, maxMessages, false, StreamingMode.EXACT).asList()
                 .thenApply(keyValues -> {
-                  if (keyValues.size() < maxMessagesPerScan && !terminateOnQueueEmpty) {
+                  if (keyValues.size() < maxMessages && !terminateOnQueueEmpty) {
                     setWatch(transaction);
                   }
 
                   return keyValues;
                 }))
         .thenApply(keyValues -> {
-          if (keyValues.size() < maxMessagesPerScan) {
+          if (keyValues.size() < maxMessages) {
             transitionStateOnEvent(Event.FETCHED_ALL_AVAILABLE_MESSAGES);
           }
 
@@ -347,18 +340,39 @@ class FoundationDbMessagePublisher {
         });
   }
 
-  /// Fetch and publish messages. Messages are fetched in batches of [#maxMessagesPerScan] to avoid excessive memory
-  /// consumption. After each fetch operation, [#beginKeyCursor] is updated to the next key we need to start reading
-  /// from. If the fetch operation returns fewer items than the batch size, we infer that we have fetched all available
-  /// messages and [Event#FETCHED_ALL_AVAILABLE_MESSAGES] is sent to the state machine. See [#getMessagesBatch()]
-  /// for details. Additionally, after we successfully publish the batch of messages, {@link Event#PUBLISHED_MESSAGES}
-  /// is emitted. If there's an error while fetching or publishing, [Event#FETCH_OR_PUBLISH_ERROR_OCCURRED] is emitted
-  /// instead.
+  private synchronized void addDemand(final long n) {
+    totalRequested += n;
+
+    assert totalRequested > totalEmitted;
+
+    transitionStateOnEvent(Event.DEMAND_REQUESTED);
+  }
+
+  private synchronized void handleEntriesEmitted(final long n) {
+    totalEmitted += n;
+  }
+
+  /// Returns the unmet demand requested by subscribers. Values larger than [Integer#MAX_VALUE] are clamped to
+  /// [Integer#MAX_VALUE].
+  ///
+  /// @return the unmet demand requested by publishers as an `int`
+  private synchronized int getOutstandingDemand() {
+    return (int) Math.min(totalRequested - totalEmitted, Integer.MAX_VALUE);
+  }
+
+  /// Fetch and publish messages. Messages are fetched in batches to avoid excessive memory consumption. After each
+  /// fetch operation, [#beginKeyCursor] is updated to the next key we need to start reading from. If the fetch
+  /// operation returns fewer items than the batch size, we infer that we have fetched all available messages and
+  /// [Event#FETCHED_ALL_AVAILABLE_MESSAGES] is sent to the state machine. See [#getMessagesBatch(int)] for details.
+  /// Additionally, after we successfully publish the batch of messages, {@link Event#PUBLISHED_MESSAGES} is emitted. If
+  /// there's an error while fetching or publishing, [Event#FETCH_OR_PUBLISH_ERROR_OCCURRED] is emitted instead.
   private void emitMessages() {
-    getMessagesBatch()
+    final int maxMessages = Math.min(getOutstandingDemand(), MAX_MESSAGES_PER_PAGE);
+
+    getMessagesBatch(maxMessages)
         .thenAccept(messageStreamEntries -> {
           messageStreamEntries.forEach(emitter::next);
-          totalEmitted.addAndGet(messageStreamEntries.size());
+          handleEntriesEmitted(messageStreamEntries.size());
           transitionStateOnEvent(Event.PUBLISHED_MESSAGES);
         })
         .exceptionally(t -> {
