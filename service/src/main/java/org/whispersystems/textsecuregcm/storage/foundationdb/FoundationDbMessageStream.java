@@ -65,9 +65,6 @@ public class FoundationDbMessageStream implements MessageStream {
   FoundationDbMessageStream(final FoundationDbMessageStore foundationDbMessageStore,
       final AciServiceIdentifier aciServiceIdentifier,
       final byte deviceId,
-      final Subspace deviceQueueSubspace,
-      final byte[] presenceKey,
-      final byte[] messagesAvailableWatchKey,
       final Database[] databasesByEpoch,
       final MessageGuidCodec messageGuidCodec,
       final int maxMessagesPerScan,
@@ -77,9 +74,9 @@ public class FoundationDbMessageStream implements MessageStream {
     this.foundationDbMessageStore = foundationDbMessageStore;
     this.aciServiceIdentifier = aciServiceIdentifier;
     this.deviceId = deviceId;
-    this.deviceQueueSubspace = deviceQueueSubspace;
-    this.presenceKey = presenceKey;
-    this.messagesAvailableWatchKey = messagesAvailableWatchKey;
+    this.deviceQueueSubspace = FoundationDbMessageStore.getDeviceQueueSubspace(aciServiceIdentifier, deviceId);
+    this.presenceKey = FoundationDbMessageStore.getPresenceKey(aciServiceIdentifier, deviceId);
+    this.messagesAvailableWatchKey = FoundationDbMessageStore.getMessagesAvailableWatchKey(aciServiceIdentifier);
     this.databasesByEpoch = databasesByEpoch;
     this.messageGuidCodec = messageGuidCodec;
     this.maxMessagesPerScan = maxMessagesPerScan;
