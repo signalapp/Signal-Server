@@ -95,42 +95,6 @@ public class FoundationDbMessageStream implements MessageStream {
     return this.messageStreamPublisher;
   }
 
-  public Flux<MessageStreamEntry> getFiniteMessageStream() {
-    // This may seem like an odd construction since it looks like we could also just do `Flux#fromArray`, but
-    // `Flux#fromArray` cannot handle `null` elements
-    final List<Database> databases = Arrays.stream(databasesByEpoch).filter(Objects::nonNull).distinct().toList();
-
-    return Flux.fromIterable(databases)
-        .flatMap(database -> Mono.fromFuture(getEndOfQueueKeyExclusive(database))
-            .map(maybeEndOfQueueKeyExclusive -> Tuples.of(database, maybeEndOfQueueKeyExclusive)))
-        .collectMap(Tuple2::getT1, Tuple2::getT2)
-        .flatMapMany(endOfQueueKeysByDatabase -> {
-          @SuppressWarnings("unchecked") final Flux<FoundationDbMessageStreamEntry.Message>[] finitePublishers =
-              endOfQueueKeysByDatabase.entrySet().stream()
-                  .map(entry -> {
-                    final Database database = entry.getKey();
-                    final Optional<KeySelector> maybeEndOfQueueKeyExclusive = entry.getValue();
-
-                    return maybeEndOfQueueKeyExclusive
-                        .map(endOfQueueKeyExclusive -> FoundationDbMessagePublisher.createFinitePublisher(
-                                database,
-                                clock,
-                                KeySelector.firstGreaterOrEqual(deviceQueueSubspace.range().begin),
-                                endOfQueueKeyExclusive,
-                                maxMessagesPerScan)
-                            .getMessages())
-                        .orElseGet(Flux::empty);
-                  })
-                  .toArray(Flux[]::new);
-
-          return Flux.concat(
-                  Flux.mergeComparing(maxMessagesPerScan, STREAM_ENTRY_TIMESTAMP_COMPARATOR, finitePublishers)
-                      .doOnNext(_ -> messageReadCounter.increment()),
-                  Mono.just(new FoundationDbMessageStreamEntry.QueueEmpty()))
-              .map(fdbMessageStreamEntry -> fdbMessageStreamEntry.toMessageStreamEntry(messageGuidCodec));
-        });
-  }
-
   /// Create a message publisher
   ///
   /// @return a Flux of {@link MessageStreamEntry} fetched from FoundationDB

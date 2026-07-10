@@ -8,13 +8,15 @@ package org.whispersystems.textsecuregcm.storage;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStream;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
-import reactor.core.Disposable;
+import reactor.core.publisher.BaseSubscriber;
 
 /// A temporary message stream that can mirror message acknowledgements (deletion requests) to FoundationDB
 public class MirroringMessageStream implements MessageStream {
@@ -27,6 +29,28 @@ public class MirroringMessageStream implements MessageStream {
   private final byte deviceId;
 
   private static final Logger logger = LoggerFactory.getLogger(MirroringMessageStream.class);
+
+  private static class FoundationDbSubscriber extends BaseSubscriber<MessageStreamEntry> {
+
+    public void handleRedisDynamoDbMessageStreamEntry(final MessageStreamEntry messageStreamEntry) {
+      final boolean isMirroredMessage = switch (messageStreamEntry) {
+        case MessageStreamEntry.Envelope envelopeEntry ->
+            UUIDUtil.fromByteString(envelopeEntry.message().getServerGuid()).version() == 8;
+
+        case MessageStreamEntry.QueueEmpty _ -> true;
+      };
+
+      if (isMirroredMessage) {
+        request(1);
+      }
+    }
+
+    @Override
+    protected void hookOnSubscribe(final Subscription subscription) {
+      // The base `hookOnSubscribe` requests `Long.MAX_VALUE` elements, and that is something we're explicitly trying
+      // to avoid with this subscriber
+    }
+  }
 
   public MirroringMessageStream(final RedisDynamoDbMessageStream redisDynamoDbMessageStream,
       final FoundationDbMessageStream foundationDbMessageStream,
@@ -44,17 +68,18 @@ public class MirroringMessageStream implements MessageStream {
 
   @Override
   public Flow.Publisher<MessageStreamEntry> getMessages() {
+    final FoundationDbSubscriber subscriber = new FoundationDbSubscriber();
+
     if (experimentEnrollmentManager.isEnrolled(accountIdentifier.uuid(), MessagesManager.MIRROR_READS_EXPERIMENT_NAME)) {
-      final Disposable foundationDbDisposable =
-          foundationDbMessageStream.getFiniteMessageStream()
-              .limitRate(100)
-              .subscribe();
+      JdkFlowAdapter.flowPublisherToFlux(foundationDbMessageStream.getMessages())
+          .subscribe(subscriber);
 
       return JdkFlowAdapter.publisherToFlowPublisher(
           JdkFlowAdapter.flowPublisherToFlux(redisDynamoDbMessageStream.getMessages())
+              .doOnNext(subscriber::handleRedisDynamoDbMessageStreamEntry)
               .doFinally(_ -> {
                 try {
-                  foundationDbDisposable.dispose();
+                  subscriber.dispose();
                 } catch (final Exception _) {
                 }
               }));
