@@ -10,9 +10,9 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -24,7 +24,6 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
@@ -303,62 +302,42 @@ class FoundationDbMessagePublisher {
   /// Fetch messages using a range query limiting batch size to [#maxMessagesPerScan]. If the query returns fewer than
   /// [#maxMessagesPerScan], emit [Event#FETCHED_ALL_AVAILABLE_MESSAGES]. In the case of an infinite publisher, also set
   /// a watch for new messages. Additionally, the cursor is updated so that we begin fetching from the right key on
-  /// subsequent scans
+  /// subsequent scans.
   ///
   /// @return a future of a list of [FoundationDbMessageStreamEntry.Message] with a max size of [#maxMessagesPerScan]
   private CompletableFuture<List<FoundationDbMessageStreamEntry.Message>> getMessagesBatch() {
-    return database.runAsync(transaction -> getItemsInRange(transaction, beginKeyCursor, endKeyExclusive, maxMessagesPerScan)
-        .thenApply(lastKeyReadAndItems -> {
-          if (lastKeyReadAndItems.second().size() < maxMessagesPerScan && !terminateOnQueueEmpty) {
-            setWatch(transaction);
-          }
+    return database.runAsync(transaction ->
+            transaction.getRange(beginKeyCursor, endKeyExclusive, maxMessagesPerScan, false, StreamingMode.EXACT).asList()
+                .thenApply(keyValues -> {
+                  if (keyValues.size() < maxMessagesPerScan && !terminateOnQueueEmpty) {
+                    setWatch(transaction);
+                  }
 
-          return lastKeyReadAndItems;
-        }))
-        // Defer any state mutations until after the transaction has been committed. The transaction block can
-        // fail/retry, and we don't want to trigger spurious state transitions when that happens.
-        .thenApply(lastKeyReadAndItems -> {
-          // Set our beginning key to just past the last key read so that we're ready for our next fetch
-          lastKeyReadAndItems.first()
-              .ifPresent(lastKeyRead -> beginKeyCursor = KeySelector.firstGreaterThan(lastKeyRead));
-
-          if (lastKeyReadAndItems.second().size() < maxMessagesPerScan) {
+                  return keyValues;
+                }))
+        .thenApply(keyValues -> {
+          if (keyValues.size() < maxMessagesPerScan) {
             transitionStateOnEvent(Event.FETCHED_ALL_AVAILABLE_MESSAGES);
           }
 
-          return lastKeyReadAndItems.second();
-        });
-  }
+          if (keyValues.isEmpty()) {
+            return Collections.emptyList();
+          }
 
-  /// Fetch messages in the range between `begin` and `end` limited to a batch size of `maxMessagesPerSccan`
-  ///
-  /// @param transaction        the FoundationDB transaction in which to perform the read query
-  /// @param beginInclusive     the range start key (inclusive)
-  /// @param endExclusive       the range end key (exclusive)
-  /// @param maxMessagesPerScan maximum number of messages to return in the fetch query
-  /// @return the last key read (if there were non-zero number of messages read) and the list of messages read
-  private CompletableFuture<Pair<Optional<byte[]>, List<FoundationDbMessageStreamEntry.Message>>> getItemsInRange(
-      final Transaction transaction,
-      final KeySelector beginInclusive,
-      final KeySelector endExclusive,
-      final int maxMessagesPerScan) {
-    return transaction.getRange(beginInclusive, endExclusive, maxMessagesPerScan, false, StreamingMode.EXACT).asList()
-        .thenApply(keyValues -> {
-          final Optional<byte[]> lastKeyRead = keyValues.isEmpty()
-              ? Optional.empty()
-              : Optional.of(keyValues.getLast().getKey());
-          final List<FoundationDbMessageStreamEntry.Message> messages = keyValues.stream()
+          beginKeyCursor = KeySelector.firstGreaterThan(keyValues.getLast().getKey());
+
+          return keyValues.stream()
               .map(keyValue -> {
                 final Versionstamp versionstamp = FoundationDbMessageStore.getVersionstamp(keyValue.getKey());
 
                 try {
-                  return new FoundationDbMessageStreamEntry.Message(versionstamp, MessageProtos.Envelope.parseFrom(keyValue.getValue()));
+                  return new FoundationDbMessageStreamEntry.Message(versionstamp,
+                      MessageProtos.Envelope.parseFrom(keyValue.getValue()));
                 } catch (final InvalidProtocolBufferException e) {
                   throw new UncheckedIOException(e);
                 }
               })
               .toList();
-          return new Pair<>(lastKeyRead, messages);
         });
   }
 
