@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -72,13 +73,19 @@ class FoundationDbMessagePublisher {
   /// Future that completes when the watch for {@link #messagesAvailableWatchKey} triggers.
   private CompletableFuture<Void> watchFuture;
 
-  /// A future for refreshing the connected client's presence value at regular intervals.
-  @Nullable private ScheduledFuture<?> renewPresenceFuture;
+  /// An executor service for refreshing the connected client's presence value at regular intervals.
+  @Nullable final ScheduledExecutorService presenceRenewalExecutorService;
+
+  /// A future that represents the next pending presence renewal.
+  @Nullable private CompletableFuture<?> renewPresenceFuture;
 
   private final AtomicLong totalRequested = new  AtomicLong(0);
   private final AtomicLong totalEmitted = new AtomicLong(0);
 
   private static final AtomicInteger NEXT_STREAM_ID = new AtomicInteger();
+
+  private static final long RENEWAL_INTERVAL_MILLIS =
+      FoundationDbMessageStore.PRESENCE_STALE_THRESHOLD.multipliedBy(4).dividedBy(5).toMillis();
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessagePublisher.class);
 
@@ -133,6 +140,7 @@ class FoundationDbMessagePublisher {
     this.endKeyExclusive = endKeyExclusive;
     this.maxMessagesPerScan = maxMessagesPerScan;
     this.presenceKey = presenceKey;
+    this.presenceRenewalExecutorService = presenceRenewalExecutorService;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
     this.terminateOnQueueEmpty = messagesAvailableWatchKey == null;
     this.stateChangeListener = stateChangeListener != null ? stateChangeListener : (_, _) -> {};
@@ -142,21 +150,15 @@ class FoundationDbMessagePublisher {
       Objects.requireNonNull(presenceRenewalExecutorService);
     }
 
-    this.messagePublisher = Mono.fromFuture(() -> {
-          if (!terminateOnQueueEmpty) {
-            // Establish presence before attempting to fetch messages. We must establish presence for watches to work as
-            // expected. If we fail to establish presence, then this non-terminating stream will never learn about new
-            // messages. If establishing presence throws an exception, then the whole publisher will terminate with that
-            // exception.
-            return database.runAsync(transaction -> {
-                  setPresence(transaction);
-                  return CompletableFuture.completedFuture(null);
-                })
-                .thenRun(() -> startPresenceRenewal(presenceRenewalExecutorService));
-          } else {
-            return CompletableFuture.completedFuture(null);
-          }
-        })
+    final Mono<Void> establishPresence = terminateOnQueueEmpty
+        ? Mono.empty()
+        // Establish presence before attempting to fetch messages. We must establish presence for watches to work as
+        // expected. If we fail to establish presence, then this non-terminating stream will never learn about new
+        // messages. If establishing presence throws an exception, then the whole publisher will terminate with that
+        // exception.
+        : Mono.fromFuture(this::renewPresence).then(Mono.fromRunnable(this::schedulePresenceRenewal));
+
+    this.messagePublisher = establishPresence
         .thenMany(Flux.create(emitter -> {
           this.emitter = emitter;
           emitter.onRequest(n -> {
@@ -386,61 +388,69 @@ class FoundationDbMessagePublisher {
     }
   }
 
-  private synchronized void startPresenceRenewal(final ScheduledExecutorService presenceRenewalExecutorService) {
-    final long renewalIntervalMillis =
-        FoundationDbMessageStore.PRESENCE_STALE_THRESHOLD.multipliedBy(4).dividedBy(5).toMillis();
-
-    renewPresenceFuture = presenceRenewalExecutorService.scheduleWithFixedDelay(this::renewPresence,
-        renewalIntervalMillis,
-        renewalIntervalMillis,
-        TimeUnit.MILLISECONDS);
-  }
-
-  private synchronized void renewPresence() {
+  private synchronized void schedulePresenceRenewal() {
     if (state == State.TERMINATED || state == State.ERROR) {
       return;
     }
 
-    database.runAsync(transaction -> {
-      setPresence(transaction);
-      return CompletableFuture.completedFuture(null);
-    })
-    .whenComplete((_, throwable) -> {
-      if (throwable != null) {
-        LOGGER.warn("Failed to renew presence; will terminate publisher", throwable);
-        terminateWithError(throwable);
+    assert presenceRenewalExecutorService != null;
+
+    renewPresenceFuture = new CompletableFuture<>();
+
+    final ScheduledFuture<?> scheduledFuture = presenceRenewalExecutorService.schedule(() -> {
+      renewPresence().whenComplete((_, throwable) -> {
+        if (throwable != null) {
+          LOGGER.warn("Failed to renew presence", throwable);
+          renewPresenceFuture.completeExceptionally(throwable);
+        } else {
+          renewPresenceFuture.complete(null);
+        }
+      });
+    }, RENEWAL_INTERVAL_MILLIS, TimeUnit.MILLISECONDS);
+
+    renewPresenceFuture.whenComplete((_, throwable) -> {
+      if (throwable instanceof CancellationException) {
+        scheduledFuture.cancel(false);
+      } else {
+        schedulePresenceRenewal();
       }
     });
   }
 
-  private void setPresence(final Transaction transaction) {
-    transaction.set(presenceKey, FoundationDbMessageStore.getPresenceValue(clock.instant(), streamId));
+  private synchronized CompletableFuture<Void> renewPresence() {
+    if (state == State.TERMINATED || state == State.ERROR) {
+      return CompletableFuture.failedFuture(new IllegalStateException("Publisher already terminated"));
+    }
+
+    return database.runAsync(transaction -> {
+      transaction.set(presenceKey, FoundationDbMessageStore.getPresenceValue(clock.instant(), streamId));
+      return CompletableFuture.completedFuture(null);
+    });
   }
 
   @VisibleForTesting
   synchronized void clearPresence() {
     if (renewPresenceFuture != null) {
       renewPresenceFuture.cancel(true);
-    }
 
-    if (!terminateOnQueueEmpty) {
-      database.runAsync(transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
-            if (presenceValue == null) {
-              return;
-            }
+      renewPresenceFuture.whenComplete((_, _) ->
+          database.runAsync(transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
+                if (presenceValue == null) {
+                  return;
+                }
 
-            final byte[] presenceServerId = FoundationDbMessageStore.getPresenceServerId(presenceValue);
-            final int presenceStreamId = FoundationDbMessageStore.getPresenceStreamId(presenceValue);
+                final byte[] presenceServerId = FoundationDbMessageStore.getPresenceServerId(presenceValue);
+                final int presenceStreamId = FoundationDbMessageStore.getPresenceStreamId(presenceValue);
 
-            if (Arrays.equals(presenceServerId, FoundationDbMessageStore.getServerId()) && streamId == presenceStreamId) {
-              transaction.clear(presenceKey);
-            }
-          }))
-          .whenComplete((_, throwable) -> {
-            if (throwable != null) {
-              LOGGER.warn("Failed to clear presence on disposal", throwable);
-            }
-          });
+                if (Arrays.equals(presenceServerId, FoundationDbMessageStore.getServerId()) && streamId == presenceStreamId) {
+                  transaction.clear(presenceKey);
+                }
+              }))
+              .whenComplete((_, throwable) -> {
+                if (throwable != null) {
+                  LOGGER.warn("Failed to clear presence on disposal", throwable);
+                }
+              }));
     }
   }
 
