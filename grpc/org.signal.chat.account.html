@@ -106,6 +106,24 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.account.ChangeNumberRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ChangeNumberRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ChangeNumberResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ChangeNumberResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.account.CheckAccountExistenceRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>CheckAccountExistenceRequest</code> 
@@ -240,6 +258,37 @@
       
     
       
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ExternalServiceCredentials">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ExternalServiceCredentials</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetAccountDataReportRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetAccountDataReportRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetAccountDataReportResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetAccountDataReportResponse</code> 
+        </a>
+      </p>
+      
+    
+      
       <p>
         <a href="#message-org.signal.chat.account.GetAccountIdentityRequest">
           <span class="tag" style="min-width: 6em">Message</span>
@@ -307,6 +356,17 @@
         <a href="#message-org.signal.chat.account.LookupUsernameLinkResponse">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>LookupUsernameLinkResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.RegistrationLockFailure">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RegistrationLockFailure</code> 
         </a>
       </p>
       
@@ -415,6 +475,15 @@
         <a href="#message-org.signal.chat.account.SetZkCredentialKeyResponse">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>SetZkCredentialKeyResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.StaleDevices">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>StaleDevices</code> 
         </a>
       </p>
       
@@ -747,6 +816,46 @@ via the Contact Discovery Service (CDS).</p></p>
   </div>
   
 </div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-ChangeNumber">
+      <a href="#service-org.signal.chat.account.Accounts-ChangeNumber">
+        rpc <code>ChangeNumber</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ChangeNumberRequest"><span title="org.signal.chat.account.ChangeNumberRequest">org.signal.chat.account.ChangeNumberRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ChangeNumberResponse"><span title="org.signal.chat.account.ChangeNumberResponse">org.signal.chat.account.ChangeNumberResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Changes the phone number associated with the authenticated account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-GetAccountDataReport">
+      <a href="#service-org.signal.chat.account.Accounts-GetAccountDataReport">
+        rpc <code>GetAccountDataReport</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetAccountDataReportRequest"><span title="org.signal.chat.account.GetAccountDataReportRequest">org.signal.chat.account.GetAccountDataReportRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetAccountDataReportResponse"><span title="org.signal.chat.account.GetAccountDataReportResponse">org.signal.chat.account.GetAccountDataReportResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Produces a report of non-ephemeral account data stored by the service</p></p>
+  </div>
+  
+</div>
  
     </div>
     
@@ -984,6 +1093,416 @@ ProductConfiguration.GetConfiguration.</p></td>
       
     </tr>
     
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ChangeNumberRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.ChangeNumberRequest" title="org.signal.chat.account.ChangeNumberRequest">message ChangeNumberRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        number
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The new phone number for the authenticated account.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        registration_lock
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The registration lock secret for the new phone number, if the account
+associated with the new phone number has a registration lock configured.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        pni_identity_key
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The new public identity key to use for the phone-number identity (PNI)
+associated with the new phone number.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>6</td>
+      <td>
+        device_messages
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.IndividualRecipientMessageBundle">
+          
+          <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.IndividualRecipientMessageBundle"><span title="org.signal.chat.messages.IndividualRecipientMessageBundle">org.signal.chat.messages.IndividualRecipientMessageBundle</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>Synchronization messages to send to companion devices to supply the private
+keys associated with the new identity key and their new pre-keys. Exactly
+one message must be supplied for each device other than the sending
+(primary) device. May be omitted if no companion devices are linked to the
+account.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>7</td>
+      <td>
+        device_pni_signed_pre_keys
+      </td>
+      <td>
+        <code title="map&lt;uint32, EcSignedPreKey&gt;">
+          
+          <span>map&lt;uint32, EcSignedPreKey&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>A new signed EC pre-key for each device on the account, including the
+sending device, keyed by device ID. Each must be accompanied by a valid
+signature from the identity key in this request.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>8</td>
+      <td>
+        device_pni_pq_last_resort_pre_keys
+      </td>
+      <td>
+        <code title="map&lt;uint32, KemSignedPreKey&gt;">
+          
+          <span>map&lt;uint32, KemSignedPreKey&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>A new signed post-quantum last-resort pre-key for each device on the
+account, including the sending device, keyed by device ID. Each must be
+accompanied by a valid signature from the identity key in this request.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>9</td>
+      <td>
+        pni_registration_ids
+      </td>
+      <td>
+        <code title="map&lt;uint32, uint32&gt;">
+          
+          <span>map&lt;uint32, uint32&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>The new phone-number-identity registration ID for each device on the
+account, including the sending device, keyed by device ID.</p></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof verification</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            session_id
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>A verified registration session ID (as returned by the registration
+service) for the new phone number.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            recovery_password
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>A registration recovery password for the new phone number.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ChangeNumberResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.ChangeNumberResponse" title="org.signal.chat.account.ChangeNumberResponse">message ChangeNumberResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            account_identifiers
+          </td>
+          <td>
+            <code title="org.signal.chat.common.AccountIdentifiers">
+              
+              <a href="org.signal.chat.common.html#message-org.signal.chat.common.AccountIdentifiers"><span title="org.signal.chat.common.AccountIdentifiers">org.signal.chat.common.AccountIdentifiers</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The identifiers of the account after the successful
+number change.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            mismatched_devices
+          </td>
+          <td>
+            <code title="org.signal.chat.messages.MismatchedDevices">
+              
+              <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.MismatchedDevices"><span title="org.signal.chat.messages.MismatchedDevices">org.signal.chat.messages.MismatchedDevices</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Mismatched number of devices or device ids in 'devices to notify' list</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            registration_lock_failure
+          </td>
+          <td>
+            <code title="org.signal.chat.account.RegistrationLockFailure">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.RegistrationLockFailure"><span title="org.signal.chat.account.RegistrationLockFailure">org.signal.chat.account.RegistrationLockFailure</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The account associated with the new phone number has a registration lock,
+and the provided registration lock secret was missing or incorrect.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            stale_devices
+          </td>
+          <td>
+            <code title="org.signal.chat.account.StaleDevices">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.StaleDevices"><span title="org.signal.chat.account.StaleDevices">org.signal.chat.account.StaleDevices</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Mismatched registration ids in 'devices to notify' list</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            message_too_large
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>One or more device messages was too large</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            6
+          </td>
+          <td>
+            unverified_registration_session
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The registration session is unverified</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            7
+          </td>
+          <td>
+            invalid_registration_session
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The number does not match the registration session, or the registration session is invalid</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            8
+          </td>
+          <td>
+            recovery_password_verification_failed
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
     
   </tbody>
 </table>
@@ -1736,6 +2255,175 @@ another caller.</p></td>
       
     
       
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ExternalServiceCredentials">
+  <span>
+    <a href="#message-org.signal.chat.account.ExternalServiceCredentials" title="org.signal.chat.account.ExternalServiceCredentials">message ExternalServiceCredentials</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>A username/password pair for authenticating with an external service.</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        username
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A username that can be presented to authenticate with the external service.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        password
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A password that can be presented to authenticate with the external service.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetAccountDataReportRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.GetAccountDataReportRequest" title="org.signal.chat.account.GetAccountDataReportRequest">message GetAccountDataReportRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetAccountDataReportResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.GetAccountDataReportResponse" title="org.signal.chat.account.GetAccountDataReportResponse">message GetAccountDataReportResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        json
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The JSON representation of the data report</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        text
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A plaintext representation of the data report</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
       <div class="block">
         
 
@@ -2190,6 +2878,75 @@ another caller.</p></td>
           
         </tr>
       
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.RegistrationLockFailure">
+  <span>
+    <a href="#message-org.signal.chat.account.RegistrationLockFailure" title="org.signal.chat.account.RegistrationLockFailure">message RegistrationLockFailure</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>Information about the current Registration lock and SVR credentials. With a correct PIN, the credentials can
+be used to recover the secret used to derive the registration lock password.</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        time_remaining_millis
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>Time remaining in milliseconds before the existing registration lock expires</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        svr2_credentials
+      </td>
+      <td>
+        <code title="org.signal.chat.account.ExternalServiceCredentials">
+          
+          <a href="org.signal.chat.account.html#message-org.signal.chat.account.ExternalServiceCredentials"><span title="org.signal.chat.account.ExternalServiceCredentials">org.signal.chat.account.ExternalServiceCredentials</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>Credentials that can be used with SVR2</p></td>
+      
+    </tr>
+    
     
   </tbody>
 </table>
@@ -2836,6 +3593,60 @@ created.</p></td>
       <td class="content"><p>A random, non-zero, value that must be included in credential requests using the key.</p>
 <p>This value allows the server to ratchet the resulting binding identity,
 as reverting to the previous key will result in a new rotation ID.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.StaleDevices">
+  <span>
+    <a href="#message-org.signal.chat.account.StaleDevices" title="org.signal.chat.account.StaleDevices">message StaleDevices</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>A list of devices that are linked to the account but presented a stale
+registration ID (indicating the device has likely been replaced by another
+device).</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        stale_devices
+      </td>
+      <td>
+        <code title="uint32">
+          
+            repeated
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The IDs of devices that are no longer active.</p></td>
       
     </tr>
     

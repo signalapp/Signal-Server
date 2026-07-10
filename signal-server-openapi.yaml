@@ -6588,7 +6588,7 @@ components:
       properties:
         id:
           type: string
-          description: A URL-safe ID for the session
+          description: A URL-safe base64-encoded ID for the session
         nextSms:
           type: integer
           description: Duration in seconds after which next SMS can be requested for
