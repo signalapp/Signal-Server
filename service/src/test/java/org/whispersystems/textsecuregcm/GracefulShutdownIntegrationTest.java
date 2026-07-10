@@ -117,7 +117,7 @@ public class GracefulShutdownIntegrationTest {
       // H2 stream. It's possible that the stream cancellation makes it to the wire before the close frame which will
       // be parsed as a 1006, so we accept both . In practice, a 1001 vs an RST_STREAM shouldn't make a difference to a
       // client. We just care that jetty is attempting to shut down all websockets during graceful shutdowns.
-      assertTrue(shutdownCode == StatusCode.SHUTDOWN || (shutdownCode == StatusCode.NO_CODE && useH2));
+      assertTrue(shutdownCode == StatusCode.SHUTDOWN || (shutdownCode == StatusCode.NO_CODE && useH2), "Shutdown code should be 1001 or 1006, was " + shutdownCode);
     } finally {
       support.after();
     }
