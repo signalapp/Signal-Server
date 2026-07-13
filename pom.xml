@@ -85,7 +85,7 @@
     <semver4j.version>3.1.0</semver4j.version>
     <simple-grpc.version>0.2.0</simple-grpc.version>
     <slf4j.version>2.0.17</slf4j.version>
-    <stripe.version>31.2.0</stripe.version>
+    <stripe.version>33.1.0</stripe.version>
     <swagger.version>2.2.46</swagger.version>
     <testcontainers.version>2.0.4</testcontainers.version>
 
