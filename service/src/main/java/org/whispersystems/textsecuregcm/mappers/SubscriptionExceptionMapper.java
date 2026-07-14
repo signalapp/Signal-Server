@@ -12,6 +12,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import java.util.Map;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriberIdCreationNotPermittedException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
@@ -63,6 +64,7 @@ public class SubscriptionExceptionMapper implements ExceptionMapper<Subscription
       case SubscriptionProcessorConflictException _ -> Response.Status.CONFLICT;
       case SubscriptionPaymentRequiredException _ -> Response.Status.PAYMENT_REQUIRED;
       case SubscriptionReceiptAlreadyRedeemedException _ -> Response.Status.CONFLICT;
+      case SubscriberIdCreationNotPermittedException _ -> Response.Status.UNAUTHORIZED;
       default -> Response.Status.INTERNAL_SERVER_ERROR;
     });
 

@@ -204,6 +204,21 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
   }
 
   @Test
+  void createBoostPaymentIntentMissingDonationPermit() {
+    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
+        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
+
+    try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
+        .request()
+        .post(Entity.json("""
+            {"currency": "USD", "amount": 300}
+            """
+        ))) {
+      assertThat(response.getStatus()).isEqualTo(401);
+    }
+  }
+
+  @Test
   void testCreateBoostPayPal() throws IOException {
     final BraintreeManager.PayPalOneTimePaymentApprovalDetails payPalOneTimePaymentApprovalDetails = mock(
         BraintreeManager.PayPalOneTimePaymentApprovalDetails.class);

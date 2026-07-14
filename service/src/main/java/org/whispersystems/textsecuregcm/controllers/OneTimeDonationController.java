@@ -194,7 +194,7 @@ public class OneTimeDonationController {
                 return false;
               }
             })
-        .orElse(true);
+        .orElse(false);
     if (!spendSuccessful) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }

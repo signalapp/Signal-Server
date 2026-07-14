@@ -234,7 +234,7 @@ public class SubscriptionController {
             return false;
           }
         })
-        .orElse(true);
+        .orElse(false);
 
     subscriptionManager.updateSubscriber(subscriberCredentials, creationPermitted);
     return Response.ok().build();
@@ -248,6 +248,16 @@ public class SubscriptionController {
   @Path("/{subscriberId}/create_payment_method")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Create a payment method", description = """
+      Creates a payment method setup token with the payment processor and returns a client secret that can be used to
+      complete the payment method setup.
+      """)
+  @ApiResponse(responseCode = "200", description = "The payment method was created", content = @Content(schema = @Schema(implementation = CreatePaymentMethodResponse.class)))
+  @ApiResponse(responseCode = "400", description = "The requested payment method type is not supported by this endpoint")
+  @ApiResponse(responseCode = "401", description = "Donation permit was invalid or already spent")
+  @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
+  @ApiResponse(responseCode = "404", description = "subscriberId is malformed OR the subscriber does not exist")
+  @ApiResponse(responseCode = "409", description = "The subscriber is already associated with a different payment processor")
   @ManagedAsync
   @RateLimitedByIp(RateLimiters.For.ADD_SUBSCRIPTION_PAYMENT_METHOD)
   public CreatePaymentMethodResponse createPaymentMethod(
@@ -283,7 +293,7 @@ public class SubscriptionController {
                 return false;
               }
             })
-        .orElse(true);
+        .orElse(false);
 
     if (!spendSuccessful) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);

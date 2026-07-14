@@ -340,6 +340,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     try (Response managerCreateNullResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", subscriberId))
         .request()
+        .header(HeaderUtils.DONATION_PERMIT, getDonationPermitHeader())
         .put(Entity.json(""))) {
       assertThat(managerCreateNullResponse.getStatus()).isEqualTo(403);
     }
@@ -431,6 +432,49 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
       assertThat(createPaymentMethodResponse.processor()).isEqualTo(PaymentProvider.STRIPE);
       assertThat(createPaymentMethodResponse.clientSecret()).isEqualTo(clientSecret);
+    }
+  }
+
+  @Test
+  void updateSubscriberMissingDonationPermit() {
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    // Creating a subscriber requires a permit
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.NOT_STORED);
+    try (Response response = RESOURCE_EXTENSION.target(String.format("/v1/subscription/%s", subscriberId))
+        .request()
+        .put(Entity.json(""))) {
+      assertThat(response.getStatus()).isEqualTo(401);
+    }
+
+    // Updating a subscriber does not require a permit
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.found(
+        Subscriptions.Record.from(Arrays.copyOfRange(subscriberUserAndKey, 0, 16), Map.of(
+            Subscriptions.KEY_PASSWORD, b(new byte[16]),
+            Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+            Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond())
+        ))));
+
+    try (Response response = RESOURCE_EXTENSION.target(String.format("/v1/subscription/%s", subscriberId))
+        .request()
+        .put(Entity.json(""))) {
+      assertThat(response.getStatus()).isEqualTo(200);
+    }
+  }
+
+  @Test
+  void createPaymentMethodMissingDonationPermit() {
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    try (Response response = RESOURCE_EXTENSION
+        .target(String.format("/v1/subscription/%s/create_payment_method", subscriberId))
+        .request()
+        .post(Entity.json(""))) {
+      assertThat(response.getStatus()).isEqualTo(401);
     }
   }
 
