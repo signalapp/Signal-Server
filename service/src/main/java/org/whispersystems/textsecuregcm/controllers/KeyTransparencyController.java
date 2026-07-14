@@ -75,7 +75,7 @@ public class KeyTransparencyController {
           """
   )
   @ApiResponse(responseCode = "200", description = "The ACI was found and its mapped value matched the provided ACI identity key", useReturnTypeSchema = true)
-  @ApiResponse(responseCode = "400", description = "Invalid request. See response for any available details.")
+  @ApiResponse(responseCode = "400", description = "Request was authenticated but endpoint requires unauthenticated access.")
   @ApiResponse(responseCode = "403", description = """
       The ACI was found but its mapped value did not match the provided ACI identity key
       or the ACI was not found in the log.
@@ -135,7 +135,7 @@ public class KeyTransparencyController {
           """
   )
   @ApiResponse(responseCode = "200", description = "All identifiers exist in the log", useReturnTypeSchema = true)
-  @ApiResponse(responseCode = "400", description = "Invalid request. See response for any available details.")
+  @ApiResponse(responseCode = "400", description = "Request was authenticated but endpoint requires unauthenticated access.")
   @ApiResponse(responseCode = "403", description = "One or more of the provided commitment indexes did not match")
   @ApiResponse(responseCode = "404", description = "At least one identifier was not found")
   @ApiResponse(responseCode = "429", description = "Rate-limited")
@@ -205,7 +205,7 @@ public class KeyTransparencyController {
           """
   )
   @ApiResponse(responseCode = "200", description = "The `distinguished` search key exists in the log", useReturnTypeSchema = true)
-  @ApiResponse(responseCode = "400", description = "Invalid request. See response for any available details.")
+  @ApiResponse(responseCode = "400", description = "Request was authenticated but endpoint requires unauthenticated access.")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
   @ApiResponse(responseCode = "429", description = "Rate-limited")
   @GET
