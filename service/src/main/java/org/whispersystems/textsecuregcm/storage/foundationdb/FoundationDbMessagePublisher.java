@@ -13,7 +13,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -409,9 +408,21 @@ class FoundationDbMessagePublisher {
     }, RENEWAL_INTERVAL_MILLIS, TimeUnit.MILLISECONDS);
 
     renewPresenceFuture.whenComplete((_, throwable) -> {
-      if (throwable instanceof CancellationException) {
+      if (throwable != null) {
+        // We can wind up here in one of two ways:
+        //
+        // 1. We're shutting down the publisher, in which case `throwable` is a `CancellationException`. We don't NEED
+        //    to terminate the publisher in this case (since it's already terminated), but it's harmless to issue a
+        //    second termination request, which will just be a no-op.
+        // 2. Something unexpected has gone wrong. We DO need to terminate the publisher in this case, because a failure
+        //    to renew presence means that we won't get notified of new messages and so the publisher is in a bad state.
+        //
+        // In both cases, we should stop trying to schedule presence renewal.
         scheduledFuture.cancel(false);
+        terminateWithError(throwable);
       } else {
+        // We renewed presence successfully and the publisher is still active; renew presence again at some point in the
+        // future.
         schedulePresenceRenewal();
       }
     });
@@ -458,9 +469,8 @@ class FoundationDbMessagePublisher {
   synchronized void terminateWithError(final Throwable throwable) {
     if (state != State.TERMINATED && state != State.ERROR) {
       setState(State.ERROR, Event.INTERNAL_TRIGGER);
+      emitter.error(throwable);
     }
-
-    emitter.error(throwable);
   }
 
   private synchronized void onDispose() {
