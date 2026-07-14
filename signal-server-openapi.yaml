@@ -2184,7 +2184,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/KeyTransparencyDistinguishedKeyResponse"
         "400":
-          description: Invalid request. See response for any available details.
+          description: Request was authenticated but endpoint requires unauthenticated
+            access.
         "422":
           description: Invalid request format
         "429":
@@ -2215,7 +2216,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/KeyTransparencyMonitorResponse"
         "400":
-          description: Invalid request. See response for any available details.
+          description: Request was authenticated but endpoint requires unauthenticated
+            access.
         "403":
           description: One or more of the provided commitment indexes did not match
         "404":
@@ -2258,7 +2260,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/KeyTransparencySearchResponse"
         "400":
-          description: Invalid request. See response for any available details.
+          description: Request was authenticated but endpoint requires unauthenticated
+            access.
         "403":
           description: |
             The ACI was found but its mapped value did not match the provided ACI identity key

@@ -88,9 +88,9 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.DataEtag">
+        <a href="#message-org.signal.chat.profile.AccountInfo">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>DataEtag</code> 
+          <code>AccountInfo</code> 
         </a>
       </p>
       
@@ -205,99 +205,45 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.GetUnversionedProfileAnonymousRequest">
+        <a href="#message-org.signal.chat.profile.GetProfileAnonymousRequest">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetUnversionedProfileAnonymousRequest</code> 
+          <code>GetProfileAnonymousRequest</code> 
         </a>
       </p>
       
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.GetUnversionedProfileAnonymousResponse">
+        <a href="#message-org.signal.chat.profile.GetProfileAnonymousResponse">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetUnversionedProfileAnonymousResponse</code> 
+          <code>GetProfileAnonymousResponse</code> 
         </a>
       </p>
       
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.GetUnversionedProfileRequest">
+        <a href="#message-org.signal.chat.profile.GetProfileRequest">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetUnversionedProfileRequest</code> 
+          <code>GetProfileRequest</code> 
         </a>
       </p>
       
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.GetUnversionedProfileResponse">
+        <a href="#message-org.signal.chat.profile.GetProfileResponse">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetUnversionedProfileResponse</code> 
+          <code>GetProfileResponse</code> 
         </a>
       </p>
       
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.GetUnversionedProfileResult">
+        <a href="#message-org.signal.chat.profile.LegacyProfileResult">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetUnversionedProfileResult</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.GetVersionedProfileAnonymousRequest">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetVersionedProfileAnonymousRequest</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.GetVersionedProfileAnonymousResponse">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetVersionedProfileAnonymousResponse</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.GetVersionedProfileRequest">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetVersionedProfileRequest</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.GetVersionedProfileResponse">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetVersionedProfileResponse</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.GetVersionedProfileResult">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetVersionedProfileResult</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.GetVersionedProfileV1Response">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetVersionedProfileV1Response</code> 
+          <code>LegacyProfileResult</code> 
         </a>
       </p>
       
@@ -307,6 +253,15 @@
         <a href="#message-org.signal.chat.profile.PaymentsForbiddenInRegion">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>PaymentsForbiddenInRegion</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.ProfileResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ProfileResult</code> 
         </a>
       </p>
       
@@ -421,41 +376,20 @@
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.profile.Profile-GetVersionedProfile">
-      <a href="#service-org.signal.chat.profile.Profile-GetVersionedProfile">
-        rpc <code>GetVersionedProfile</code>
+    <h5 class="title is-5" id="service-org.signal.chat.profile.Profile-GetProfile">
+      <a href="#service-org.signal.chat.profile.Profile-GetProfile">
+        rpc <code>GetProfile</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetVersionedProfileRequest"><span title="org.signal.chat.profile.GetVersionedProfileRequest">org.signal.chat.profile.GetVersionedProfileRequest</span>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetProfileRequest"><span title="org.signal.chat.profile.GetProfileRequest">org.signal.chat.profile.GetProfileRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetVersionedProfileResponse"><span title="org.signal.chat.profile.GetVersionedProfileResponse">org.signal.chat.profile.GetVersionedProfileResponse</span>
-    </a></code><br>
-  </div>
-
-  
-  <div class="block">
-    <p><p>Retrieves versioned profile data. Callers with an unidentified access key for the account
-should use the version of this method in <code>ProfileAnonymous</code> instead.</p></p>
-  </div>
-  
-</div>
-
-<div class="box">
-  <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.profile.Profile-GetUnversionedProfile">
-      <a href="#service-org.signal.chat.profile.Profile-GetUnversionedProfile">
-        rpc <code>GetUnversionedProfile</code>
-      </a>
-    </h5>
-    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetUnversionedProfileRequest"><span title="org.signal.chat.profile.GetUnversionedProfileRequest">org.signal.chat.profile.GetUnversionedProfileRequest</span>
-    </a></code><br>
-    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetUnversionedProfileResponse"><span title="org.signal.chat.profile.GetUnversionedProfileResponse">org.signal.chat.profile.GetUnversionedProfileResponse</span>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetProfileResponse"><span title="org.signal.chat.profile.GetProfileResponse">org.signal.chat.profile.GetProfileResponse</span>
     </a></code><br>
   </div>
 
   
   <div class="block">
-    <p><p>Retrieves unversioned profile data. Callers with an unidentified access key for the account
+    <p><p>Retrieves profile data. Callers with an unidentified access key for the account
 should use the version of this method in <code>ProfileAnonymous</code> instead.</p></p>
   </div>
   
@@ -504,40 +438,20 @@ methods in <code>Profile</code> instead.</p></p>
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.profile.ProfileAnonymous-GetVersionedProfile">
-      <a href="#service-org.signal.chat.profile.ProfileAnonymous-GetVersionedProfile">
-        rpc <code>GetVersionedProfile</code>
+    <h5 class="title is-5" id="service-org.signal.chat.profile.ProfileAnonymous-GetProfile">
+      <a href="#service-org.signal.chat.profile.ProfileAnonymous-GetProfile">
+        rpc <code>GetProfile</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetVersionedProfileAnonymousRequest"><span title="org.signal.chat.profile.GetVersionedProfileAnonymousRequest">org.signal.chat.profile.GetVersionedProfileAnonymousRequest</span>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetProfileAnonymousRequest"><span title="org.signal.chat.profile.GetProfileAnonymousRequest">org.signal.chat.profile.GetProfileAnonymousRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetVersionedProfileAnonymousResponse"><span title="org.signal.chat.profile.GetVersionedProfileAnonymousResponse">org.signal.chat.profile.GetVersionedProfileAnonymousResponse</span>
-    </a></code><br>
-  </div>
-
-  
-  <div class="block">
-    <p><p>Retrieves versioned profile data.</p></p>
-  </div>
-  
-</div>
-
-<div class="box">
-  <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.profile.ProfileAnonymous-GetUnversionedProfile">
-      <a href="#service-org.signal.chat.profile.ProfileAnonymous-GetUnversionedProfile">
-        rpc <code>GetUnversionedProfile</code>
-      </a>
-    </h5>
-    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetUnversionedProfileAnonymousRequest"><span title="org.signal.chat.profile.GetUnversionedProfileAnonymousRequest">org.signal.chat.profile.GetUnversionedProfileAnonymousRequest</span>
-    </a></code><br>
-    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetUnversionedProfileAnonymousResponse"><span title="org.signal.chat.profile.GetUnversionedProfileAnonymousResponse">org.signal.chat.profile.GetUnversionedProfileAnonymousResponse</span>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetProfileAnonymousResponse"><span title="org.signal.chat.profile.GetProfileAnonymousResponse">org.signal.chat.profile.GetProfileAnonymousResponse</span>
     </a></code><br>
   </div>
 
   
   <div class="block">
-    <p><p>Retrieves unversioned profile data.</p></p>
+    <p><p>Retrieves profile data.</p></p>
   </div>
   
 </div>
@@ -645,9 +559,9 @@ call ExtendAvatarTTL to extend the TTl.</p>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.DataEtag">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.AccountInfo">
   <span>
-    <a href="#message-org.signal.chat.profile.DataEtag" title="org.signal.chat.profile.DataEtag">message DataEtag</a>
+    <a href="#message-org.signal.chat.profile.AccountInfo" title="org.signal.chat.profile.AccountInfo">message AccountInfo</a>
   
   </span>
   
@@ -672,7 +586,7 @@ call ExtendAvatarTTL to extend the TTl.</p>
     <tr>
       <td>1</td>
       <td>
-        data
+        identity_key
       </td>
       <td>
         <code title="bytes">
@@ -680,14 +594,14 @@ call ExtendAvatarTTL to extend the TTl.</p>
           <span>bytes</span>
         </code>
       </td>
-      <td class="content"></td>
+      <td class="content"><p>The account identity key of the targeted account.</p></td>
       
     </tr>
     
     <tr>
       <td>2</td>
       <td>
-        etag_sha256
+        unidentified_access_key_fingerprint
       </td>
       <td>
         <code title="bytes">
@@ -695,10 +609,41 @@ call ExtendAvatarTTL to extend the TTl.</p>
           <span>bytes</span>
         </code>
       </td>
-      <td class="content"><p>An entity tag for <code>data</code>. This may be used in subsequent requests for
-this profile version to optimize bandwidth.</p>
-<p>Clients may validate that the value has been correctly calculated by deriving
-the SHA-256 digest of <code>data</code>.</p></td>
+      <td class="content"><p>A checksum of the unidentified access key for the targeted account.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        unrestricted_unidentified_access
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Whether the account has enabled sealed sender from anyone.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        badge_ids
+      </td>
+      <td>
+        <code title="string">
+          
+            repeated
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A list of the badges ids associated with the account. Metadata to display
+badges may be obtained by cross-referencing badge ids with
+ProductConfiguration.GetConfiguration.</p></td>
       
     </tr>
     
@@ -1610,9 +1555,9 @@ of a targeted account.</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetUnversionedProfileAnonymousRequest">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetProfileAnonymousRequest">
   <span>
-    <a href="#message-org.signal.chat.profile.GetUnversionedProfileAnonymousRequest" title="org.signal.chat.profile.GetUnversionedProfileAnonymousRequest">message GetUnversionedProfileAnonymousRequest</a>
+    <a href="#message-org.signal.chat.profile.GetProfileAnonymousRequest" title="org.signal.chat.profile.GetProfileAnonymousRequest">message GetProfileAnonymousRequest</a>
   
   </span>
   
@@ -1640,13 +1585,13 @@ of a targeted account.</p></td>
         request
       </td>
       <td>
-        <code title="org.signal.chat.profile.GetUnversionedProfileRequest">
+        <code title="org.signal.chat.profile.GetProfileRequest">
           
-          <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetUnversionedProfileRequest"><span title="org.signal.chat.profile.GetUnversionedProfileRequest">org.signal.chat.profile.GetUnversionedProfileRequest</span>
+          <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetProfileRequest"><span title="org.signal.chat.profile.GetProfileRequest">org.signal.chat.profile.GetProfileRequest</span>
     </a>
         </code>
       </td>
-      <td class="content"><p>Note: Only ACI service identifiers are permitted for anonymous requests.</p></td>
+      <td class="content"><p>Contains the data necessary to request a profile.</p></td>
       
     </tr>
     
@@ -1710,9 +1655,9 @@ of a targeted account.</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetUnversionedProfileAnonymousResponse">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetProfileAnonymousResponse">
   <span>
-    <a href="#message-org.signal.chat.profile.GetUnversionedProfileAnonymousResponse" title="org.signal.chat.profile.GetUnversionedProfileAnonymousResponse">message GetUnversionedProfileAnonymousResponse</a>
+    <a href="#message-org.signal.chat.profile.GetProfileAnonymousResponse" title="org.signal.chat.profile.GetProfileAnonymousResponse">message GetProfileAnonymousResponse</a>
   
   </span>
   
@@ -1752,16 +1697,17 @@ of a targeted account.</p></td>
             1
           </td>
           <td>
-            result
+            profile
           </td>
           <td>
-            <code title="org.signal.chat.profile.GetUnversionedProfileResult">
+            <code title="org.signal.chat.profile.ProfileResult">
               
-              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetUnversionedProfileResult"><span title="org.signal.chat.profile.GetUnversionedProfileResult">org.signal.chat.profile.GetUnversionedProfileResult</span>
+              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.ProfileResult"><span title="org.signal.chat.profile.ProfileResult">org.signal.chat.profile.ProfileResult</span>
     </a>
             </code>
           </td>
-          <td class="content"></td>
+          <td class="content"><p>The full profile data. The current profile did not match the provided
+etag (or no etag was provided).</p></td>
           
         </tr>
       
@@ -1772,16 +1718,15 @@ of a targeted account.</p></td>
             2
           </td>
           <td>
-            not_found
+            etag_matched
           </td>
           <td>
-            <code title="org.signal.chat.errors.NotFound">
+            <code title="bool">
               
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
-    </a>
+              <span>bool</span>
             </code>
           </td>
-          <td class="content"><p>The target profile was not found</p></td>
+          <td class="content"><p>The current profile matched the provided etag. If present, this will always be true.</p></td>
           
         </tr>
       
@@ -1790,449 +1735,6 @@ of a targeted account.</p></td>
         <tr>
           <td>
             3
-          </td>
-          <td>
-            failed_unidentified_authorization
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The unidentified access key or group send endorsement were not valid for
-the request.</p></td>
-          
-        </tr>
-      
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetUnversionedProfileRequest">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetUnversionedProfileRequest" title="org.signal.chat.profile.GetUnversionedProfileRequest">message GetUnversionedProfileRequest</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        service_identifier
-      </td>
-      <td>
-        <code title="org.signal.chat.common.ServiceIdentifier">
-          
-          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>The service identifier of the account for which to get profile data.</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetUnversionedProfileResponse">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetUnversionedProfileResponse" title="org.signal.chat.profile.GetUnversionedProfileResponse">message GetUnversionedProfileResponse</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof response</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            1
-          </td>
-          <td>
-            result
-          </td>
-          <td>
-            <code title="org.signal.chat.profile.GetUnversionedProfileResult">
-              
-              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetUnversionedProfileResult"><span title="org.signal.chat.profile.GetUnversionedProfileResult">org.signal.chat.profile.GetUnversionedProfileResult</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            not_found
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.NotFound">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"></td>
-          
-        </tr>
-      
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetUnversionedProfileResult">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetUnversionedProfileResult" title="org.signal.chat.profile.GetUnversionedProfileResult">message GetUnversionedProfileResult</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        identity_key
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>The identity key of the targeted account/identity type.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        unidentified_access
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>A checksum of the unidentified access key for the targeted account. Absent
-if the request was for a PNI.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>3</td>
-      <td>
-        unrestricted_unidentified_access
-      </td>
-      <td>
-        <code title="bool">
-          
-          <span>bool</span>
-        </code>
-      </td>
-      <td class="content"><p>Whether the account has enabled sealed sender from anyone. Always false
-if the request was for a PNI.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>4</td>
-      <td>
-        capabilities
-      </td>
-      <td>
-        <code title="org.signal.chat.common.DeviceCapability">
-          
-            repeated
-          
-          <a href="org.signal.chat.common.html#enum-org.signal.chat.common.DeviceCapability"><span title="org.signal.chat.common.DeviceCapability">org.signal.chat.common.DeviceCapability</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>A list of capabilities enabled on the account.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>5</td>
-      <td>
-        badges
-      </td>
-      <td>
-        <code title="org.signal.chat.common.Badge">
-          
-            repeated
-          
-          <a href="org.signal.chat.common.html#message-org.signal.chat.common.Badge"><span title="org.signal.chat.common.Badge">org.signal.chat.common.Badge</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>A list of badges associated with the account. Absent if the request was for
-a PNI.</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetVersionedProfileAnonymousRequest">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetVersionedProfileAnonymousRequest" title="org.signal.chat.profile.GetVersionedProfileAnonymousRequest">message GetVersionedProfileAnonymousRequest</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        request
-      </td>
-      <td>
-        <code title="org.signal.chat.profile.GetVersionedProfileRequest">
-          
-          <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetVersionedProfileRequest"><span title="org.signal.chat.profile.GetVersionedProfileRequest">org.signal.chat.profile.GetVersionedProfileRequest</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>Contains the data necessary to request a versioned profile.</p></td>
-      
-    </tr>
-    
-    
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof authentication</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            unidentified_access_key
-          </td>
-          <td>
-            <code title="bytes">
-              
-              <span>bytes</span>
-            </code>
-          </td>
-          <td class="content"><p>The unidentified access key for the targeted account.</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            3
-          </td>
-          <td>
-            group_send_token
-          </td>
-          <td>
-            <code title="bytes">
-              
-              <span>bytes</span>
-            </code>
-          </td>
-          <td class="content"><p>A group send endorsement token for the targeted account.</p></td>
-          
-        </tr>
-      
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetVersionedProfileAnonymousResponse">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetVersionedProfileAnonymousResponse" title="org.signal.chat.profile.GetVersionedProfileAnonymousResponse">message GetVersionedProfileAnonymousResponse</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof response</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            1
-          </td>
-          <td>
-            result
-          </td>
-          <td>
-            <code title="org.signal.chat.profile.GetVersionedProfileResult">
-              
-              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetVersionedProfileResult"><span title="org.signal.chat.profile.GetVersionedProfileResult">org.signal.chat.profile.GetVersionedProfileResult</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            2
           </td>
           <td>
             not_found
@@ -2252,7 +1754,7 @@ a PNI.</p></td>
 
         <tr>
           <td>
-            3
+            4
           </td>
           <td>
             failed_unidentified_authorization
@@ -2268,6 +1770,28 @@ a PNI.</p></td>
           
         </tr>
       
+        
+
+        <tr>
+          <td>
+            15
+          </td>
+          <td>
+            profile_v1
+          </td>
+          <td>
+            <code title="org.signal.chat.profile.LegacyProfileResult">
+              
+              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.LegacyProfileResult"><span title="org.signal.chat.profile.LegacyProfileResult">org.signal.chat.profile.LegacyProfileResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Will be present if there is no v2 Profile data for this version.</p>
+<p>Because this is a temporary field during the migration, it has the highest
+field number without serialization overhead. This is purely aesthetic.</p></td>
+          
+        </tr>
+      
     
   </tbody>
 </table>
@@ -2279,9 +1803,9 @@ a PNI.</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetVersionedProfileRequest">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetProfileRequest">
   <span>
-    <a href="#message-org.signal.chat.profile.GetVersionedProfileRequest" title="org.signal.chat.profile.GetVersionedProfileRequest">message GetVersionedProfileRequest</a>
+    <a href="#message-org.signal.chat.profile.GetProfileRequest" title="org.signal.chat.profile.GetProfileRequest">message GetProfileRequest</a>
   
   </span>
   
@@ -2306,7 +1830,7 @@ a PNI.</p></td>
     <tr>
       <td>1</td>
       <td>
-        accountIdentifier
+        account_identifier
       </td>
       <td>
         <code title="org.signal.chat.common.ServiceIdentifier">
@@ -2337,7 +1861,7 @@ a PNI.</p></td>
     <tr>
       <td>3</td>
       <td>
-        data_etag
+        etag
       </td>
       <td>
         <code title="bytes">
@@ -2345,26 +1869,9 @@ a PNI.</p></td>
           <span>bytes</span>
         </code>
       </td>
-      <td class="content"><p>The <code>data_etag</code> from the previous request for this Profile version. If
-unchanged, the response will omit <code>data</code> and <code>data_etag_matched</code> will be
+      <td class="content"><p>The <code>etag</code> from the previous request for this Profile version. If
+unchanged, the response will omit <code>profile</code> and <code>etag_matched</code> will be
 <code>true</code>.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>4</td>
-      <td>
-        payment_address_etag
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>The <code>payment_address_etag</code> from the previous request for this account’s
-profile. If unchanged, the response will omit <code>payment_address</code> and
-<code>payment_address_etag_matched</code> will be <code>true</code>.</p></td>
       
     </tr>
     
@@ -2379,9 +1886,9 @@ profile. If unchanged, the response will omit <code>payment_address</code> and
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetVersionedProfileResponse">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetProfileResponse">
   <span>
-    <a href="#message-org.signal.chat.profile.GetVersionedProfileResponse" title="org.signal.chat.profile.GetVersionedProfileResponse">message GetVersionedProfileResponse</a>
+    <a href="#message-org.signal.chat.profile.GetProfileResponse" title="org.signal.chat.profile.GetProfileResponse">message GetProfileResponse</a>
   
   </span>
   
@@ -2421,16 +1928,17 @@ profile. If unchanged, the response will omit <code>payment_address</code> and
             1
           </td>
           <td>
-            result
+            profile
           </td>
           <td>
-            <code title="org.signal.chat.profile.GetVersionedProfileResult">
+            <code title="org.signal.chat.profile.ProfileResult">
               
-              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetVersionedProfileResult"><span title="org.signal.chat.profile.GetVersionedProfileResult">org.signal.chat.profile.GetVersionedProfileResult</span>
+              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.ProfileResult"><span title="org.signal.chat.profile.ProfileResult">org.signal.chat.profile.ProfileResult</span>
     </a>
             </code>
           </td>
-          <td class="content"></td>
+          <td class="content"><p>The full profile data. The current profile did not match the provided
+etag (or no etag was provided).</p></td>
           
         </tr>
       
@@ -2439,6 +1947,25 @@ profile. If unchanged, the response will omit <code>payment_address</code> and
         <tr>
           <td>
             2
+          </td>
+          <td>
+            etag_matched
+          </td>
+          <td>
+            <code title="bool">
+              
+              <span>bool</span>
+            </code>
+          </td>
+          <td class="content"><p>The current profile matched the provided etag. If present, this will always be true.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
           </td>
           <td>
             not_found
@@ -2454,93 +1981,6 @@ profile. If unchanged, the response will omit <code>payment_address</code> and
           
         </tr>
       
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetVersionedProfileResult">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetVersionedProfileResult" title="org.signal.chat.profile.GetVersionedProfileResult">message GetVersionedProfileResult</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof data_result</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            1
-          </td>
-          <td>
-            data_etag
-          </td>
-          <td>
-            <code title="org.signal.chat.profile.DataEtag">
-              
-              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.DataEtag"><span title="org.signal.chat.profile.DataEtag">org.signal.chat.profile.DataEtag</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The ciphertext of a serialized Profile.
-Absent if a v2 Profile is not available
-for this version, in which the client should use <code>v1_response</code>.</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            data_etag_matched
-          </td>
-          <td>
-            <code title="bool">
-              
-              <span>bool</span>
-            </code>
-          </td>
-          <td class="content"><p>Indicates that the request’s ETag matched the stored <code>data</code></p></td>
-          
-        </tr>
-      
         
 
         <tr>
@@ -2548,12 +1988,12 @@ for this version, in which the client should use <code>v1_response</code>.</p></
             15
           </td>
           <td>
-            v1_response
+            legacy_profile
           </td>
           <td>
-            <code title="org.signal.chat.profile.GetVersionedProfileV1Response">
+            <code title="org.signal.chat.profile.LegacyProfileResult">
               
-              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetVersionedProfileV1Response"><span title="org.signal.chat.profile.GetVersionedProfileV1Response">org.signal.chat.profile.GetVersionedProfileV1Response</span>
+              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.LegacyProfileResult"><span title="org.signal.chat.profile.LegacyProfileResult">org.signal.chat.profile.LegacyProfileResult</span>
     </a>
             </code>
           </td>
@@ -2564,56 +2004,6 @@ field number without serialization overhead. This is purely aesthetic.</p></td>
         </tr>
       
     
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof payment_address_result</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            3
-          </td>
-          <td>
-            payment_address_data_etag
-          </td>
-          <td>
-            <code title="org.signal.chat.profile.DataEtag">
-              
-              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.DataEtag"><span title="org.signal.chat.profile.DataEtag">org.signal.chat.profile.DataEtag</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The ciphertext of the MobileCoin wallet ID on the profile.</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            4
-          </td>
-          <td>
-            payment_address_etag_matched
-          </td>
-          <td>
-            <code title="bool">
-              
-              <span>bool</span>
-            </code>
-          </td>
-          <td class="content"><p>Indicates that the request’s ETag matched the stored <code>payment_address</code></p></td>
-          
-        </tr>
-      
-    
   </tbody>
 </table>
  
@@ -2624,9 +2014,9 @@ field number without serialization overhead. This is purely aesthetic.</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetVersionedProfileV1Response">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.LegacyProfileResult">
   <span>
-    <a href="#message-org.signal.chat.profile.GetVersionedProfileV1Response" title="org.signal.chat.profile.GetVersionedProfileV1Response">message GetVersionedProfileV1Response</a>
+    <a href="#message-org.signal.chat.profile.LegacyProfileResult" title="org.signal.chat.profile.LegacyProfileResult">message LegacyProfileResult</a>
   
   </span>
   
@@ -2723,6 +2113,37 @@ field number without serialization overhead. This is purely aesthetic.</p></td>
       
     </tr>
     
+    <tr>
+      <td>6</td>
+      <td>
+        payment_address
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The ciphertext of the MobileCoin wallet ID on the profile.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>7</td>
+      <td>
+        account_info
+      </td>
+      <td>
+        <code title="org.signal.chat.profile.AccountInfo">
+          
+          <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.AccountInfo"><span title="org.signal.chat.profile.AccountInfo">org.signal.chat.profile.AccountInfo</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>Information about the targeted account</p></td>
+      
+    </tr>
+    
     
   </tbody>
 </table>
@@ -2758,6 +2179,120 @@ due to a disallowed country prefix on the account's phone number.</p>
     </tr>
   </thead>
   <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.ProfileResult">
+  <span>
+    <a href="#message-org.signal.chat.profile.ProfileResult" title="org.signal.chat.profile.ProfileResult">message ProfileResult</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        data
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The ciphertext of the requested version of the profile</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        payment_address
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The ciphertext of the MobileCoin wallet ID on the profile.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        account_info
+      </td>
+      <td>
+        <code title="org.signal.chat.profile.AccountInfo">
+          
+          <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.AccountInfo"><span title="org.signal.chat.profile.AccountInfo">org.signal.chat.profile.AccountInfo</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>Information about the targeted account</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        etag
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>An entity tag for the profile. This may be used in subsequent requests
+ for this profile version to optimize bandwidth.</p>
+<p>Note that this hash will not match the expected_data_hash used on
+ SetProfile for concurrency control.</p>
+<p>Clients may validate that the value has been correctly calculated by
+ calculating a 10-byte truncated TupleHash256 as follows:</p>
+<p><code>TupleHash256(S = "ProfileETag/v1", L = 80 bits, tuple = [
+     data,
+     payment_address,
+     account_info.identity_key,
+     account_info.unidentified_access_key_fingerprint,
+     account_info.unrestricted_unidentified_access ? 0x01 : 0x00,
+     uint32BE(count(account_info.badge_ids)),
+     utf8(id) for each id in sortLexAscendingByUtf8Bytes(account_info.badge_ids),
+ ])</code></p>
+<p>Absent/empty fields contribute an empty element (not zero bytes omitted):
+ a missing payment_address is still a present, zero-length tuple element.</p>
+<p>This etag will always exclusively cover the documented fields. If fields
+ are added in the future, a new etag field must be introduced.</p></td>
+      
+    </tr>
     
     
   </tbody>

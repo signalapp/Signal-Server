@@ -522,6 +522,39 @@ identity key fingerprint with the server and the corresponding identity key stor
       
     </tr>
     
+    <tr>
+      <td>3</td>
+      <td>
+        unrestricted_unidentified_access
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Whether the account has enabled sealed sender from anyone. Always false
+if the request was for a PNI, which does not allow any unidentified access.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        unidentified_access_key_fingerprint
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>If the target supports unidentified access and has an unidentified access
+key, a fingerprint of the target's UAK. This may be used to detect a change
+in the UAK that the sender has for the target before actually sending a message. Otherwise, empty.</p></td>
+      
+    </tr>
+    
     
   </tbody>
 </table>
