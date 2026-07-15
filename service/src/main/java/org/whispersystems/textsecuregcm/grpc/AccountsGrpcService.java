@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
+import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -15,10 +16,11 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import io.grpc.StatusRuntimeException;
+import org.signal.chat.account.Capabilities;
 import org.signal.chat.account.ChangeNumberRequest;
 import org.signal.chat.account.ChangeNumberResponse;
 import org.signal.chat.account.ClearRegistrationLockRequest;
@@ -38,6 +40,8 @@ import org.signal.chat.account.GetAccountDataReportRequest;
 import org.signal.chat.account.GetAccountDataReportResponse;
 import org.signal.chat.account.GetAccountIdentityRequest;
 import org.signal.chat.account.GetAccountIdentityResponse;
+import org.signal.chat.account.GetCapabilitiesRequest;
+import org.signal.chat.account.GetCapabilitiesResponse;
 import org.signal.chat.account.GetEntitlementsRequest;
 import org.signal.chat.account.GetEntitlementsResponse;
 import org.signal.chat.account.RegistrationLockFailure;
@@ -58,6 +62,7 @@ import org.signal.chat.account.StaleDevices;
 import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
 import org.signal.chat.errors.FailedPrecondition;
+import org.signal.chat.errors.NotFound;
 import org.signal.chat.messages.SendMessageType;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.InvalidKeyException;
@@ -88,6 +93,7 @@ import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
@@ -498,6 +504,18 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
         .setJson(SystemMapper.jsonMapper().writeValueAsString(report))
         .setText(report.text())
         .build();
+  }
+
+  @Override
+  public GetCapabilitiesResponse getCapabilities(GetCapabilitiesRequest request) {
+    final Account account = getAuthenticatedAccount();
+    final Capabilities.Builder builder = Capabilities.newBuilder();
+    for (DeviceCapability capability : DeviceCapability.SELF_VISIBLE_CAPABILITIES) {
+      if (account.hasCapability(capability)) {
+        builder.addCapabilities(DeviceCapabilityUtil.toGrpcDeviceCapability(capability));
+      }
+    }
+    return GetCapabilitiesResponse.newBuilder().setCapabilities(builder.build()).build();
   }
 
   private static AccountIdentifiers buildAccountIdentifiers(final Account account) {

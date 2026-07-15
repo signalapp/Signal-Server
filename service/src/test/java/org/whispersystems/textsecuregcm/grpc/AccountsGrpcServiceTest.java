@@ -40,6 +40,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.signal.chat.account.AccountsGrpc;
+import org.signal.chat.account.Capabilities;
 import org.signal.chat.account.ChangeNumberRequest;
 import org.signal.chat.account.ChangeNumberResponse;
 import org.signal.chat.account.ClearRegistrationLockRequest;
@@ -56,6 +57,8 @@ import org.signal.chat.account.GetAccountDataReportRequest;
 import org.signal.chat.account.GetAccountDataReportResponse;
 import org.signal.chat.account.GetAccountIdentityRequest;
 import org.signal.chat.account.GetAccountIdentityResponse;
+import org.signal.chat.account.GetCapabilitiesRequest;
+import org.signal.chat.account.GetCapabilitiesResponse;
 import org.signal.chat.account.GetEntitlementsRequest;
 import org.signal.chat.account.GetEntitlementsResponse;
 import org.signal.chat.account.RegistrationLockFailure;
@@ -105,14 +108,15 @@ import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
-import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.tests.util.AccountsTestHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
@@ -1038,5 +1042,26 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final String actualText = response.getText();
     AccountsTestHelper.verifyAccountDataReportText(actualText, expectedTextAfterHeader);
+  }
+
+  @Test
+  void getCapabilities() {
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+
+    // public-visible and self-visible capabilities should be returned on the authenticated RPC
+    when(account.hasCapability(DeviceCapability.SPARSE_POST_QUANTUM_RATCHET)).thenReturn(true);
+    when(account.hasCapability(DeviceCapability.USERNAME_CHANGE_SYNC_MESSAGE)).thenReturn(true);
+    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
+
+    final GetCapabilitiesResponse response = authenticatedServiceStub()
+        .getCapabilities(GetCapabilitiesRequest.getDefaultInstance());
+
+    assertEquals(Capabilities.newBuilder()
+        .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_SPARSE_POST_QUANTUM_RATCHET)
+        .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_USERNAME_CHANGE_SYNC_MESSAGE)
+        .build(), response.getCapabilities());
   }
 }

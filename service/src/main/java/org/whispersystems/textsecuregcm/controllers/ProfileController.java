@@ -559,7 +559,7 @@ public class ProfileController {
 
   private static Map<String, Boolean> getAccountCapabilities(final Account account) {
     return Arrays.stream(DeviceCapability.values())
-        .filter(DeviceCapability::includeInProfile)
+        .filter(DeviceCapability::includeInLegacyProfile)
         .collect(Collectors.toMap(DeviceCapability::getName, account::hasCapability));
   }
 }

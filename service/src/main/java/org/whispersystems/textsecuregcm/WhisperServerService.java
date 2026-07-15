@@ -1108,7 +1108,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             requireAuthenticationInterceptor))
         .toList();
     final List<ServerServiceDefinition> unauthenticatedServices = Stream.of(
-            new AccountsAnonymousGrpcService(accountsManager, rateLimiters),
+            new AccountsAnonymousGrpcService(accountsManager, rateLimiters, groupSendTokenUtil),
             new CallQualitySurveyGrpcService(callQualitySurveyManager, rateLimiters),
             new KeysAnonymousGrpcService(accountsManager, keysManager, groupZkSecretParams, Clock.systemUTC()),
             new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, profileCdnPolicyGenerator, chatGenericZkSecretParams, groupZkSecretParams, rateLimiters, clock),

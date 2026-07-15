@@ -72,6 +72,9 @@ service Accounts {
 
   // Produces a report of non-ephemeral account data stored by the service
   rpc GetAccountDataReport(GetAccountDataReportRequest) returns (GetAccountDataReportResponse) {}
+
+  // Gets the capabilities for the authenticated account.
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse) {}
 }
 
 // Provides methods for looking up Signal accounts. Callers must not provide
@@ -88,6 +91,10 @@ service AccountsAnonymous {
 
   // Finds the encrypted username identified by a given username link handle.
   rpc LookupUsernameLink(LookupUsernameLinkRequest) returns (LookupUsernameLinkResponse) {}
+
+  // Gets the publicly-visible capabilities enabled on the account identified by
+  // the provided ACI.
+  rpc GetCapabilities(GetCapabilitiesAnonymousRequest) returns (GetCapabilitiesAnonymousResponse) {}
 }
 
 message GetAccountIdentityRequest {
@@ -433,4 +440,39 @@ message GetAccountDataReportResponse {
   string json = 3;
   // A plaintext representation of the data report
   string text = 4;
+}
+
+message GetCapabilitiesRequest {
+}
+
+message Capabilities {
+  // A list of capabilities enabled on the account.
+  repeated common.DeviceCapability capabilities = 1;
+}
+
+message GetCapabilitiesResponse {
+  // A list of capabilities enabled on the account.
+  Capabilities capabilities = 1;
+}
+
+message GetCapabilitiesAnonymousRequest {
+  // The ACI of the account for which to get capabilities.
+  common.ServiceIdentifier account_identifier = 1 [(require.present) = true, (require.identityType) = IDENTITY_TYPE_ACI];
+
+  oneof authentication {
+    // The unidentified access key for the targeted account.
+    bytes unidentified_access_key = 2 [(require.exactlySize) = 16];
+
+    // A group send endorsement token for the targeted account.
+    bytes group_send_token = 3 [(require.nonEmpty) = true];
+  }
+}
+
+message GetCapabilitiesAnonymousResponse {
+  oneof response {
+    // A list of capabilities enabled on the account.
+    Capabilities capabilities = 1;
+    errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
+    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3 [(tag.reason) = "failed_unidentified_authorization"];
+  }
 }

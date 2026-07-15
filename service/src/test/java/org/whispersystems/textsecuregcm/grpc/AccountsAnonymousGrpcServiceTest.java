@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -26,16 +27,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.signal.chat.account.AccountsAnonymousGrpc;
+import org.signal.chat.account.Capabilities;
 import org.signal.chat.account.CheckAccountExistenceRequest;
+import org.signal.chat.account.GetCapabilitiesAnonymousRequest;
+import org.signal.chat.account.GetCapabilitiesAnonymousResponse;
 import org.signal.chat.account.LookupUsernameHashRequest;
 import org.signal.chat.account.LookupUsernameHashResponse;
 import org.signal.chat.account.LookupUsernameLinkRequest;
 import org.signal.chat.account.LookupUsernameLinkResponse;
 import org.signal.chat.common.IdentityType;
-import org.signal.chat.errors.NotFound;
 import org.signal.chat.common.ServiceIdentifier;
+import org.signal.chat.errors.FailedUnidentifiedAuthorization;
+import org.signal.chat.errors.NotFound;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -43,6 +50,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
@@ -58,6 +66,9 @@ class AccountsAnonymousGrpcServiceTest extends
 
   @Mock
   private RateLimiter rateLimiter;
+
+  @Mock
+  private GroupSendTokenUtil groupSendTokenUtil;
 
   @Override
   protected AccountsAnonymousGrpcService createServiceBeforeEachTest() {
@@ -79,7 +90,7 @@ class AccountsAnonymousGrpcServiceTest extends
     getMockRequestAttributesInterceptor().setRequestAttributes(
         new RequestAttributes(InetAddresses.forString("127.0.0.1"), null, null));
 
-    return new AccountsAnonymousGrpcService(accountsManager, rateLimiters);
+    return new AccountsAnonymousGrpcService(accountsManager, rateLimiters, groupSendTokenUtil);
   }
 
   @Test
@@ -267,5 +278,112 @@ class AccountsAnonymousGrpcServiceTest extends
             .setUsernameLinkHandle(UUIDUtil.toByteString(UUID.randomUUID()))
             .build()),
         accountsManager);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void getCapabilities(final boolean useGroupSendToken) {
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+    final Account account = mock(Account.class);
+    when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(account));
+
+    // should be returned since it's public
+    when(account.hasCapability(DeviceCapability.SPARSE_POST_QUANTUM_RATCHET)).thenReturn(true);
+    // should not be returned since it's self-only
+    when(account.hasCapability(DeviceCapability.USERNAME_CHANGE_SYNC_MESSAGE)).thenReturn(true);
+
+    final GetCapabilitiesAnonymousRequest.Builder builder = GetCapabilitiesAnonymousRequest.newBuilder()
+        .setAccountIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier));
+    if (useGroupSendToken) {
+      when(groupSendTokenUtil.checkGroupSendToken(any(), eq(serviceIdentifier))).thenReturn(true);
+      builder.setGroupSendToken(ByteString.copyFrom(TestRandomUtil.nextBytes(32)));
+    } else {
+      final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+      when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+      builder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
+    }
+    final GetCapabilitiesAnonymousResponse response = unauthenticatedServiceStub().getCapabilities(builder.build());
+
+    assertEquals(Capabilities.newBuilder()
+            .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_SPARSE_POST_QUANTUM_RATCHET)
+            .build(),
+        response.getCapabilities());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void getCapabilitiesUnauthorized(final boolean useGroupSendToken) {
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+    final Account account = mock(Account.class);
+    when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(account));
+
+    final GetCapabilitiesAnonymousRequest.Builder builder = GetCapabilitiesAnonymousRequest.newBuilder()
+        .setAccountIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier));
+    if (useGroupSendToken) {
+      when(groupSendTokenUtil.checkGroupSendToken(any(), eq(serviceIdentifier))).thenReturn(false);
+      builder.setGroupSendToken(ByteString.copyFrom(TestRandomUtil.nextBytes(32)));
+    } else {
+      when(account.getUnidentifiedAccessKey())
+          .thenReturn(Optional.of(TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH)));
+      builder.setUnidentifiedAccessKey(ByteString.copyFrom(TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH)));
+    }
+    final GetCapabilitiesAnonymousResponse response = unauthenticatedServiceStub().getCapabilities(builder.build());
+
+    assertEquals(FailedUnidentifiedAuthorization.getDefaultInstance(), response.getFailedUnidentifiedAuthorization());
+  }
+
+  @Test
+  void getCapabilitiesNotFound() {
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+    final byte[] groupSendToken = TestRandomUtil.nextBytes(32);
+
+    when(accountsManager.getByServiceIdentifier(serviceIdentifier))
+        .thenReturn(Optional.empty());
+    when(groupSendTokenUtil.checkGroupSendToken(ByteString.copyFrom(groupSendToken), serviceIdentifier))
+        .thenReturn(true);
+
+    final GetCapabilitiesAnonymousResponse response =
+        unauthenticatedServiceStub().getCapabilities(GetCapabilitiesAnonymousRequest.newBuilder()
+            .setAccountIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+            .setGroupSendToken(ByteString.copyFrom(groupSendToken))
+            .build());
+
+    assertEquals(NotFound.getDefaultInstance(), response.getNotFound());
+  }
+
+  private static Stream<Arguments> getCapabilitiesIllegalRequest() {
+    final ServiceIdentifier aci =
+        GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID()));
+
+    return Stream.of(
+        Arguments.argumentSet("no aci", GetCapabilitiesAnonymousRequest.newBuilder()
+            .setUnidentifiedAccessKey(
+                ByteString.copyFrom(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]))
+            .build()),
+
+        Arguments.argumentSet("wrong uak length", GetCapabilitiesAnonymousRequest.newBuilder()
+            .setAccountIdentifier(aci)
+            .setUnidentifiedAccessKey(ByteString.copyFrom(new byte[15]))
+            .build()),
+
+        Arguments.argumentSet("invalid gse", GetCapabilitiesAnonymousRequest.newBuilder()
+            .setAccountIdentifier(aci)
+            .setGroupSendToken(ByteString.EMPTY)
+            .build()),
+
+        Arguments.argumentSet("no auth", GetCapabilitiesAnonymousRequest.newBuilder()
+            .setAccountIdentifier(
+                GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID())))
+            .build())
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void getCapabilitiesIllegalRequest(final GetCapabilitiesAnonymousRequest request) {
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
+        () -> unauthenticatedServiceStub().getCapabilities(request));
   }
 }
