@@ -8,6 +8,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import java.util.Optional;
 import java.util.concurrent.Flow;
+import io.micrometer.core.instrument.Tag;
 import org.signal.chat.backup.BackupStreamClosed;
 import org.signal.chat.backup.CopyMediaRequest;
 import org.signal.chat.backup.CopyMediaResponse;
@@ -235,10 +236,10 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
                   .build())
               .build())));
     }
+
+    final Tag platformTag = UserAgentTagUtil.getPlatformTag(RequestAttributesUtil.getUserAgent().orElse(null));
     return JdkFlowAdapter.publisherToFlowPublisher(backupManager.copyToBackup(copyQuota)
-        .doOnNext(result -> backupMetrics.updateCopyCounter(
-            result,
-            UserAgentTagUtil.getPlatformTag(RequestAttributesUtil.getUserAgent().orElse(null))))
+        .doOnNext(result -> backupMetrics.updateCopyCounter(result, platformTag))
         .map(copyResult -> {
           CopyMediaResponse.Builder builder = CopyMediaResponse
               .newBuilder()

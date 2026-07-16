@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.util;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +31,11 @@ public class CompletableFutureTestUtil {
   }
 
   public static <T> CompletableFuture<T> almostCompletedFuture(T result) {
-    return new CompletableFuture<T>().completeOnTimeout(result, 5, TimeUnit.MILLISECONDS);
+    return almostCompletedFuture(result, Duration.ofMillis(5));
+  }
+
+  public static <T> CompletableFuture<T> almostCompletedFuture(T result, Duration timeout) {
+    return new CompletableFuture<T>().completeOnTimeout(result, timeout.toNanos(), TimeUnit.NANOSECONDS);
   }
 
 }

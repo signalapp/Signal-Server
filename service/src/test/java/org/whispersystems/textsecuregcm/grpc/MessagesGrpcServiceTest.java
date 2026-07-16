@@ -89,6 +89,7 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 import reactor.test.publisher.TestPublisher;
 
 class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, MessagesGrpc.MessagesBlockingV2Stub> {
@@ -808,6 +809,19 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       blockingCall.write(GetMessagesRequest.newBuilder().setOptions(GetMessagesRequest.GetMessageOptions.getDefaultInstance()).build());
       blockingCall.write(request);
       assertEquals(Status.INVALID_ARGUMENT.getCode(), reader.join().getStatus().getCode());
+    }
+
+    @Test
+    void getMessages() throws StatusException, InterruptedException {
+      final BlockingClientCall<GetMessagesRequest, GetMessagesResponse> blockingCall = authenticatedServiceStub().getMessages();
+      when(messageDispatcher.getMessages(anyBoolean(), any(), any(), any(), any())).thenReturn(Flux.just(
+              GetMessagesResponse.newBuilder().setEnvelope(MessageProtos.Envelope.getDefaultInstance()).build(),
+              GetMessagesResponse.newBuilder().setQueueEmpty(Empty.getDefaultInstance()).build())
+          // helps catch any issues with streaming concurrency (especially context propagation)
+          .publishOn(Schedulers.parallel()));
+      blockingCall.write(GetMessagesRequest.newBuilder().setOptions(GetMessagesRequest.GetMessageOptions.getDefaultInstance()).build());
+      assertTrue(blockingCall.read().hasEnvelope());
+      assertTrue(blockingCall.read().hasQueueEmpty());
     }
   }
 

@@ -71,6 +71,7 @@ import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -422,17 +423,19 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final UUID mismatchedPniFingerprintAccountIdentifier = UUID.randomUUID();
     final IdentityKey mismatchedPniFingerpringAccountIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
 
+    // Complete futures asynchronously to catch potential async/context-propagation issues
+    final Duration futureDelay = Duration.ofMillis(1);
     when(mismatchedAciFingerprintAccount.getIdentityKey(IdentityType.ACI)).thenReturn(mismatchedAciFingerprintAccountIdentityKey);
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(mismatchedAciFingerprintAccountIdentifier)))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(mismatchedAciFingerprintAccount)));
+        .thenReturn(delayedAccount(mismatchedAciFingerprintAccount));
 
     when(matchingAciFingerprintAccount.getIdentityKey(IdentityType.ACI)).thenReturn(matchingAciFingerprintAccountIdentityKey);
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(matchingAciFingerprintAccountIdentifier)))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(matchingAciFingerprintAccount)));
+        .thenReturn(delayedAccount(matchingAciFingerprintAccount));
 
     when(mismatchedPniFingerprintAccount.getIdentityKey(IdentityType.PNI)).thenReturn(mismatchedPniFingerpringAccountIdentityKey);
     when(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(mismatchedPniFingerprintAccountIdentifier)))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(mismatchedPniFingerprintAccount)));
+        .thenReturn(delayedAccount(mismatchedPniFingerprintAccount));
 
     final Map<UUID, IdentityKey> expectedResponses = Map.of(
         mismatchedAciFingerprintAccountIdentifier, mismatchedAciFingerprintAccountIdentityKey,
@@ -487,6 +490,10 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
 
     assertNull(error.get());
     assertEquals(expectedResponses, responses);
+  }
+
+  private static CompletableFuture<Optional<Account>> delayedAccount(final Account account) {
+    return CompletableFutureTestUtil.almostCompletedFuture(Optional.of(account), Duration.ofMillis(1));
   }
 
   private static CheckIdentityKeyRequest buildCheckIdentityKeyRequest(final org.signal.chat.common.IdentityType identityType,

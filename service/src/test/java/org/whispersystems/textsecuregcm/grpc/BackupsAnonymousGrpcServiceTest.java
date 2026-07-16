@@ -70,6 +70,7 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 class BackupsAnonymousGrpcServiceTest extends
     SimpleBaseGrpcTest<BackupsAnonymousGrpcService, BackupsAnonymousGrpc.BackupsAnonymousBlockingStub> {
@@ -146,10 +147,11 @@ class BackupsAnonymousGrpcServiceTest extends
   @Test
   void putMediaBatchSuccess() {
     final byte[][] mediaIds = {TestRandomUtil.nextBytes(15), TestRandomUtil.nextBytes(15)};
-    when(backupManager.copyToBackup(any()))
-        .thenReturn(Flux.just(
+    when(backupManager.copyToBackup(any())).thenReturn(Flux.just(
             new CopyResult(CopyResult.Outcome.SUCCESS, mediaIds[0], 1),
-            new CopyResult(CopyResult.Outcome.SUCCESS, mediaIds[1], 1)));
+            new CopyResult(CopyResult.Outcome.SUCCESS, mediaIds[1], 1))
+        // helps catch any issues with streaming concurrency (especially context propagation)
+        .publishOn(Schedulers.parallel()));
 
     final CopyMediaRequest request = CopyMediaRequest.newBuilder()
         .setSignedPresentation(signedPresentation(presentation))
