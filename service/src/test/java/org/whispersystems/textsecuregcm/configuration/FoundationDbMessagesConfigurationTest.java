@@ -5,14 +5,14 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
-import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class FoundationDbMessagesConfigurationTest {
 
@@ -24,7 +24,11 @@ class FoundationDbMessagesConfigurationTest {
         0,
         Map.of(0, new SecretBytes(TestRandomUtil.nextBytes(16))),
         0,
-        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT
+        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2
     ).isEveryEpochClusterConfigured());
 
     assertFalse(new FoundationDbMessagesConfiguration(
@@ -33,7 +37,11 @@ class FoundationDbMessagesConfigurationTest {
         0,
         Map.of(0, new SecretBytes(TestRandomUtil.nextBytes(16))),
         0,
-        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT
+        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2
     ).isEveryEpochClusterConfigured());
   }
 
@@ -45,7 +53,11 @@ class FoundationDbMessagesConfigurationTest {
         0,
         Map.of(0, new SecretBytes(TestRandomUtil.nextBytes(16))),
         0,
-        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT
+        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2
     ).isEveryEpochFreeOfDuplicates());
 
     assertFalse(new FoundationDbMessagesConfiguration(
@@ -54,7 +66,11 @@ class FoundationDbMessagesConfigurationTest {
         0,
         Map.of(0, new SecretBytes(TestRandomUtil.nextBytes(16))),
         0,
-        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT
+        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2
     ).isEveryEpochFreeOfDuplicates());
   }
 
@@ -66,7 +82,11 @@ class FoundationDbMessagesConfigurationTest {
         0,
         Map.of(0, new SecretBytes(TestRandomUtil.nextBytes(16))),
         0,
-        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT
+        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2
     ).isActiveEpochConfigured());
 
     assertFalse(new FoundationDbMessagesConfiguration(
@@ -75,7 +95,11 @@ class FoundationDbMessagesConfigurationTest {
         1,
         Map.of(0, new SecretBytes(TestRandomUtil.nextBytes(16))),
         0,
-        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT
+        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2
     ).isActiveEpochConfigured());
   }
 
@@ -87,7 +111,11 @@ class FoundationDbMessagesConfigurationTest {
         0,
         Map.of(0, new SecretBytes(TestRandomUtil.nextBytes(16))),
         0,
-        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT
+        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2
     ).isCurrentVersionstampCipherKeyConfigured());
 
     assertFalse(new FoundationDbMessagesConfiguration(
@@ -96,7 +124,11 @@ class FoundationDbMessagesConfigurationTest {
         0,
         Map.of(0, new SecretBytes(TestRandomUtil.nextBytes(16))),
         1,
-        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT
+        FoundationDbMessagesConfiguration.DEFAULT_MAX_WATCHES_PER_CLIENT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
+        FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2
     ).isCurrentVersionstampCipherKeyConfigured());
   }
 }

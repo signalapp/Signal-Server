@@ -496,6 +496,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                     try {
                       final Database database = entry.getValue().build(fdb);
                       database.options().setMaxWatches(config.getFoundationDbMessagesConfiguration().maxWatchesPerClient());
+                      database.options().setTransactionTimeout(
+                          config.getFoundationDbMessagesConfiguration().transactionTimeout().toMillis());
+                      database.options().setTransactionRetryLimit(
+                          config.getFoundationDbMessagesConfiguration().transactionRetryLimit());
 
                       return database;
                     } catch (final IOException e) {
@@ -758,7 +762,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new VersionstampUUIDCipher(config.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey(),
             config.getFoundationDbMessagesConfiguration().versionstampCipherKeys().get(config.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey()).value()),
         presenceRenewalExecutor,
-        Clock.systemUTC());
+        Clock.systemUTC(),
+        config.getFoundationDbMessagesConfiguration().batchPriorityTransactionTimeout(),
+        config.getFoundationDbMessagesConfiguration().batchPriorityTransactionRetryLimit());
     ClientReleaseManager clientReleaseManager = new ClientReleaseManager(clientReleases,
         recurringJobExecutor,
         config.getClientReleaseConfiguration().refreshInterval(),

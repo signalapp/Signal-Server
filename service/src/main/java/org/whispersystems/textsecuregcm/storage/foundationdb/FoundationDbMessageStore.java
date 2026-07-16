@@ -59,6 +59,10 @@ public class FoundationDbMessageStore {
   private final ScheduledExecutorService presenceRenewalExecutorService;
   private final Clock clock;
 
+  // Per-attempt timeout and retry limit for batch priority transacitons, e.g. expired-message trim.
+  private final Duration batchPriorityTransactionTimeout;
+  private final long batchPriorityTransactionRetryLimit;
+
   private static final byte[] SERVER_ID = UUIDUtil.toBytes(UUID.randomUUID());
   private static final int PRESENCE_VALUE_LENGTH = 28;
 
@@ -105,7 +109,9 @@ public class FoundationDbMessageStore {
       final int activeEpoch,
       final VersionstampUUIDCipher versionstampUUIDCipher,
       final ScheduledExecutorService presenceRenewalExecutorService,
-      final Clock clock) {
+      final Clock clock,
+      final Duration batchPriorityTransactionTimeout,
+      final long batchPriorityTransactionRetryLimit) {
 
     final Database[][] databasesByEpochArray = new Database[MAX_EPOCHS][];
 
@@ -127,6 +133,8 @@ public class FoundationDbMessageStore {
             },
             IdentityHashMap::new));
     this.clock = clock;
+    this.batchPriorityTransactionTimeout = batchPriorityTransactionTimeout;
+    this.batchPriorityTransactionRetryLimit = batchPriorityTransactionRetryLimit;
   }
 
   /// Convenience method for inserting a single recipient message bundle. See [#insert(Map)] for details.
@@ -466,17 +474,19 @@ public class FoundationDbMessageStore {
 
     queueSubspacesToTrimByDatabase.forEach((database, queueSubspaces) -> {
       // It's OK that this puts reading the versionstamp in a separate transaction from the deletes; versionstamp clock
-      // entries are effectively immutable and we're looking for one that was written presumably very far in the past,
+      // entries are effectively immutable, and we're looking for one that was written presumably very far in the past,
       // so there's no conflict to avoid
-      versionstampClocks.get(database).getVersionstamp(cutoffTime).ifPresent(cutoffVersionstamp -> {
-        database.run(transaction -> {
-          transaction.options().setPriorityBatch();
-          for (final Subspace queueSubspace : queueSubspaces) {
-            transaction.clear(new Range(queueSubspace.getKey(), queueSubspace.pack(Tuple.from(cutoffVersionstamp))));
-          }
-          return null;
-        });
-      });
+      versionstampClocks.get(database).getVersionstamp(cutoffTime).ifPresent(cutoffVersionstamp ->
+          database.run(transaction -> {
+            transaction.options().setPriorityBatch();
+            transaction.options().setTimeout(batchPriorityTransactionTimeout.toMillis());
+            transaction.options().setRetryLimit(batchPriorityTransactionRetryLimit);
+            for (final Subspace queueSubspace : queueSubspaces) {
+              transaction.clear(
+                  new Range(queueSubspace.getKey(), queueSubspace.pack(Tuple.from(cutoffVersionstamp))));
+            }
+            return null;
+          }));
     });
   }
 

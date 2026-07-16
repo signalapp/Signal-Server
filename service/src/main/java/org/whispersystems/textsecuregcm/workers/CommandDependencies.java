@@ -155,6 +155,10 @@ public record CommandDependencies(
                     try {
                       final Database database = entry.getValue().build(fdb);
                       database.options().setMaxWatches(configuration.getFoundationDbMessagesConfiguration().maxWatchesPerClient());
+                      database.options().setTransactionTimeout(
+                          configuration.getFoundationDbMessagesConfiguration().transactionTimeout().toMillis());
+                      database.options().setTransactionRetryLimit(
+                          configuration.getFoundationDbMessagesConfiguration().transactionRetryLimit());
 
                       return database;
                     } catch (final IOException e) {
@@ -319,7 +323,9 @@ public record CommandDependencies(
         new VersionstampUUIDCipher(configuration.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey(),
             configuration.getFoundationDbMessagesConfiguration().versionstampCipherKeys().get(configuration.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey()).value()),
         presenceRenewalExecutor,
-        Clock.systemUTC());
+        Clock.systemUTC(),
+        configuration.getFoundationDbMessagesConfiguration().batchPriorityTransactionTimeout(),
+        configuration.getFoundationDbMessagesConfiguration().batchPriorityTransactionRetryLimit());
     ProfilesManager profilesManager = new ProfilesManager(profilesV1, profiles, profileAvatars, cacheCluster, retryExecutor, asyncCdnS3Client,
         configuration.getCdnConfiguration().bucket());
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient, dynamoDbAsyncClient,

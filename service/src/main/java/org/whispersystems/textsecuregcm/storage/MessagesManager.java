@@ -6,12 +6,12 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.apple.foundationdb.FDBException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -61,8 +61,7 @@ public class MessagesManager {
   private static final String PRESENCE_MATCH_COUNTER_NAME =
       MetricsUtil.name(MessagesManager.class, "presenceMatch");
 
-  private static final Counter INSERT_TIMEOUT_COUNTER =
-      Metrics.counter(name(MessagesManager.class, "insertTimeout"));
+  private static final String INSERT_FDB_EXCEPTIONS_COUNTER_NAME = name(MessagesManager.class, "insertExceptions");
 
   @VisibleForTesting
   static final String MIRROR_INSERTS_EXPERIMENT_NAME = "foundationDbMirrorInserts";
@@ -72,8 +71,6 @@ public class MessagesManager {
 
   @VisibleForTesting
   static final String MIRROR_READS_EXPERIMENT_NAME = "foundationDbMirrorReads";
-
-  private static final long FOUNDATIONDB_INSERT_TIMEOUT_MILLIS = Duration.ofSeconds(2).toMillis();
 
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
@@ -133,10 +130,10 @@ public class MessagesManager {
 
       foundationDbInsertFuture =
           foundationDbMessageStore.insert(new AciServiceIdentifier(accountIdentifier), minimizedMessagesByDeviceId)
-              .orTimeout(FOUNDATIONDB_INSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
               .exceptionally(e -> {
-                if (e instanceof TimeoutException) {
-                  INSERT_TIMEOUT_COUNTER.increment();
+                if (e instanceof FDBException fdbException) {
+                  Metrics.counter(INSERT_FDB_EXCEPTIONS_COUNTER_NAME, "code", String.valueOf(fdbException.getCode()))
+                      .increment();
                 } else {
                   logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
                       minimizedMessagesByDeviceId.size(),

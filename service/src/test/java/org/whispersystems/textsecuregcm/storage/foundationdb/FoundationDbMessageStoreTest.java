@@ -120,7 +120,9 @@ class FoundationDbMessageStoreTest {
         DEFAULT_EPOCH,
         versionstampUUIDCipher,
         presenceRenewalExecutorService,
-        CLOCK);
+        CLOCK,
+        Duration.ofSeconds(5),
+        10);
   }
 
   @AfterAll

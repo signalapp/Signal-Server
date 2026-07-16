@@ -561,6 +561,10 @@ server:
 
 foundationDbMessages:
   maxWatchesPerClient: 10000
+  transactionTimeout: PT1S
+  transactionRetryLimit: 3
+  batchPriorityTransactionTimeout: PT5S
+  batchPriorityTransactionRetryLimit: 10
   versionstampCipherKeys:
     0: secret://foundationDbMessages.versionstampCipherKey.0
   currentVersionstampCipherKey: 0
