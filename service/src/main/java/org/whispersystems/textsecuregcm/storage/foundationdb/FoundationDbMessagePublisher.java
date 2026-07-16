@@ -307,7 +307,7 @@ class FoundationDbMessagePublisher {
   ///
   /// @return a future of a list of [FoundationDbMessageStreamEntry.Message] with a max size of [#maxMessagesPerScan]
   private CompletableFuture<List<FoundationDbMessageStreamEntry.Message>> getMessagesBatch() {
-    return database.runAsync(transaction ->
+    return FoundationDbUtil.safeRunAsync(database, transaction ->
             transaction.getRange(beginKeyCursor, endKeyExclusive, maxMessagesPerScan, false, StreamingMode.EXACT).asList()
                 .thenApply(keyValues -> {
                   if (keyValues.size() < maxMessagesPerScan && !terminateOnQueueEmpty) {
@@ -433,7 +433,7 @@ class FoundationDbMessagePublisher {
       return CompletableFuture.failedFuture(new IllegalStateException("Publisher already terminated"));
     }
 
-    return database.runAsync(transaction -> {
+    return FoundationDbUtil.safeRunAsync(database, transaction -> {
       transaction.set(presenceKey, FoundationDbMessageStore.getPresenceValue(clock.instant(), streamId));
       return CompletableFuture.completedFuture(null);
     });
@@ -445,7 +445,7 @@ class FoundationDbMessagePublisher {
       renewPresenceFuture.cancel(true);
 
       renewPresenceFuture.whenComplete((_, _) ->
-          database.runAsync(transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
+          FoundationDbUtil.safeRunAsync(database, transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
                 if (presenceValue == null) {
                   return;
                 }

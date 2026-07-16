@@ -206,7 +206,7 @@ public class FoundationDbMessageStream implements MessageStream {
   ///
   /// @return a [KeySelector] for the first key greater than the current greatest key in the device queue.
   private CompletableFuture<Optional<KeySelector>> getEndOfQueueKeyExclusive(final Database database) {
-    return database.runAsync(transaction ->
+    return FoundationDbUtil.safeRunAsync(database, transaction ->
             transaction.getRange(deviceQueueSubspace.range(), 1, true, StreamingMode.EXACT).asList())
         .<Optional<KeySelector>>thenApply(items -> {
           if (items.isEmpty()) {
