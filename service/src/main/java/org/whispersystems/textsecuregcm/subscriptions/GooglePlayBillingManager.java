@@ -285,7 +285,6 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
         .orElse(AcknowledgementState.UNSPECIFIED);
     if (acknowledgementState != AcknowledgementState.ACKNOWLEDGED) {
       // We should only ever generate receipts for a stored and acknowledged token.
-      logger.error("Tried to fetch receipt for purchaseToken {} that was never acknowledged", purchaseToken);
       throw new IllegalStateException("Tried to fetch receipt for purchaseToken that was never acknowledged");
     }
 

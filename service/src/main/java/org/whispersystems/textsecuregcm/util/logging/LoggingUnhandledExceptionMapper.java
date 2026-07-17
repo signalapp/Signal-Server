@@ -57,7 +57,8 @@ public class LoggingUnhandledExceptionMapper extends LoggingExceptionMapper<Thro
         super.formatLogMessage(id, exception),
         requestMethod,
         requestPath,
-        userAgent) ;
+        // Strip any control codes to avoid any weird formatting with console loggers
+        userAgent.replaceAll("\\p{Cntrl}", ""));
   }
 
 }

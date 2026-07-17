@@ -390,8 +390,8 @@ public class Accounts {
           writeItems.add(phoneNumberConstraintPut);
         } else {
           log.error("Reclaiming account with a non-equivalent phone number. Old account {}:{}:{}, new account {}:{}:{}",
-              existingAccount.getUuid(), existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier(),
-              accountToCreate.getUuid(), accountToCreate.getNumber(), accountToCreate.getPhoneNumberIdentifier());
+              existingAccount.getUuid(), redactPhoneNumber(existingAccount.getNumber()), existingAccount.getPhoneNumberIdentifier(),
+              accountToCreate.getUuid(), redactPhoneNumber(accountToCreate.getNumber()), accountToCreate.getPhoneNumberIdentifier());
           throw new IllegalArgumentException("reclaimed accounts must have equivalent phone numbers");
         }
       }

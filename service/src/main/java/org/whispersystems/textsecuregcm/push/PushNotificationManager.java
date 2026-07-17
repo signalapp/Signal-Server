@@ -164,8 +164,8 @@ public class PushNotificationManager {
               result.unregisteredTimestamp());
         }
       } else {
-        logger.debug("Failed to deliver {} push notification to {} ({})",
-            pushNotification.notificationType(), pushNotification.deviceToken(), pushNotification.tokenType(),
+        logger.debug("Failed to deliver {} push notification to token of type {}",
+            pushNotification.notificationType(), pushNotification.tokenType(),
             throwable);
 
         Metrics.counter(FAILED_NOTIFICATION_COUNTER_NAME, "cause", throwable.getClass().getSimpleName()).increment();
