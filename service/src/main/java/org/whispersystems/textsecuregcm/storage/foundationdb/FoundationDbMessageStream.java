@@ -129,7 +129,7 @@ public class FoundationDbMessageStream implements MessageStream {
     final List<Database> databases = Arrays.stream(databasesByEpoch).filter(Objects::nonNull).distinct().toList();
 
     return Flux.fromIterable(databases)
-        .flatMap(database -> Mono.fromFuture(getEndOfQueueKeyExclusive(database))
+        .flatMap(database -> Mono.fromFuture(() -> getEndOfQueueKeyExclusive(database))
             .map(maybeEndOfQueueKeyExclusive -> Tuples.of(database, maybeEndOfQueueKeyExclusive)))
         .collectMap(Tuple2::getT1, Tuple2::getT2)
         .flatMapMany(endOfQueueKeysByDatabase -> {
