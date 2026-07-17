@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import io.grpc.Status;
 import java.io.IOException;
 import java.time.Duration;
@@ -661,33 +662,25 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @ParameterizedTest
-  @MethodSource
-  void configureUnidentifiedAccess(final boolean unrestrictedUnidentifiedAccess,
-      final byte[] unidentifiedAccessKey,
-      final byte[] expectedUnidentifiedAccessKey) {
+  @ValueSource(booleans = {true, false})
+  void configureUnidentifiedAccess(final boolean unrestrictedUnidentifiedAccess) {
 
     final Account account = mock(Account.class);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
+    final byte[] uak = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+    final ConfigureUnidentifiedAccessRequest.Builder builder = ConfigureUnidentifiedAccessRequest.newBuilder();
+    if (unrestrictedUnidentifiedAccess) {
+      builder.setAllowUnrestrictedUnidentifiedAccess(Empty.getDefaultInstance());
+    } else {
+      builder.setUnidentifiedAccessKey(ByteString.copyFrom(uak));
+    }
 
-    assertDoesNotThrow(() -> authenticatedServiceStub().configureUnidentifiedAccess(ConfigureUnidentifiedAccessRequest.newBuilder()
-        .setAllowUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)
-        .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
-        .build()));
+    assertDoesNotThrow(() -> authenticatedServiceStub().configureUnidentifiedAccess(builder.build()));
 
     verify(account).setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess);
-    verify(account).setUnidentifiedAccessKey(expectedUnidentifiedAccessKey);
-  }
-
-  private static Stream<Arguments> configureUnidentifiedAccess() {
-    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
-
-    return Stream.of(
-        Arguments.of(true, new byte[0], null),
-        Arguments.of(true, unidentifiedAccessKey, null),
-        Arguments.of(false, unidentifiedAccessKey, unidentifiedAccessKey)
-    );
+    verify(account).setUnidentifiedAccessKey(unrestrictedUnidentifiedAccess ? null : uak);
   }
 
   @ParameterizedTest
@@ -705,7 +698,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
         // Key with incorrect length
         ConfigureUnidentifiedAccessRequest.newBuilder()
-            .setAllowUnrestrictedUnidentifiedAccess(false)
             .setUnidentifiedAccessKey(ByteString.copyFrom(new byte[15]))
             .build()
     );

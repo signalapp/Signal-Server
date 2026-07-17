@@ -297,15 +297,15 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public ConfigureUnidentifiedAccessResponse configureUnidentifiedAccess(final ConfigureUnidentifiedAccessRequest request) {
-    if (!request.getAllowUnrestrictedUnidentifiedAccess() && request.getUnidentifiedAccessKey().size() != UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH) {
-      throw GrpcExceptions.fieldViolation("unidentified_access_key",
-          String.format("Unidentified access key must be %d bytes, but was actually %d",
-              UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH, request.getUnidentifiedAccessKey().size()));
+    if (request.getConfigurationCase() == ConfigureUnidentifiedAccessRequest.ConfigurationCase.CONFIGURATION_NOT_SET) {
+      throw GrpcExceptions.fieldViolation("configuration", "a configuration case must be set");
     }
 
     accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(), account -> {
-      account.setUnrestrictedUnidentifiedAccess(request.getAllowUnrestrictedUnidentifiedAccess());
-      account.setUnidentifiedAccessKey(request.getAllowUnrestrictedUnidentifiedAccess() ? null : request.getUnidentifiedAccessKey().toByteArray());
+      account.setUnidentifiedAccessKey(request.hasUnidentifiedAccessKey()
+          ? request.getUnidentifiedAccessKey().toByteArray()
+          : null);
+      account.setUnrestrictedUnidentifiedAccess(request.hasAllowUnrestrictedUnidentifiedAccess());
     });
 
     return ConfigureUnidentifiedAccessResponse.getDefaultInstance();
