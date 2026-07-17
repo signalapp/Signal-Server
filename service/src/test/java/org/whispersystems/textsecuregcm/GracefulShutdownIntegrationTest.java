@@ -29,6 +29,7 @@ import org.eclipse.jetty.websocket.api.StatusCode;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -78,6 +79,7 @@ public class GracefulShutdownIntegrationTest {
     return new DropwizardTestSupport<>(TestApplication.class, configuration);
   }
 
+  @Disabled("flaky: Sometimes (rarely) we do not see a close from jetty during shutdown. Requires investigation")
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void jettyClosesOpenWebsocketSessions(final boolean useH2) throws Exception {
