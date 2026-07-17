@@ -163,7 +163,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public DeleteAccountResponse deleteAccount(final DeleteAccountRequest request) {
-    accountsManager.delete(AuthenticationUtil.requireAuthenticatedPrimaryDevice().accountIdentifier(),
+    accountsManager.delete(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
         AccountsManager.DeletionReason.USER_REQUEST);
 
     return DeleteAccountResponse.getDefaultInstance();
@@ -174,7 +174,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final SaltedTokenHash credentials =
         SaltedTokenHash.generateFor(formatRegistrationLock(request.getRegistrationLock().toByteArray()));
 
-    accountsManager.update(AuthenticationUtil.requireAuthenticatedPrimaryDevice().accountIdentifier(),
+    accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
         account -> account.setRegistrationLock(credentials.hash(), credentials.salt()));
 
     return SetRegistrationLockResponse.getDefaultInstance();
@@ -182,7 +182,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public ClearRegistrationLockResponse clearRegistrationLock(final ClearRegistrationLockRequest request) {
-    accountsManager.update(AuthenticationUtil.requireAuthenticatedPrimaryDevice().accountIdentifier(),
+    accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
         account -> account.setRegistrationLock(null, null));
 
     return ClearRegistrationLockResponse.getDefaultInstance();

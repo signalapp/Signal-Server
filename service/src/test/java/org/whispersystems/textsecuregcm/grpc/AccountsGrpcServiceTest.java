@@ -206,14 +206,17 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
 
     //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, "BAD_AUTHENTICATION",
-        () -> authenticatedServiceStub().deleteAccount(DeleteAccountRequest.newBuilder().build()));
+    final DeleteAccountResponse ignored =
+        authenticatedServiceStub().deleteAccount(DeleteAccountRequest.newBuilder().build());
 
-    verify(accountsManager, never()).delete(any(), any());
+    verify(accountsManager).delete(AUTHENTICATED_ACI, AccountsManager.DeletionReason.USER_REQUEST);
   }
 
-  @Test
-  void setRegistrationLock() {
+  @ParameterizedTest
+  @ValueSource(bytes = { Device.PRIMARY_ID, Device.PRIMARY_ID + 1 })
+  void setRegistrationLock(final byte deviceId) {
+    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (deviceId));
+
     final Account account = mock(Account.class);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
@@ -245,21 +248,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     verify(accountsManager, never()).update(any(UUID.class), any());
   }
 
-  @Test
-  void setRegistrationLockLinkedDevice() {
+  @ParameterizedTest
+  @ValueSource(bytes = { Device.PRIMARY_ID, Device.PRIMARY_ID + 1 })
+  void clearRegistrationLock(final byte deviceId) {
     getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
 
-    //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, "BAD_AUTHENTICATION",
-        () -> authenticatedServiceStub().setRegistrationLock(SetRegistrationLockRequest.newBuilder()
-                .setRegistrationLock(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
-            .build()));
-
-    verify(accountsManager, never()).update(any(UUID.class), any());
-  }
-
-  @Test
-  void clearRegistrationLock() {
     final Account account = mock(Account.class);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
@@ -269,17 +262,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         authenticatedServiceStub().clearRegistrationLock(ClearRegistrationLockRequest.newBuilder().build());
 
     verify(account).setRegistrationLock(null, null);
-  }
-
-  @Test
-  void clearRegistrationLockLinkedDevice() {
-    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
-
-    //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
-        () -> authenticatedServiceStub().clearRegistrationLock(ClearRegistrationLockRequest.newBuilder().build()));
-
-    verify(accountsManager, never()).update(any(UUID.class), any());
   }
 
   @Test
