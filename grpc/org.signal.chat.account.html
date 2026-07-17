@@ -106,6 +106,15 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.account.Capabilities">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>Capabilities</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.account.ChangeNumberRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>ChangeNumberRequest</code> 
@@ -302,6 +311,42 @@
         <a href="#message-org.signal.chat.account.GetAccountIdentityResponse">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>GetAccountIdentityResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetCapabilitiesAnonymousRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetCapabilitiesAnonymousRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetCapabilitiesAnonymousResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetCapabilitiesAnonymousResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetCapabilitiesRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetCapabilitiesRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetCapabilitiesResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetCapabilitiesResponse</code> 
         </a>
       </p>
       
@@ -856,6 +901,26 @@ via the Contact Discovery Service (CDS).</p></p>
   </div>
   
 </div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-GetCapabilities">
+      <a href="#service-org.signal.chat.account.Accounts-GetCapabilities">
+        rpc <code>GetCapabilities</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetCapabilitiesRequest"><span title="org.signal.chat.account.GetCapabilitiesRequest">org.signal.chat.account.GetCapabilitiesRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetCapabilitiesResponse"><span title="org.signal.chat.account.GetCapabilitiesResponse">org.signal.chat.account.GetCapabilitiesResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Gets the capabilities for the authenticated account.</p></p>
+  </div>
+  
+</div>
  
     </div>
     
@@ -930,6 +995,27 @@ username hash.</p></p>
   
   <div class="block">
     <p><p>Finds the encrypted username identified by a given username link handle.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.AccountsAnonymous-GetCapabilities">
+      <a href="#service-org.signal.chat.account.AccountsAnonymous-GetCapabilities">
+        rpc <code>GetCapabilities</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetCapabilitiesAnonymousRequest"><span title="org.signal.chat.account.GetCapabilitiesAnonymousRequest">org.signal.chat.account.GetCapabilitiesAnonymousRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetCapabilitiesAnonymousResponse"><span title="org.signal.chat.account.GetCapabilitiesAnonymousResponse">org.signal.chat.account.GetCapabilitiesAnonymousResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Gets the publicly-visible capabilities enabled on the account identified by
+the provided ACI.</p></p>
   </div>
   
 </div>
@@ -1090,6 +1176,59 @@ ProductConfiguration.GetConfiguration.</p></td>
         </code>
       </td>
       <td class="content"><p>Whether the badge is currently configured to be visible</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.Capabilities">
+  <span>
+    <a href="#message-org.signal.chat.account.Capabilities" title="org.signal.chat.account.Capabilities">message Capabilities</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        capabilities
+      </td>
+      <td>
+        <code title="org.signal.chat.common.DeviceCapability">
+          
+            repeated
+          
+          <a href="org.signal.chat.common.html#enum-org.signal.chat.common.DeviceCapability"><span title="org.signal.chat.common.DeviceCapability">org.signal.chat.common.DeviceCapability</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A list of capabilities enabled on the account.</p></td>
       
     </tr>
     
@@ -1710,41 +1849,62 @@ account was found.</p></td>
   </thead>
   <tbody>
     
-    <tr>
-      <td>1</td>
-      <td>
-        unidentified_access_key
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>The key that other users must provide to interact with this account
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof configuration</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            unidentified_access_key
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>The key that other users must provide to interact with this account
 anonymously (i.e. to retrieve keys or profiles or to send messages) unless
 unrestricted unidentified access is permitted. Must be present if
 unrestricted unidentified access is not allowed.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        allow_unrestricted_unidentified_access
-      </td>
-      <td>
-        <code title="bool">
           
-          <span>bool</span>
-        </code>
-      </td>
-      <td class="content"><p>If <code>true</code>, any user may interact with this account anonymously without
-providing an unidentified access key. Otherwise, users must provide the
-given unidentified access key to interact with this account anonymously.</p></td>
+        </tr>
       
-    </tr>
-    
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            allow_unrestricted_unidentified_access
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>If set, any user may interact with this account anonymously without
+providing an unidentified access key. Otherwise, users must provide the
+given unidentified access key to interact with this account anonymously.
+Setting unrestricted unidentified access will clear any existing
+unidentified_access_key</p></td>
+          
+        </tr>
+      
     
   </tbody>
 </table>
@@ -2499,6 +2659,298 @@ another caller.</p></td>
         </code>
       </td>
       <td class="content"><p>A set of account identifiers for the authenticated account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetCapabilitiesAnonymousRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.GetCapabilitiesAnonymousRequest" title="org.signal.chat.account.GetCapabilitiesAnonymousRequest">message GetCapabilitiesAnonymousRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        account_identifier
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The ACI of the account for which to get capabilities.</p></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof authentication</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            unidentified_access_key
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>The unidentified access key for the targeted account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            group_send_token
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>A group send endorsement token for the targeted account.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetCapabilitiesAnonymousResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.GetCapabilitiesAnonymousResponse" title="org.signal.chat.account.GetCapabilitiesAnonymousResponse">message GetCapabilitiesAnonymousResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            capabilities
+          </td>
+          <td>
+            <code title="org.signal.chat.account.Capabilities">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.Capabilities"><span title="org.signal.chat.account.Capabilities">org.signal.chat.account.Capabilities</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>A list of capabilities enabled on the account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            failed_unidentified_authorization
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetCapabilitiesRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.GetCapabilitiesRequest" title="org.signal.chat.account.GetCapabilitiesRequest">message GetCapabilitiesRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetCapabilitiesResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.GetCapabilitiesResponse" title="org.signal.chat.account.GetCapabilitiesResponse">message GetCapabilitiesResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        capabilities
+      </td>
+      <td>
+        <code title="org.signal.chat.account.Capabilities">
+          
+          <a href="org.signal.chat.account.html#message-org.signal.chat.account.Capabilities"><span title="org.signal.chat.account.Capabilities">org.signal.chat.account.Capabilities</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A list of capabilities enabled on the account.</p></td>
       
     </tr>
     
