@@ -639,7 +639,7 @@ class AccountsTest {
 
     secondAccount.setUuid(accountAlreadyExistsException.getExistingAccount().getUuid());
 
-    assertThrows(IllegalArgumentException.class, () -> accounts.reclaimAccount(existingAccount,
+    assertThrows(IllegalStateException.class, () -> accounts.reclaimAccount(existingAccount,
         secondAccount,
         Collections.emptyList()).toCompletableFuture().join());
   }

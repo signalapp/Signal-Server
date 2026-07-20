@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 
 /**
  * A thread factory that creates virtual threads but limits the total number of virtual threads created.
@@ -87,7 +88,7 @@ public class BoundedVirtualThreadFactory implements ThreadFactory {
   private void release() {
     int updated = runningThreads.decrementAndGet();
     if (updated < 0) {
-      logger.error("Released a thread and count was {}, which should never happen", updated);
+      ImpossibleEvents.logImpossible(logger, "Released a thread and count was {}, which should never happen", updated);
     }
     completed.increment();
   }

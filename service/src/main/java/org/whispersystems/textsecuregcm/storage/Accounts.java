@@ -389,10 +389,9 @@ public class Accounts {
           writeItems.add(buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, existingAccount.getNumber()));
           writeItems.add(phoneNumberConstraintPut);
         } else {
-          log.error("Reclaiming account with a non-equivalent phone number. Old account {}:{}:{}, new account {}:{}:{}",
+          throw new IllegalStateException(String.format("Reclaiming account with a non-equivalent phone number. Old account %s:%s:%s, new account %s:%s:%s",
               existingAccount.getUuid(), redactPhoneNumber(existingAccount.getNumber()), existingAccount.getPhoneNumberIdentifier(),
-              accountToCreate.getUuid(), redactPhoneNumber(accountToCreate.getNumber()), accountToCreate.getPhoneNumberIdentifier());
-          throw new IllegalArgumentException("reclaimed accounts must have equivalent phone numbers");
+              accountToCreate.getUuid(), redactPhoneNumber(accountToCreate.getNumber()), accountToCreate.getPhoneNumberIdentifier()));
         }
       }
 

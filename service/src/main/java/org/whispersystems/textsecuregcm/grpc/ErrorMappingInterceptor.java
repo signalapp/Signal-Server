@@ -15,6 +15,7 @@ import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
@@ -58,6 +59,10 @@ public class ErrorMappingInterceptor implements ServerInterceptor {
           case IOException e -> {
             log.warn("RPC {} encountered IOException", call.getMethodDescriptor().getFullMethodName(), e);
             yield GrpcExceptions.unavailable();
+          }
+          case IllegalStateException e -> {
+            ImpossibleEvents.logImpossible(log, e.getMessage(), e);
+            yield GrpcExceptions.unavailable(e.getMessage());
           }
           case null -> {
             log.error("RPC {} finished with status UNKNOWN: {}",

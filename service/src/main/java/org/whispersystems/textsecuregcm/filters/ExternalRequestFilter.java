@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesUtil;
 import org.whispersystems.textsecuregcm.util.InetAddressRange;
+import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 
 public class ExternalRequestFilter implements Filter, ServerInterceptor {
 
@@ -85,7 +86,7 @@ public class ExternalRequestFilter implements Filter, ServerInterceptor {
       if (response instanceof HttpServletResponse hsr) {
         hsr.setStatus(404);
       } else {
-        logger.warn("response was an unexpected type: {}", response.getClass());
+        ImpossibleEvents.logImpossible(logger, "response was an unexpected type: {}", response.getClass());
       }
       return;
     }

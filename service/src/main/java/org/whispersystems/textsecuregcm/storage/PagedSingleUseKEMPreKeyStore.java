@@ -30,6 +30,7 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
@@ -245,7 +246,7 @@ public class PagedSingleUseKEMPreKeyStore {
           final int numKeys = AttributeValues.getInt(getResponse.item(), ATTR_PAGE_NUM_KEYS, -1);
           final int index = AttributeValues.getInt(getResponse.item(), ATTR_PAGE_IDX, -1);
           if (numKeys < 0 || index < 0 || index > numKeys) {
-            log.error("unexpected index/length in page descriptor: {}", getResponse.item());
+            ImpossibleEvents.logImpossible(log, "unexpected index/length in page descriptor: {}", getResponse.item());
             return 0;
           }
 
@@ -355,7 +356,7 @@ public class PagedSingleUseKEMPreKeyStore {
           final byte deviceId = (byte) AttributeValues.getInt(item, KEY_DEVICE_ID, -1);
           final UUID pageId = AttributeValues.getUUID(item, ATTR_PAGE_ID, null);
           if (aci == null || deviceId < 0 || pageId == null) {
-            log.error("can't delete page from unexpected page descriptor {}", item);
+            ImpossibleEvents.logImpossible(log, "can't delete page from unexpected page descriptor {}", item);
           }
           return Mono.fromFuture(deleteBundleFromS3(aci, deviceId, pageId))
               .thenReturn(Map.of(
@@ -429,7 +430,7 @@ public class PagedSingleUseKEMPreKeyStore {
         .thenApply(bytes -> {
           final ByteBuffer serialized = bytes.asByteBuffer();
           if (serialized.remaining() != keyLocation.length()) {
-            log.error("Unexpected ranged read response, requested {} got {} for offset {} in page {}",
+            ImpossibleEvents.logImpossible(log, "Unexpected ranged read response, requested {} got {} for offset {} in page {}",
                 keyLocation.length(), serialized.remaining(), keyLocation, s3Key(identifier, deviceId, pageId));
             throw new CompletionException(new IOException("Invalid response to ranged read"));
           }

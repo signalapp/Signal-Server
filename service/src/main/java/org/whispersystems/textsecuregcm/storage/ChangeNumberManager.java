@@ -44,6 +44,7 @@ import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 
 public class ChangeNumberManager {
 
@@ -174,6 +175,11 @@ public class ChangeNumberManager {
             registrationIdsByDeviceId,
             Optional.of(Device.PRIMARY_ID),
             userAgent);
+      } catch (MismatchedDevicesException | MessageTooLargeException e) {
+        ImpossibleEvents.logImpossible(logger,
+            "Changed number but could not send device messages after preliminary validation succeeded {}",
+            account.getIdentifier(IdentityType.ACI), e);
+        throw e;
       } catch (final RuntimeException e) {
         logger.warn("Changed number but could not send all device messages for {}",
             account.getIdentifier(IdentityType.ACI), e);

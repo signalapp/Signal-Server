@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.subscriptions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 
 public enum SubscriptionStatus {
   /**
@@ -55,7 +56,7 @@ public enum SubscriptionStatus {
 
       case "trialing" -> {
         final Logger logger = LoggerFactory.getLogger(CustomerAwareSubscriptionPaymentProcessor.class);
-        logger.error("Subscription has status that should never happen: {}", status);
+        ImpossibleEvents.logImpossible(logger, "Subscription has status that should never happen: {}", status);
 
         yield UNKNOWN;
       }

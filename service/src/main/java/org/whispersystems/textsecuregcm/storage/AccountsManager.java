@@ -87,6 +87,7 @@ import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ThrowingConsumer;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
@@ -1634,7 +1635,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           channel.substring(TRANSFER_ARCHIVE_KEYSPACE_PATTERN.length() - 1).split(":", 4);
 
       if (deviceIdentifierComponents.length != 4) {
-        logger.error("Could not parse device identifier; unexpected component count: {}",
+        ImpossibleEvents.logImpossible(logger, "Could not parse device identifier; unexpected component count: {}",
             deviceIdentifierComponents.length);
         return;
       }

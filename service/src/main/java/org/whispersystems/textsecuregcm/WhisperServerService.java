@@ -204,6 +204,7 @@ import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.IllegalStateExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.JsonMappingExceptionMapper;
@@ -1343,6 +1344,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new InvalidWebsocketAddressExceptionMapper(),
         new DeviceLimitExceededExceptionMapper(),
         new ServerRejectedExceptionMapper(),
+        new IllegalStateExceptionMapper(),
         new ImpossiblePhoneNumberExceptionMapper(),
         new NonNormalizedPhoneNumberExceptionMapper(),
         new ObsoletePhoneNumberFormatExceptionMapper(),
