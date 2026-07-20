@@ -103,7 +103,7 @@ message GetAccountIdentityRequest {
 }
 
 message GetAccountIdentityResponse {
-  // A set of account identifiers for the authenticated account.
+  // The identifiers for the authenticated account.
   common.AccountIdentifiers account_identifiers = 1;
 }
 

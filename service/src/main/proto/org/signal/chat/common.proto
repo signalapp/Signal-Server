@@ -25,8 +25,10 @@ message ServiceIdentifier {
   bytes uuid = 2 [(require.exactlySize) = 16];
 }
 
+// All identifiers associated with an account.
 message AccountIdentifiers {
-  // A list of service identifiers for the identified account.
+  // A list of service identifiers for the identified account. Always includes
+  // exactly one ACI service identifier and one PNI service identifier.
   repeated ServiceIdentifier service_identifiers = 1;
 
   // The phone number associated with the identified account.
