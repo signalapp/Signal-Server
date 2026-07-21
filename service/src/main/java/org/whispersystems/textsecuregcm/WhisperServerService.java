@@ -790,7 +790,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         changeNumberWaitingPeriodManager, secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, accountLockExecutor, messagePollExecutor,
         retryExecutor, clock, config.getLinkDeviceSecretConfiguration().secret().value());
-    RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
+    RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs, config.getRemoteConfigConfiguration().globalConfig());
     APNSender apnSender = new APNSender(apnSenderExecutor, Clock.systemUTC(), config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
@@ -1264,7 +1264,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ProvisioningController(rateLimiters, provisioningManager),
         new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
             rateLimiters, registrationFraudChecker),
-        new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().globalConfig()),
+        new RemoteConfigController(remoteConfigsManager),
         new SecureStorageController(storageCredentialsGenerator),
         new SecureValueRecovery2Controller(svr2CredentialsGenerator, accountsManager),
         new StickerController(rateLimiters, stickerPolicyGenerator, Clock.systemUTC()),
