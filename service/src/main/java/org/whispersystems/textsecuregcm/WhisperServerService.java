@@ -181,6 +181,7 @@ import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProductConfigurationGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
+import org.whispersystems.textsecuregcm.grpc.RemoteConfigurationGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.SubscriptionsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ValidatingInterceptor;
@@ -1103,7 +1104,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new, donationPermitsManager, rateLimiters),
             new ProductConfigurationGrpcService(config.getSubscription(), config.getOneTimeDonations(),
                 List.of(stripeManager, braintreeManager), profileBadgeConverter,
-                config.getBackupConfiguration().maxTotalMediaSize()))
+                config.getBackupConfiguration().maxTotalMediaSize()),
+            new RemoteConfigurationGrpcService(remoteConfigsManager))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!

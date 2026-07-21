@@ -45,7 +45,7 @@ public class RemoteConfigsManager {
   }
 
   /**
-   * Returns all remote configuration (client and global) for the specified account and client.
+   * Returns all remote configuration (per-platform and global) for the specified account and client.
    *
    * @param accountIdentifier the identifier of the authenticated account
    * @param userAgent         the requester's user agent, used to select the client platform
@@ -61,10 +61,10 @@ public class RemoteConfigsManager {
       throw new AssertionError(e);
     }
 
-    final List<RemoteConfig> clientConfig = remoteConfigSupplier.get();
+    final List<RemoteConfig> perPlatformConfig = remoteConfigSupplier.get();
 
     return Stream.concat(
-            clientConfig.stream()
+            perPlatformConfig.stream()
                 .filter(config -> {
                   final String firstNameComponent = config.getName().split("\\.", 2)[0];
                   return firstNameComponent.equals(platformPrefix) || !PLATFORM_PREFIXES.contains(firstNameComponent);

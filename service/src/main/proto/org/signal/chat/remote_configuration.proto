@@ -1,0 +1,56 @@
+/*
+ * Copyright 2026 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.remoteconfiguration;
+
+import "org/signal/chat/require.proto";
+import "org/signal/chat/tag.proto";
+
+// Provides remote configuration applicable to the authenticated user
+service RemoteConfiguration {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
+
+  // Fetches the configuration for the authenticated user. Returned
+  // values are based on the authenticated account and caller's client platform,
+  // which is derived from the "User-Agent" header.
+  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
+}
+
+message GetConfigurationRequest {
+  // If present, the etag from a prior GetConfigurationResponse. If the
+  // provided etag matches the current configuration etag, the server may elide
+  // the configuration response.
+  bytes etag = 1;
+}
+
+message GetConfigurationResponse {
+  oneof response {
+    // The full configuration and corresponding etag.
+    TaggedConfiguration tagged_configuration = 1;
+
+    // The etag in the request matched the current configuration etag.
+    bool etag_matched = 2 [(tag.reason) = "etag_match"];
+  }
+}
+
+message Configuration {
+  // A map of namespaced configuration keys to their resolved values. All
+  // configuration values are represented as strings. boolean values are
+  // represented as the strings "true" or "false".
+  map<string, string> configuration = 1;
+}
+
+message TaggedConfiguration {
+  Configuration configuration = 1;
+
+  // An entity tag for `configuration`. This may be supplied in a
+  // subsequent request to optimize bandwidth when the configuration has not
+  // changed.
+  bytes etag = 2;
+}
