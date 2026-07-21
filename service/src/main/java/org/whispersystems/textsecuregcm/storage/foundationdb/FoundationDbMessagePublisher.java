@@ -21,9 +21,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
@@ -87,6 +89,9 @@ class FoundationDbMessagePublisher {
       FoundationDbMessageStore.PRESENCE_STALE_THRESHOLD.multipliedBy(4).dividedBy(5).toMillis();
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessagePublisher.class);
+
+  private static final String WATCHES_COUNTER = MetricsUtil.name(FoundationDbMessagePublisher.class, "watches");
+  private static final String ACTION_TAG = "action";
 
   enum State {
     /// Messages are likely available in the queue. Initial state.
@@ -376,14 +381,21 @@ class FoundationDbMessagePublisher {
     // again (if there is demand). When we run out of messages, this method will be called again, setting another watch,
     // and so on, thus achieving a "watch for new messages -> read -> publish" loop.
     watchFuture = transaction.watch(messagesAvailableWatchKey);
-    watchFuture.thenRun(() -> transitionStateOnEvent(Event.MESSAGE_AVAILABLE_WATCH_TRIGGERED));
+    Metrics.counter(WATCHES_COUNTER, ACTION_TAG, "set").increment();
+    watchFuture.thenRun(() -> {
+      Metrics.counter(WATCHES_COUNTER, ACTION_TAG, "triggered").increment();
+      transitionStateOnEvent(Event.MESSAGE_AVAILABLE_WATCH_TRIGGERED);
+    });
   }
 
   /// Cancel the watch (if any). Although inactive watches are automatically timed-out, we explicitly cancel when the
   /// subscription is disposed to clean up associated resources and to avoid having too many watches open at once.
   private synchronized void cancelWatch() {
     if (watchFuture != null) {
-      watchFuture.cancel(true);
+      if (watchFuture.cancel(true)) {
+        Metrics.counter(WATCHES_COUNTER, ACTION_TAG, "cancelled").increment();
+      }
+      watchFuture = null;
     }
   }
 
