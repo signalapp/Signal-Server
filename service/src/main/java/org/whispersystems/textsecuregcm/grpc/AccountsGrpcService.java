@@ -235,7 +235,6 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
       return ConfirmUsernameHashResponse.newBuilder()
           .setConfirmedUsernameHash(ConfirmUsernameHashResponse.ConfirmedUsernameHash.newBuilder()
-              .setUsernameHash(ByteString.copyFrom(updatedAccount.getUsernameHash().orElseThrow()))
               .setUsernameLinkHandle(UUIDUtil.toByteString(updatedAccount.getUsernameLinkHandle())))
           .build();
     } catch (final UsernameHashNotAvailableException e) {

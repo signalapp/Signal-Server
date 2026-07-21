@@ -189,8 +189,7 @@ message ConfirmUsernameHashRequest {
 
 message ConfirmUsernameHashResponse {
   message ConfirmedUsernameHash {
-    // The newly-confirmed username hash.
-    bytes username_hash = 1;
+    reserved 1; // username_hash
 
     // The server-generated username link handle for the newly-confirmed username.
     bytes username_link_handle = 2;

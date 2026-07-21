@@ -394,7 +394,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final ConfirmUsernameHashResponse expectedResponse = ConfirmUsernameHashResponse.newBuilder()
         .setConfirmedUsernameHash(ConfirmUsernameHashResponse.ConfirmedUsernameHash.newBuilder()
-            .setUsernameHash(ByteString.copyFrom(usernameHash))
             .setUsernameLinkHandle(UUIDUtil.toByteString(linkHandle))
             .build())
         .build();
