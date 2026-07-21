@@ -57,6 +57,7 @@ public class Cdn3RemoteStorageManagerTest {
             Map.of(2, "gcs", 3, "r2"),
             2,
             null,
+            null,
             null));
   }
 

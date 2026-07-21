@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
@@ -21,6 +22,8 @@ import javax.annotation.Nullable;
  *                                        client; if `null`, uses the global default configuration
  * @param retryConfigurationName          The name of a retry configuration for the storage-manager http client; if
  *                                        `null`, uses the global default configuration
+ * @param usageRequestTimeout             The per-attempt request timeout for usage requests to the storage-manager; if
+ *                                        `null`, defaults to 5 minutes
  */
 public record Cdn3StorageManagerConfiguration(
     @NotNull String baseUri,
@@ -29,7 +32,8 @@ public record Cdn3StorageManagerConfiguration(
     @NotNull Map<Integer, String> sourceSchemes,
     @NotNull Integer numHttpClients,
     @Nullable String circuitBreakerConfigurationName,
-    @Nullable String retryConfigurationName) {
+    @Nullable String retryConfigurationName,
+    @NotNull Duration usageRequestTimeout) {
 
   public Cdn3StorageManagerConfiguration {
     if (numHttpClients == null) {
@@ -37,6 +41,9 @@ public record Cdn3StorageManagerConfiguration(
     }
     if (sourceSchemes == null) {
       sourceSchemes = Collections.emptyMap();
+    }
+    if (usageRequestTimeout == null) {
+      usageRequestTimeout = Duration.ofMinutes(5);
     }
   }
 }
