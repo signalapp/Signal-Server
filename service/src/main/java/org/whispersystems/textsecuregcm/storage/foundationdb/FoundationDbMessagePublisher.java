@@ -377,6 +377,10 @@ class FoundationDbMessagePublisher {
 
   private synchronized void setWatch(final Transaction transaction) {
     assert messagesAvailableWatchKey != null;
+    if (state == State.TERMINATED || state == State.ERROR) {
+      // If we're already in a terminal state, we don't want to set a watch that would leak
+      return;
+    }
     // Set a watch that will be triggered when new messages arrive. When it is triggered, we attempt to fetch messages
     // again (if there is demand). When we run out of messages, this method will be called again, setting another watch,
     // and so on, thus achieving a "watch for new messages -> read -> publish" loop.
