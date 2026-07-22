@@ -91,8 +91,8 @@
 
     <!-- images to use in tests via testcontainers  -->
     <dynamodb.image>amazon/dynamodb-local:3.3.0@sha256:d89f8fcc6b1a39cb35976c248ed42a28c66ae00dc043099210f5571e42648ab4</dynamodb.image>
-    <localstack.image>localstack/localstack:4.13@sha256:46302bcb91a7e8008e6394be8afafdbfa40fb77a54d4046a38be35992042d5de</localstack.image>
-    <redis.image>redis:7.4-alpine@sha256:af1d0fc3f63b02b13ff7906c9baf7c5b390b8881ca08119cd570677fe2f60b55</redis.image>
+    <localstack.image>localstack/localstack:4.14@sha256:3ebc37595918b8accb852f8048fef2aff047d465167edd655528065b07bc364a</localstack.image>
+    <redis.image>redis:7.4-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99</redis.image>
     <redis-cluster.image>docker.io/bitnamilegacy/redis-cluster:7.4.3@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af</redis-cluster.image>
 
     <docker.image>eclipse-temurin:25-jre-noble@sha256:2f1da100788559b397bcf48c736169ea5b070bde84e55f203bbee8e83d87a175</docker.image>
