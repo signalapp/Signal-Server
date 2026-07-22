@@ -336,6 +336,7 @@ import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSend
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
 import org.whispersystems.textsecuregcm.workers.SetUserDiscoverabilityCommand;
+import org.whispersystems.textsecuregcm.workers.TrimOversizedFoundationDbMessageQueuesCommand;
 import org.whispersystems.textsecuregcm.workers.UnlinkDeviceCommand;
 import org.whispersystems.textsecuregcm.workers.UnlinkDevicesWithIdlePrimaryCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
@@ -395,6 +396,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ClearIssuedReceiptRedemptionsCommand());
     bootstrap.addCommand(new CopyToS3Command());
     bootstrap.addCommand(new ClearExpiredFoundationDbMessagesCommand(Clock.systemUTC()));
+    bootstrap.addCommand(new TrimOversizedFoundationDbMessageQueuesCommand());
 
     bootstrap.addCommand(new ProcessScheduledJobsServiceCommand("process-idle-device-notification-jobs",
         "Processes scheduled jobs to send notifications to idle devices",

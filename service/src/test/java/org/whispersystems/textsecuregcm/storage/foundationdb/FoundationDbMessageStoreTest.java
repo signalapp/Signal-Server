@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeyValue;
@@ -45,6 +47,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -52,7 +55,6 @@ import javax.annotation.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -1143,6 +1145,89 @@ class FoundationDbMessageStoreTest {
         .block();
   }
 
+  @ParameterizedTest
+  @ValueSource(ints = {5, 10, 20})
+  void estimateQueueSizeAndSplitPoints(final long totalQueueSizeMb) {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deviceId = Device.PRIMARY_ID;
+    final AtomicLong serialTimestamp = new AtomicLong();
+
+    // FoundationDB values must be less than 100 KB
+    final int contentSize = Math.toIntExact(DataSize.kilobytes(50).toBytes());
+
+    final long totalQueueSize = DataSize.megabytes(totalQueueSizeMb).toBytes();
+    final long totalQueueSizePerEpoch = totalQueueSize / 2;
+    final int numMessagesPerEpoch = (int) totalQueueSizePerEpoch / contentSize;
+
+    generateAndInsertMessages(aci, deviceId, FoundationDbMessageStoreTest.FUTURE_EPOCH, numMessagesPerEpoch, serialTimestamp::incrementAndGet, contentSize);
+    generateAndInsertMessages(aci, deviceId, FoundationDbMessageStoreTest.DEFAULT_EPOCH, numMessagesPerEpoch, serialTimestamp::incrementAndGet, contentSize);
+
+    final long rangeSplitChunkBytes = DataSize.megabytes(1).toBytes();
+    final FoundationDbMessageStore.QueueSizeAndRangeSplitPoints queueSizeAndSplitPoints = foundationDbMessageStore.estimateQueueSizeAndSplitPoints(aci, deviceId, rangeSplitChunkBytes).block();
+
+    assertNotNull(queueSizeAndSplitPoints);
+
+    // The docs assert that if the returned size is larger than 3 MB, it can be considered accurate.
+    // Our queue sizes are greater than that, but even so, provide a 5% margin for error.
+    assertEquals(totalQueueSize, queueSizeAndSplitPoints.estimatedQueueSize(), totalQueueSize * 0.05);
+    queueSizeAndSplitPoints.splitPointsByDatabase().forEach((_, splitPointKeys) -> {
+      // FoundationDB's getRangeSplitPoints appears to use the provided chunk size as an exclusive upper bound
+      // on the bytes covered by each pair of split points.
+      // Splitting an x MB range with a 1 MB chunk size will generate chunk sizes < 1 MB,
+      // which in turn generates x+1 chunks or x+2 split point keys.
+      final long expectedNumChunks = Math.toIntExact(Math.ceilDiv(totalQueueSizePerEpoch, rangeSplitChunkBytes - DataSize.bytes(1).toBytes()));
+      assertEquals(expectedNumChunks + 1, splitPointKeys.size());
+    });
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 2})
+  void trimQueue(final long rangeSplitSizeMb) {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    final Device device = mock(Device.class);
+    final byte deviceId = Device.PRIMARY_ID;
+    when(device.getId()).thenReturn(deviceId);
+    final AtomicLong serialTimestamp = new AtomicLong();
+
+    // FoundationDB values must be less than 100 KB
+    final int contentSize = Math.toIntExact(DataSize.kilobytes(50).toBytes());
+
+    final long totalQueueSize = DataSize.megabytes(10).toBytes();
+    final long totalQueueSizePerEpoch = totalQueueSize / 2;
+    final int numMessagesPerEpoch = (int) totalQueueSizePerEpoch / contentSize;
+
+    final List<MessageProtos.Envelope> inactiveEpochMessages = generateAndInsertMessages(aci, deviceId, FoundationDbMessageStoreTest.FUTURE_EPOCH, numMessagesPerEpoch, serialTimestamp::incrementAndGet, contentSize);
+    generateAndInsertMessages(aci, deviceId, FoundationDbMessageStoreTest.DEFAULT_EPOCH, numMessagesPerEpoch, serialTimestamp::incrementAndGet, contentSize);
+
+    final long maxQueueSizeBytes = DataSize.megabytes(4).toBytes();
+    final long targetQueueSizeBytes = DataSize.megabytes(3).toBytes();
+    final long rangeSplitSizeBytes = DataSize.megabytes(rangeSplitSizeMb).toBytes();
+
+    // Trim all the messages in the non-active epoch and ~2 MB worth of messages in the active epoch
+    foundationDbMessageStore.trimQueue(aci, device, maxQueueSizeBytes, targetQueueSizeBytes, rangeSplitSizeBytes, UnaryOperator.identity()).block();
+
+    final Long remainingQueueSize = foundationDbMessageStore.estimateQueueSize(aci, deviceId).block();
+
+    // We expect to be within a delta of the target queue size, where the delta is upper bounded by the range split chunk size.
+    assertNotNull(remainingQueueSize);
+    assertEquals(targetQueueSizeBytes, remainingQueueSize, rangeSplitSizeBytes);
+
+    // Check that all the retrieved messages have a timestamp greater than the last message in the inactive epoch
+    final long lastTimestampInInactiveEpoch = inactiveEpochMessages.getLast().getServerTimestamp();
+    final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
+
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
+        FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
+        Util.NOOP);
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
+        .recordWith(() -> retrievedEntries)
+        .expectNextMatches(entry -> entry instanceof MessageStreamEntry.Envelope(MessageProtos.Envelope message)
+            && message.getServerTimestamp() > lastTimestampInInactiveEpoch)
+        .thenConsumeWhile(entry -> !(entry instanceof MessageStreamEntry.QueueEmpty))
+        .expectNext(new MessageStreamEntry.QueueEmpty())
+        .verifyTimeout(Duration.ofSeconds(1));
+  }
+
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
     return generateRandomMessage(ephemeral, contentSize, CLOCK.millis());
   }
@@ -1164,15 +1249,15 @@ class FoundationDbMessageStoreTest {
       final byte deviceId,
       final int epoch,
       final int messageCount,
-      final Supplier<Long> timestampSupplier) {
-
+      final Supplier<Long> timestampSupplier,
+      final int contentSize) {
     final MessageGuidCodec messageGuidCodec =
         new MessageGuidCodec(aci.uuid(), deviceId, versionstampUUIDCipher);
 
     return IntStream.range(0, messageCount)
         .mapToObj(_ -> {
           final MessageProtos.Envelope message =
-              generateRandomMessage(false, 16, timestampSupplier.get());
+              generateRandomMessage(false, contentSize, timestampSupplier.get());
 
           final FoundationDbMessageStore.InsertResult insertResult =
               foundationDbMessageStore.insert(aci, Map.of(deviceId, message), epoch).join().get(deviceId);
@@ -1183,6 +1268,14 @@ class FoundationDbMessageStoreTest {
           return message.toBuilder().setServerGuid(UUIDUtil.toByteString(messageGuid)).build();
         })
         .toList();
+  }
+
+  private List<MessageProtos.Envelope> generateAndInsertMessages(final AciServiceIdentifier aci,
+      final byte deviceId,
+      final int epoch,
+      final int messageCount,
+      final Supplier<Long> timestampSupplier) {
+    return generateAndInsertMessages(aci, deviceId, epoch, messageCount, timestampSupplier, 16);
   }
 
   @Nullable

@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.reactivestreams.Publisher;
@@ -418,5 +419,25 @@ public class MessagesManager {
   /// after it will not be.
   public void deleteFoundationDbMessagesBefore(final Map<AciServiceIdentifier, List<Byte>> accountDeviceIdentifiers, final Instant cutoffTime) {
     foundationDbMessageStore.deleteMessagesBefore(accountDeviceIdentifiers, cutoffTime);
+  }
+
+  /// Trim the provided message queue if needed.
+  ///
+  /// @param aci The ACI of the message queue to trim
+  /// @param device The device of the message queue to trim
+  /// @param maxQueueSizeBytes The threshold size beyond which the message queue will be trimmed
+  /// @param targetQueueSizeBytes The target size to trim to
+  /// @param rangeSplitChunkSizeBytes The approximate chunk size in bytes used to split the range covered by the message queue
+  /// @param dryRun Whether to actually trim the provided queue
+  public Mono<Void> trimQueue(
+      final AciServiceIdentifier aci,
+      final Device device,
+      final long maxQueueSizeBytes,
+      final long targetQueueSizeBytes,
+      final long rangeSplitChunkSizeBytes,
+      final boolean dryRun) {
+    // All trims will be considered successful during a dry run
+    final UnaryOperator<Mono<Boolean>> deleteModifier = dryRun ? _ -> Mono.just(true) : UnaryOperator.identity();
+    return foundationDbMessageStore.trimQueue(aci, device, maxQueueSizeBytes, targetQueueSizeBytes, rangeSplitChunkSizeBytes, deleteModifier);
   }
 }
