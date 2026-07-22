@@ -709,6 +709,9 @@ public class FoundationDbMessageStore {
 
   private CompletableFuture<Void> trimQueue(final Database database, final Range range) {
     return FoundationDbUtil.safeRunAsync(database, transaction -> {
+      transaction.options().setPriorityBatch();
+      transaction.options().setTimeout(batchPriorityTransactionTimeout.toMillis());
+      transaction.options().setRetryLimit(batchPriorityTransactionRetryLimit);
       transaction.clear(range);
       return CompletableFuture.completedFuture(null);
     });
