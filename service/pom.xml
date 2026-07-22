@@ -726,7 +726,7 @@
             </executions>
             <configuration>
               <from>
-                <image>eclipse-temurin@sha256:${docker.image.sha256}</image>
+                <image>${docker.image}</image>
                 <platforms>
                   <platform>
                     <architecture>amd64</architecture>
