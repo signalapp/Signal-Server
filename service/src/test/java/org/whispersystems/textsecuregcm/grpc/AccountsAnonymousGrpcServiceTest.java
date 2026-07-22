@@ -112,7 +112,6 @@ class AccountsAnonymousGrpcServiceTest extends
   @ParameterizedTest
   @MethodSource
   void checkAccountExistenceIllegalRequest(final CheckAccountExistenceRequest request) {
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> unauthenticatedServiceStub().checkAccountExistence(request));
   }
@@ -174,7 +173,6 @@ class AccountsAnonymousGrpcServiceTest extends
   @ParameterizedTest
   @MethodSource
   void lookupUsernameHashIllegalHash(final LookupUsernameHashRequest request) {
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> unauthenticatedServiceStub().lookupUsernameHash(request));
   }
@@ -248,7 +246,6 @@ class AccountsAnonymousGrpcServiceTest extends
   @ParameterizedTest
   @MethodSource
   void lookupUsernameLinkIllegalHandle(final LookupUsernameLinkRequest request) {
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> unauthenticatedServiceStub().lookupUsernameLink(request));
   }

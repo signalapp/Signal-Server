@@ -12,7 +12,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -25,6 +24,7 @@ import static org.mockito.Mockito.when;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import io.grpc.Channel;
+import io.grpc.Grpc;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
@@ -38,7 +38,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
@@ -47,6 +46,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.function.ThrowingSupplier;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -82,15 +82,12 @@ import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
-import reactor.test.publisher.TestPublisher;
 
 class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, MessagesGrpc.MessagesBlockingV2Stub> {
 
@@ -293,7 +290,6 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub()
           .sendMessage(generateRequest(serviceIdentifier, false, true, messages)));
 
@@ -415,7 +411,6 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       doThrow(new MessageTooLargeException())
           .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       assertStatusException(Status.INVALID_ARGUMENT,
           () -> authenticatedServiceStub().sendMessage(
               generateRequest(serviceIdentifier, false, true, messages)));
@@ -448,7 +443,6 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       assertStatusException(Status.RESOURCE_EXHAUSTED, () -> authenticatedServiceStub()
           .sendMessage(generateRequest(serviceIdentifier, false, true, messages)));
 
@@ -530,7 +524,6 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       doThrow(MessageDeliveryNotAllowedException.class)
           .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       assertStatusException(Status.UNAVAILABLE,
           () -> authenticatedServiceStub().sendMessage(generateRequest(serviceIdentifier, false, false, messages)));
     }
@@ -721,7 +714,6 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       doThrow(new MessageTooLargeException())
           .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub()
           .sendSyncMessage( generateRequest( true, messages)));
     }
@@ -748,7 +740,6 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       doThrow(MessageDeliveryNotAllowedException.class)
           .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       assertStatusException(Status.UNAVAILABLE,
           () -> authenticatedServiceStub().sendSyncMessage(generateRequest(false, messages)));
     }
@@ -778,7 +769,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
     public void invalidFirstRequest() throws InterruptedException, StatusException {
       final BlockingClientCall<GetMessagesRequest, GetMessagesResponse> blockingCall = authenticatedServiceStub().getMessages();
       blockingCall.write(GetMessagesRequest.newBuilder().setServerGuidAck(UUIDUtil.toByteString(UUID.randomUUID())).build());
-      assertStatusException(Status.INVALID_ARGUMENT, () -> blockingCall.read());
+      assertStatusException(Status.INVALID_ARGUMENT, blockingCall::read);
     }
 
 
@@ -825,22 +816,22 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
     }
   }
 
-  private static Executable convertStatusException(final Executable serviceCall) {
+  private static ThrowingSupplier<?> convertStatusException(final ThrowingSupplier<?> serviceCall) {
     return () -> {
       try {
-        serviceCall.execute();
+        return serviceCall.get();
       } catch (final StatusException e) {
         throw new StatusRuntimeException(e.getStatus(), e.getTrailers());
       }
     };
   }
 
-  private static StatusRuntimeException assertStatusException(final Status expected, final Executable serviceCall) {
-    return GrpcTestUtils.assertStatusException(expected, convertStatusException(serviceCall));
+  private static void assertRateLimitExceeded(final Duration expectedRetryAfter, final ThrowingSupplier<?> serviceCall) {
+    GrpcTestUtils.assertRateLimitExceeded(expectedRetryAfter, convertStatusException(serviceCall)::get);
   }
 
-  private static void assertRateLimitExceeded(final Duration expectedRetryAfter, final Executable serviceCall) {
-    GrpcTestUtils.assertRateLimitExceeded(expectedRetryAfter, convertStatusException(serviceCall));
+  private static void assertStatusException(final Status expected, final ThrowingSupplier<?> serviceCall) {
+    GrpcTestUtils.assertStatusException(expected, convertStatusException(serviceCall));
   }
 
 }

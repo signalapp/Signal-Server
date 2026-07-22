@@ -84,7 +84,6 @@ class CallingGrpcServiceTest extends SimpleBaseGrpcTest<CallingGrpcService, Call
     when(cloudflareTurnCredentialsManager.retrieveFromCloudflare(any()))
         .thenThrow(IOException.class);
 
-    //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
     GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
         () -> authenticatedServiceStub().getCallingRelays(GetCallingRelaysRequest.getDefaultInstance()));
   }

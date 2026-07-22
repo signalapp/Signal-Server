@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Message;
 import com.google.rpc.ErrorInfo;
 import com.google.rpc.RetryInfo;
@@ -20,6 +21,7 @@ import java.time.Duration;
 import io.grpc.protobuf.StatusProto;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.function.ThrowingSupplier;
 
 public final class GrpcTestUtils {
 
@@ -27,8 +29,9 @@ public final class GrpcTestUtils {
     // noop
   }
 
-  public static StatusRuntimeException assertStatusException(final Status expected, final Executable serviceCall) {
-    final StatusRuntimeException exception = Assertions.assertThrows(StatusRuntimeException.class, serviceCall);
+  @CanIgnoreReturnValue
+  public static StatusRuntimeException assertStatusException(final Status expected, final ThrowingSupplier<?> serviceCall) {
+    final StatusRuntimeException exception = Assertions.assertThrows(StatusRuntimeException.class, serviceCall::get);
     assertEquals(expected.getCode(), exception.getStatus().getCode());
 
     return exception;
@@ -40,13 +43,14 @@ public final class GrpcTestUtils {
     assertEquals(expectedReason, extractErrorInfo(exception).getReason());
   }
 
-  public static void assertStatusException(final Status expected, final String expectedReason, final Executable serviceCall) {
-    final StatusRuntimeException exception = Assertions.assertThrows(StatusRuntimeException.class, serviceCall);
+  public static void assertStatusException(final Status expected, final String expectedReason, final ThrowingSupplier<?> serviceCall) {
+    final StatusRuntimeException exception = Assertions.assertThrows(StatusRuntimeException.class, serviceCall::get);
     assertEquals(expected.getCode(), exception.getStatus().getCode());
     assertEquals(expectedReason, extractErrorInfo(exception).getReason());
   }
 
-  public static StatusRuntimeException assertStatusInvalidArgument(final Executable serviceCall) {
+  @CanIgnoreReturnValue
+  public static StatusRuntimeException assertStatusInvalidArgument(final ThrowingSupplier<?> serviceCall) {
     return assertStatusException(Status.INVALID_ARGUMENT, serviceCall);
   }
 

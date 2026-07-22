@@ -56,7 +56,7 @@ import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimi
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
 import static org.whispersystems.textsecuregcm.grpc.KeyTransparencyGrpcService.COMMITMENT_INDEX_LENGTH;
 
-@SuppressWarnings({"OptionalUsedAsFieldOrParameterType", "ThrowableNotThrown", "ResultOfMethodCallIgnored"})
+@SuppressWarnings({"OptionalUsedAsFieldOrParameterType", "ResultOfMethodCallIgnored"})
 public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransparencyGrpcService, KeyTransparencyQueryServiceGrpc.KeyTransparencyQueryServiceBlockingStub>{
   @Mock
   private KeyTransparencyServiceClient keyTransparencyServiceClient;

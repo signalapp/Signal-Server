@@ -41,7 +41,6 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/certificate")
 @Tag(name = "Certificate")
 public class CertificateController {

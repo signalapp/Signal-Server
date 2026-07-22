@@ -151,7 +151,6 @@ class MetricsHttpEventHandlerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  @SuppressWarnings("unchecked")
   void testRequestsByVersion(final boolean versionActive) {
     when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(versionActive);
     final String path = "/test";

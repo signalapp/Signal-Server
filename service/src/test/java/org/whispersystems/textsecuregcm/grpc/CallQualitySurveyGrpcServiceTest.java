@@ -77,7 +77,6 @@ class CallQualitySurveyGrpcServiceTest extends SimpleBaseGrpcTest<CallQualitySur
     doThrow(new CallQualityInvalidArgumentsException("test"))
         .when(callQualitySurveyManager).submitCallQualitySurvey(request, REMOTE_ADDRESS, USER_AGENT);
 
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> unauthenticatedServiceStub().submitCallQualitySurvey(request));
   }

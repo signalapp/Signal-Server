@@ -246,7 +246,6 @@ class MessagesAnonymousGrpcServiceTest extends
               .setPayload(ByteString.copyFrom(payload))
               .build());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
           () -> unauthenticatedServiceStub().sendSingleRecipientMessage(
               generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null)));
@@ -414,7 +413,6 @@ class MessagesAnonymousGrpcServiceTest extends
       final SendSealedSenderMessageRequest request =
           generateRequest(pniIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null);
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(
           Status.INVALID_ARGUMENT,
           () -> unauthenticatedServiceStub().sendSingleRecipientMessage(request));
@@ -477,7 +475,6 @@ class MessagesAnonymousGrpcServiceTest extends
       doThrow(new MessageTooLargeException())
           .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
           () -> unauthenticatedServiceStub().sendSingleRecipientMessage(
               generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null)));
@@ -510,7 +507,6 @@ class MessagesAnonymousGrpcServiceTest extends
               Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
           () -> unauthenticatedServiceStub().sendSingleRecipientMessage(
               generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null)));
@@ -554,7 +550,6 @@ class MessagesAnonymousGrpcServiceTest extends
       final SendSealedSenderMessageRequest request =
           generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null);
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED, () ->
           unauthenticatedServiceStub().sendSingleRecipientMessage(request));
 
@@ -594,7 +589,6 @@ class MessagesAnonymousGrpcServiceTest extends
       doThrow(MessageDeliveryNotAllowedException.class)
           .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
           () -> unauthenticatedServiceStub().sendSingleRecipientMessage(
               generateRequest(serviceIdentifier, false, false, messages,
@@ -788,7 +782,6 @@ class MessagesAnonymousGrpcServiceTest extends
               .setUrgent(true)
               .build()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
           unauthenticatedServiceStub().sendMultiRecipientMessage(SendMultiRecipientMessageRequest.newBuilder()
               .setMessage(MultiRecipientMessage.newBuilder()
@@ -806,7 +799,6 @@ class MessagesAnonymousGrpcServiceTest extends
     @Test
     void badPayload()
         throws MessageTooLargeException, MultiRecipientMismatchedDevicesException, MessageDeliveryNotAllowedException {
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
           unauthenticatedServiceStub().sendMultiRecipientMessage(SendMultiRecipientMessageRequest.newBuilder()
               .setMessage(MultiRecipientMessage.newBuilder()
@@ -815,7 +807,6 @@ class MessagesAnonymousGrpcServiceTest extends
                   .build())
               .build()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
           unauthenticatedServiceStub().sendMultiRecipientMessage(SendMultiRecipientMessageRequest.newBuilder().build()));
 
@@ -841,7 +832,6 @@ class MessagesAnonymousGrpcServiceTest extends
 
       final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(recipient, recipient));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
           unauthenticatedServiceStub().sendMultiRecipientMessage(SendMultiRecipientMessageRequest.newBuilder()
               .setGroupSendToken(ByteString.copyFrom(GROUP_SEND_TOKEN))
@@ -883,7 +873,6 @@ class MessagesAnonymousGrpcServiceTest extends
       doThrow(new MessageTooLargeException())
           .when(messageSender).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
           () -> unauthenticatedServiceStub().sendMultiRecipientMessage(request));
     }
@@ -925,7 +914,6 @@ class MessagesAnonymousGrpcServiceTest extends
               Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
           () -> unauthenticatedServiceStub().sendMultiRecipientMessage(request));
 
@@ -972,7 +960,6 @@ class MessagesAnonymousGrpcServiceTest extends
       when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
           .thenReturn(new SpamCheckResult<>(Optional.of(GrpcChallengeResponse.withResponse(challengeResponse)), Optional.empty()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
           () -> unauthenticatedServiceStub().sendMultiRecipientMessage(request));
 
@@ -1012,7 +999,6 @@ class MessagesAnonymousGrpcServiceTest extends
       doThrow(MessageDeliveryNotAllowedException.class)
           .when(messageSender).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
           () -> unauthenticatedServiceStub().sendMultiRecipientMessage(request));
     }
@@ -1198,7 +1184,6 @@ class MessagesAnonymousGrpcServiceTest extends
 
       doThrow(new MessageTooLargeException()).when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusInvalidArgument(
           () -> unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, false, messages)));
     }
@@ -1230,7 +1215,6 @@ class MessagesAnonymousGrpcServiceTest extends
               Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
           () -> unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, true, messages)));
 
@@ -1269,7 +1253,6 @@ class MessagesAnonymousGrpcServiceTest extends
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
           .thenReturn(new SpamCheckResult<>(Optional.of(GrpcChallengeResponse.withResponse(challengeResponse)), Optional.empty()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED, () ->
           unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, true, messages)));
 
@@ -1308,7 +1291,6 @@ class MessagesAnonymousGrpcServiceTest extends
       doThrow(MessageDeliveryNotAllowedException.class)
           .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
           () -> unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, false, messages)));
     }
@@ -1438,7 +1420,6 @@ class MessagesAnonymousGrpcServiceTest extends
     @Test
     void badPayload()
         throws MessageTooLargeException, MultiRecipientMismatchedDevicesException, MessageDeliveryNotAllowedException {
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
           unauthenticatedServiceStub().sendMultiRecipientStory(SendMultiRecipientStoryRequest.newBuilder()
               .setMessage(MultiRecipientMessage.newBuilder()
@@ -1447,7 +1428,6 @@ class MessagesAnonymousGrpcServiceTest extends
                   .build())
               .build()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
           unauthenticatedServiceStub().sendMultiRecipientMessage(
               SendMultiRecipientMessageRequest.newBuilder().build()));
@@ -1474,7 +1454,6 @@ class MessagesAnonymousGrpcServiceTest extends
 
       final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(recipient, recipient));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
           unauthenticatedServiceStub().sendMultiRecipientStory(SendMultiRecipientStoryRequest.newBuilder()
               .setMessage(MultiRecipientMessage.newBuilder()
@@ -1512,7 +1491,6 @@ class MessagesAnonymousGrpcServiceTest extends
       doThrow(new MessageTooLargeException())
           .when(messageSender).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusInvalidArgument(() -> unauthenticatedServiceStub().sendMultiRecipientStory(request));
     }
 
@@ -1551,7 +1529,6 @@ class MessagesAnonymousGrpcServiceTest extends
               Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
           () -> unauthenticatedServiceStub().sendMultiRecipientStory(request));
 
@@ -1596,7 +1573,6 @@ class MessagesAnonymousGrpcServiceTest extends
       when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
           .thenReturn(new SpamCheckResult<>(Optional.of(GrpcChallengeResponse.withResponse(challengeResponse)), Optional.empty()));
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED, () ->
           unauthenticatedServiceStub().sendMultiRecipientStory(request));
 
@@ -1643,7 +1619,6 @@ class MessagesAnonymousGrpcServiceTest extends
               .build())
           .build();
 
-      //noinspection ResultOfMethodCallIgnored,ThrowableNotThrown
       GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
           () -> unauthenticatedServiceStub().sendMultiRecipientStory(request));
     }

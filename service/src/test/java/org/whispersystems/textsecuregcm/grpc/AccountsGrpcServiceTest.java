@@ -205,7 +205,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void deleteAccountLinkedDevice() {
     getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
 
-    //noinspection ResultOfMethodCallIgnored
     final DeleteAccountResponse ignored =
         authenticatedServiceStub().deleteAccount(DeleteAccountRequest.newBuilder().build());
 
@@ -240,7 +239,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void setRegistrationLockEmptySecret() {
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().setRegistrationLock(SetRegistrationLockRequest.newBuilder()
             .build()));
@@ -315,7 +313,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void reserveUsernameHashNoHashes() {
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().reserveUsernameHash(ReserveUsernameHashRequest.newBuilder().build()));
   }
@@ -329,7 +326,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
       requestBuilder.addUsernameHashes(ByteString.copyFrom(usernameHash));
     }
 
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().reserveUsernameHash(requestBuilder.build()));
   }
@@ -343,7 +339,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH + 1);
 
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().reserveUsernameHash(ReserveUsernameHashRequest.newBuilder()
             .addUsernameHashes(ByteString.copyFrom(usernameHash))
@@ -462,7 +457,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     doThrow(BaseUsernameException.class).when(usernameHashZkProofVerifier).verifyProof(any(), any());
 
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().confirmUsernameHash(ConfirmUsernameHashRequest.newBuilder()
             .setUsernameHash(ByteString.copyFrom(usernameHash))
@@ -474,7 +468,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @ParameterizedTest
   @MethodSource
   void confirmUsernameHashInvalidArgument(final ConfirmUsernameHashRequest request) {
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().confirmUsernameHash(request));
   }
@@ -582,7 +575,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @ParameterizedTest
   @MethodSource
   void setUsernameLinkIllegalCiphertext(final SetUsernameLinkRequest request) {
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().setUsernameLink(request));
   }
@@ -667,7 +659,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @ParameterizedTest
   @MethodSource
   void configureUnidentifiedAccessIllegalArguments(final ConfigureUnidentifiedAccessRequest request) {
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().configureUnidentifiedAccess(request));
   }
@@ -722,7 +713,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void setRegistrationRecoveryPasswordMissingPassword() {
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().setRegistrationRecoveryPassword(
             SetRegistrationRecoveryPasswordRequest.newBuilder().build()));
@@ -915,7 +905,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(exceptionToThrow);
 
-    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.UNAVAILABLE,
         () -> authenticatedServiceStub().changeNumber(createChangeNumberRequest()));
   }

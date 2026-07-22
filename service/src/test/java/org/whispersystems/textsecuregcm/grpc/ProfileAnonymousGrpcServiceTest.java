@@ -428,7 +428,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
             .build())
         .build();
 
-    //noinspection ThrowableNotThrown
     assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getProfile(request));
   }
 
@@ -439,7 +438,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
             .setAccountIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID()))))
         .build();
 
-    //noinspection ThrowableNotThrown
     assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getProfile(request));
   }
 

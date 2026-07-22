@@ -334,14 +334,11 @@ public class CredentialsGrpcServiceTest
   @ParameterizedTest
   @MethodSource
   void getGroupCredentialsIllegalRedemptionTimes(final Instant redemptionStart, final Instant redemptionEnd) {
-    //noinspection ThrowableNotThrown
-    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> {
-      //noinspection ResultOfMethodCallIgnored
-      authenticatedServiceStub().getGroupCredentials(GetGroupCredentialsRequest.newBuilder()
-          .setRedemptionStartSeconds(redemptionStart.getEpochSecond())
-          .setRedemptionEndSeconds(redemptionEnd.getEpochSecond())
-          .build());
-    });
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
+        () -> authenticatedServiceStub().getGroupCredentials(GetGroupCredentialsRequest.newBuilder()
+            .setRedemptionStartSeconds(redemptionStart.getEpochSecond())
+            .setRedemptionEndSeconds(redemptionEnd.getEpochSecond())
+            .build()));
   }
 
   private static Collection<Arguments> getGroupCredentialsIllegalRedemptionTimes() {
@@ -394,7 +391,6 @@ public class CredentialsGrpcServiceTest
   void getCreateCallLinkCredentialsInvalidRequest() {
     when(rateLimiters.getCreateCallLinkLimiter()).thenReturn(mock(RateLimiter.class));
 
-    //noinspection ThrowableNotThrown,ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().getCreateCallLinkCredentials(GetCreateCallLinkCredentialsRequest.newBuilder()
             .setCredentialRequest(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))
