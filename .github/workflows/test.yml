@@ -29,22 +29,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - name: Set up JDK
-        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
-        with:
-          distribution: 'temurin'
-          java-version-file: .java-version
-          cache: 'maven'
-        env:
-          # work around an issue with actions/runner setting an incorrect HOME in containers, which breaks maven caching
-          # https://github.com/actions/setup-java/issues/356
-          HOME: /root
       - name: Install APT packages
         # ca-certificates: required for AWS CRT client
         run: |
           # Add Docker's official GPG key:
           apt update
           apt install -y ca-certificates curl
+          # Maven Wrapper requires `unzip`; see https://github.com/apache/maven-wrapper/issues/425
+          apt install -y unzip
           install -m 0755 -d /etc/apt/keyrings
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
           chmod a+r /etc/apt/keyrings/docker.asc
@@ -57,6 +49,16 @@ jobs:
 
           # ca-certificates: required for AWS CRT client
           apt update && apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin ca-certificates
+      - name: Set up JDK
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: 'temurin'
+          java-version-file: .java-version
+          cache: 'maven'
+        env:
+          # work around an issue with actions/runner setting an incorrect HOME in containers, which breaks maven caching
+          # https://github.com/actions/setup-java/issues/356
+          HOME: /root
       - name: Configure FoundationDB0 database
         run: docker exec foundationdb0 /usr/bin/fdbcli --exec 'configure new single memory'
       - name: Configure FoundationDB1 database
