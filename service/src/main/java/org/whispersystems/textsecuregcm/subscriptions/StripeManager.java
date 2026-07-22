@@ -95,7 +95,9 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       final byte[] idempotencyKeyGenerator,
       final String boostDescription,
       final Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod) {
+
     Stripe.setAppInfo("Signal-Server", WhisperServerVersion.getServerVersion());
+    Stripe.enableTelemetry = false;
 
     this.stripeClient = Objects.requireNonNull(stripeClient);
     this.executor = Objects.requireNonNull(executor);
