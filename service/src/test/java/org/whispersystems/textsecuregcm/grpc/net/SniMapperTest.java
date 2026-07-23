@@ -145,8 +145,8 @@ class SniMapperTest {
         Arguments.of(FOO_DOMAIN, List.of(), "Ed25519"),
         Arguments.of(BAR_DOMAIN, List.of(), "Ed25519"),
         Arguments.of(BAR_DOMAIN, List.of("ed25519"), "Ed25519"),
-        Arguments.of(FOO_DOMAIN, List.of("rsa_pss_rsae_sha256", "rsa_pss_rsae_sha384", "rsa_pss_rsae_sha512"), "SHA256withRSA"),
-        Arguments.of(FOO_DOMAIN, List.of("rsa_pss_rsae_sha256", "rsa_pss_rsae_sha384", "rsa_pss_rsae_sha512", "ed25519"), "SHA256withRSA"),
+        Arguments.of(FOO_DOMAIN, List.of("rsa_pss_rsae_sha256", "rsa_pss_rsae_sha384", "rsa_pss_rsae_sha512", "rsa_pkcs1_sha256"), "SHA256withRSA"),
+        Arguments.of(FOO_DOMAIN, List.of("rsa_pss_rsae_sha256", "rsa_pss_rsae_sha384", "rsa_pss_rsae_sha512", "rsa_pkcs1_sha256", "ed25519"), "SHA256withRSA"),
         Arguments.of(FOO_DOMAIN, List.of("ed25519", "rsa_pss_rsae_sha256", "rsa_pss_rsae_sha384", "rsa_pss_rsae_sha512"), "Ed25519")
     );
   }
