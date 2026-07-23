@@ -9,6 +9,7 @@ option java_multiple_files = true;
 
 package org.signal.chat.remoteconfiguration;
 
+import "org/signal/chat/common.proto";
 import "org/signal/chat/require.proto";
 import "org/signal/chat/tag.proto";
 
@@ -20,6 +21,16 @@ service RemoteConfiguration {
   // values are based on the authenticated account and caller's client platform,
   // which is derived from the "User-Agent" header.
   rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
+
+  // Returns detailed information for all configured badges, keyed by badge ID.
+  //
+  // Badge descriptions may contain localized strings. Callers should set their
+  // language preferences via an "Accept-Language" header on the request
+  // https://datatracker.ietf.org/doc/html/rfc3282#section-3
+  //
+  // Callers may cache a badges result for up to 1 day before checking (via
+  // etag) if there are any new updates.
+  rpc GetBadges(GetBadgesRequest) returns (GetBadgesResponse) {}
 }
 
 message GetConfigurationRequest {
@@ -52,5 +63,34 @@ message TaggedConfiguration {
   // An entity tag for `configuration`. This may be supplied in a
   // subsequent request to optimize bandwidth when the configuration has not
   // changed.
+  bytes etag = 2;
+}
+
+message GetBadgesRequest {
+  // If present, the etag from a prior GetBadgesResponse. If the provided etag
+  // matches the current badge etag, the server may elide the badge response.
+  bytes etag = 1;
+}
+
+message GetBadgesResponse {
+  oneof response {
+    // The full set of badges and corresponding etag.
+    TaggedBadges tagged_badges = 1;
+
+    // The etag in the request matched the current badge etag.
+    bool etag_matched = 2 [(tag.reason) = "etag_match"];
+  }
+}
+
+message Badges {
+  // A map of badge ID to the detailed information for that badge.
+  map<string, common.Badge> badges = 1;
+}
+
+message TaggedBadges {
+  Badges badges = 1;
+
+  // An entity tag for `badges`. This may be supplied in a subsequent request
+  // to optimize bandwidth when the set of badges has not changed.
   bytes etag = 2;
 }

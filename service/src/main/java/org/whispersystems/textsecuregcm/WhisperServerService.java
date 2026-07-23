@@ -110,6 +110,7 @@ import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.CaptchaClient;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
 import org.whispersystems.textsecuregcm.captcha.ShortCodeExpander;
+import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretStore;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretsModule;
@@ -1105,7 +1106,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new ProductConfigurationGrpcService(config.getSubscription(), config.getOneTimeDonations(),
                 List.of(stripeManager, braintreeManager), profileBadgeConverter,
                 config.getBackupConfiguration().maxTotalMediaSize()),
-            new RemoteConfigurationGrpcService(remoteConfigsManager))
+            new RemoteConfigurationGrpcService(remoteConfigsManager, profileBadgeConverter,
+                config.getBadges().getBadges().stream()
+                    .map(BadgeConfiguration::getId)
+                    .toList()))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
