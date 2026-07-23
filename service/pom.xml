@@ -494,6 +494,12 @@
 
     <dependency>
       <groupId>io.netty</groupId>
+      <artifactId>netty-pkitesting</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
       <artifactId>netty-testsuite-common</artifactId>
       <scope>test</scope>
       <version>${netty.version}</version>
