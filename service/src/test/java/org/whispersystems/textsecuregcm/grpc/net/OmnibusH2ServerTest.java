@@ -49,13 +49,18 @@ import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+import io.netty.pkitesting.CertificateBuilder;
+import io.netty.util.Mapping;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.test.LeakPresenceExtension;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -69,7 +74,10 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -80,19 +88,46 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicOmnibusConf
 
 @ExtendWith(LeakPresenceExtension.class)
 class OmnibusH2ServerTest {
-  private static final String KEYSTORE_PASSWORD = "password";
-
   // Paths that start with PREFIX should go to the prefix backend, everything else to default.
   private static final String PREFIX_BACKEND_IDENTITY = "prefix-backend";
   private static final String PREFIX = "/v1/prefix";
   private static final String DEFAULT_BACKEND_IDENTITY = "default-backend";
 
-  private final NioEventLoopGroup nioEventLoopGroup = new NioEventLoopGroup();
-  private final DefaultEventLoopGroup localEventLoopGroup = new DefaultEventLoopGroup();
+  private static NioEventLoopGroup nioEventLoopGroup;
+  private static DefaultEventLoopGroup localEventLoopGroup;
+
+  private static Mapping<String, SslContext> sniMapping;
 
   private List<Channel> backendChannelsToShutDown;
   private List<OmnibusH2Server> omnibusH2ServersToShutDown;
   private AtomicReference<DynamicOmnibusConfiguration> dynamicConfiguration;
+
+  @BeforeAll
+  static void setUpBeforeAll() throws Exception {
+    final Instant now = Instant.now();
+
+    final char[] keyStorePassword = RandomStringUtils.insecure().nextAlphanumeric(16).toCharArray();
+    final String domain = "foo.example.com";
+
+    final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+
+    new CertificateBuilder()
+        .notBefore(now)
+        .notAfter(now.plus(Duration.ofDays(1)))
+        .setIsCertificateAuthority(true)
+        .algorithm(CertificateBuilder.Algorithm.rsa2048)
+        .subject("CN=" + domain)
+        .addSanDnsName(domain)
+        .buildSelfSigned()
+        .toKeyStore(keyStorePassword)
+        .store(byteArrayOutputStream, keyStorePassword);
+
+    sniMapping = SniMapper.buildSniMapping(new ByteArrayInputStream(byteArrayOutputStream.toByteArray()),
+        new String(keyStorePassword));
+
+    nioEventLoopGroup = new NioEventLoopGroup();
+    localEventLoopGroup = new DefaultEventLoopGroup();
+  }
 
   @BeforeEach
   void setUp() {
@@ -102,9 +137,13 @@ class OmnibusH2ServerTest {
   }
 
   @AfterEach
-  void tearDown() throws Exception {
+  void tearDown() {
     omnibusH2ServersToShutDown.forEach(OmnibusH2Server::stop);
     backendChannelsToShutDown.forEach(c -> c.close().syncUninterruptibly());
+  }
+
+  @AfterAll
+  static void tearDownAfterAll() throws InterruptedException {
     localEventLoopGroup.shutdownGracefully(1, 1000, TimeUnit.MILLISECONDS).sync();
     nioEventLoopGroup.shutdownGracefully(1, 1000, TimeUnit.MILLISECONDS).sync();
   }
@@ -443,7 +482,7 @@ class OmnibusH2ServerTest {
     backendChannelsToShutDown.add(defaultBackend);
 
     final OmnibusH2Server server = new OmnibusH2Server(
-        SniMapper.buildSniMapping(keyStore, KEYSTORE_PASSWORD),
+        sniMapping,
         nioEventLoopGroup,
         localEventLoopGroup,
         new InetSocketAddress("127.0.0.1", 0),
