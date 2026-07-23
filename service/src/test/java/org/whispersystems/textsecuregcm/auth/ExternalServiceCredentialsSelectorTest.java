@@ -9,8 +9,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,11 +46,11 @@ public class ExternalServiceCredentialsSelectorTest {
 
   private static ExternalServiceCredentials atTime(
       final ExternalServiceCredentialsGenerator gen,
-      final long deltaMillis,
+      final long deltaSeconds,
       final UUID identity) {
     final Instant old = CLOCK.instant();
     try {
-      CLOCK.incrementMillis(deltaMillis);
+      CLOCK.incrementMillis(deltaSeconds * 1000);
       return gen.generateForUuid(identity);
     } finally {
       CLOCK.setTimeInstant(old);
@@ -63,7 +65,7 @@ public class ExternalServiceCredentialsSelectorTest {
   void single() {
     final ExternalServiceCredentials cred = GEN1.generateForUuid(UUID1);
     var result = ExternalServiceCredentialsSelector.check(
-        List.of(token(cred)), GEN1, TimeUnit.MINUTES.toSeconds(1));
+        Set.of(token(cred)), GEN1, TimeUnit.MINUTES.toSeconds(1));
     assertThat(result).singleElement()
         .matches(CredentialInfo::valid)
         .matches(info -> info.credentials().equals(cred));
@@ -77,9 +79,9 @@ public class ExternalServiceCredentialsSelectorTest {
     final ExternalServiceCredentials cred2New = GEN1.generateForUuid(UUID2);
     final ExternalServiceCredentials cred2Old = atTime(GEN1, -1, UUID2);
 
-    final List<String> tokens = Stream.of(cred1New, cred1Old, cred2New, cred2Old)
+    final Set<String> tokens = Stream.of(cred1New, cred1Old, cred2New, cred2Old)
         .map(ExternalServiceCredentialsSelectorTest::token)
-        .toList();
+        .collect(Collectors.toSet());
 
     final List<CredentialInfo> result = ExternalServiceCredentialsSelector.check(tokens, GEN1,
         TimeUnit.MINUTES.toSeconds(1));
@@ -99,7 +101,7 @@ public class ExternalServiceCredentialsSelectorTest {
     final ExternalServiceCredentials gen2Cred = GEN2.generateForUuid(UUID1);
 
     final List<CredentialInfo> result = ExternalServiceCredentialsSelector.check(
-        List.of(token(gen1Cred), token(gen2Cred)),
+        Set.of(token(gen1Cred), token(gen2Cred)),
         GEN2,
         TimeUnit.MINUTES.toSeconds(1));
 
@@ -120,7 +122,7 @@ public class ExternalServiceCredentialsSelectorTest {
   void invalidCredentials(final String invalidCredential) {
     final ExternalServiceCredentials validCredential = GEN1.generateForUuid(UUID1);
     var result = ExternalServiceCredentialsSelector.check(
-        List.of(invalidCredential, token(validCredential)), GEN1, TimeUnit.MINUTES.toSeconds(1));
+        Set.of(invalidCredential, token(validCredential)), GEN1, TimeUnit.MINUTES.toSeconds(1));
     assertThat(result).hasSize(2);
     assertThat(result).filteredOn(CredentialInfo::valid).singleElement()
         .matches(info -> info.credentials().equals(validCredential));

@@ -28,6 +28,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -118,7 +119,7 @@ public class SecureValueRecovery2Controller {
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @Valid final AuthCheckRequest request) {
     final List<ExternalServiceCredentialsSelector.CredentialInfo> credentials = ExternalServiceCredentialsSelector.check(
-        request.tokens(),
+        new HashSet<>(request.tokens()),
         backupServiceCredentialGenerator,
         MAX_AGE.getSeconds());
 

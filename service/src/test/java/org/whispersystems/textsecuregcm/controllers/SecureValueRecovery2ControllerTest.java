@@ -212,6 +212,25 @@ public class SecureValueRecovery2ControllerTest {
     }
 
     @Test
+    public void testDuplicateTokens() {
+      CLOCK.setTimeMillis(dayToMillis(2));
+
+      // There's no good reason to do it, but the endpoint should handle a duplicated token in the request
+      final String duplicatedToken = token(USER_1, dayToMillis(1));
+      final AuthCheckRequest in = new AuthCheckRequest(E164_VALID, List.of(duplicatedToken, duplicatedToken));
+
+      final Response response = RESOURCES.getJerseyTest()
+          .target(pathPrefix + "/auth/check")
+          .request()
+          .post(Entity.entity(in, MediaType.APPLICATION_JSON));
+
+      try (response) {
+        assertEquals(200, response.getStatus());
+        assertEquals(Map.of(duplicatedToken, CheckStatus.MATCH), parseCheckResponse(response));
+      }
+    }
+
+    @Test
     public void testHttpResponseCodeWhenInvalidNumber() {
       final AuthCheckRequest in = new AuthCheckRequest(E164_INVALID, Collections.singletonList("1"));
       final Response response = RESOURCES.getJerseyTest()

@@ -14,6 +14,7 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsSelector;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -34,9 +35,9 @@ public class CredentialsAnonymousGrpcService extends SimpleCredentialsAnonymousG
 
   @Override
   public CheckSvrCredentialsResponse checkSvrCredentials(final CheckSvrCredentialsRequest request) {
-    final List<String> tokens = request.getPasswordsList();
+    final List<String> tokens = request.getPasswordsList().stream().distinct().toList();
     final List<ExternalServiceCredentialsSelector.CredentialInfo> credentials = ExternalServiceCredentialsSelector.check(
-        tokens,
+        new HashSet<>(tokens),
         svrCredentialsGenerator,
         MAX_SVR_PASSWORD_AGE_SECONDS);
 

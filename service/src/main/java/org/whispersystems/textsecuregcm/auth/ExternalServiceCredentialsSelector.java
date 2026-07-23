@@ -7,9 +7,11 @@ package org.whispersystems.textsecuregcm.auth;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class ExternalServiceCredentialsSelector {
 
@@ -44,13 +46,13 @@ public class ExternalServiceCredentialsSelector {
    * A credential is valid if it passes validation by the provided credentialsGenerator AND it is the most recent
    * credential in the provided list for a username.
    *
-   * @param tokens A list of credentials, potentially with different usernames
+   * @param tokens A set of credentials, potentially with different usernames
    * @param credentialsGenerator To validate these credentials
    * @param maxAgeSeconds The maximum allowable age of the credential
-   * @return A {@link CredentialInfo} for each provided token
+   * @return An unordered list of {@link CredentialInfo} for each provided token
    */
   public static List<CredentialInfo> check(
-      final List<String> tokens,
+      final Set<String> tokens,
       final ExternalServiceCredentialsGenerator credentialsGenerator,
       final long maxAgeSeconds) {
 
