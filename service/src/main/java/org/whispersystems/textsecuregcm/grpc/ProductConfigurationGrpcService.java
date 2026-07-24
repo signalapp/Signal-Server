@@ -1,110 +1,42 @@
 package org.whispersystems.textsecuregcm.grpc;
 
-import com.google.protobuf.ByteString;
-import com.google.protobuf.CodedOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.signal.chat.purchase.AmountList;
 import org.signal.chat.purchase.BackupConfiguration;
 import org.signal.chat.purchase.BackupLevelConfiguration;
-import org.signal.chat.purchase.Configuration;
 import org.signal.chat.purchase.CurrencyConfiguration;
 import org.signal.chat.purchase.GetConfigurationRequest;
 import org.signal.chat.purchase.GetConfigurationResponse;
 import org.signal.chat.purchase.LevelConfiguration;
 import org.signal.chat.purchase.SimpleProductConfigurationGrpc;
-import org.signal.chat.purchase.TaggedConfiguration;
-import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
-import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 
 public class ProductConfigurationGrpcService extends SimpleProductConfigurationGrpc.ProductConfigurationImplBase {
-
-  private final SubscriptionConfiguration subscriptionConfiguration;
-  private final OneTimeDonationConfiguration oneTimeDonationConfiguration;
-  private final BadgeTranslator badgeTranslator;
-
-  // These portions of the configuration are identical on every request
-  private final Map<String, CurrencyConfiguration> currencyConfigurations;
-  private final BackupConfiguration backupConfiguration;
-
-  // The configuration varies based on the provided Accept-Language header. Here we cache the eTag for the resolved
-  // language, so if the caller provides a matching etag we don't have to build the full configuration match.
-  private final ConcurrentHashMap<Locale, ByteString> localeToEtag = new ConcurrentHashMap<>();
-
+  private final GetConfigurationResponse configurationResponse;
 
   public ProductConfigurationGrpcService(
       final SubscriptionConfiguration subscriptionConfiguration,
       final OneTimeDonationConfiguration oneTimeDonationConfiguration,
       List<CustomerAwareSubscriptionPaymentProcessor> paymentProcessors,
-      final BadgeTranslator badgeTranslator,
       final long backupMediaStorageAllowanceBytes) {
-    this.subscriptionConfiguration = subscriptionConfiguration;
-    this.oneTimeDonationConfiguration = oneTimeDonationConfiguration;
-    this.badgeTranslator = badgeTranslator;
-    this.backupConfiguration = buildBackupConfiguration(subscriptionConfiguration, backupMediaStorageAllowanceBytes);
-    this.currencyConfigurations =
-        buildCurrencyConfigurations(subscriptionConfiguration, oneTimeDonationConfiguration, paymentProcessors);
+    this.configurationResponse = GetConfigurationResponse.newBuilder()
+        .setBackup(buildBackupConfiguration(subscriptionConfiguration, backupMediaStorageAllowanceBytes))
+        .setSepaMaximumEuros(oneTimeDonationConfiguration.sepaMaximumEuros().toString())
+        .putAllCurrencies(buildCurrencyConfigurations(subscriptionConfiguration, oneTimeDonationConfiguration, paymentProcessors))
+        .putAllBadgeLevels(buildLevelConfigurations(subscriptionConfiguration, oneTimeDonationConfiguration))
+        .build();
   }
 
   @Override
   public GetConfigurationResponse getConfiguration(final GetConfigurationRequest request) {
-    final Locale locale = badgeTranslator.resolveLocale(RequestAttributesUtil.getAvailableAcceptedLocales());
-    final ByteString etag = localeToEtag.get(locale);
-    if (etag != null && etag.equals(request.getEtag())) {
-      return GetConfigurationResponse.newBuilder().setEtagMatched(true).build();
-    }
-
-    final Map<Long, LevelConfiguration> levelConfigurations = SubscriptionsUtil
-        .buildDonationLevelsConfiguration(subscriptionConfiguration, oneTimeDonationConfiguration, badgeTranslator,
-            RequestAttributesUtil.getAvailableAcceptedLocales())
-        .entrySet().stream().collect(Collectors.toMap(
-            Map.Entry::getKey,
-            entry -> toProtoLevelConfiguration(entry.getValue())));
-
-    final Configuration configuration = Configuration.newBuilder()
-        .putAllCurrencies(currencyConfigurations)
-        .putAllBadgeLevels(levelConfigurations)
-        .setBackup(backupConfiguration)
-        .setSepaMaximumEuros(oneTimeDonationConfiguration.sepaMaximumEuros().toString()).build();
-    final TaggedConfiguration taggedConfiguration = calculateEtag(configuration);
-
-    // This could race and multiple threads could decide to build-and-cache. That's fine, they should all calculate
-    // the same etag.
-    localeToEtag.put(locale, taggedConfiguration.getEtag());
-    return GetConfigurationResponse.newBuilder().setTaggedConfiguration(taggedConfiguration).build();
-  }
-
-  private static TaggedConfiguration calculateEtag(final Configuration configuration) {
-    final ByteArrayOutputStream baos = new ByteArrayOutputStream(configuration.getSerializedSize());
-    final CodedOutputStream cos = CodedOutputStream.newInstance(baos);
-    cos.useDeterministicSerialization();
-    try {
-      configuration.writeTo(cos);
-      cos.flush();
-      final byte[] configurationBytes = baos.toByteArray();
-      byte[] hash = MessageDigest.getInstance("SHA-256").digest(configurationBytes);
-      return TaggedConfiguration.newBuilder()
-          .setConfiguration(configuration)
-          .setEtag(ByteString.copyFrom(hash))
-          .build();
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError(e);
-    }
+    return this.configurationResponse;
   }
 
   private static Map<String, CurrencyConfiguration> buildCurrencyConfigurations(
@@ -117,6 +49,24 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
         .collect(Collectors.toMap(
             Map.Entry::getKey,
             e -> toProtoCurrencyConfiguration(e.getKey(), e.getValue())));
+  }
+
+  private static Map<Long, LevelConfiguration> buildLevelConfigurations(
+      final SubscriptionConfiguration subscriptionConfiguration,
+      final OneTimeDonationConfiguration oneTimeDonationConfiguration) {
+    final Map<Long, LevelConfiguration> donationLevels = new HashMap<>();
+    subscriptionConfiguration.getDonationLevels().forEach((levelId, levelConfig) -> {
+      donationLevels.put(levelId, LevelConfiguration.newBuilder().setBadgeId(levelConfig.badge()).build());
+    });
+    donationLevels.put(oneTimeDonationConfiguration.boost().level(),
+        LevelConfiguration.newBuilder()
+            .setBadgeId(oneTimeDonationConfiguration.boost().badge())
+            .setBadgeDurationSeconds(oneTimeDonationConfiguration.boost().expiration().toSeconds()).build());
+    donationLevels.put(oneTimeDonationConfiguration.gift().level(),
+        LevelConfiguration.newBuilder()
+            .setBadgeId(oneTimeDonationConfiguration.gift().badge())
+            .setBadgeDurationSeconds(oneTimeDonationConfiguration.gift().expiration().toSeconds()).build());
+    return donationLevels;
   }
 
   private static BackupConfiguration buildBackupConfiguration(final SubscriptionConfiguration subscriptionConfiguration,
@@ -152,16 +102,5 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
     config.backupSubscription()
         .forEach((levelId, amount) -> builder.putBackupSubscription(levelId, amount.toString()));
     return builder.build();
-  }
-
-  private static LevelConfiguration toProtoLevelConfiguration(
-      final org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration levelConfiguration) {
-    final LevelConfiguration.Builder builder = LevelConfiguration.newBuilder();
-    if (levelConfiguration.badge() instanceof final PurchasableBadge purchasableBadge) {
-      builder.setBadgeDurationSeconds(purchasableBadge.getDuration().toSeconds());
-    }
-    return builder
-        .setBadge(BadgeGrpcHelper.toGrpcBadge(levelConfiguration.badge()))
-        .build();
   }
 }

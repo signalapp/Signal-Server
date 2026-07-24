@@ -208,7 +208,7 @@ message AccountInfo {
 
   // A list of the badges ids associated with the account. Metadata to display
   // badges may be obtained by cross-referencing badge ids with
-  // ProductConfiguration.GetConfiguration.
+  // RemoteConfiguration.GetBadges.
   repeated string badge_ids = 4;
 }
 

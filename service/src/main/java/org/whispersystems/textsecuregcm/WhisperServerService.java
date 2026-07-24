@@ -1104,8 +1104,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new ChallengeGrpcService(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
             new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new, donationPermitsManager, rateLimiters),
             new ProductConfigurationGrpcService(config.getSubscription(), config.getOneTimeDonations(),
-                List.of(stripeManager, braintreeManager), profileBadgeConverter,
-                config.getBackupConfiguration().maxTotalMediaSize()),
+                List.of(stripeManager, braintreeManager), config.getBackupConfiguration().maxTotalMediaSize()),
             new RemoteConfigurationGrpcService(remoteConfigsManager, profileBadgeConverter,
                 config.getBadges().getBadges().stream()
                     .map(BadgeConfiguration::getId)
