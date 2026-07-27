@@ -46,7 +46,7 @@ public class TrimOversizedFoundationDbMessageQueuesCommand extends AbstractSingl
   static final long DEFAULT_RANGE_SPLIT_CHUNK_SIZE_BYTES = DataSize.gigabytes(1).toBytes();
 
   private static final String QUEUES_INSPECTED_COUNTER_NAME = MetricsUtil.name(
-      TrimOversizedFoundationDbMessageQueuesCommand.class, "trimmedQueues");
+      TrimOversizedFoundationDbMessageQueuesCommand.class, "inspectedQueues");
   private static final int DEFAULT_MAX_CONCURRENCY = 16;
   private static final Logger LOGGER = LoggerFactory.getLogger(TrimOversizedFoundationDbMessageQueuesCommand.class);
 
