@@ -389,7 +389,7 @@ public class AccountController {
       throw new WebApplicationException(Response.status(422).build());
     }
 
-    return accounts.getByUsernameHash(hash).thenApply(maybeAccount -> maybeAccount.map(Account::getUuid)
+    return accounts.getByUsernameHash(hash).thenApply(maybeAccount -> maybeAccount.map(Account::getAccountIdentifier)
         .map(AciServiceIdentifier::new)
         .map(AccountIdentifierResponse::new)
         .orElseThrow(() -> new WebApplicationException(Status.NOT_FOUND)));

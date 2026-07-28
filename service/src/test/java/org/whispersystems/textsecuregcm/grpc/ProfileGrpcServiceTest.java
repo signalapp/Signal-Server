@@ -182,7 +182,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
 
-    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(account.getIdentifier(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
     when(account.getNumber()).thenReturn(phoneNumber);
     when(account.getBadges()).thenReturn(Collections.emptyList());
@@ -241,7 +241,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final ArgumentCaptor<VersionedProfileV1> profileV1ArgumentCaptor = ArgumentCaptor.forClass(VersionedProfileV1.class);
     final ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
-    verify(profilesManager).set(eq(account.getUuid()), profileV1ArgumentCaptor.capture(), profileArgumentCaptor.capture(), isNull());
+    verify(profilesManager).set(eq(account.getAccountIdentifier()), profileV1ArgumentCaptor.capture(), profileArgumentCaptor.capture(), isNull());
 
     final VersionedProfile profile = profileArgumentCaptor.getValue();
 
@@ -684,7 +684,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final UUID targetAci = UUID.randomUUID();
     final VersionedProfile v2Profile = new VersionedProfile(version, data, paymentAddress, commitment);
 
-    when(account.getUuid()).thenReturn(targetAci);
+    when(account.getAccountIdentifier()).thenReturn(targetAci);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
     when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
@@ -737,7 +737,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final VersionedProfile v2Profile = new VersionedProfile(version, data, paymentAddress, commitment);
 
     final UUID targetAci = UUID.randomUUID();
-    when(account.getUuid()).thenReturn(targetAci);
+    when(account.getAccountIdentifier()).thenReturn(targetAci);
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAci))).thenReturn(Optional.of(account));
 

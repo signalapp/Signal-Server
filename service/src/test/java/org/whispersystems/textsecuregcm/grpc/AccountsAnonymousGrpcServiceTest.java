@@ -153,7 +153,7 @@ class AccountsAnonymousGrpcServiceTest extends
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
 
     when(accountsManager.getByUsernameHash(usernameHash))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));

@@ -170,7 +170,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final UUID usernameLinkHandle = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(account.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
     when(account.getNumber()).thenReturn(e164);
     when(account.getUsernameHash()).thenReturn(Optional.of(usernameHash));
@@ -759,7 +759,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final Duration retryDuration = Duration.ofDays(1);
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
@@ -787,7 +787,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     when(account.getBackupVoucher()).thenReturn(new Account.BackupVoucher(100, expiration));
     when(account.getBadges()).thenReturn(List.of(badge1, badge2));
-    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
 
     final GetEntitlementsResponse entitlements = authenticatedServiceStub()
@@ -827,7 +827,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final UUID updatedPni = UUID.randomUUID();
 
     final Account updatedAccount = mock(Account.class);
-    when(updatedAccount.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(updatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(updatedAccount.getNumber()).thenReturn(newNumber);
     when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(updatedPni);
     when(updatedAccount.getUsernameHash()).thenReturn(Optional.empty());
@@ -996,8 +996,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @ParameterizedTest
   @ArgumentsSource(AccountsTestHelper.AccountsDataReportArgumentProvider.class)
   void getAccountDataReport(final Account account, final String expectedTextAfterHeader) {
-    getMockAuthenticationInterceptor().setAuthenticatedDevice(account.getUuid(), Device.PRIMARY_ID);
-    when(accountsManager.getByAccountIdentifier(account.getUuid())).thenReturn(Optional.of(account));
+    getMockAuthenticationInterceptor().setAuthenticatedDevice(account.getAccountIdentifier(), Device.PRIMARY_ID);
+    when(accountsManager.getByAccountIdentifier(account.getAccountIdentifier())).thenReturn(Optional.of(account));
 
     final GetAccountDataReportResponse response =
         authenticatedServiceStub().getAccountDataReport(GetAccountDataReportRequest.newBuilder().build());
@@ -1009,12 +1009,12 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @Test
   void getCapabilities() {
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
 
     // public-visible and self-visible capabilities should be returned on the authenticated RPC
     when(account.hasCapability(DeviceCapability.SPARSE_POST_QUANTUM_RATCHET)).thenReturn(true);
     when(account.hasCapability(DeviceCapability.USERNAME_CHANGE_SYNC_MESSAGE)).thenReturn(true);
-    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
 

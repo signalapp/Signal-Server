@@ -68,7 +68,7 @@ class CredentialsAnonymousGrpcServiceTest extends
   @BeforeEach
   public void setup() {
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(USER_UUID);
+    when(account.getAccountIdentifier()).thenReturn(USER_UUID);
 
     when(accountsManager.getByE164(USER_E164)).thenReturn(Optional.of(account));
   }

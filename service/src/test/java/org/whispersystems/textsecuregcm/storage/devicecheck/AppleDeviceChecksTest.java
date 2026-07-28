@@ -39,7 +39,7 @@ class AppleDeviceChecksTest {
   @BeforeEach
   void setupDeviceChecks() {
     account = mock(Account.class);
-    when(account.getUuid()).thenReturn(ACI);
+    when(account.getAccountIdentifier()).thenReturn(ACI);
     deviceChecks = new AppleDeviceChecks(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DeviceCheckManager.createObjectConverter(),
         DynamoDbExtensionSchema.Tables.APPLE_DEVICE_CHECKS.tableName(),
@@ -78,7 +78,7 @@ class AppleDeviceChecksTest {
     final byte[] keyId = appleDevice.getAttestedCredentialData().getCredentialId();
 
     final Account dupliateAccount = mock(Account.class);
-    when(dupliateAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(dupliateAccount.getAccountIdentifier()).thenReturn(UUID.randomUUID());
 
     deviceChecks.storeAttestation(account, keyId, appleDevice);
 

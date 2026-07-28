@@ -254,9 +254,9 @@ public class AccountCreationDeletionIntegrationTest {
         aciPqLastResortPreKey,
         pniPqLastResortPreKey);
 
-    assertEquals(Optional.of(aciSignedPreKey), keysManager.getEcSignedPreKey(account.getUuid(), Device.PRIMARY_ID).join());
+    assertEquals(Optional.of(aciSignedPreKey), keysManager.getEcSignedPreKey(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
     assertEquals(Optional.of(pniSignedPreKey), keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join());
-    assertEquals(Optional.of(aciPqLastResortPreKey), keysManager.getLastResort(account.getUuid(), Device.PRIMARY_ID).join());
+    assertEquals(Optional.of(aciPqLastResortPreKey), keysManager.getLastResort(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
     assertEquals(Optional.of(pniPqLastResortPreKey), keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join());
   }
 
@@ -313,7 +313,7 @@ public class AccountCreationDeletionIntegrationTest {
               pniPqLastResortPreKey),
           null);
 
-      existingAccountUuid = existingAccount.getUuid();
+      existingAccountUuid = existingAccount.getAccountIdentifier();
     }
 
     final String password = RandomStringUtils.secure().nextAlphanumeric(16);
@@ -394,7 +394,7 @@ public class AccountCreationDeletionIntegrationTest {
         aciPqLastResortPreKey,
         pniPqLastResortPreKey);
 
-    assertEquals(existingAccountUuid, reregisteredAccount.getUuid());
+    assertEquals(existingAccountUuid, reregisteredAccount.getAccountIdentifier());
 
     verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
         account.getIdentifier(IdentityType.ACI).equals(existingAccountUuid) && account != reregisteredAccount));
@@ -464,9 +464,9 @@ public class AccountCreationDeletionIntegrationTest {
     accountsManager.delete(account.getIdentifier(IdentityType.ACI), AccountsManager.DeletionReason.ADMIN_DELETED);
 
     assertFalse(accountsManager.getByAccountIdentifier(aci).isPresent());
-    assertFalse(keysManager.getEcSignedPreKey(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertFalse(keysManager.getEcSignedPreKey(account.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
-    assertFalse(keysManager.getLastResort(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertFalse(keysManager.getLastResort(account.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
 
     verify(disconnectionRequestManager).requestDisconnection(argThat(disconnectedAccount ->

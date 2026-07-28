@@ -153,7 +153,7 @@ class AccountAuthenticatorTest {
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
-    when(account.getUuid()).thenReturn(uuid);
+    when(account.getAccountIdentifier()).thenReturn(uuid);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.getPrimaryDevice()).thenReturn(device);
@@ -181,7 +181,7 @@ class AccountAuthenticatorTest {
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
-    when(account.getUuid()).thenReturn(uuid);
+    when(account.getAccountIdentifier()).thenReturn(uuid);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.getPrimaryDevice()).thenReturn(device);
@@ -210,7 +210,7 @@ class AccountAuthenticatorTest {
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
-    when(account.getUuid()).thenReturn(uuid);
+    when(account.getAccountIdentifier()).thenReturn(uuid);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(authenticatedDevice));
     when(account.getPrimaryDevice()).thenReturn(authenticatedDevice);
@@ -250,7 +250,7 @@ class AccountAuthenticatorTest {
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
-    when(account.getUuid()).thenReturn(uuid);
+    when(account.getAccountIdentifier()).thenReturn(uuid);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.getPrimaryDevice()).thenReturn(device);
@@ -277,7 +277,7 @@ class AccountAuthenticatorTest {
 
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
-    when(account.getUuid()).thenReturn(uuid);
+    when(account.getAccountIdentifier()).thenReturn(uuid);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.getPrimaryDevice()).thenReturn(device);

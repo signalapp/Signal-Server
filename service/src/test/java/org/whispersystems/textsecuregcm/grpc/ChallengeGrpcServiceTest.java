@@ -41,7 +41,7 @@ public class ChallengeGrpcServiceTest extends
 
   @Override
   protected ChallengeGrpcService createServiceBeforeEachTest() {
-    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
     return new ChallengeGrpcService(
         accountsManager,

@@ -180,7 +180,7 @@ class AccountsManagerUsernameIntegrationTest {
     assertThrows(UsernameHashNotAvailableException.class,
         () -> accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), usernameHashes));
 
-    assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsernameHash()).isEmpty();
+    assertThat(accountsManager.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow().getUsernameHash()).isEmpty();
   }
 
   @Test
@@ -227,16 +227,16 @@ class AccountsManagerUsernameIntegrationTest {
         reservation.reservedUsernameHash(),
         ENCRYPTED_USERNAME_1);
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
-    assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join().orElseThrow().getUuid()).isEqualTo(
-        account.getUuid());
+    assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join().orElseThrow().getAccountIdentifier()).isEqualTo(
+        account.getAccountIdentifier());
     assertThat(account.getUsernameLinkHandle()).isNotNull();
-    assertThat(accountsManager.getByUsernameLinkHandle(account.getUsernameLinkHandle()).join().orElseThrow().getUuid())
-        .isEqualTo(account.getUuid());
+    assertThat(accountsManager.getByUsernameLinkHandle(account.getUsernameLinkHandle()).join().orElseThrow().getAccountIdentifier())
+        .isEqualTo(account.getAccountIdentifier());
 
     // clear
     account = accountsManager.clearUsernameHash(account.getIdentifier(IdentityType.ACI));
     assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
-    assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsernameHash()).isEmpty();
+    assertThat(accountsManager.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow().getUsernameHash()).isEmpty();
   }
 
   @Test
@@ -256,7 +256,7 @@ class AccountsManagerUsernameIntegrationTest {
     // clear
     account = accountsManager.clearUsernameHash(account.getIdentifier(IdentityType.ACI));
     assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
-    assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsernameHash()).isEmpty();
+    assertThat(accountsManager.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow().getUsernameHash()).isEmpty();
 
     assertThat(accountsManager.getByUsernameHash(reservation.reservedUsernameHash()).join()).isEmpty();
 
@@ -294,7 +294,7 @@ class AccountsManagerUsernameIntegrationTest {
     assertThrows(UsernameHashNotAvailableException.class,
         () -> accountsManager.confirmReservedUsernameHash(reservation1.account().getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     account2 = accountsManager.confirmReservedUsernameHash(reservation2.account().getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
-    assertEquals(accountsManager.getByUsernameHash(USERNAME_HASH_1).join().orElseThrow().getUuid(), account2.getUuid());
+    assertEquals(accountsManager.getByUsernameHash(USERNAME_HASH_1).join().orElseThrow().getAccountIdentifier(), account2.getAccountIdentifier());
     assertArrayEquals(account2.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
   }
 

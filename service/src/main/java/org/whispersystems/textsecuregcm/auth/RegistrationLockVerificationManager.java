@@ -154,7 +154,7 @@ public class RegistrationLockVerificationManager {
       }
 
       final List<Byte> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
-      disconnectionRequestManager.requestDisconnection(updatedAccount.getUuid(), deviceIds);
+      disconnectionRequestManager.requestDisconnection(updatedAccount.getAccountIdentifier(), deviceIds);
 
       try {
         // Send a push notification that prompts the client to attempt login and fail due to locked credentials
@@ -176,7 +176,7 @@ public class RegistrationLockVerificationManager {
     if (!existingRegistrationLock.needsFailureCredentials()) {
       return null;
     }
-    return svr2CredentialGenerator.generateForUuid(account.getUuid());
+    return svr2CredentialGenerator.generateForUuid(account.getAccountIdentifier());
   }
 
 }

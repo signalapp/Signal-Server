@@ -270,7 +270,7 @@ public class MessagePersister implements Managed {
 
   @VisibleForTesting
   Mono<Void> persistQueue(final Account account, final Device device, final Tags baseTags) {
-    final UUID accountUuid = account.getUuid();
+    final UUID accountUuid = account.getAccountIdentifier();
     final byte deviceId = device.getId();
 
     final Tag platformTag = Tag.of("platform", DevicePlatformUtil.getDevicePlatform(device)
@@ -305,7 +305,7 @@ public class MessagePersister implements Managed {
               // may throw, in which case we'll retry later by the usual mechanism
               if (isPrimary) {
                 logger.warn("Failed to persist queue {}::{} due to overfull queue; will trim oldest messages",
-                    account.getUuid(), deviceId);
+                    account.getAccountIdentifier(), deviceId);
 
                 return trimQueue(account, device)
                     .then(Mono.error(new MessagePersistenceException("Could not persist due to an overfull queue. Trimmed primary queue, a subsequent retry may succeed")));

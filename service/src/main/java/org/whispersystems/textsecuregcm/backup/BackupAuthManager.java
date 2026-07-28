@@ -136,11 +136,11 @@ public class BackupAuthManager {
     }
 
     if (requiresMessageRotation) {
-      rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID).validate(account.getUuid());
+      rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID).validate(account.getAccountIdentifier());
     }
 
     if (requiresMediaRotation && hasActiveVoucher(account)) {
-      rateLimiters.forDescriptor(RateLimiters.For.SET_PAID_MEDIA_BACKUP_ID).validate(account.getUuid());
+      rateLimiters.forDescriptor(RateLimiters.For.SET_PAID_MEDIA_BACKUP_ID).validate(account.getAccountIdentifier());
     }
 
     this.accountsManager.update(account, a ->
@@ -156,9 +156,9 @@ public class BackupAuthManager {
     final boolean isPaid = hasActiveVoucher(account);
 
     final CompletionStage<Boolean> hasSetMessagesPermits =
-        messagesLimiter.hasAvailablePermitsAsync(account.getUuid(), 1);
+        messagesLimiter.hasAvailablePermitsAsync(account.getAccountIdentifier(), 1);
     final CompletionStage<Boolean> hasSetMediaPermits = isPaid
-        ? mediaLimiter.hasAvailablePermitsAsync(account.getUuid(), 1)
+        ? mediaLimiter.hasAvailablePermitsAsync(account.getAccountIdentifier(), 1)
         : CompletableFuture.completedFuture(true);
 
     return hasSetMessagesPermits.thenCombine(hasSetMediaPermits, (hasMessage, hasMedia) -> {
@@ -266,7 +266,7 @@ public class BackupAuthManager {
     }
 
     boolean receiptAllowed = redeemedReceiptsManager
-        .put(receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, account.getUuid());
+        .put(receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, account.getAccountIdentifier());
     if (!receiptAllowed) {
       throw new BackupBadReceiptException("receipt serial is already redeemed");
     }
@@ -342,7 +342,7 @@ public class BackupAuthManager {
    * BackupVoucher.
    */
   private BackupLevel configuredBackupLevel(final Account account) {
-    return this.experimentEnrollmentManager.isEnrolled(account.getUuid(), BACKUP_MEDIA_EXPERIMENT_NAME)
+    return this.experimentEnrollmentManager.isEnrolled(account.getAccountIdentifier(), BACKUP_MEDIA_EXPERIMENT_NAME)
         ? BackupLevel.PAID
         : BackupLevel.FREE;
   }

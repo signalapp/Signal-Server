@@ -39,7 +39,7 @@ public class CertificateGenerator {
         .setSenderDevice(Math.toIntExact(deviceId))
         .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
         .setIdentityKey(ByteString.copyFrom(account.getIdentityKey(IdentityType.ACI).serialize()))
-        .setSenderUuid(UUIDUtil.toByteString(account.getUuid()));
+        .setSenderUuid(UUIDUtil.toByteString(account.getAccountIdentifier()));
 
     if (includeE164) {
       builder.setSenderE164(account.getNumber());

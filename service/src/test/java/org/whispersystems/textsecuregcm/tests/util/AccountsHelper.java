@@ -47,7 +47,7 @@ public class AccountsHelper {
   public static Account generateTestAccount(String number, UUID uuid, final UUID phoneNumberIdentifier, List<Device> devices, byte[] unidentifiedAccessKey) {
     final Account account = new Account();
     account.setNumber(number, phoneNumberIdentifier);
-    account.setUuid(uuid);
+    account.setAccountIdentifier(uuid);
     devices.forEach(account::addDevice);
     account.setUnidentifiedAccessKey(unidentifiedAccessKey);
 
@@ -160,9 +160,9 @@ public class AccountsHelper {
   }
 
   public static void setupMockGet(final AccountsManager mockAccountsManager, final Account account) {
-    if (account.getUuid() != null || account.getIdentifier(IdentityType.ACI) != null) {
+    if (account.getAccountIdentifier() != null || account.getIdentifier(IdentityType.ACI) != null) {
       final UUID accountIdentifier =
-          Objects.requireNonNullElseGet(account.getIdentifier(IdentityType.ACI), account::getUuid);
+          Objects.requireNonNullElseGet(account.getIdentifier(IdentityType.ACI), account::getAccountIdentifier);
 
       when(mockAccountsManager.getByAccountIdentifier(accountIdentifier))
           .thenReturn(Optional.of(account));
@@ -219,7 +219,7 @@ public class AccountsHelper {
 
       for (Stubbing stubbing : mockingDetails.getStubbings()) {
         switch (stubbing.getInvocation().getMethod().getName()) {
-          case "getUuid" -> when(updatedAccount.getUuid()).thenAnswer(stubbing);
+          case "getAccountIdentifier" -> when(updatedAccount.getAccountIdentifier()).thenAnswer(stubbing);
           case "getPhoneNumberIdentifier" -> when(updatedAccount.getPhoneNumberIdentifier()).thenAnswer(stubbing);
           case "getIdentifier" -> when(updatedAccount.getIdentifier(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
           case "isIdentifiedBy" -> when(updatedAccount.isIdentifiedBy(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);

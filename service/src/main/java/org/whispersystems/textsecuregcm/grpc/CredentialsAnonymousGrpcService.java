@@ -43,7 +43,7 @@ public class CredentialsAnonymousGrpcService extends SimpleCredentialsAnonymousG
 
     // the username associated with the provided number
     final Optional<String> maybeUsername = accountsManager.getByE164(request.getNumber())
-        .map(Account::getUuid)
+        .map(Account::getAccountIdentifier)
         .map(svrCredentialsGenerator::generateForUuid)
         .map(ExternalServiceCredentials::username);
 

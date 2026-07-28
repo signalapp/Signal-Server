@@ -54,7 +54,7 @@ class ReportMessageManagerTest {
     reporterUuid = UUID.randomUUID();
 
     sourceAccount = mock(Account.class);
-    when(sourceAccount.getUuid()).thenReturn(sourceAci);
+    when(sourceAccount.getAccountIdentifier()).thenReturn(sourceAci);
     when(sourceAccount.getNumber()).thenReturn(sourceNumber);
     when(sourceAccount.getPhoneNumberIdentifier()).thenReturn(sourcePni);
   }

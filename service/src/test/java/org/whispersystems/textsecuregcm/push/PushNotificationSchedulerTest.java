@@ -70,7 +70,7 @@ class PushNotificationSchedulerTest {
     when(device.getLastSeen()).thenReturn(System.currentTimeMillis());
 
     account = mock(Account.class);
-    when(account.getUuid()).thenReturn(ACCOUNT_UUID);
+    when(account.getAccountIdentifier()).thenReturn(ACCOUNT_UUID);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(ACCOUNT_UUID);
     when(account.getNumber()).thenReturn(ACCOUNT_NUMBER);
     when(account.getDevice(DEVICE_ID)).thenReturn(Optional.of(device));

@@ -53,7 +53,7 @@ public class PushChallengeManager {
     final boolean sent;
     final String platform;
 
-    if (pushChallengeDynamoDb.add(account.getUuid(), token, CHALLENGE_TTL)) {
+    if (pushChallengeDynamoDb.add(account.getAccountIdentifier(), token, CHALLENGE_TTL)) {
       pushNotificationManager.sendRateLimitChallengeNotification(account, HexFormat.of().formatHex(token));
 
       sent = true;
@@ -82,7 +82,7 @@ public class PushChallengeManager {
     boolean success = false;
 
     try {
-      success = pushChallengeDynamoDb.remove(account.getUuid(), HexFormat.of().parseHex(challengeTokenHex));
+      success = pushChallengeDynamoDb.remove(account.getAccountIdentifier(), HexFormat.of().parseHex(challengeTokenHex));
     } catch (final IllegalArgumentException ignored) {
     }
 

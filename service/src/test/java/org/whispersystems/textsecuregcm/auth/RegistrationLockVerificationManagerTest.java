@@ -74,7 +74,7 @@ class RegistrationLockVerificationManagerTest {
 
     account = mock(Account.class);
     final UUID accountIdentifier = UUID.randomUUID();
-    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.getNumber()).thenReturn("+18005551212");
     when(account.getDevices()).thenReturn(List.of(device));
@@ -106,7 +106,7 @@ class RegistrationLockVerificationManagerTest {
             } else {
               verify(registrationRecoveryPasswordsManager, never()).remove(any());
             }
-            verify(disconnectionRequestManager).requestDisconnection(account.getUuid(), List.of(Device.PRIMARY_ID));
+            verify(disconnectionRequestManager).requestDisconnection(account.getAccountIdentifier(), List.of(Device.PRIMARY_ID));
             try {
               verify(pushNotificationManager).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
             } catch (final NotPushRegisteredException ignored) {

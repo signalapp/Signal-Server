@@ -61,7 +61,7 @@ class RateLimitChallengeManagerTest {
   @ValueSource(booleans = {true, false})
   void answerPushChallenge(final boolean successfulChallenge) throws RateLimitExceededException {
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(UUID.randomUUID());
+    when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
 
     when(pushChallengeManager.answerChallenge(eq(account), any())).thenReturn(successfulChallenge);
 
@@ -84,7 +84,7 @@ class RateLimitChallengeManagerTest {
       throws RateLimitExceededException, IOException, InvalidCaptchaArgumentException {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
-    when(account.getUuid()).thenReturn(UUID.randomUUID());
+    when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
 
     when(captchaChecker.verify(any(), eq(Action.CHALLENGE), any(), any(), any()))
         .thenReturn(AssessmentResult.fromScore(actualScore, DEFAULT_SCORE_THRESHOLD));

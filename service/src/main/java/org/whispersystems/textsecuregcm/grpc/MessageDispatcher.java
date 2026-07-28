@@ -232,8 +232,8 @@ public class MessageDispatcher {
         messageMetrics.measureMessageStreamDisplaced(MessageMetrics.GRPC_CHANNEL, userAgent, false);
         sink.error(GrpcExceptions.invalidCredentials("reauthentication required"));
       };
-      disconnectionRequestManager.addListener(account.getUuid(), device.getId(), listener);
-      sink.onDispose(() -> disconnectionRequestManager.removeListener(account.getUuid(), device.getId(), listener));
+      disconnectionRequestManager.addListener(account.getAccountIdentifier(), device.getId(), listener);
+      sink.onDispose(() -> disconnectionRequestManager.removeListener(account.getAccountIdentifier(), device.getId(), listener));
     });
   }
 

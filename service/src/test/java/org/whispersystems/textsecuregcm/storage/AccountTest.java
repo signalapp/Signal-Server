@@ -135,7 +135,7 @@ class AccountTest {
     account.markStale();
 
     assertThrows(AssertionError.class, account::getNumber);
-    assertDoesNotThrow(account::getUuid);
+    assertDoesNotThrow(account::getAccountIdentifier);
   }
 
   @Test

@@ -149,7 +149,7 @@ public class CredentialsGrpcServiceTest
 
   @BeforeEach
   void setUp() {
-    when(authenticatedAccount.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(authenticatedAccount.getNumber()).thenReturn(PHONE_NUMBER);
     when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
     when(authenticatedAccount.getIdentifier(IdentityType.PNI)).thenReturn(AUTHENTICATED_PNI);

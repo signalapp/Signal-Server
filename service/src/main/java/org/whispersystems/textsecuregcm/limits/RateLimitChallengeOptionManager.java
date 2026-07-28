@@ -20,14 +20,14 @@ public class RateLimitChallengeOptionManager {
   public List<RateLimitChallengeOption> getChallengeOptions(final Account account) {
     final List<RateLimitChallengeOption> options = new ArrayList<>(2);
 
-    if (rateLimiters.getCaptchaChallengeAttemptLimiter().hasAvailablePermits(account.getUuid(), 1) &&
-        rateLimiters.getCaptchaChallengeSuccessLimiter().hasAvailablePermits(account.getUuid(), 1)) {
+    if (rateLimiters.getCaptchaChallengeAttemptLimiter().hasAvailablePermits(account.getAccountIdentifier(), 1) &&
+        rateLimiters.getCaptchaChallengeSuccessLimiter().hasAvailablePermits(account.getAccountIdentifier(), 1)) {
 
       options.add(RateLimitChallengeOption.CAPTCHA);
     }
 
-    if (rateLimiters.getPushChallengeAttemptLimiter().hasAvailablePermits(account.getUuid(), 1) &&
-        rateLimiters.getPushChallengeSuccessLimiter().hasAvailablePermits(account.getUuid(), 1)) {
+    if (rateLimiters.getPushChallengeAttemptLimiter().hasAvailablePermits(account.getAccountIdentifier(), 1) &&
+        rateLimiters.getPushChallengeSuccessLimiter().hasAvailablePermits(account.getAccountIdentifier(), 1)) {
 
       options.add(RateLimitChallengeOption.PUSH_CHALLENGE);
     }

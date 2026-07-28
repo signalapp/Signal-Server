@@ -211,7 +211,7 @@ class KeysControllerTest {
     when(KEYS.takeDevicePreKeys(eq(SAMPLE_DEVICE_ID), eq(EXISTS_PNI_SERVICE_ID), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(pniKeys)));
 
-    when(existsAccount.getUuid()).thenReturn(EXISTS_UUID);
+    when(existsAccount.getAccountIdentifier()).thenReturn(EXISTS_UUID);
     when(existsAccount.isIdentifiedBy(new AciServiceIdentifier(EXISTS_UUID))).thenReturn(true);
     when(existsAccount.getPhoneNumberIdentifier()).thenReturn(EXISTS_PNI);
     when(existsAccount.isIdentifiedBy(new PniServiceIdentifier(EXISTS_PNI))).thenReturn(true);

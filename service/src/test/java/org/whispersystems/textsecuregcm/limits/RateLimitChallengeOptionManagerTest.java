@@ -62,7 +62,7 @@ class RateLimitChallengeOptionManagerTest {
     final int expectedLength = (expectCaptcha ? 1 : 0) + (expectPushChallenge ? 1 : 0);
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(UUID.randomUUID());
+    when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
 
     final List<RateLimitChallengeOption> options = rateLimitChallengeOptionManager.getChallengeOptions(account);
     assertEquals(expectedLength, options.size());

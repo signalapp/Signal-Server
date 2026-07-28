@@ -179,7 +179,7 @@ public class AddRemoveDeviceIntegrationTest {
     final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
     final Account account = AccountsHelper.createAccount(accountsManager, number);
-    assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
+    assertEquals(1, accountsManager.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow().getDevices().size());
 
     final Pair<Account, Device> updatedAccountAndDevice =
         accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
@@ -201,17 +201,17 @@ public class AddRemoveDeviceIntegrationTest {
     assertEquals(2, updatedAccountAndDevice.first().getDevices().size());
 
     assertEquals(2,
-        accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getUuid()).orElseThrow().getDevices()
+        accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getAccountIdentifier()).orElseThrow().getDevices()
             .size());
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
 
     assertTrue(
-        keysManager.getEcSignedPreKey(updatedAccountAndDevice.first().getUuid(), addedDeviceId).join().isPresent());
+        keysManager.getEcSignedPreKey(updatedAccountAndDevice.first().getAccountIdentifier(), addedDeviceId).join().isPresent());
     assertTrue(
         keysManager.getEcSignedPreKey(updatedAccountAndDevice.first().getPhoneNumberIdentifier(), addedDeviceId).join()
             .isPresent());
-    assertTrue(keysManager.getLastResort(updatedAccountAndDevice.first().getUuid(), addedDeviceId).join().isPresent());
+    assertTrue(keysManager.getLastResort(updatedAccountAndDevice.first().getAccountIdentifier(), addedDeviceId).join().isPresent());
     assertTrue(
         keysManager.getLastResort(updatedAccountAndDevice.first().getPhoneNumberIdentifier(), addedDeviceId).join()
             .isPresent());
@@ -227,7 +227,7 @@ public class AddRemoveDeviceIntegrationTest {
     final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
     final Account account = AccountsHelper.createAccount(accountsManager, number);
-    assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
+    assertEquals(1, accountsManager.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow().getDevices().size());
 
     final String linkDeviceToken = accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI));
 
@@ -249,7 +249,7 @@ public class AddRemoveDeviceIntegrationTest {
                 linkDeviceToken);
 
     assertEquals(2,
-        accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getUuid()).orElseThrow().getDevices()
+        accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getAccountIdentifier()).orElseThrow().getDevices()
             .size());
 
     assertThrows(LinkDeviceTokenAlreadyUsedException.class,
@@ -270,7 +270,7 @@ public class AddRemoveDeviceIntegrationTest {
                 linkDeviceToken));
 
     assertEquals(2,
-        accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getUuid()).orElseThrow().getDevices()
+        accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getAccountIdentifier()).orElseThrow().getDevices()
             .size());
   }
 
@@ -284,7 +284,7 @@ public class AddRemoveDeviceIntegrationTest {
     final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
     final Account account = AccountsHelper.createAccount(accountsManager, number);
-    assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
+    assertEquals(1, accountsManager.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow().getDevices().size());
 
     final Pair<Account, Device> updatedAccountAndDevice =
         accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
@@ -309,16 +309,16 @@ public class AddRemoveDeviceIntegrationTest {
 
     assertEquals(1, updatedAccount.getDevices().size());
 
-    assertFalse(keysManager.getEcSignedPreKey(updatedAccount.getUuid(), addedDeviceId).join().isPresent());
+    assertFalse(keysManager.getEcSignedPreKey(updatedAccount.getAccountIdentifier(), addedDeviceId).join().isPresent());
     assertFalse(
         keysManager.getEcSignedPreKey(updatedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
-    assertFalse(keysManager.getLastResort(updatedAccount.getUuid(), addedDeviceId).join().isPresent());
+    assertFalse(keysManager.getLastResort(updatedAccount.getAccountIdentifier(), addedDeviceId).join().isPresent());
     assertFalse(keysManager.getLastResort(updatedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
 
-    assertTrue(keysManager.getEcSignedPreKey(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getEcSignedPreKey(updatedAccount.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(
         keysManager.getEcSignedPreKey(updatedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
-    assertTrue(keysManager.getLastResort(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getLastResort(updatedAccount.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(
         keysManager.getLastResort(updatedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
   }
@@ -333,7 +333,7 @@ public class AddRemoveDeviceIntegrationTest {
     final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
     final Account account = AccountsHelper.createAccount(accountsManager, number);
-    assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
+    assertEquals(1, accountsManager.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow().getDevices().size());
 
     final UUID aci = account.getIdentifier(IdentityType.ACI);
 
@@ -366,17 +366,17 @@ public class AddRemoveDeviceIntegrationTest {
 
     assertEquals(2, retrievedAccount.getDevices().size());
 
-    assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
+    assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getAccountIdentifier(), addedDeviceId).join().isPresent());
     assertTrue(
         keysManager.getEcSignedPreKey(retrievedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
-    assertTrue(keysManager.getLastResort(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
+    assertTrue(keysManager.getLastResort(retrievedAccount.getAccountIdentifier(), addedDeviceId).join().isPresent());
     assertTrue(
         keysManager.getLastResort(retrievedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
 
-    assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join()
         .isPresent());
-    assertTrue(keysManager.getLastResort(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
+    assertTrue(keysManager.getLastResort(retrievedAccount.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(
         keysManager.getLastResort(retrievedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
   }
@@ -396,13 +396,13 @@ public class AddRemoveDeviceIntegrationTest {
     final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
 
     final CompletableFuture<Optional<DeviceInfo>> displacedFuture = accountsManager.waitForNewLinkedDevice(
-        account.getUuid(), account.getPrimaryDevice(),
+        account.getAccountIdentifier(), account.getPrimaryDevice(),
         linkDeviceTokenIdentifier, Duration.ofSeconds(5));
 
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getUuid(), account.getPrimaryDevice()))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getAccountIdentifier(), account.getPrimaryDevice()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
     final CompletableFuture<Optional<DeviceInfo>> activeFuture =
-        accountsManager.waitForNewLinkedDevice(account.getUuid(), account.getPrimaryDevice(), linkDeviceTokenIdentifier,
+        accountsManager.waitForNewLinkedDevice(account.getAccountIdentifier(), account.getPrimaryDevice(), linkDeviceTokenIdentifier,
             Duration.ofSeconds(5));
 
     assertEquals(Optional.empty(), displacedFuture.join());
@@ -465,11 +465,11 @@ public class AddRemoveDeviceIntegrationTest {
                     KeysHelper.signedKEMPreKey(4, pniKeyPair)),
                 linkDeviceToken);
 
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getUuid(), account.getPrimaryDevice()))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getAccountIdentifier(), account.getPrimaryDevice()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     final CompletableFuture<Optional<DeviceInfo>> linkedDeviceFuture = accountsManager.waitForNewLinkedDevice(
-        account.getUuid(), account.getPrimaryDevice(), linkDeviceTokenIdentifier, Duration.ofMinutes(1));
+        account.getAccountIdentifier(), account.getPrimaryDevice(), linkDeviceTokenIdentifier, Duration.ofMinutes(1));
 
     final Optional<DeviceInfo> maybeDeviceInfo = linkedDeviceFuture.join();
 
@@ -492,7 +492,7 @@ public class AddRemoveDeviceIntegrationTest {
     final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
 
     final CompletableFuture<Optional<DeviceInfo>> linkedDeviceFuture = accountsManager.waitForNewLinkedDevice(
-        account.getUuid(), account.getPrimaryDevice(), linkDeviceTokenIdentifier, Duration.ofMillis(1));
+        account.getAccountIdentifier(), account.getPrimaryDevice(), linkDeviceTokenIdentifier, Duration.ofMillis(1));
 
     final Optional<DeviceInfo> maybeDeviceInfo = linkedDeviceFuture.join();
 
@@ -534,12 +534,12 @@ public class AddRemoveDeviceIntegrationTest {
             KeysHelper.signedKEMPreKey(4, pniKeyPair)),
         linkDeviceToken);
 
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getUuid(), account.getPrimaryDevice()))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getAccountIdentifier(), account.getPrimaryDevice()))
         .thenReturn(CompletableFuture.completedFuture(Optional.ofNullable(oldestMessage).map(Instant::ofEpochMilli)));
 
     clock.pin(Instant.ofEpochMilli(currentTime));
     Duration timeout = shouldWait ? Duration.ofMillis(5) : Duration.ofMillis(1000);
-    Optional<DeviceInfo> result = accountsManager.waitForNewLinkedDevice(account.getUuid(),
+    Optional<DeviceInfo> result = accountsManager.waitForNewLinkedDevice(account.getAccountIdentifier(),
         account.getPrimaryDevice(), linkDeviceTokenIdentifier, timeout).join();
     assertEquals(result.isEmpty(), shouldWait);
   }
@@ -577,7 +577,7 @@ public class AddRemoveDeviceIntegrationTest {
             KeysHelper.signedKEMPreKey(4, pniKeyPair)),
         linkDeviceToken);
 
-    when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getUuid(), account.getPrimaryDevice()))
+    when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getAccountIdentifier(), account.getPrimaryDevice()))
         // Has a message older than the message epoch
         .thenReturn(CompletableFuture.completedFuture(Optional.of(Instant.ofEpochMilli(1000))))
         // The message was fetched
@@ -588,7 +588,7 @@ public class AddRemoveDeviceIntegrationTest {
       x.getArgument(0, Runnable.class).run();
       return null;
     });
-    Optional<DeviceInfo> result = accountsManager.waitForNewLinkedDevice(account.getUuid(),
+    Optional<DeviceInfo> result = accountsManager.waitForNewLinkedDevice(account.getAccountIdentifier(),
         account.getPrimaryDevice(), linkDeviceTokenIdentifier, Duration.ofSeconds(10)).join();
     assertTrue(result.isPresent());
   }

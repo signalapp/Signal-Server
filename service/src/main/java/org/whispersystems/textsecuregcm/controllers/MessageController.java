@@ -263,7 +263,7 @@ public class MessageController {
     final Account destination =
         accountsManager.getByServiceIdentifier(destinationIdentifier).orElseThrow(NotFoundException::new);
 
-    rateLimiters.getMessagesLimiter().validate(source.accountIdentifier(), destination.getUuid());
+    rateLimiters.getMessagesLimiter().validate(source.accountIdentifier(), destination.getAccountIdentifier());
 
     sendIndividualMessage(destination,
         destinationIdentifier,
@@ -335,7 +335,7 @@ public class MessageController {
     final Account destination = accountsManager.getByServiceIdentifier(destinationIdentifier).orElseThrow(() ->
         new WebApplicationException(Response.ok(new SendMessageResponse(false)).build()));
 
-    rateLimiters.getStoriesLimiter().validate(destination.getUuid());
+    rateLimiters.getStoriesLimiter().validate(destination.getAccountIdentifier());
 
     sendIndividualMessage(destination,
         destinationIdentifier,
@@ -744,7 +744,7 @@ public class MessageController {
       sourceNumber = Optional.of(source);
       final Optional<Account> maybeAccount = accountsManager.getByE164(source);
       if (maybeAccount.isPresent()) {
-        sourceAci = maybeAccount.map(Account::getUuid);
+        sourceAci = maybeAccount.map(Account::getAccountIdentifier);
         sourcePni = maybeAccount.map(Account::getPhoneNumberIdentifier);
       } else {
         sourcePni = Optional.ofNullable(phoneNumberIdentifiers.getPhoneNumberIdentifier(source).join());

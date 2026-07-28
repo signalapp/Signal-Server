@@ -115,7 +115,7 @@ public class AppleDeviceCheckManager {
       throw new TooManyKeysException();
     }
 
-    final String redisChallengeKey = challengeKey(ChallengeType.ATTEST, account.getUuid());
+    final String redisChallengeKey = challengeKey(ChallengeType.ATTEST, account.getAccountIdentifier());
 
     @Nullable final String challenge = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeSupplier(() -> redisClient.withCluster(cluster -> cluster.sync().get(redisChallengeKey)));
@@ -175,7 +175,7 @@ public class AppleDeviceCheckManager {
       final byte[] assertion)
       throws ChallengeNotFoundException, DeviceCheckVerificationFailedException, DeviceCheckKeyIdNotFoundException, RequestReuseException {
 
-    final String redisChallengeKey = challengeKey(challengeType, account.getUuid());
+    final String redisChallengeKey = challengeKey(challengeType, account.getAccountIdentifier());
     @Nullable final String storedChallenge = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
             .executeSupplier(() -> redisClient.withCluster(cluster -> cluster.sync().get(redisChallengeKey)));
 
@@ -220,7 +220,7 @@ public class AppleDeviceCheckManager {
    * @return The challenge to be included as part of an attestation or assertion
    */
   public String createChallenge(final ChallengeType challengeType, final Account account) {
-    final UUID accountIdentifier = account.getUuid();
+    final UUID accountIdentifier = account.getAccountIdentifier();
 
     final String challengeKey = challengeKey(challengeType, accountIdentifier);
     return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)

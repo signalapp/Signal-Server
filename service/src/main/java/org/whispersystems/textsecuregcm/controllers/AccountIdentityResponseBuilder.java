@@ -47,7 +47,7 @@ public class AccountIdentityResponseBuilder {
         .map(bv -> new Entitlements.BackupEntitlement(bv.receiptLevel(), bv.expiration()))
         .orElse(null);
 
-    return new AccountIdentityResponse(account.getUuid(),
+    return new AccountIdentityResponse(account.getAccountIdentifier(),
         account.getNumber(),
         account.getPhoneNumberIdentifier(),
         account.getUsernameHash().filter(h -> h.length > 0).orElse(null),

@@ -126,7 +126,7 @@ public class SecureValueRecovery2Controller {
     // the username associated with the provided number
     final Optional<String> matchingUsername = accountsManager
         .getByE164(request.number())
-        .map(Account::getUuid)
+        .map(Account::getAccountIdentifier)
         .map(backupServiceCredentialGenerator::generateForUuid)
         .map(ExternalServiceCredentials::username);
 

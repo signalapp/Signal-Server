@@ -150,7 +150,7 @@ public class AccountsTestHelper {
       final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
       final Account account = new Account();
-      account.setUuid(aci);
+      account.setAccountIdentifier(aci);
       account.setNumber(number, UUID.randomUUID());
       account.setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess);
       account.setDiscoverableByPhoneNumber(discoverableByPhoneNumber);

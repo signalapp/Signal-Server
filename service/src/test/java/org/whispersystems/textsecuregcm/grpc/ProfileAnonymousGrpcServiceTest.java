@@ -517,7 +517,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final VersionedProfileV1 profile = mock(VersionedProfileV1.class);
     when(profile.commitment()).thenReturn(profileKeyCommitment.serialize());
 
-    when(account.getUuid()).thenReturn(targetUuid);
+    when(account.getAccountIdentifier()).thenReturn(targetUuid);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(Optional.of(account));
     when(profilesManager.getV1(targetUuid, HexFormat.of().formatHex(profileKeyBytes))).thenReturn(Optional.of(profile));
@@ -554,7 +554,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final UUID targetUuid = UUID.randomUUID();
 
-    when(account.getUuid()).thenReturn(targetUuid);
+    when(account.getAccountIdentifier()).thenReturn(targetUuid);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(
         missingAccount ? Optional.empty() : Optional.of(account));
@@ -604,7 +604,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final byte[] version = TestRandomUtil.nextBytes(32);
     final String versionHex = HexFormat.of().formatHex(version);
 
-    when(account.getUuid()).thenReturn(targetUuid);
+    when(account.getAccountIdentifier()).thenReturn(targetUuid);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(
         Optional.of(account));
@@ -643,7 +643,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     final VersionedProfileV1 profile = mock(VersionedProfileV1.class);
     when(profile.commitment()).thenReturn("commitment".getBytes(StandardCharsets.UTF_8));
-    when(account.getUuid()).thenReturn(targetUuid);
+    when(account.getAccountIdentifier()).thenReturn(targetUuid);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(Optional.of(account));
     when(profilesManager.getV1(targetUuid, versionHex)).thenReturn(Optional.of(profile));

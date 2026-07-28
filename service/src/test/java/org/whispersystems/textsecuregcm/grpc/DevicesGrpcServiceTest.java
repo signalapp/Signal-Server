@@ -66,7 +66,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
   @Override
   protected DevicesGrpcService createServiceBeforeEachTest() {
-    when(authenticatedAccount.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))

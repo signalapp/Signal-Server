@@ -619,7 +619,7 @@ class RegistrationControllerTest {
     final Device device = mock(Device.class);
 
     final Account account = MockUtils.buildMock(Account.class, a -> {
-      when(a.getUuid()).thenReturn(accountIdentifier);
+      when(a.getAccountIdentifier()).thenReturn(accountIdentifier);
       when(a.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
       when(a.getPrimaryDevice()).thenReturn(device);
     });

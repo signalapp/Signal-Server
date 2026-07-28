@@ -167,7 +167,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
             a.addDevice(DevicesHelper.createDevice(Device.PRIMARY_ID));
           });
 
-      uuid = account.getUuid();
+      uuid = account.getAccountIdentifier();
     }
 
     final boolean discoverableByPhoneNumber = false;

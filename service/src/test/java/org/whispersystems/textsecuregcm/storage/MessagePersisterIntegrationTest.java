@@ -127,7 +127,7 @@ class MessagePersisterIntegrationTest {
     final UUID accountUuid = UUID.randomUUID();
 
     when(account.getNumber()).thenReturn("+18005551234");
-    when(account.getUuid()).thenReturn(accountUuid);
+    when(account.getAccountIdentifier()).thenReturn(accountUuid);
     when(accountsManager.getByAccountIdentifier(accountUuid)).thenReturn(Optional.of(account));
     when(accountsManager.getByAccountIdentifierAsync(accountUuid)).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(DevicesHelper.createDevice(Device.PRIMARY_ID)));
@@ -166,13 +166,13 @@ class MessagePersisterIntegrationTest {
 
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp, false);
 
-      messagesCache.insert(messageGuid, account.getUuid(), Device.PRIMARY_ID, message).join();
+      messagesCache.insert(messageGuid, account.getAccountIdentifier(), Device.PRIMARY_ID, message).join();
       expectedMessages.add(message);
     }
 
     final CountDownLatch messagesPersistedLatch = new CountDownLatch(1);
 
-    redisMessageAvailabilityManager.handleClientConnected(account.getUuid(), Device.PRIMARY_ID,
+    redisMessageAvailabilityManager.handleClientConnected(account.getAccountIdentifier(), Device.PRIMARY_ID,
             new MessageAvailabilityListener() {
               @Override
               public void handleNewMessageAvailable() {
@@ -226,7 +226,7 @@ class MessagePersisterIntegrationTest {
 
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp, true);
 
-      messagesCache.insert(messageGuid, account.getUuid(), Device.PRIMARY_ID, message).join();
+      messagesCache.insert(messageGuid, account.getAccountIdentifier(), Device.PRIMARY_ID, message).join();
     }
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistableMessages);
@@ -237,7 +237,7 @@ class MessagePersisterIntegrationTest {
 
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp, false);
 
-      messagesCache.insert(messageGuid, account.getUuid(), Device.PRIMARY_ID, message).join();
+      messagesCache.insert(messageGuid, account.getAccountIdentifier(), Device.PRIMARY_ID, message).join();
       expectedMessages.add(message);
     }
 
@@ -258,7 +258,7 @@ class MessagePersisterIntegrationTest {
             .toList();
 
     assertEquals(expectedMessages, persistedMessages);
-    assertFalse(messagesCache.hasMessagesAsync(account.getUuid(), Device.PRIMARY_ID).join());
+    assertFalse(messagesCache.hasMessagesAsync(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
   }
 
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final long serverTimestamp, final boolean ephemeral) {

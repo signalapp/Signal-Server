@@ -150,20 +150,23 @@ public class Account {
 
   public UUID getIdentifier(final IdentityType identityType) {
     return switch (identityType) {
-      case ACI -> getUuid();
+      case ACI -> getAccountIdentifier();
       case PNI -> getPhoneNumberIdentifier();
     };
   }
 
-  public UUID getUuid() {
+  /// Returns the core account identifier (ACI) for this account. An account's core identifier never changes.
+  ///
+  /// @return the core account identifier for this account
+  public UUID getAccountIdentifier() {
     // this is the one method that may be called on a stale account
     return uuid;
   }
 
-  public void setUuid(final UUID uuid) {
+  public void setAccountIdentifier(final UUID accountIdentifier) {
     requireNotStale();
 
-    this.uuid = uuid;
+    this.uuid = accountIdentifier;
   }
 
   public UUID getPhoneNumberIdentifier() {

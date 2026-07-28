@@ -722,7 +722,7 @@ class MessageControllerTest {
     UUID messageGuid = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getAccountIdentifier()).thenReturn(senderAci);
     when(account.getNumber()).thenReturn(senderNumber);
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
@@ -754,7 +754,7 @@ class MessageControllerTest {
     UUID messageGuid = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getAccountIdentifier()).thenReturn(senderAci);
     when(account.getNumber()).thenReturn(senderNumber);
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
@@ -786,7 +786,7 @@ class MessageControllerTest {
     UUID messageGuid = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getAccountIdentifier()).thenReturn(senderAci);
     when(account.getNumber()).thenReturn(senderNumber);
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
@@ -819,7 +819,7 @@ class MessageControllerTest {
     final UUID messageGuid = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getAccountIdentifier()).thenReturn(senderAci);
     when(account.getNumber()).thenReturn(senderNumber);
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
@@ -851,7 +851,7 @@ class MessageControllerTest {
     UUID messageGuid = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getAccountIdentifier()).thenReturn(senderAci);
     when(account.getNumber()).thenReturn(senderNumber);
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
@@ -914,7 +914,7 @@ class MessageControllerTest {
     UUID messageGuid = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getAccountIdentifier()).thenReturn(senderAci);
     when(account.getNumber()).thenReturn(senderNumber);
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 

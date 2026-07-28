@@ -142,7 +142,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
     }
     final Account destination = maybeDestination.get();
 
-    rateLimiters.getMessagesLimiter().validate(authenticatedDevice.accountIdentifier(), destination.getUuid());
+    rateLimiters.getMessagesLimiter().validate(authenticatedDevice.accountIdentifier(), destination.getAccountIdentifier());
 
     return sendMessage(destination,
         destinationServiceIdentifier,

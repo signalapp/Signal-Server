@@ -97,7 +97,7 @@ public class RemoveExpiredUsernameHoldsCommand extends AbstractSinglePassCrawlAc
               .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
               .doOnSuccess(ignored -> deletedHoldsCounter.increment(holdsToRemove))
               .onErrorResume(throwable -> {
-                log.warn("Failed to purge {} expired holds on account {}", holdsToRemove, account.getUuid());
+                log.warn("Failed to purge {} expired holds on account {}", holdsToRemove, account.getAccountIdentifier());
                 return Mono.empty();
               });
         }, maxConcurrency)

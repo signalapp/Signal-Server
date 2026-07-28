@@ -385,7 +385,7 @@ public class SecureValueRecovery2ControllerTest {
 
     private static Account account(final UUID uuid) {
       final Account a = new Account();
-      a.setUuid(uuid);
+      a.setAccountIdentifier(uuid);
       return a;
     }
   }

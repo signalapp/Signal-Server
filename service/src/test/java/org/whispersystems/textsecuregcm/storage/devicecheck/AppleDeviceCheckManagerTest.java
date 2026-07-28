@@ -54,7 +54,7 @@ class AppleDeviceCheckManagerTest {
   void setupDeviceChecks() {
     clock.pin(Instant.now());
     account = mock(Account.class);
-    when(account.getUuid()).thenReturn(ACI);
+    when(account.getAccountIdentifier()).thenReturn(ACI);
 
     final DeviceCheckManager deviceCheckManager = DeviceCheckTestUtil.appleDeviceCheckManager();
     appleDeviceChecks = new AppleDeviceChecks(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -112,7 +112,7 @@ class AppleDeviceCheckManagerTest {
   public void duplicateKeys() {
     assertThatNoException().isThrownBy(() -> registerAttestation(account));
     final Account duplicator = mock(Account.class);
-    when(duplicator.getUuid()).thenReturn(UUID.randomUUID());
+    when(duplicator.getAccountIdentifier()).thenReturn(UUID.randomUUID());
 
     // Both accounts use the attestation keyId, the second registration should fail
     assertThatExceptionOfType(DuplicatePublicKeyException.class)
@@ -124,7 +124,7 @@ class AppleDeviceCheckManagerTest {
     final String challenge =
         appleDeviceCheckManager.createChallenge(AppleDeviceCheckManager.ChallengeType.ATTEST, account);
     final String redisKey = AppleDeviceCheckManager.challengeKey(AppleDeviceCheckManager.ChallengeType.ATTEST,
-        account.getUuid());
+        account.getAccountIdentifier());
 
     final String storedChallenge = CLUSTER_EXTENSION.getRedisCluster()
         .withCluster(cluster -> cluster.sync().get(redisKey));
@@ -165,7 +165,7 @@ class AppleDeviceCheckManagerTest {
     // Rig redis to return our sample challenge for the assert
     final String assertChallengeKey = AppleDeviceCheckManager.challengeKey(
         AppleDeviceCheckManager.ChallengeType.ASSERT_BACKUP_REDEMPTION,
-        account.getUuid());
+        account.getAccountIdentifier());
     CLUSTER_EXTENSION.getRedisCluster().useCluster(cluster ->
         cluster.sync().set(assertChallengeKey, DeviceCheckTestUtil.SAMPLE_CHALLENGE));
 
@@ -196,7 +196,7 @@ class AppleDeviceCheckManagerTest {
     CLUSTER_EXTENSION.getRedisCluster().useCluster(cluster -> cluster.sync().set(
         AppleDeviceCheckManager.challengeKey(
             AppleDeviceCheckManager.ChallengeType.ASSERT_BACKUP_REDEMPTION,
-            account.getUuid()),
+            account.getAccountIdentifier()),
         DeviceCheckTestUtil.SAMPLE_CHALLENGE));
 
     assertThatExceptionOfType(RequestReuseException.class).isThrownBy(() ->
@@ -217,7 +217,7 @@ class AppleDeviceCheckManagerTest {
       throws DeviceCheckVerificationFailedException, ChallengeNotFoundException, TooManyKeysException, DuplicatePublicKeyException {
     final String attestChallengeKey = AppleDeviceCheckManager.challengeKey(
         AppleDeviceCheckManager.ChallengeType.ATTEST,
-        account.getUuid());
+        account.getAccountIdentifier());
     CLUSTER_EXTENSION.getRedisCluster().useCluster(cluster ->
         cluster.sync().set(attestChallengeKey, DeviceCheckTestUtil.SAMPLE_CHALLENGE));
     try (MockedStatic<Instant> mocked = mockStatic(Instant.class, Mockito.CALLS_REAL_METHODS)) {

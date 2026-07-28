@@ -94,7 +94,7 @@ public class AppleDeviceChecks {
             .tableName(deviceCheckTableName)
             .keyConditionExpression("#aci = :aci")
             .expressionAttributeNames(Map.of("#aci", KEY_ACCOUNT_UUID, "#kid", KEY_PUBLIC_KEY_ID))
-            .expressionAttributeValues(Map.of(":aci", AttributeValues.fromUUID(account.getUuid())))
+            .expressionAttributeValues(Map.of(":aci", AttributeValues.fromUUID(account.getAccountIdentifier())))
             .projectionExpression("#kid")
             .build())
         .items()
@@ -136,12 +136,12 @@ public class AppleDeviceChecks {
               .tableName(publicKeyConstraintTableName)
               .item(Map.of(
                   KEY_PUBLIC_KEY, AttributeValues.fromByteArray(extractPublicKey(appleDevice).getEncoded()),
-                  KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())
+                  KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getAccountIdentifier())
               ))
               // Enforces public key uniqueness, as described in https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server#Store-the-public-key-and-receipt
               .conditionExpression("attribute_not_exists(#pk) or #aci = :aci")
               .expressionAttributeNames(Map.of("#aci", KEY_ACCOUNT_UUID, "#pk", KEY_PUBLIC_KEY))
-              .expressionAttributeValues(Map.of(":aci", AttributeValues.fromUUID(account.getUuid())))
+              .expressionAttributeValues(Map.of(":aci", AttributeValues.fromUUID(account.getAccountIdentifier())))
               .build()).build()).build());
       return true;
 
@@ -170,7 +170,7 @@ public class AppleDeviceChecks {
     final GetItemResponse item = dynamoDbClient.getItem(GetItemRequest.builder()
         .tableName(deviceCheckTableName)
         .key(Map.of(
-            KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid()),
+            KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getAccountIdentifier()),
             KEY_PUBLIC_KEY_ID, AttributeValues.fromByteArray(keyId))).build());
     return item.hasItem() ? Optional.of(fromItem(item.item())) : Optional.empty();
   }
@@ -189,7 +189,7 @@ public class AppleDeviceChecks {
       dynamoDbClient.updateItem(UpdateItemRequest.builder()
           .tableName(deviceCheckTableName)
           .key(Map.of(
-              KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid()),
+              KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getAccountIdentifier()),
               KEY_PUBLIC_KEY_ID, AttributeValues.fromByteArray(keyId)))
           .expressionAttributeNames(Map.of("#counter", ATTR_COUNTER))
           .expressionAttributeValues(Map.of(":counter", AttributeValues.n(newCounter)))
@@ -217,7 +217,7 @@ public class AppleDeviceChecks {
         .writeValueAsBytes(appleDevice.getAuthenticatorExtensions());
 
     return Map.of(
-        KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid()),
+        KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getAccountIdentifier()),
         KEY_PUBLIC_KEY_ID, AttributeValues.fromByteArray(keyId),
         ATTR_CRED_DATA, AttributeValues.fromByteArray(attestedCredentialData),
         ATTR_STATEMENT, AttributeValues.fromByteArray(attestationStatement),

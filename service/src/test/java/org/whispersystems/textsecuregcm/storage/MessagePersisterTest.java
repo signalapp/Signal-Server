@@ -118,7 +118,7 @@ class MessagePersisterTest {
     when(accountsManager.removeDevice(any(), anyByte()))
         .thenAnswer(invocation -> accountsManager.getByAccountIdentifier(invocation.getArgument(0)).orElseThrow());
 
-    when(destinationAccount.getUuid()).thenReturn(DESTINATION_ACCOUNT_UUID);
+    when(destinationAccount.getAccountIdentifier()).thenReturn(DESTINATION_ACCOUNT_UUID);
     when(destinationAccount.getIdentifier(IdentityType.ACI)).thenReturn(DESTINATION_ACCOUNT_UUID);
     when(destinationAccount.getNumber()).thenReturn(DESTINATION_ACCOUNT_NUMBER);
     when(destinationAccount.getDevice(DESTINATION_DEVICE_ID)).thenReturn(Optional.of(DESTINATION_DEVICE));
@@ -249,7 +249,7 @@ class MessagePersisterTest {
       when(accountsManager.getByAccountIdentifierAsync(accountUuid))
           .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-      when(account.getUuid()).thenReturn(accountUuid);
+      when(account.getAccountIdentifier()).thenReturn(accountUuid);
       when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountUuid);
       when(account.getDevice(anyByte())).thenAnswer(invocation -> Optional.of(DevicesHelper.createDevice(invocation.getArgument(0))));
 

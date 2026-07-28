@@ -350,7 +350,7 @@ public class PushNotificationScheduler implements Managed {
     // the original device's id, the new device might get the old device's scheduled push, or the new device might
     // delay its own push because the old device had a recent push. An extra or delayed background push is harmless,
     // so this is okay.
-    return account.getUuid() + ":" + device.getId();
+    return account.getAccountIdentifier() + ":" + device.getId();
   }
 
   static Pair<UUID, Byte> decodeAciAndDeviceId(final String encoded) {

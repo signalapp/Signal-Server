@@ -81,25 +81,25 @@ class ExperimentEnrollmentManagerTest {
         .thenReturn(Optional.of(e164ExperimentEnrollmentConfiguration));
 
     account = mock(Account.class);
-    when(account.getUuid()).thenReturn(ACCOUNT_UUID);
+    when(account.getAccountIdentifier()).thenReturn(ACCOUNT_UUID);
   }
 
   @Test
   void testIsEnrolled_UuidExperiment() {
-    assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+    assertFalse(experimentEnrollmentManager.isEnrolled(account.getAccountIdentifier(), UUID_EXPERIMENT_NAME));
     assertFalse(
-        experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME + "-unrelated-experiment"));
+        experimentEnrollmentManager.isEnrolled(account.getAccountIdentifier(), UUID_EXPERIMENT_NAME + "-unrelated-experiment"));
 
     when(uuidSelector.getUuids()).thenReturn(Set.of(ACCOUNT_UUID));
-    assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(account.getAccountIdentifier(), UUID_EXPERIMENT_NAME));
 
     when(uuidSelector.getUuids()).thenReturn(Collections.emptySet());
     when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
 
-    assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+    assertFalse(experimentEnrollmentManager.isEnrolled(account.getAccountIdentifier(), UUID_EXPERIMENT_NAME));
 
     when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
-    assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(account.getAccountIdentifier(), UUID_EXPERIMENT_NAME));
 
     when(experimentEnrollmentConfiguration.getExcludedUuids()).thenReturn(Set.of(EXCLUDED_UUID));
     when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
@@ -112,14 +112,14 @@ class ExperimentEnrollmentManagerTest {
   void testIsEnrolled_UuidExperimentPercentage() {
     when(uuidSelector.getUuids()).thenReturn(Set.of(ACCOUNT_UUID));
     when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(0);
-    assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+    assertFalse(experimentEnrollmentManager.isEnrolled(account.getAccountIdentifier(), UUID_EXPERIMENT_NAME));
     when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(100);
-    assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(account.getAccountIdentifier(), UUID_EXPERIMENT_NAME));
 
     when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(75);
     final Map<Boolean, Long> counts = IntStream.range(0, 100).mapToObj(i -> {
           when(random.nextInt(100)).thenReturn(i);
-          return experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME);
+          return experimentEnrollmentManager.isEnrolled(account.getAccountIdentifier(), UUID_EXPERIMENT_NAME);
         })
         .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
     assertEquals(25, counts.get(false));
@@ -137,24 +137,24 @@ class ExperimentEnrollmentManagerTest {
     // test UUID enrollment is prioritized
     when(uuidSelector.getUuids()).thenReturn(Set.of(ACCOUNT_UUID));
     when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(100);
-    assertTrue(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getAccountIdentifier(), E164_AND_UUID_EXPERIMENT_NAME));
     when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(0);
-    assertFalse(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
-    assertFalse(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertFalse(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getAccountIdentifier(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertFalse(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getAccountIdentifier(), E164_AND_UUID_EXPERIMENT_NAME));
 
     // test fallback from UUID enrollment to general enrollment percentage
     when(uuidSelector.getUuids()).thenReturn(Collections.emptySet());
     when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
-    assertTrue(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
-    assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getAccountIdentifier(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getAccountIdentifier(), E164_AND_UUID_EXPERIMENT_NAME));
 
     // test fallback from UUID/general enrollment to e164 enrollment
     when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
-    assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
-    assertFalse(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getAccountIdentifier(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertFalse(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getAccountIdentifier(), E164_AND_UUID_EXPERIMENT_NAME));
     when(e164ExperimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
-    assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
-    assertTrue(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getAccountIdentifier(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getAccountIdentifier(), E164_AND_UUID_EXPERIMENT_NAME));
   }
 
   @ParameterizedTest

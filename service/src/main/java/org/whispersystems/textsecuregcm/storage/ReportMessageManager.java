@@ -118,7 +118,7 @@ public class ReportMessageManager {
           connection ->
               Math.max(
                   connection.sync().pfcount(getReportedSenderPniKey(account.getPhoneNumberIdentifier())).intValue(),
-                  connection.sync().pfcount(getReportedSenderAciKey(account.getUuid())).intValue()));
+                  connection.sync().pfcount(getReportedSenderAciKey(account.getAccountIdentifier())).intValue()));
     } catch (final RedisException e) {
       return 0;
     }

@@ -67,7 +67,7 @@ public class AccountsAnonymousGrpcService extends SimpleAccountsAnonymousGrpc.Ac
 
     return accountsManager.getByUsernameHash(request.getUsernameHash().toByteArray()).join()
         .map(account -> LookupUsernameHashResponse.newBuilder()
-            .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(account.getUuid())))
+            .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(account.getAccountIdentifier())))
             .build())
         .orElseGet(() -> LookupUsernameHashResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build());
   }

@@ -105,7 +105,7 @@ public class ChangeNumberManager {
     // Only verify and check reglock if there's a data change to be made...
     if (!account.getNumber().equals(number)) {
 
-      final Optional<Duration> waitingPeriodRemaining = changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(account.getUuid());
+      final Optional<Duration> waitingPeriodRemaining = changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(account.getAccountIdentifier());
       if (waitingPeriodRemaining.isPresent()) {
         Metrics.counter(POST_REGISTRATION_WAITING_PERIOD_NOT_MET_COUNTER_NAME).increment();
         throw new RateLimitExceededException(waitingPeriodRemaining.get());

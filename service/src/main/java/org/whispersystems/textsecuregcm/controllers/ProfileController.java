@@ -245,7 +245,7 @@ public class ProfileController {
 
     return buildVersionedProfileResponse(targetAccount,
         version,
-        maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), accountIdentifier)).orElse(false),
+        maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getAccountIdentifier(), accountIdentifier)).orElse(false),
         false,
         containerRequestContext);
   }
@@ -286,7 +286,7 @@ public class ProfileController {
                 .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
 
     final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, accountIdentifier, "credentialRequest", userAgent);
-    final boolean isSelf = maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), accountIdentifier)).orElse(false);
+    final boolean isSelf = maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getAccountIdentifier(), accountIdentifier)).orElse(false);
 
     return buildExpiringProfileKeyCredentialProfileResponse(targetAccount,
         version,
@@ -341,7 +341,7 @@ public class ProfileController {
     }
     return switch (identifier.identityType()) {
       case ACI -> buildBaseProfileResponseForAccountIdentity(targetAccount,
-          maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), identifier)).orElse(false),
+          maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getAccountIdentifier(), identifier)).orElse(false),
           containerRequestContext);
       case PNI -> buildBaseProfileResponseForPhoneNumberIdentity(targetAccount);
     };
@@ -426,13 +426,13 @@ public class ProfileController {
     final ExpiringProfileKeyCredentialResponse expiringProfileKeyCredentialResponse;
 
     if (account.getCurrentProfileVersion().map(v -> HexFormat.of().formatHex(v).equals(version)).orElse(false)) {
-      expiringProfileKeyCredentialResponse = profilesManager.getV1(account.getUuid(), version)
+      expiringProfileKeyCredentialResponse = profilesManager.getV1(account.getAccountIdentifier(), version)
           .map(profile -> {
             final ExpiringProfileKeyCredentialResponse profileKeyCredentialResponse;
             try {
               profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(
                   new ProfileKeyCredentialRequest(HexFormat.of().parseHex(encodedCredentialRequest)),
-                  new ProfileKeyCommitment(profile.commitment()), new ServiceId.Aci(account.getUuid()),
+                  new ProfileKeyCommitment(profile.commitment()), new ServiceId.Aci(account.getAccountIdentifier()),
                   zkProfileOperations);
             } catch (VerificationFailedException | InvalidInputException e) {
               throw new BadRequestException(e);
@@ -455,7 +455,7 @@ public class ProfileController {
       final boolean hasCredentialRequest,
       final ContainerRequestContext containerRequestContext) {
 
-    final Optional<VersionedProfileV1> maybeProfile = profilesManager.getV1(account.getUuid(), version);
+    final Optional<VersionedProfileV1> maybeProfile = profilesManager.getV1(account.getAccountIdentifier(), version);
 
     if (maybeProfile.isEmpty()) {
       // this can happen if an account re-registers, which includes some device-transfer scenarios
@@ -498,7 +498,7 @@ public class ProfileController {
             HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext),
             account.getBadges(),
             isSelf),
-        new AciServiceIdentifier(account.getUuid()));
+        new AciServiceIdentifier(account.getAccountIdentifier()));
   }
 
   private BaseProfileResponse buildBaseProfileResponseForPhoneNumberIdentity(final Account account) {
@@ -537,7 +537,7 @@ public class ProfileController {
     }
 
     if (maybeRequester.isPresent()) {
-      rateLimiters.getProfileLimiter().validate(maybeRequester.get().getUuid());
+      rateLimiters.getProfileLimiter().validate(maybeRequester.get().getAccountIdentifier());
     }
 
     final Optional<Account> maybeTargetAccount = accountsManager.getByServiceIdentifier(accountIdentifier);

@@ -111,7 +111,7 @@ class MessageSenderTest {
         .setUrgent(urgent)
         .build();
 
-    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
@@ -168,7 +168,7 @@ class MessageSenderTest {
     final Device device = mock(Device.class);
     final MessageProtos.Envelope message = MessageProtos.Envelope.newBuilder().build();
 
-    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
@@ -209,7 +209,7 @@ class MessageSenderTest {
     final Device device = mock(Device.class);
     final MessageProtos.Envelope message = MessageProtos.Envelope.newBuilder().build();
 
-    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
@@ -245,7 +245,7 @@ class MessageSenderTest {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
 
-    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
@@ -306,7 +306,7 @@ class MessageSenderTest {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
 
-    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
@@ -361,7 +361,7 @@ class MessageSenderTest {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
 
-    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
@@ -686,7 +686,7 @@ class MessageSenderTest {
     final byte deviceId = Device.PRIMARY_ID;
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
 

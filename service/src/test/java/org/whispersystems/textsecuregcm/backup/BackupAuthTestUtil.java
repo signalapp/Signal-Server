@@ -70,7 +70,7 @@ public class BackupAuthTestUtil {
     final BackupAuthManager issuer = new BackupAuthManager(
         mock(ExperimentEnrollmentManager.class), null, null, null, null, params, clock);
     Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(aci);
+    when(account.getAccountIdentifier()).thenReturn(aci);
     when(account.getBackupCredentialRequest(any())).thenReturn(Optional.of(request.serialize()));
     when(account.getBackupVoucher()).thenReturn(switch (backupLevel) {
       case FREE -> null;

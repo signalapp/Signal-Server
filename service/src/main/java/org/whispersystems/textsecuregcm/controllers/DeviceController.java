@@ -196,7 +196,7 @@ public class DeviceController {
     final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    rateLimiters.getAllocateDeviceLimiter().validate(account.getUuid());
+    rateLimiters.getAllocateDeviceLimiter().validate(account.getAccountIdentifier());
 
     if (account.getDevices().size() >= MAX_DEVICES) {
       throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
@@ -206,7 +206,7 @@ public class DeviceController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    final String token = accounts.generateLinkDeviceToken(account.getUuid());
+    final String token = accounts.generateLinkDeviceToken(account.getAccountIdentifier());
 
     return new LinkDeviceToken(token, AccountsManager.getLinkDeviceTokenIdentifier(token));
   }
@@ -240,7 +240,7 @@ public class DeviceController {
     final DeviceActivationRequest deviceActivationRequest = linkDeviceRequest.deviceActivationRequest();
     final DeviceAttributes deviceAttributes = linkDeviceRequest.deviceAttributes();
 
-    rateLimiters.getVerifyDeviceLimiter().validate(account.getUuid());
+    rateLimiters.getVerifyDeviceLimiter().validate(account.getAccountIdentifier());
 
     final boolean allKeysValid =
         PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.ACI),

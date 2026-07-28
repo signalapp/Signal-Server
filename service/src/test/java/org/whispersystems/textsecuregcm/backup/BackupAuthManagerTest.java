@@ -111,7 +111,7 @@ public class BackupAuthManagerTest {
     final BackupAuthManager authManager = create();
 
     final Account account = mock(Account.class);
-    when(account.getUuid()).thenReturn(aci);
+    when(account.getAccountIdentifier()).thenReturn(aci);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(aci);
 
     AccountsHelper.setupMockGet(accountsManager, account);
@@ -556,7 +556,7 @@ public class BackupAuthManagerTest {
     private final Account account = mock(Account.class);
 
     MockAccountBuilder() {
-      when(account.getUuid()).thenReturn(aci);
+      when(account.getAccountIdentifier()).thenReturn(aci);
     }
 
     MockAccountBuilder backupLevel(BackupLevel backupLevel) {

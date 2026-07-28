@@ -426,7 +426,7 @@ public class KeysController {
         .flatMap(targetAccount::getDevice)
         .map(device -> device.getRegistrationId(targetIdentifier.identityType()));
     return RateLimitKeys.preKeyLimiterKey(
-        account.getUuid(),
+        account.getAccountIdentifier(),
         authenticatedDevice.deviceId(),
         targetIdentifier,
         parsedTargetDeviceId, targetRegistrationId);

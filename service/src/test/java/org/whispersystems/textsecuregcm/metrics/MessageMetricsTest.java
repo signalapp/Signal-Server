@@ -35,7 +35,7 @@ class MessageMetricsTest {
 
   @BeforeEach
   void setup() {
-    when(account.getUuid()).thenReturn(aci);
+    when(account.getAccountIdentifier()).thenReturn(aci);
     when(account.getPhoneNumberIdentifier()).thenReturn(pni);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(aci))).thenReturn(true);

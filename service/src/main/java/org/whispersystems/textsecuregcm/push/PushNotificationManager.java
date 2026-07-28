@@ -12,8 +12,6 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
@@ -217,7 +215,7 @@ public class PushNotificationManager {
     // Reread the account to avoid marking the caller's account as stale. The consumers of this class tend to
     // promise not to modify accounts. There's no need to force the caller to be considered mutable just for
     // updating an uninstalled feedback timestamp though.
-    accountsManager.getByAccountIdentifier(account.getUuid()).ifPresent(rereadAccount ->
+    accountsManager.getByAccountIdentifier(account.getAccountIdentifier()).ifPresent(rereadAccount ->
         rereadAccount.getDevice(device.getId()).ifPresent(rereadDevice ->
             accountsManager.updateDevice(rereadAccount.getIdentifier(IdentityType.ACI), device.getId(), d -> {
               // Don't clear the token if it's already changed

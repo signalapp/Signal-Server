@@ -126,7 +126,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
   @VisibleForTesting
   public Account updateLastSeen(Account account, Device device) {
     // compute a non-negative integer between 0 and 86400.
-    long n = Util.ensureNonNegativeLong(account.getUuid().getLeastSignificantBits());
+    long n = Util.ensureNonNegativeLong(account.getAccountIdentifier().getLeastSignificantBits());
     final long lastSeenOffsetSeconds = n % ChronoUnit.DAYS.getDuration().toSeconds();
 
     // produce a truncated timestamp which is either today at UTC midnight

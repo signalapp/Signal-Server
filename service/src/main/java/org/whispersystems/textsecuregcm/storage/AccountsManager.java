@@ -322,7 +322,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     // Reuse the ACI from any recently-deleted account with this number to cover cases where somebody is
     // re-registering.
-    account.setUuid(maybeRecentlyDeletedAccountIdentifier.orElseGet(UUID::randomUUID));
+    account.setAccountIdentifier(maybeRecentlyDeletedAccountIdentifier.orElseGet(UUID::randomUUID));
     account.setNumber(number, pni);
     account.setIdentityKey(aciIdentityKey);
     account.setPhoneNumberIdentityKey(pniIdentityKey);
@@ -367,7 +367,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       }
 
       final UUID aci = e.getExistingAccount().getIdentifier(IdentityType.ACI);
-      account.setUuid(aci);
+      account.setAccountIdentifier(aci);
 
       final List<TransactWriteItem> additionalWriteItems = Stream.concat(
               keysManager.buildWriteItemsForNewDevice(account.getIdentifier(IdentityType.ACI),
@@ -417,7 +417,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                 .store(account.getIdentifier(IdentityType.PNI), registrationRecoveryPassword))
         .orElse(false);
 
-    changeNumberWaitingPeriodManager.handleAccountCreated(account.getUuid(), clock.instant());
+    changeNumberWaitingPeriodManager.handleAccountCreated(account.getAccountIdentifier(), clock.instant());
 
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
         Tag.of("type", accountCreationType),
@@ -457,9 +457,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final byte nextDeviceId = account.getNextDeviceId();
 
     CompletableFuture.allOf(
-            keysManager.deleteSingleUsePreKeys(account.getUuid(), nextDeviceId),
+            keysManager.deleteSingleUsePreKeys(account.getAccountIdentifier(), nextDeviceId),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier(), nextDeviceId),
-            messagesManager.clear(account.getUuid(), nextDeviceId))
+            messagesManager.clear(account.getAccountIdentifier(), nextDeviceId))
         .join();
 
     account.addDevice(deviceSpec.toDevice(nextDeviceId, clock, account.getIdentityKey(IdentityType.ACI)));
@@ -650,8 +650,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         .orElseThrow(ContestedOptimisticLockException::new);
 
     CompletableFuture.allOf(
-            keysManager.deleteSingleUsePreKeys(account.getUuid(), deviceId),
-            messagesManager.clear(account.getUuid(), deviceId))
+            keysManager.deleteSingleUsePreKeys(account.getAccountIdentifier(), deviceId),
+            messagesManager.clear(account.getAccountIdentifier(), deviceId))
         .join();
 
     account.removeDevice(deviceId);
@@ -669,8 +669,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
       // Ensure any messages/single-use pre-keys that came in while we were working are also removed
       CompletableFuture.allOf(
-              keysManager.deleteSingleUsePreKeys(account.getUuid(), deviceId),
-              messagesManager.clear(account.getUuid(), deviceId))
+              keysManager.deleteSingleUsePreKeys(account.getAccountIdentifier(), deviceId),
+              messagesManager.clear(account.getAccountIdentifier(), deviceId))
           .join();
 
       disconnectionRequestManager.requestDisconnection(accountIdentifier, List.of(deviceId));
@@ -743,13 +743,13 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         maybeDisplacedUuid = Optional.empty();
       } else {
         delete(maybeExistingAccount.get());
-        maybeDisplacedUuid = maybeExistingAccount.map(Account::getUuid);
+        maybeDisplacedUuid = maybeExistingAccount.map(Account::getAccountIdentifier);
       }
     } else {
       maybeDisplacedUuid = recentlyDeletedAci;
     }
 
-    final UUID uuid = account.getUuid();
+    final UUID uuid = account.getAccountIdentifier();
 
     CompletableFuture.allOf(
             keysManager.deleteSingleUsePreKeys(targetPhoneNumberIdentifier),
@@ -868,7 +868,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         _ -> true,
         a -> reservedUsernameHash.set(
             checkAndReserveNextUsernameHash(a, new ArrayDeque<>(requestedUsernameHashes))),
-        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        () -> accounts.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow(),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
 
     redisDelete(updatedAccount);
@@ -927,7 +927,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final Account updatedAccount = updateWithRetries(
         _ -> true,
         a -> accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername),
-        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        () -> accounts.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow(),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
 
     redisDelete(updatedAccount);
@@ -1209,17 +1209,17 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         .toList();
 
     CompletableFuture.allOf(
-            secureStorageClient.deleteStoredData(account.getUuid()),
-            secureValueRecovery2Client.removeData(account.getUuid()),
-            keysManager.deleteSingleUsePreKeys(account.getUuid()),
+            secureStorageClient.deleteStoredData(account.getAccountIdentifier()),
+            secureValueRecovery2Client.removeData(account.getAccountIdentifier()),
+            keysManager.deleteSingleUsePreKeys(account.getAccountIdentifier()),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
-            messagesManager.clear(account.getUuid()),
-            profilesManager.deleteAll(account.getUuid(), true))
+            messagesManager.clear(account.getAccountIdentifier()),
+            profilesManager.deleteAll(account.getAccountIdentifier(), true))
         .join();
 
     registrationRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI));
 
-    accounts.delete(account.getUuid(), additionalWriteItems);
+    accounts.delete(account.getAccountIdentifier(), additionalWriteItems);
     redisDelete(account);
 
     disconnectionRequestManager.requestDisconnection(account);
@@ -1242,8 +1242,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
           commands.setex(getAccountMapKey(account.getPhoneNumberIdentifier().toString()), CACHE_TTL_SECONDS,
-              account.getUuid().toString());
-          commands.setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson);
+              account.getAccountIdentifier().toString());
+          commands.setex(getAccountEntityKey(account.getAccountIdentifier()), CACHE_TTL_SECONDS, accountJson);
         });
       } catch (JsonProcessingException e) {
         throw new IllegalStateException(e);
@@ -1263,9 +1263,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return cacheCluster.withCluster(connection -> CompletableFuture.allOf(
         connection.async().setex(
                 getAccountMapKey(account.getPhoneNumberIdentifier().toString()), CACHE_TTL_SECONDS,
-                account.getUuid().toString())
+                account.getAccountIdentifier().toString())
             .toCompletableFuture(),
-        connection.async().setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson)
+        connection.async().setex(getAccountEntityKey(account.getAccountIdentifier()), CACHE_TTL_SECONDS, accountJson)
             .toCompletableFuture()));
   }
 
@@ -1372,7 +1372,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     try {
       if (StringUtils.isNotBlank(accountJson)) {
         Account account = SystemMapper.jsonMapper().readValue(accountJson, Account.class);
-        account.setUuid(uuid);
+        account.setAccountIdentifier(uuid);
 
         if (account.getPhoneNumberIdentifier() == null) {
           logger.warn("Account {} loaded from Redis is missing a PNI", uuid);
@@ -1398,7 +1398,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         redisDeleteTimer.record(() ->
             cacheCluster.useCluster(connection ->
                 connection.sync().del(getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
-                    getAccountEntityKey(account.getUuid())))));
+                    getAccountEntityKey(account.getAccountIdentifier())))));
   }
 
   public CompletableFuture<Optional<DeviceInfo>> waitForNewLinkedDevice(

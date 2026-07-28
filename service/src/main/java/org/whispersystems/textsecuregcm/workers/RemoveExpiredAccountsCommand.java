@@ -76,7 +76,7 @@ public class RemoveExpiredAccountsCommand extends AbstractSinglePassCrawlAccount
               .doOnSuccess(ignored -> deletedAccountCounter.increment())
               .retryWhen(Retry.backoff(8, Duration.ofSeconds(1)).maxBackoff(Duration.ofSeconds(4)))
               .onErrorResume(throwable -> {
-                log.warn("Failed to delete account {}", expiredAccount.getUuid(), throwable);
+                log.warn("Failed to delete account {}", expiredAccount.getAccountIdentifier(), throwable);
                 return Mono.empty();
               });
         }, MAX_CONCURRENCY)

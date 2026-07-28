@@ -218,7 +218,7 @@ public class Accounts {
     final Timer.Sample sample = Timer.start();
 
     try {
-      final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getUuid());
+      final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getAccountIdentifier());
       final AttributeValue numberAttr = AttributeValues.fromString(account.getNumber());
       final AttributeValue pniUuidAttr = AttributeValues.fromUUID(account.getPhoneNumberIdentifier());
 
@@ -303,12 +303,12 @@ public class Accounts {
       final Account accountToCreate,
       final Collection<TransactWriteItem> additionalWriteItems) {
 
-    if (!existingAccount.getUuid().equals(accountToCreate.getUuid()) ||
+    if (!existingAccount.getAccountIdentifier().equals(accountToCreate.getAccountIdentifier()) ||
         !existingAccount.getPhoneNumberIdentifier().equals(accountToCreate.getPhoneNumberIdentifier())) {
 
       log.error("Reclaimed accounts must match. Old account {}:{}:{}, New account {}:{}:{}",
-          existingAccount.getUuid(), redactPhoneNumber(existingAccount.getNumber()), existingAccount.getPhoneNumberIdentifier(),
-          accountToCreate.getUuid(), redactPhoneNumber(accountToCreate.getNumber()), accountToCreate.getPhoneNumberIdentifier());
+          existingAccount.getAccountIdentifier(), redactPhoneNumber(existingAccount.getNumber()), existingAccount.getPhoneNumberIdentifier(),
+          accountToCreate.getAccountIdentifier(), redactPhoneNumber(accountToCreate.getNumber()), accountToCreate.getPhoneNumberIdentifier());
       throw new IllegalArgumentException("reclaimed accounts must match");
     }
 
@@ -360,7 +360,7 @@ public class Accounts {
                 .tableName(usernamesConstraintTableName)
                 .item(Map.of(
                     UsernameTable.KEY_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash),
-                    UsernameTable.ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(accountToCreate.getUuid()),
+                    UsernameTable.ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(accountToCreate.getAccountIdentifier()),
                     UsernameTable.ATTR_TTL, AttributeValues.fromLong(expirationTime),
                     UsernameTable.ATTR_CONFIRMED, AttributeValues.fromBool(false),
                     UsernameTable.ATTR_RECLAIMABLE, AttributeValues.fromBool(true)))
@@ -371,7 +371,7 @@ public class Accounts {
                     "#uuid", UsernameTable.ATTR_ACCOUNT_UUID))
                 .expressionAttributeValues(Map.of(
                     ":now", AttributeValues.fromLong(clock.instant().getEpochSecond()),
-                    ":uuid", AttributeValues.fromUUID(accountToCreate.getUuid())))
+                    ":uuid", AttributeValues.fromUUID(accountToCreate.getAccountIdentifier())))
                 .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
                 .build())
             .build());
@@ -381,7 +381,7 @@ public class Accounts {
       // to reclaim the account.
       if (!existingAccount.getNumber().equals(accountToCreate.getNumber())) {
         if (getAlternateForms(existingAccount.getNumber()).contains(accountToCreate.getNumber())) {
-          final AttributeValue uuidAttr = AttributeValues.fromUUID(existingAccount.getUuid());
+          final AttributeValue uuidAttr = AttributeValues.fromUUID(existingAccount.getAccountIdentifier());
           final AttributeValue numberAttr = AttributeValues.fromString(accountToCreate.getNumber());
           final TransactWriteItem phoneNumberConstraintPut = buildConstraintTablePutIfAbsent(
               phoneNumberConstraintTableName, uuidAttr, ATTR_ACCOUNT_E164, numberAttr);
@@ -390,8 +390,8 @@ public class Accounts {
           writeItems.add(phoneNumberConstraintPut);
         } else {
           throw new IllegalStateException(String.format("Reclaiming account with a non-equivalent phone number. Old account %s:%s:%s, new account %s:%s:%s",
-              existingAccount.getUuid(), redactPhoneNumber(existingAccount.getNumber()), existingAccount.getPhoneNumberIdentifier(),
-              accountToCreate.getUuid(), redactPhoneNumber(accountToCreate.getNumber()), accountToCreate.getPhoneNumberIdentifier()));
+              existingAccount.getAccountIdentifier(), redactPhoneNumber(existingAccount.getNumber()), existingAccount.getPhoneNumberIdentifier(),
+              accountToCreate.getAccountIdentifier(), redactPhoneNumber(accountToCreate.getNumber()), accountToCreate.getPhoneNumberIdentifier()));
         }
       }
 
@@ -412,7 +412,7 @@ public class Accounts {
                 final String existingNumber = AttributeValues.getString(item, Accounts.ATTR_ACCOUNT_E164, null);
                 if (!existingAccount.getNumber().equals(existingNumber)) {
                   log.error("Failed to update account due to unexpected existing phone number. Account {}. Expected {}, got {}",
-                      existingAccount.getUuid(), existingAccount.getNumber(), existingNumber);
+                      existingAccount.getAccountIdentifier(), existingAccount.getNumber(), existingNumber);
                   throw new UnexpectedExistingPhoneNumberException();
                 }
               }
@@ -457,7 +457,7 @@ public class Accounts {
       int accountUpdateIndex = -1;
       try {
         final List<TransactWriteItem> writeItems = new ArrayList<>();
-        final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getUuid());
+        final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getAccountIdentifier());
         final AttributeValue numberAttr = AttributeValues.fromString(number);
         final AttributeValue pniAttr = AttributeValues.fromUUID(phoneNumberIdentifier);
 
@@ -599,7 +599,7 @@ public class Accounts {
       final long expirationTimeSeconds) throws ContestedOptimisticLockException, TtlConflictException, UsernameHashNotAvailableException {
 
     // Use account UUID as a "reservation token" - by providing this, the client proves ownership of the hash
-    final UUID uuid = updatedAccount.getUuid();
+    final UUID uuid = updatedAccount.getAccountIdentifier();
 
     final List<TransactWriteItem> writeItems = new ArrayList<>();
 
@@ -786,7 +786,7 @@ public class Accounts {
     writeItems.add(TransactWriteItem.builder().put(Put.builder()
             .tableName(usernamesConstraintTableName)
             .item(Map.of(
-                UsernameTable.ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(updatedAccount.getUuid()),
+                UsernameTable.ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(updatedAccount.getAccountIdentifier()),
                 UsernameTable.KEY_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash),
                 UsernameTable.ATTR_CONFIRMED, AttributeValues.fromBool(true)))
             // it's not in the constraint table OR it's expired OR it was reserved by us
@@ -798,7 +798,7 @@ public class Accounts {
                 "#confirmed", UsernameTable.ATTR_CONFIRMED))
             .expressionAttributeValues(Map.of(
                 ":now", AttributeValues.fromLong(clock.instant().getEpochSecond()),
-                ":aci", AttributeValues.fromUUID(updatedAccount.getUuid()),
+                ":aci", AttributeValues.fromUUID(updatedAccount.getAccountIdentifier()),
                 ":confirmed", AttributeValues.fromBool(false)))
             .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
             .build())
@@ -809,11 +809,11 @@ public class Accounts {
 
     // 2?: Add a temporary hold for the old username to stop others from claiming it
     maybeOriginalUsernameHash.ifPresent(originalUsernameHash ->
-        writeItems.add(holdUsernameTransactItem(updatedAccount.getUuid(), originalUsernameHash, now)));
+        writeItems.add(holdUsernameTransactItem(updatedAccount.getAccountIdentifier(), originalUsernameHash, now)));
 
     // 3?: Adding that hold may have caused our account to exceed our maximum holds. Release an old hold
     holdToRemove.ifPresent(oldHold ->
-        writeItems.add(releaseHoldIfAllowedTransactItem(updatedAccount.getUuid(), oldHold, now)));
+        writeItems.add(releaseHoldIfAllowedTransactItem(updatedAccount.getAccountIdentifier(), oldHold, now)));
 
     try {
       dynamoDbClient.transactWriteItems(TransactWriteItemsRequest.builder().transactItems(writeItems).build());
@@ -894,10 +894,10 @@ public class Accounts {
     items.add(UpdateAccountSpec.forAccount(accountsTableName, updatedAccount).transactItem());
 
     // 1: Un-confirm our username, adding a temporary hold for the old username to stop others from claiming it
-    items.add(holdUsernameTransactItem(updatedAccount.getUuid(), usernameHash, now));
+    items.add(holdUsernameTransactItem(updatedAccount.getAccountIdentifier(), usernameHash, now));
 
     // 2?: Adding that hold may have caused our account to exceed our maximum holds. Release an old hold
-    holdToRemove.ifPresent(oldHold -> items.add(releaseHoldIfAllowedTransactItem(updatedAccount.getUuid(), oldHold, now)));
+    holdToRemove.ifPresent(oldHold -> items.add(releaseHoldIfAllowedTransactItem(updatedAccount.getAccountIdentifier(), oldHold, now)));
 
     try {
       dynamoDbClient.transactWriteItems(TransactWriteItemsRequest.builder().transactItems(items).build());
@@ -1080,7 +1080,7 @@ public class Accounts {
 
       return new UpdateAccountSpec(
           accountTableName,
-          Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())),
+          Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getAccountIdentifier())),
           attrNames,
           attrValues,
           new UpdateExpression(setClauses, addClauses, removeClauses),
@@ -1102,7 +1102,7 @@ public class Accounts {
     } catch (final ConditionalCheckFailedException e) {
       // the exception doesn't give details about which condition failed,
       // but we can infer it was an optimistic locking failure if the UUID is known
-      if (getByAccountIdentifier(account.getUuid()).isPresent()) {
+      if (getByAccountIdentifier(account.getAccountIdentifier()).isPresent()) {
         throw new ContestedOptimisticLockException();
       } else {
         throw e;
@@ -1241,7 +1241,7 @@ public class Accounts {
     return TransactWriteItem.builder()
         .delete(Delete.builder()
             .tableName(accountsTableName)
-            .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+            .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getAccountIdentifier())))
             .conditionExpression("#version = :version")
             .expressionAttributeNames(Map.of("#version", ATTR_VERSION))
             .expressionAttributeValues(Map.of(":version", AttributeValues.fromInt(account.getVersion())))
@@ -1680,7 +1680,7 @@ public class Accounts {
       }
 
       account.setNumber(attributeNumber, phoneNumberIdentifierFromAttribute);
-      account.setUuid(accountIdentifier);
+      account.setAccountIdentifier(accountIdentifier);
       account.setUsernameHash(AttributeValues.getByteArray(item, ATTR_USERNAME_HASH, null));
       account.setUsernameLinkHandle(AttributeValues.getUUID(item, ATTR_USERNAME_LINK_UUID, null));
       account.setVersion(Integer.parseInt(item.get(ATTR_VERSION).n()));

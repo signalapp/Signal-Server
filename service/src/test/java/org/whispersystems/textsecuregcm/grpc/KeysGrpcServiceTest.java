@@ -72,7 +72,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -111,7 +110,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     when(authenticatedDevice.getId()).thenReturn(AUTHENTICATED_DEVICE_ID);
 
     final Account authenticatedAccount = mock(Account.class);
-    when(authenticatedAccount.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(authenticatedAccount.getPhoneNumberIdentifier()).thenReturn(AUTHENTICATED_PNI);
     when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
     when(authenticatedAccount.getIdentifier(IdentityType.PNI)).thenReturn(AUTHENTICATED_PNI);
@@ -470,7 +469,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
       case ACI -> new AciServiceIdentifier(identifier);
     };
 
-    when(targetAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(targetAccount.getAccountIdentifier()).thenReturn(UUID.randomUUID());
     when(targetAccount.getIdentifier(identityType)).thenReturn(identifier);
     when(targetAccount.getIdentityKey(identityType)).thenReturn(identityKey);
     when(accountsManager.getByServiceIdentifier(serviceIdentifier))
@@ -587,7 +586,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account targetAccount = mock(Account.class);
-    when(targetAccount.getUuid()).thenReturn(accountIdentifier);
+    when(targetAccount.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
     when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
@@ -618,7 +617,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
       when(mockDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
 
       final Account targetAccount = mock(Account.class);
-      when(targetAccount.getUuid()).thenReturn(targetAccountId);
+      when(targetAccount.getAccountIdentifier()).thenReturn(targetAccountId);
       when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
       when(targetAccount.getDevice(targetDeviceId)).thenReturn(Optional.of(mockDevice));
       when(targetAccount.getDevices()).thenReturn(List.of(mockDevice));
@@ -667,7 +666,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
       case ACI -> new AciServiceIdentifier(identifier);
     };
 
-    when(targetAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(targetAccount.getAccountIdentifier()).thenReturn(UUID.randomUUID());
     when(targetAccount.getIdentifier(identityType)).thenReturn(identifier);
     when(targetAccount.getIdentityKey(identityType)).thenReturn(identityKey);
     when(accountsManager.getByServiceIdentifier(serviceIdentifier))

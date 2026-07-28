@@ -138,7 +138,7 @@ class DeviceControllerTest {
 
     when(account.getNextDeviceId()).thenReturn(NEXT_DEVICE_ID);
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
-    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
     when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
     when(account.getIdentifier(IdentityType.PNI)).thenReturn(AuthHelper.VALID_PNI);

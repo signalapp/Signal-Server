@@ -13,7 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Optional;
 import org.bouncycastle.crypto.digests.TupleHash;
 import org.signal.chat.common.S3UploadForm;
@@ -54,7 +53,7 @@ public class ProfileGrpcHelper {
       final ProfileBadgeConverter profileBadgeConverter,
       final byte[] requestVersion) {
     final Optional<VersionedProfileV1> maybeV1Profile =
-        profilesManager.getV1(account.getUuid(), HexFormat.of().formatHex(requestVersion));
+        profilesManager.getV1(account.getAccountIdentifier(), HexFormat.of().formatHex(requestVersion));
     if (maybeV1Profile.isEmpty()) {
       return Optional.empty();
     }
@@ -86,7 +85,7 @@ public class ProfileGrpcHelper {
       final byte[] requestVersion) {
 
     final Optional<VersionedProfile> maybeProfile = account.hasCapability(DeviceCapability.PROFILES_V2)
-        ? profilesManager.get(account.getUuid(), requestVersion)
+        ? profilesManager.get(account.getAccountIdentifier(), requestVersion)
         : Optional.empty();
     if (maybeProfile.isEmpty()) {
       return Optional.empty();
@@ -131,13 +130,13 @@ public class ProfileGrpcHelper {
 
     final Optional<VersionedProfile> versionedProfile;
     if (account.hasCapability(DeviceCapability.PROFILES_V2)) {
-      versionedProfile = profilesManager.get(account.getUuid(), version);
+      versionedProfile = profilesManager.get(account.getAccountIdentifier(), version);
     } else {
       versionedProfile = Optional.empty();
     }
 
     return versionedProfile.map(VersionedProfile::commitment)
-        .or(() -> profilesManager.getV1(account.getUuid(), HexFormat.of().formatHex(version))
+        .or(() -> profilesManager.getV1(account.getAccountIdentifier(), HexFormat.of().formatHex(version))
             .map(VersionedProfileV1::commitment))
         .map(commitment -> {
 
@@ -145,7 +144,7 @@ public class ProfileGrpcHelper {
           try {
             profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(
                 new ProfileKeyCredentialRequest(encodedCredentialRequest),
-                new ProfileKeyCommitment(commitment), new ServiceId.Aci(account.getUuid()), zkProfileOperations);
+                new ProfileKeyCommitment(commitment), new ServiceId.Aci(account.getAccountIdentifier()), zkProfileOperations);
           } catch (VerificationFailedException | InvalidInputException e) {
             throw GrpcExceptions.invalidArguments("invalid credential request");
           }

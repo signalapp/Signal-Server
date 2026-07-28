@@ -126,7 +126,7 @@ class AccountControllerV2Test {
             final List<Device> devices = account.getDevices();
 
             final Account updatedAccount = mock(Account.class);
-            when(updatedAccount.getUuid()).thenReturn(uuid);
+            when(updatedAccount.getAccountIdentifier()).thenReturn(uuid);
             when(updatedAccount.getNumber()).thenReturn(number);
             when(updatedAccount.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
             if (number.equals(account.getNumber())) {
@@ -469,13 +469,13 @@ class AccountControllerV2Test {
     @ParameterizedTest
     @ArgumentsSource(AccountsTestHelper.AccountsDataReportArgumentProvider.class)
     void testGetAccountDataReport(final Account account, final String expectedTextAfterHeader) throws Exception {
-      when(AuthHelper.ACCOUNTS_MANAGER.getByAccountIdentifier(account.getUuid())).thenReturn(Optional.of(account));
-      when(accountsManager.getByAccountIdentifier(account.getUuid())).thenReturn(Optional.of(account));
+      when(AuthHelper.ACCOUNTS_MANAGER.getByAccountIdentifier(account.getAccountIdentifier())).thenReturn(Optional.of(account));
+      when(accountsManager.getByAccountIdentifier(account.getAccountIdentifier())).thenReturn(Optional.of(account));
 
       final Response response = resources.getJerseyTest()
           .target("/v2/accounts/data_report")
           .request()
-          .header("Authorization", AuthHelper.getAuthHeader(account.getUuid(), "password"))
+          .header("Authorization", AuthHelper.getAuthHeader(account.getAccountIdentifier(), "password"))
           .get();
 
       assertEquals(200, response.getStatus());

@@ -59,7 +59,7 @@ class CertificateGeneratorTest {
         SIGNING_CERTIFICATE_DATA, SIGNING_KEY, 1, embedSigner);
 
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
-    when(account.getUuid()).thenReturn(ACI);
+    when(account.getAccountIdentifier()).thenReturn(ACI);
     when(account.getNumber()).thenReturn(E164);
 
     final byte[] contents = certificateGenerator.createFor(account, deviceId, includeE164);
