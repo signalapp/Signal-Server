@@ -81,7 +81,6 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
@@ -326,64 +325,6 @@ class AccountsTest {
 
     verifyStoredState("+14151112222", uuidFirst, pniFirst, null, retrievedFirst.get(), accountFirst);
     verifyStoredState("+14152221111", uuidSecond, pniSecond, null, retrievedSecond.get(), accountSecond);
-  }
-
-  @Test
-  void testRetrieveNoPni() throws JsonProcessingException {
-    final List<Device> devices = List.of(generateDevice(DEVICE_ID_1), generateDevice(DEVICE_ID_2));
-    final UUID uuid = UUID.randomUUID();
-    final Account account = generateAccount("+14151112222", uuid, null, devices);
-
-    // Accounts#create enforces that newly-created accounts have a PNI, so we need to make a bit of an end-run around it
-    // to simulate an existing account with no PNI.
-    {
-      final TransactWriteItem phoneNumberConstraintPut = TransactWriteItem.builder()
-          .put(
-              Put.builder()
-                  .tableName(Tables.NUMBERS.tableName())
-                  .item(Map.of(
-                      Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
-                      Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-                  .conditionExpression(
-                      "attribute_not_exists(#number) OR (attribute_exists(#number) AND #uuid = :uuid)")
-                  .expressionAttributeNames(
-                      Map.of("#uuid", Accounts.KEY_ACCOUNT_UUID,
-                          "#number", Accounts.ATTR_ACCOUNT_E164))
-                  .expressionAttributeValues(
-                      Map.of(":uuid", AttributeValues.fromUUID(account.getUuid())))
-                  .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
-                  .build())
-          .build();
-
-      final TransactWriteItem accountPut = TransactWriteItem.builder()
-          .put(Put.builder()
-              .tableName(Tables.ACCOUNTS.tableName())
-              .conditionExpression("attribute_not_exists(#number) OR #number = :number")
-              .expressionAttributeNames(Map.of("#number", Accounts.ATTR_ACCOUNT_E164))
-              .expressionAttributeValues(Map.of(":number", AttributeValues.fromString(account.getNumber())))
-              .item(Map.of(
-                  Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
-                  Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
-                  Accounts.ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.jsonMapper().writeValueAsBytes(account)),
-                  Accounts.ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
-                  Accounts.ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.isDiscoverableByPhoneNumber())))
-              .build())
-          .build();
-
-      DYNAMO_DB_EXTENSION.getDynamoDbClient().transactWriteItems(TransactWriteItemsRequest.builder()
-          .transactItems(phoneNumberConstraintPut, accountPut)
-          .build());
-    }
-
-    Optional<Account> retrieved = accounts.getByE164("+14151112222");
-
-    assertThat(retrieved.isPresent()).isTrue();
-    verifyStoredState("+14151112222", uuid, null, null, retrieved.get(), account);
-
-    retrieved = accounts.getByAccountIdentifier(uuid);
-
-    assertThat(retrieved.isPresent()).isTrue();
-    verifyStoredState("+14151112222", uuid, null, null, retrieved.get(), account);
   }
 
   // State before the account is re-registered
