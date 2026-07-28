@@ -7,6 +7,7 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.micrometer.core.instrument.Metrics;
 import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.util.Arrays;
@@ -14,17 +15,18 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
-import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.storage.ConflictingMessageConsumerException;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
@@ -46,7 +48,7 @@ class FoundationDbMessagePublisher {
   @Nullable private final byte[] presenceKey;
 
   // An ID for this specific stream for use when checking "ownership" of a presence value.
-  private final int streamId = NEXT_STREAM_ID.getAndIncrement();
+  private final int streamId;
 
   /// The key that is updated whenever new messages are available in the queue. If null, it is inferred that the publisher
   /// is finite and will terminate when the end-of-queue at time of publisher creation is reached. Otherwise, the publisher
@@ -79,12 +81,12 @@ class FoundationDbMessagePublisher {
   private long totalRequested;
   private long totalEmitted;
 
-  private static final AtomicInteger NEXT_STREAM_ID = new AtomicInteger();
-
   private static final long RENEWAL_INTERVAL_MILLIS =
       FoundationDbMessageStore.PRESENCE_STALE_THRESHOLD.multipliedBy(4).dividedBy(5).toMillis();
 
   private static final int MAX_MESSAGES_PER_PAGE = 1024;
+
+  private static final int STREAM_ID_UNASSIGNED = -1;
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessagePublisher.class);
 
@@ -130,6 +132,7 @@ class FoundationDbMessagePublisher {
       final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
+      final int streamId,
       @Nullable final byte[] presenceKey,
       @Nullable final ScheduledExecutorService presenceRenewalExecutorService,
       @Nullable final byte[] messagesAvailableWatchKey,
@@ -139,6 +142,7 @@ class FoundationDbMessagePublisher {
     this.clock = clock;
     this.beginKeyCursor = beginKeyInclusive;
     this.endKeyExclusive = endKeyExclusive;
+    this.streamId = streamId;
     this.presenceKey = presenceKey;
     this.presenceRenewalExecutorService = presenceRenewalExecutorService;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
@@ -180,6 +184,7 @@ class FoundationDbMessagePublisher {
         clock,
         beginKeyInclusive,
         endKeyExclusive,
+        STREAM_ID_UNASSIGNED,
         null,
         null,
         null,
@@ -194,6 +199,7 @@ class FoundationDbMessagePublisher {
       final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
+      final int streamId,
       final byte[] presenceKey,
       final ScheduledExecutorService presenceRenewalExecutorService,
       final byte[] messagesAvailableWatchKey) {
@@ -202,6 +208,7 @@ class FoundationDbMessagePublisher {
         clock,
         beginKeyInclusive,
         endKeyExclusive,
+        streamId,
         presenceKey,
         presenceRenewalExecutorService,
         messagesAvailableWatchKey,
@@ -305,15 +312,34 @@ class FoundationDbMessagePublisher {
       throw new IllegalArgumentException("Max messages must be positive");
     }
 
-    return FoundationDbUtil.safeRunAsync(database, transaction ->
-            transaction.getRange(beginKeyCursor, endKeyExclusive, maxMessages, false, StreamingMode.EXACT).asList()
-                .thenApply(keyValues -> {
-                  if (keyValues.size() < maxMessages && !terminateOnQueueEmpty) {
-                    setWatch(transaction);
-                  }
+    return FoundationDbUtil.safeRunAsync(database, transaction -> {
+          final CompletableFuture<Void> checkPresenceFuture;
 
-                  return keyValues;
-                }))
+          if (!terminateOnQueueEmpty) {
+            // This is an unbounded publisher and we've established presence, so we should check for conflicts
+            checkPresenceFuture = transaction.get(presenceKey)
+                .thenAccept(presenceValue -> {
+                  if (isPresenceContested(presenceValue)) {
+                    throw new CompletionException(new ConflictingMessageConsumerException());
+                  }
+                });
+          } else {
+            // This is a bounded publisher and we have not established presence, so we don't need to check for conflicts
+            checkPresenceFuture = CompletableFuture.completedFuture(null);
+          }
+
+          return checkPresenceFuture
+              .thenCombine(
+                  transaction.getRange(beginKeyCursor, endKeyExclusive, maxMessages, false, StreamingMode.EXACT).asList(),
+                  (_, keyValues) -> keyValues)
+              .thenApply(keyValues -> {
+                if (keyValues.size() < maxMessages && !terminateOnQueueEmpty) {
+                  setWatch(transaction);
+                }
+
+                return keyValues;
+              });
+        })
         .thenApply(keyValues -> {
           if (keyValues.size() < maxMessages) {
             transitionStateOnEvent(Event.FETCHED_ALL_AVAILABLE_MESSAGES);
@@ -377,7 +403,7 @@ class FoundationDbMessagePublisher {
         })
         .exceptionally(t -> {
           transitionStateOnEvent(Event.FETCH_OR_PUBLISH_ERROR_OCCURRED);
-          emitter.error(t);
+          emitter.error(ExceptionUtils.unwrap(t));
           return null;
         });
   }
@@ -476,14 +502,7 @@ class FoundationDbMessagePublisher {
 
       renewPresenceFuture.whenComplete((_, _) ->
           FoundationDbUtil.safeRunAsync(database, transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
-                if (presenceValue == null) {
-                  return;
-                }
-
-                final byte[] presenceServerId = FoundationDbMessageStore.getPresenceServerId(presenceValue);
-                final int presenceStreamId = FoundationDbMessageStore.getPresenceStreamId(presenceValue);
-
-                if (Arrays.equals(presenceServerId, FoundationDbMessageStore.getServerId()) && streamId == presenceStreamId) {
+                if (!isPresenceContested(presenceValue)) {
                   transaction.clear(presenceKey);
                 }
               }))
@@ -493,6 +512,16 @@ class FoundationDbMessagePublisher {
                 }
               }));
     }
+  }
+
+  private boolean isPresenceContested(final byte[] presenceValue) {
+    if (presenceValue == null) {
+      // Some other process has cleared our presence key, so we must assume a conflict somewhere
+      return true;
+    }
+
+    return streamId != FoundationDbMessageStore.getPresenceStreamId(presenceValue) ||
+        !Arrays.equals(FoundationDbMessageStore.getPresenceServerId(presenceValue), FoundationDbMessageStore.getServerId());
   }
 
   @VisibleForTesting

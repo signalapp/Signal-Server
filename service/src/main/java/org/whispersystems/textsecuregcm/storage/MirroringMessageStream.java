@@ -8,11 +8,14 @@ package org.whispersystems.textsecuregcm.storage;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStream;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
@@ -27,6 +30,9 @@ public class MirroringMessageStream implements MessageStream {
 
   private final AciServiceIdentifier accountIdentifier;
   private final byte deviceId;
+
+  private static final Counter CONFLICTING_CONSUMER_COUNTER =
+      Metrics.counter(MetricsUtil.name(MirroringMessageStream.class, "conflictingConsumer"));
 
   private static final Logger logger = LoggerFactory.getLogger(MirroringMessageStream.class);
 
@@ -49,6 +55,14 @@ public class MirroringMessageStream implements MessageStream {
     protected void hookOnSubscribe(final Subscription subscription) {
       // The base `hookOnSubscribe` requests `Long.MAX_VALUE` elements, and that is something we're explicitly trying
       // to avoid with this subscriber
+    }
+
+    @Override
+    protected void hookOnError(final Throwable throwable) {
+      switch (throwable) {
+        case ConflictingMessageConsumerException _ -> CONFLICTING_CONSUMER_COUNTER.increment();
+        default -> super.hookOnError(throwable);
+      }
     }
   }
 

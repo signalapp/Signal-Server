@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -48,6 +49,8 @@ public class FoundationDbMessageStream implements MessageStream {
   private final Runnable doAfterCleanup;
   private final ScheduledExecutorService presenceRenewalExecutorService;
   private final Clock clock;
+
+  private static final AtomicInteger NEXT_STREAM_ID = new AtomicInteger();
 
   private final Counter messageReadCounter =
       Metrics.counter(name(FoundationDbMessageStream.class, "messagesRead"));
@@ -173,6 +176,7 @@ public class FoundationDbMessageStream implements MessageStream {
                         clock,
                         infinitePublisherBeginKey,
                         KeySelector.firstGreaterThan(deviceQueueSubspace.range().end),
+                        NEXT_STREAM_ID.getAndIncrement(),
                         presenceKey,
                         presenceRenewalExecutorService,
                         messagesAvailableWatchKey).getMessages();
