@@ -24,6 +24,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,9 +53,11 @@ public class Account {
   private UUID uuid;
 
   @JsonProperty("pni")
+  @Nullable
   private UUID phoneNumberIdentifier;
 
   @JsonProperty
+  @Nullable
   private String number;
 
   @JsonProperty
@@ -148,6 +151,19 @@ public class Account {
 
   public record BackupVoucher(@JsonProperty("rl") long receiptLevel, @JsonProperty("e") Instant expiration) {}
 
+  /// Returns an identifier for the given identity type for this account with the assumption that all accounts have
+  /// identifiers for all identity types.
+  ///
+  /// @param identityType the identity type for which to retrieve an account identifier
+  ///
+  /// @return the identifier for the given identity type
+  ///
+  /// @throws NoSuchElementException if the account does not have an identifier for the given identity type
+  ///
+  /// @deprecated Different identity types have significantly differing presence and staleness requirements/guarantees
+  /// for their respective account identifiers. Please use [#getAccountIdentifier()] or
+  /// [#getPhoneNumberIdentifierOptional()] instead.
+  @Deprecated
   public UUID getIdentifier(final IdentityType identityType) {
     return switch (identityType) {
       case ACI -> getAccountIdentifier();
@@ -169,10 +185,31 @@ public class Account {
     this.uuid = accountIdentifier;
   }
 
+  /// Returns the phone number identifier for this account.
+  ///
+  /// @throws NoSuchElementException if this account does not have a phone number identifier
+  ///
+  /// @return the phone number identifier for this account
+  ///
+  /// @deprecated Please use [#getPhoneNumberIdentifierOptional()] (which has clearer presence semantics) instead.
+  @Deprecated
   public UUID getPhoneNumberIdentifier() {
     requireNotStale();
 
+    if (phoneNumberIdentifier == null) {
+      throw new NoSuchElementException();
+    }
+
     return phoneNumberIdentifier;
+  }
+
+  /// Returns the phone number identifier for this account or empty if this account does not have a phone number.
+  ///
+  /// @return the phone number identifier for this account or empty if this account does not have a phone number
+  public Optional<UUID> getPhoneNumberIdentifierOptional() {
+    requireNotStale();
+
+    return Optional.ofNullable(phoneNumberIdentifier);
   }
 
   /// Tests whether this account's account identifier or phone number identifier (depending on the given service
@@ -187,10 +224,29 @@ public class Account {
     };
   }
 
+  /// Returns the E.164-formatted phone number for this account.
+  ///
+  /// @return the E.164-formatted phone number for this account
+  ///
+  /// @throws NoSuchElementException if this account does not have a phone number
+  @Deprecated
   public String getNumber() {
     requireNotStale();
 
+    if (number == null) {
+      throw new NoSuchElementException();
+    }
+
     return number;
+  }
+
+  /// Returns the phone number for this account or empty if this account does not have a phone number.
+  ///
+  /// @return the phone number for this account or empty if this account does not have a phone number
+  public Optional<String> getNumberOptional() {
+    requireNotStale();
+
+    return Optional.ofNullable(number);
   }
 
   public void setNumber(final String number, final UUID phoneNumberIdentifier) {
