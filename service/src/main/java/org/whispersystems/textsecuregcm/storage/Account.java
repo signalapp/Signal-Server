@@ -175,13 +175,11 @@ public class Account {
     return phoneNumberIdentifier;
   }
 
-  /**
-   * Tests whether this account's account identifier or phone number identifier (depending on the given service
-   * identifier's identity type) matches the given service identifier.
-   *
-   * @param serviceIdentifier the identifier to test
-   * @return {@code true} if this account's identifier or phone number identifier matches
-   */
+  /// Tests whether this account's account identifier or phone number identifier (depending on the given service
+  /// identifier's identity type) matches the given service identifier.
+  ///
+  /// @param serviceIdentifier the identifier to test
+  /// @return `true` if this account's identifier or phone number identifier matches
   public boolean isIdentifiedBy(final ServiceIdentifier serviceIdentifier) {
     return switch (serviceIdentifier.identityType()) {
       case ACI -> serviceIdentifier.uuid().equals(uuid);
@@ -531,26 +529,22 @@ public class Account {
     this.backupVoucher = backupVoucher;
   }
 
-  /**
-   * Have all this account's devices been manually locked?
-   *
-   * @see Device#hasLockedCredentials
-   *
-   * @return true if all the account's devices were locked, false otherwise.
-   */
+  /// Have all this account's devices been manually locked?
+  ///
+  /// @see Device#hasLockedCredentials
+  ///
+  /// @return true if all the account's devices were locked, false otherwise.
   public boolean hasLockedCredentials() {
     return devices.stream().allMatch(Device::hasLockedCredentials);
   }
 
-  /**
-   * Lock account by invalidating authentication tokens.
-   *
-   * We only want to do this in cases where there is a potential conflict between the
-   * phone number holder and the registration lock holder. In that case, locking the
-   * account will ensure that either the registration lock holder proves ownership
-   * of the phone number, or after 7 days the phone number holder can register a new
-   * account.
-   */
+  /// Lock account by invalidating authentication tokens.
+  ///
+  /// We only want to do this in cases where there is a potential conflict between the
+  /// phone number holder and the registration lock holder. In that case, locking the
+  /// account will ensure that either the registration lock holder proves ownership
+  /// of the phone number, or after 7 days the phone number holder can register a new
+  /// account.
   public void lockAuthTokenHash() {
     devices.forEach(Device::lockAuthTokenHash);
   }
