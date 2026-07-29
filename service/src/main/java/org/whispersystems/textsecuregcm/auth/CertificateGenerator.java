@@ -35,6 +35,10 @@ public class CertificateGenerator {
   }
 
   public byte[] createFor(final Account account, final byte deviceId, boolean includeE164) {
+    if (includeE164 && account.getNumberOptional().isEmpty()) {
+      throw new IllegalArgumentException();
+    }
+
     SenderCertificate.Certificate.Builder builder = SenderCertificate.Certificate.newBuilder()
         .setSenderDevice(Math.toIntExact(deviceId))
         .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
@@ -42,7 +46,7 @@ public class CertificateGenerator {
         .setSenderUuid(UUIDUtil.toByteString(account.getAccountIdentifier()));
 
     if (includeE164) {
-      builder.setSenderE164(account.getNumber());
+      builder.setSenderE164(account.getNumberOptional().get());
     }
 
     if (embedSigner) {

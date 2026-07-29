@@ -93,12 +93,16 @@ public class CredentialsGrpcService extends SimpleCredentialsGrpc.CredentialsImp
     final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
-    return GetDeliveryCertificateResponse.newBuilder()
-        .setCertificateWithE164(ByteString.copyFrom(
-            certificateGenerator.createFor(account, authenticatedDevice.deviceId(), true)))
+    final GetDeliveryCertificateResponse.Builder responseBuilder = GetDeliveryCertificateResponse.newBuilder()
         .setCertificateWithoutE164(ByteString.copyFrom(
-            certificateGenerator.createFor(account, authenticatedDevice.deviceId(), false)))
-        .build();
+            certificateGenerator.createFor(account, authenticatedDevice.deviceId(), false)));
+
+    if (account.getNumberOptional().isPresent()) {
+      responseBuilder.setCertificateWithE164(ByteString.copyFrom(
+          certificateGenerator.createFor(account, authenticatedDevice.deviceId(), true)));
+    }
+
+    return responseBuilder.build();
   }
 
   @Override

@@ -82,8 +82,11 @@ public class CertificateController {
     final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    return new DeliveryCertificate(
-        certificateGenerator.createFor(account, auth.deviceId(), includeE164));
+    try {
+      return new DeliveryCertificate(certificateGenerator.createFor(account, auth.deviceId(), includeE164));
+    } catch (final IllegalArgumentException _) {
+      throw new BadRequestException();
+    }
   }
 
   @GET

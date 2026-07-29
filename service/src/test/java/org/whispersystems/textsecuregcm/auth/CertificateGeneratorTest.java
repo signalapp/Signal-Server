@@ -6,17 +6,21 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.function.Executable;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECPrivateKey;
@@ -49,7 +53,6 @@ class CertificateGeneratorTest {
   }
 
   @CartesianTest
-  @ValueSource(booleans = {true, false})
   void testCreateFor(@CartesianTest.Values(booleans = {true, false}) boolean includeE164,
       @CartesianTest.Values(booleans = {true, false}) boolean embedSigner)
       throws IOException, org.signal.libsignal.protocol.InvalidKeyException {
@@ -60,7 +63,7 @@ class CertificateGeneratorTest {
 
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
     when(account.getAccountIdentifier()).thenReturn(ACI);
-    when(account.getNumber()).thenReturn(E164);
+    when(account.getNumberOptional()).thenReturn(Optional.of(E164));
 
     final byte[] contents = certificateGenerator.createFor(account, deviceId, includeE164);
     final SenderCertificate fullCertificate = SenderCertificate.parseFrom(contents);
@@ -88,5 +91,26 @@ class CertificateGeneratorTest {
 
     assertTrue(signingKey
         .verifySignature(fullCertificate.getCertificate().toByteArray(), fullCertificate.getSignature().toByteArray()));
+  }
+
+  @CartesianTest
+  void createForNoNumber(@CartesianTest.Values(booleans = {true, false}) final boolean includeE164,
+      @CartesianTest.Values(booleans = {true, false}) final boolean embedSigner) throws InvalidProtocolBufferException {
+    final Account account = mock(Account.class);
+    final byte deviceId = 4;
+    final CertificateGenerator certificateGenerator = new CertificateGenerator(
+        SIGNING_CERTIFICATE_DATA, SIGNING_KEY, 1, embedSigner);
+
+    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
+    when(account.getAccountIdentifier()).thenReturn(ACI);
+    when(account.getNumberOptional()).thenReturn(Optional.empty());
+
+    final Executable generateCertificate = () -> certificateGenerator.createFor(account, deviceId, includeE164);
+
+    if (includeE164) {
+      assertThrows(IllegalArgumentException.class, generateCertificate);
+    } else {
+      assertDoesNotThrow(generateCertificate);
+    }
   }
 }

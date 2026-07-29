@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -222,6 +223,25 @@ class CertificateControllerTest {
         .get();
 
     assertEquals(401, response.getStatus());
+  }
+
+  @Test
+  void testValidCertificateAccountHasNoNumber() {
+    final Account numberlessAccount = mock(Account.class);
+    when(numberlessAccount.getNumberOptional()).thenReturn(Optional.empty());
+
+    when(ACCOUNTS_MANAGER.getByAccountIdentifier(AuthHelper.VALID_UUID))
+        .thenReturn(Optional.of(numberlessAccount));
+
+    final Response response = resources.getJerseyTest()
+        .target("/v1/certificate/delivery")
+        .queryParam("includeUuid", "true")
+        .queryParam("includeE164", "true")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get();
+
+    assertEquals(400, response.getStatus());
   }
 
   @Test

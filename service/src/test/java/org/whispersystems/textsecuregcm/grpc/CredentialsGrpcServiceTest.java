@@ -150,7 +150,7 @@ public class CredentialsGrpcServiceTest
   @BeforeEach
   void setUp() {
     when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(authenticatedAccount.getNumber()).thenReturn(PHONE_NUMBER);
+    when(authenticatedAccount.getNumberOptional()).thenReturn(Optional.of(PHONE_NUMBER));
     when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
     when(authenticatedAccount.getIdentifier(IdentityType.PNI)).thenReturn(AUTHENTICATED_PNI);
     when(authenticatedAccount.getIdentityKey(IdentityType.ACI))
@@ -289,6 +289,17 @@ public class CredentialsGrpcServiceTest
     assertEquals(UUIDUtil.toByteString(AUTHENTICATED_ACI), senderCertificate.getSenderUuid());
     assertArrayEquals(senderCertificate.getIdentityKey().toByteArray(),
         new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey()).serialize());
+  }
+
+  @Test
+  void getDeliveryCertificateAccountHasNoNumber() throws InvalidProtocolBufferException, InvalidKeyException {
+    when(authenticatedAccount.getNumberOptional()).thenReturn(Optional.empty());
+
+    final GetDeliveryCertificateResponse response =
+        authenticatedServiceStub().getDeliveryCertificate(GetDeliveryCertificateRequest.getDefaultInstance());
+
+    assertTrue(response.getCertificateWithE164().isEmpty());
+    checkDeliveryCertificate(response.getCertificateWithoutE164().toByteArray(), false);
   }
 
   @ParameterizedTest
