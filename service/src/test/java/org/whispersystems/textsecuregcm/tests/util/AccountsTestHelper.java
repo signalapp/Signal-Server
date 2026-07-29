@@ -68,8 +68,8 @@ public class AccountsTestHelper {
               String.format("""
                       # Account
                       Phone number: %s
-                      Allow sealed sender from anyone: true
                       Find account by phone number: true
+                      Allow sealed sender from anyone: true
                       Badges: None
                       
                       # Devices
@@ -93,8 +93,8 @@ public class AccountsTestHelper {
               String.format("""
                       # Account
                       Phone number: %s
-                      Allow sealed sender from anyone: false
                       Find account by phone number: true
+                      Allow sealed sender from anyone: false
                       Badges:
                       - ID: badge_a
                         Expiration: %s
@@ -119,8 +119,8 @@ public class AccountsTestHelper {
               String.format("""
                       # Account
                       Phone number: %s
-                      Allow sealed sender from anyone: true
                       Find account by phone number: false
+                      Allow sealed sender from anyone: true
                       Badges:
                       - ID: badge_b
                         Expiration: %s
@@ -138,20 +138,50 @@ public class AccountsTestHelper {
                   badgeBExpiration,
                   badgeCExpiration,
                   account3Device1LastSeen)
+          ),
+          Arguments.of(
+              buildTestAccountForDataReport(UUID.randomUUID(), null,
+                  true, true,
+                  Collections.emptyList(),
+                  List.of(new DeviceData(Device.PRIMARY_ID, account1Device1LastSeen, account1Device1Created, null),
+                      new DeviceData((byte) 2, account1Device2LastSeen, account1Device2Created, "OWP"))),
+              String.format("""
+                      # Account
+                      Allow sealed sender from anyone: true
+                      Badges: None
+                      
+                      # Devices
+                      - ID: 1
+                        Created: 2022-11-24T20:52:22Z
+                        Last seen: %s
+                        User-agent: null
+                      - ID: 2
+                        Created: 2023-03-18T15:58:42Z
+                        Last seen: 2023-03-15T00:00:00Z
+                        User-agent: OWP
+                      """,
+                  account1Device1LastSeen)
           )
       );
     }
 
-    public static Account buildTestAccountForDataReport(final UUID aci, final String number,
-        final boolean unrestrictedUnidentifiedAccess, final boolean discoverableByPhoneNumber,
-        final List<AccountBadge> badges, final List<DeviceData> devices) {
+    public static Account buildTestAccountForDataReport(final UUID aci,
+        @Nullable final String number,
+        final boolean unrestrictedUnidentifiedAccess,
+        final boolean discoverableByPhoneNumber,
+        final List<AccountBadge> badges,
+        final List<DeviceData> devices) {
 
       final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
       final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
       final Account account = new Account();
       account.setAccountIdentifier(aci);
-      account.setNumber(number, UUID.randomUUID());
+
+      if (number != null) {
+        account.setNumber(number, UUID.randomUUID());
+      }
+
       account.setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess);
       account.setDiscoverableByPhoneNumber(discoverableByPhoneNumber);
       account.setBadges(Clock.systemUTC(), new ArrayList<>(badges));

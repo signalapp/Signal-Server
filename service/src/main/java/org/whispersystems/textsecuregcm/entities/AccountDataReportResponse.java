@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
@@ -36,21 +37,24 @@ public record AccountDataReportResponse(UUID reportId,
     builder.append(String.format("""
             Report ID: %s
             Report timestamp: %s
-                          
+            
             """,
         reportId,
         reportTimestamp.truncatedTo(ChronoUnit.SECONDS)));
 
     // account
-    builder.append(String.format("""
-            # Account
-            Phone number: %s
-            Allow sealed sender from anyone: %s
-            Find account by phone number: %s
-            """,
-        data.account.phoneNumber(),
-        data.account.allowSealedSenderFromAnyone(),
-        data.account.findAccountByPhoneNumber()));
+    builder.append("# Account\n");
+
+    data.account.phoneNumber().ifPresent(phoneNumber -> {
+      builder.append(String.format("""
+          Phone number: %s
+          Find account by phone number: %s
+          """,
+          phoneNumber,
+          data.account.findAccountByPhoneNumber()));
+    });
+
+    builder.append(String.format("Allow sealed sender from anyone: %s%n", data.account.allowSealedSenderFromAnyone()));
 
     // badges
     builder.append("Badges:");
@@ -93,9 +97,10 @@ public record AccountDataReportResponse(UUID reportId,
 
   }
 
-  public record AccountDataReport(String phoneNumber, List<BadgeDataReport> badges, boolean allowSealedSenderFromAnyone,
+  public record AccountDataReport(Optional<String> phoneNumber,
+                                  List<BadgeDataReport> badges,
+                                  boolean allowSealedSenderFromAnyone,
                                   boolean findAccountByPhoneNumber) {
-
   }
 
   public record DeviceDataReport(byte id,

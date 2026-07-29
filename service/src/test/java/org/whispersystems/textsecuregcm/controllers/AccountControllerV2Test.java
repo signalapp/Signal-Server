@@ -485,7 +485,7 @@ class AccountControllerV2Test {
       final AccountDataReportResponse structuredResponse = SystemMapper.jsonMapper()
           .readValue(stringResponse, AccountDataReportResponse.class);
 
-      assertEquals(account.getNumber(), structuredResponse.data().account().phoneNumber());
+      assertEquals(account.getNumberOptional(), structuredResponse.data().account().phoneNumber());
       assertEquals(account.isDiscoverableByPhoneNumber(),
           structuredResponse.data().account().findAccountByPhoneNumber());
       assertEquals(account.isUnrestrictedUnidentifiedAccess(),

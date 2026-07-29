@@ -485,7 +485,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final AccountDataReportResponse report = new AccountDataReportResponse(UUID.randomUUID(), clock.instant(),
         new AccountDataReportResponse.AccountAndDevicesDataReport(
             new AccountDataReportResponse.AccountDataReport(
-                account.getNumber(),
+                account.getNumberOptional(),
                 account.getBadges().stream().map(AccountDataReportResponse.BadgeDataReport::new).toList(),
                 account.isUnrestrictedUnidentifiedAccess(),
                 account.isDiscoverableByPhoneNumber()),

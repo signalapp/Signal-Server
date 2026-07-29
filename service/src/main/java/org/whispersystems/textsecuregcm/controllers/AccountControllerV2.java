@@ -174,7 +174,7 @@ public class AccountControllerV2 {
     return new AccountDataReportResponse(UUID.randomUUID(), Instant.now(),
         new AccountDataReportResponse.AccountAndDevicesDataReport(
             new AccountDataReportResponse.AccountDataReport(
-                account.getNumber(),
+                account.getNumberOptional(),
                 account.getBadges().stream().map(AccountDataReportResponse.BadgeDataReport::new).toList(),
                 account.isUnrestrictedUnidentifiedAccess(),
                 account.isDiscoverableByPhoneNumber()),
