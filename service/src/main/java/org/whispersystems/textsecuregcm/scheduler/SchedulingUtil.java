@@ -26,25 +26,24 @@ public class SchedulingUtil {
   private static final String PARSED_TIMEZONE_COUNTER_NAME = MetricsUtil.name(SchedulingUtil.class, "parsedTimezone");
   private static final String HAS_TIMEZONE_TAG_NAME = "hasTimezone";
 
-  /**
-   * Gets a present or future time at which to send a notification to a device associated with the given account. This
-   * is mainly intended to facilitate scheduling notifications such that they arrive during a recipient's waking hours.
-   * <p/>
-   * This method will attempt to use a timezone derived from the account's phone number to choose an appropriate time
-   * to send a notification. If a timezone cannot be derived from the account's phone number, then this method will
-   * default to the preferred time in the server's timezone.
-   *
-   * @param account the account that will receive the notification
-   * @param preferredTime the preferred local time (e.g. "noon") at which to deliver the notification
-   * @param clock a source of the current time
-   *
-   * @return the next time in the present or future at which to send a notification for the target account
-   */
+  /// Gets a present or future time at which to send a notification to a device associated with the given account. This
+  /// is mainly intended to facilitate scheduling notifications such that they arrive during a recipient's waking hours.
+  ///
+  /// This method will attempt to use a timezone derived from the account's phone number to choose an appropriate time
+  /// to send a notification. If a timezone cannot be derived from the account's phone number, or there is no phone number
+  /// associated with the account, then this method will default to the preferred time in the server's timezone.
+  ///
+  /// @param account the account that will receive the notification
+  /// @param preferredTime the preferred local time (e.g. "noon") at which to deliver the notification
+  /// @param clock a source of the current time
+  ///
+  /// @return the next time in the present or future at which to send a notification for the target account
   public static Instant getNextRecommendedNotificationTime(final Account account,
       final LocalTime preferredTime,
       final Clock clock) {
 
-    final ZonedDateTime candidateNotificationTime = getZoneId(account.getNumber(), clock)
+    final ZonedDateTime candidateNotificationTime = account.getNumberOptional()
+        .flatMap(number -> getZoneId(number, clock))
         .map(zoneId -> {
           Metrics.counter(PARSED_TIMEZONE_COUNTER_NAME, HAS_TIMEZONE_TAG_NAME, String.valueOf(true)).increment();
           return ZonedDateTime.now(clock.withZone(zoneId)).with(preferredTime);
