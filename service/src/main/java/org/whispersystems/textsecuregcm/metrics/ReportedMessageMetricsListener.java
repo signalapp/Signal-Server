@@ -43,7 +43,9 @@ public class ReportedMessageMetricsListener implements ReportedMessageListener {
     Metrics.counter(REPORTED_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, sourceCountryCode).increment();
 
     accountsManager.getByAccountIdentifier(reporterUuid).ifPresent(reporter -> {
-      final String destinationCountryCode = Util.getCountryCode(reporter.getNumber());
+      final String destinationCountryCode = reporter.getNumberOptional()
+          .map(Util::getCountryCode)
+          .orElse("n/a");
 
       logger.info(Markers.appendEntries(Map.of(
               "sourceCountry", sourceCountryCode,
