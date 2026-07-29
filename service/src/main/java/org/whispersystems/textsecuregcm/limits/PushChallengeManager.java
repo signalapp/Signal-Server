@@ -74,7 +74,7 @@ public class PushChallengeManager {
 
     Metrics.counter(CHALLENGE_REQUESTED_COUNTER_NAME,
         PLATFORM_TAG_NAME, platform,
-        SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber()),
+        SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account),
         SENT_TAG_NAME, String.valueOf(sent)).increment();
   }
 
@@ -98,7 +98,7 @@ public class PushChallengeManager {
 
     Metrics.counter(CHALLENGE_ANSWERED_COUNTER_NAME,
         PLATFORM_TAG_NAME, platform,
-        SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber()),
+        SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account),
         SUCCESS_TAG_NAME, String.valueOf(success)).increment();
 
     return success;

@@ -81,7 +81,7 @@ public class RateLimitChallengeManager {
     final boolean challengeSuccess = assessmentResult.isValid(scoreThreshold);
 
     final Tags tags = Tags.of(
-        Tag.of(SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber())),
+        Tag.of(SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account)),
         Tag.of(SUCCESS_TAG_NAME, String.valueOf(challengeSuccess)),
         UserAgentTagUtil.getPlatformTag(userAgent)
     );
@@ -90,7 +90,7 @@ public class RateLimitChallengeManager {
 
     CaptchaMetrics.measureCaptchaOutcome(assessmentResult.getNormalizedIntScore(),
         challengeSuccess,
-        Util.getRegion(account.getNumber()),
+        Util.getRegion(account),
         // Note: currently all challenges are for message-sending, but if we add more use cases, we'll need to make the
         // accept a context from callers rather than hard-coding it here
         "sendMessage");
@@ -107,7 +107,7 @@ public class RateLimitChallengeManager {
       rateLimiters.getRateLimitResetLimiter().validate(account.getAccountIdentifier());
     } catch (final RateLimitExceededException e) {
       Metrics.counter(RESET_RATE_LIMIT_EXCEEDED_COUNTER_NAME,
-          SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber())).increment();
+          SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account)).increment();
 
       throw e;
     }

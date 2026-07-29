@@ -1188,7 +1188,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       }, accountLockExecutor);
 
       Metrics.counter(DELETE_COUNTER_NAME,
-              COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber()),
+              COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account),
               DELETION_REASON_TAG_NAME, deletionReason.tagValue)
           .increment();
     } catch (final RuntimeException e) {

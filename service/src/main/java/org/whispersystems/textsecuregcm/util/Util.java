@@ -14,24 +14,20 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Locale.LanguageRange;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
+import org.whispersystems.textsecuregcm.storage.Account;
 
 public class Util {
-
-  private static final RandomGenerator RANDOM_GENERATOR = new Random();
 
   private static final PhoneNumberUtil PHONE_NUMBER_UTIL = PhoneNumberUtil.getInstance();
 
@@ -87,12 +83,20 @@ public class Util {
     }
   }
 
-  public static String getCountryCode(String number) {
+  public static String getCountryCode(final Account account) {
+    return account.getNumberOptional().map(Util::getCountryCode).orElse("n/a");
+  }
+
+  public static String getCountryCode(final String number) {
     try {
       return String.valueOf(PHONE_NUMBER_UTIL.parse(number, null).getCountryCode());
     } catch (final NumberParseException e) {
       return "0";
     }
+  }
+
+  public static String getRegion(final Account account) {
+    return account.getNumberOptional().map(Util::getRegion).orElse("n/a");
   }
 
   public static String getRegion(final String number) {
@@ -132,7 +136,7 @@ public class Util {
         if (nationalSignificantNumber.length() == 10) {
           // This is a new-format number; we can get the old-format version by stripping the leading "01" from the
           // national number
-          alternateE164 = "+229" + StringUtils.removeStart(nationalSignificantNumber, "01");
+          alternateE164 = "+229" + Strings.CS.removeStart(nationalSignificantNumber, "01");
         } else {
           // This is an old-format number; we can get the new-format version by adding a "01" prefix to the national
           // number
@@ -177,7 +181,7 @@ public class Util {
       if (regions.contains("BJ")) {
         // Benin changed phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX on November 30, 2024
         // We prefer the longest form for long-term stability
-        return e164s.stream().sorted(Comparator.comparingInt(String::length).reversed()).findFirst();
+        return e164s.stream().max(Comparator.comparingInt(String::length));
       }
       // No matching country; fall back to something that's at least stable
       return e164s.stream().sorted().findFirst();
@@ -273,18 +277,6 @@ public class Util {
   }
 
   /**
-   * Map ints to non-negative ints.
-   * <br>
-   * Unlike Math.abs this method handles Integer.MIN_VALUE correctly.
-   *
-   * @param n any int value
-   * @return an int value guaranteed to be non-negative
-   */
-  public static int ensureNonNegativeInt(int n) {
-    return n == Integer.MIN_VALUE ? 0 : Math.abs(n);
-  }
-
-  /**
    * Map longs to non-negative longs.
    * <br>
    * Unlike Math.abs this method handles Long.MIN_VALUE correctly.
@@ -294,46 +286,5 @@ public class Util {
    */
   public static long ensureNonNegativeLong(long n) {
     return n == Long.MIN_VALUE ? 0 : Math.abs(n);
-  }
-
-  /**
-   * Chooses min(values.size(), n) random values in shuffled order.
-   * <br>
-   * Copies the input Array - use for small lists only or for when n/values.size() is near 1.
-   */
-  public static <E> List<E> randomNOfShuffled(List<E> values, int n) {
-    if(values == null || values.isEmpty()) {
-      return Collections.emptyList();
-    }
-
-    List<E> result = new ArrayList<>(values);
-    Collections.shuffle(result);
-
-    return result.stream().limit(n).toList();
-  }
-
-  /**
-   * Chooses min(values.size(), n) random values. Return value is in stable order from input values.
-   * Not uniform random, but good enough.
-   * <br>
-   * Does NOT copy the input Array.
-   */
-  public static <E> List<E> randomNOfStable(List<E> values, int n) {
-    if(values == null || values.isEmpty()) {
-      return Collections.emptyList();
-    }
-    if(n >= values.size()) {
-      return values;
-    }
-
-    Set<Integer> indices = new HashSet<>(RANDOM_GENERATOR.ints(0, values.size()).distinct().limit(n).boxed().toList());
-    List<E> result = new ArrayList<>(n);
-    for(int i = 0; i < values.size() && result.size() < n; i++) {
-      if(indices.contains(i)) {
-        result.add(values.get(i));
-      }
-    }
-
-    return result;
   }
 }
