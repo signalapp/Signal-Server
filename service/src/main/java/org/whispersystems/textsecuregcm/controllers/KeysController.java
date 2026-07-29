@@ -108,6 +108,7 @@ public class KeysController {
   @Operation(summary = "Get prekey count",
       description = "Gets the number of one-time prekeys uploaded for this device and still available")
   @ApiResponse(responseCode = "200", description = "Body contains the number of available one-time prekeys for the device.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "The request was malformed or the account does not support the requested identityType")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public CompletableFuture<PreKeyCount> getStatus(@Auth final AuthenticatedDevice auth,
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
@@ -115,12 +116,13 @@ public class KeysController {
     return accounts.getByAccountIdentifierAsync(auth.accountIdentifier())
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+          final UUID identifier = getIdentifier(account, identityType);
 
           final CompletableFuture<Integer> ecCountFuture =
-              keysManager.getEcCount(account.getIdentifier(identityType), auth.deviceId());
+              keysManager.getEcCount(identifier, auth.deviceId());
 
           final CompletableFuture<Integer> pqCountFuture =
-              keysManager.getPqCount(account.getIdentifier(identityType), auth.deviceId());
+              keysManager.getPqCount(identifier, auth.deviceId());
 
           return ecCountFuture.thenCombine(pqCountFuture, PreKeyCount::new);
         });
@@ -131,6 +133,7 @@ public class KeysController {
   @Produces(MediaType.APPLICATION_JSON)
   @Operation(summary = "Upload new prekeys", description = "Upload new pre-keys for this device.")
   @ApiResponse(responseCode = "200", description = "Indicates that new keys were successfully stored.")
+  @ApiResponse(responseCode = "400", description = "The request was malformed or the account does not support the requested identityType")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
@@ -154,7 +157,7 @@ public class KeysController {
           final Device device = account.getDevice(auth.deviceId())
               .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-          final UUID identifier = account.getIdentifier(identityType);
+          final UUID identifier = getIdentifier(account, identityType);
 
           checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType), userAgent);
 
@@ -244,6 +247,7 @@ public class KeysController {
         version byte followed by 1568 bytes of key material for a total of 1569 bytes)
       """)
   @ApiResponse(responseCode = "200", description = "Indicates that client and server have consistent views of repeated-use keys")
+  @ApiResponse(responseCode = "400", description = "The request was malformed or the account does not support the requested identityType")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed")
   @ApiResponse(responseCode = "409", description = """
     Indicates that client and server have inconsistent views of repeated-use keys or one or more repeated-use keys could
@@ -258,7 +262,7 @@ public class KeysController {
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-          final UUID identifier = account.getIdentifier(checkKeysRequest.identityType());
+          final UUID identifier = getIdentifier(account, checkKeysRequest.identityType());
           final byte deviceId = auth.deviceId();
 
           final CompletableFuture<Optional<ECSignedPreKey>> ecSignedPreKeyFuture =
@@ -430,6 +434,16 @@ public class KeysController {
         authenticatedDevice.deviceId(),
         targetIdentifier,
         parsedTargetDeviceId, targetRegistrationId);
+  }
+
+  /// Get the identity of the requested `idenityType`, or throw a [BadRequestException] if `account` does not contain
+  /// that type.
+  private UUID getIdentifier(final Account account, final IdentityType identityType) {
+    return switch (identityType) {
+      case ACI -> account.getAccountIdentifier();
+      case PNI -> account.getPhoneNumberIdentifierOptional().orElseThrow(() ->
+          new BadRequestException("Cannot set PNI identity keys on an account without a number"));
+    };
   }
 
 }

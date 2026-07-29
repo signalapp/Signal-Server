@@ -55,6 +55,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -215,13 +216,16 @@ class KeysControllerTest {
     when(existsAccount.isIdentifiedBy(new AciServiceIdentifier(EXISTS_UUID))).thenReturn(true);
     when(existsAccount.getPhoneNumberIdentifier()).thenReturn(EXISTS_PNI);
     when(existsAccount.isIdentifiedBy(new PniServiceIdentifier(EXISTS_PNI))).thenReturn(true);
-    when(existsAccount.getIdentifier(IdentityType.ACI)).thenReturn(EXISTS_UUID);
-    when(existsAccount.getIdentifier(IdentityType.PNI)).thenReturn(EXISTS_PNI);
+    when(existsAccount.getIdentifier(any())).thenThrow(new UnsupportedOperationException());
+    when(existsAccount.getPhoneNumberIdentifier()).thenThrow(new UnsupportedOperationException());
+    when(existsAccount.getAccountIdentifier()).thenReturn(EXISTS_ACI.uuid());
+    when(existsAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(EXISTS_PNI));
     when(existsAccount.getDevice(SAMPLE_DEVICE_ID)).thenReturn(Optional.of(sampleDevice));
     when(existsAccount.getDevices()).thenReturn(List.of(sampleDevice));
     when(existsAccount.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
     when(existsAccount.getIdentityKey(IdentityType.PNI)).thenReturn(PNI_IDENTITY_KEY);
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
+    when(existsAccount.getNumberOptional()).thenReturn(Optional.of(EXISTS_NUMBER));
     when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(EXISTS_UAK));
 
     when(accounts.getByServiceIdentifier(any())).thenReturn(Optional.empty());
@@ -239,6 +243,11 @@ class KeysControllerTest {
     when(accounts.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
     when(accounts.getByAccountIdentifierAsync(AuthHelper.VALID_UUID))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(AuthHelper.VALID_ACCOUNT)));
+
+    when(accounts.getByAccountIdentifier(AuthHelper.NUMBERLESS_UUID))
+        .thenReturn(Optional.of(AuthHelper.NUMBERLESS_ACCOUNT));
+    when(accounts.getByAccountIdentifierAsync(AuthHelper.NUMBERLESS_UUID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(AuthHelper.NUMBERLESS_ACCOUNT)));
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
@@ -842,6 +851,23 @@ class KeysControllerTest {
   }
 
   @Test
+  void putKeysNoPhoneNumberTest() {
+    final ECPreKey preKey = KeysHelper.ecPreKey(31337);
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
+
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(preKey), signedPreKey, null, null);
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v2/keys")
+            .queryParam("identity", "pni")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD))
+            .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(400);
+  }
+
+  @Test
   void putKeysByPhoneNumberIdentifierPqTestV2() {
     final ECPreKey preKey = KeysHelper.ecPreKey(31337);
     final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
@@ -1044,6 +1070,37 @@ class KeysControllerTest {
             .post(Entity.entity(new CheckKeysRequest(IdentityType.ACI, new byte[33]), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertEquals(422, response.getStatus());
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void checkKeysPni(final boolean hasE164) throws NoSuchAlgorithmException {
+    final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(17, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
+    final KEMSignedPreKey lastResortKey = KeysHelper.signedKEMPreKey(19, AuthHelper.VALID_PNI_IDENTITY_KEY_PAIR);
+
+    if (hasE164) {
+      when(KEYS.getEcSignedPreKey(AuthHelper.VALID_PNI, Device.PRIMARY_ID))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(ecSignedPreKey)));
+
+      when(KEYS.getLastResort(AuthHelper.VALID_PNI, Device.PRIMARY_ID))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(lastResortKey)));
+    }
+
+    final UUID accountIdentifier = hasE164 ? AuthHelper.VALID_UUID : AuthHelper.NUMBERLESS_UUID;
+    final String password = hasE164 ? AuthHelper.VALID_PASSWORD : AuthHelper.NUMBERLESS_PASSWORD;
+
+    final CheckKeysRequest checkKeysRequest =
+        new CheckKeysRequest(IdentityType.PNI, getKeyDigest(AuthHelper.VALID_PNI_IDENTITY, ecSignedPreKey, lastResortKey));
+
+    try (final Response response =
+        resources.getJerseyTest()
+            .target("/v2/keys/check")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(accountIdentifier, password))
+            .post(Entity.entity(checkKeysRequest, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(hasE164 ? 200 : 400, response.getStatus());
     }
   }
 }

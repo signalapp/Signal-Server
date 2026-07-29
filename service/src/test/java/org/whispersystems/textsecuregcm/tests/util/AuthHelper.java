@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
@@ -25,6 +26,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -79,9 +81,6 @@ public class AuthHelper {
   public static final String VALID_PASSWORD_3_PRIMARY = "3primary";
   public static final String VALID_PASSWORD_3_LINKED  = "3linked";
 
-  public static final UUID   VALID_UUID_4             = UUID.randomUUID();
-  public static final String VALID_PASSWORD_4 = "blah";
-
   public static final UUID   INVALID_UUID     = UUID.randomUUID();
   public static final String INVALID_PASSWORD = "bar";
 
@@ -89,6 +88,9 @@ public class AuthHelper {
   public static final UUID   UNDISCOVERABLE_UUID     = UUID.randomUUID();
   public static final UUID   UNDISCOVERABLE_PNI      = UUID.randomUUID();
   public static final String UNDISCOVERABLE_PASSWORD = "IT'S A SECRET TO EVERYBODY.";
+
+  public static final UUID   NUMBERLESS_UUID     = UUID.randomUUID();
+  public static final String NUMBERLESS_PASSWORD = "numberless";
 
   public static final ECKeyPair VALID_IDENTITY_KEY_PAIR = ECKeyPair.generate();
   public static final IdentityKey VALID_IDENTITY = new IdentityKey(VALID_IDENTITY_KEY_PAIR.getPublicKey());
@@ -101,14 +103,14 @@ public class AuthHelper {
   public static Account         VALID_ACCOUNT_TWO      = mock(Account.class        );
   public static Account         UNDISCOVERABLE_ACCOUNT = mock(Account.class        );
   public static Account         VALID_ACCOUNT_3        = mock(Account.class        );
-  public static Account         VALID_ACCOUNT_4        = mock(Account.class        );
+  public static Account         NUMBERLESS_ACCOUNT     = mock(Account.class        );
 
   public static Device VALID_DEVICE           = mock(Device.class);
   public static Device VALID_DEVICE_TWO       = mock(Device.class);
   public static Device UNDISCOVERABLE_DEVICE  = mock(Device.class);
   public static Device VALID_DEVICE_3_PRIMARY = mock(Device.class);
   public static Device VALID_DEVICE_3_LINKED  = mock(Device.class);
-  public static Device VALID_DEVICE_4         = mock(Device.class);
+  public static Device NUMBERLESS_DEVICE      = mock(Device.class);
 
   public static final byte VALID_DEVICE_3_LINKED_ID = Device.PRIMARY_ID + 1;
 
@@ -116,8 +118,8 @@ public class AuthHelper {
   private static SaltedTokenHash VALID_CREDENTIALS_TWO       = mock(SaltedTokenHash.class);
   private static SaltedTokenHash VALID_CREDENTIALS_3_PRIMARY = mock(SaltedTokenHash.class);
   private static SaltedTokenHash VALID_CREDENTIALS_3_LINKED  = mock(SaltedTokenHash.class);
-  private static SaltedTokenHash VALID_CREDENTIALS_4         = mock(SaltedTokenHash.class);
   private static SaltedTokenHash UNDISCOVERABLE_CREDENTIALS  = mock(SaltedTokenHash.class);
+  private static SaltedTokenHash NUMBERLESS_CREDENTIALS      = mock(SaltedTokenHash.class);
 
   private static final Collection<TestAccount> EXTENSION_TEST_ACCOUNTS = new HashSet<>();
 
@@ -126,14 +128,12 @@ public class AuthHelper {
     when(VALID_CREDENTIALS_TWO.verify("baz")).thenReturn(true);
     when(VALID_CREDENTIALS_3_PRIMARY.verify(VALID_PASSWORD_3_PRIMARY)).thenReturn(true);
     when(VALID_CREDENTIALS_3_LINKED.verify(VALID_PASSWORD_3_LINKED)).thenReturn(true);
-    when(VALID_CREDENTIALS_4.verify(VALID_PASSWORD_4)).thenReturn(true);
     when(UNDISCOVERABLE_CREDENTIALS.verify(UNDISCOVERABLE_PASSWORD)).thenReturn(true);
 
     when(VALID_DEVICE.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS);
     when(VALID_DEVICE_TWO.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_TWO);
     when(VALID_DEVICE_3_PRIMARY.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_3_PRIMARY);
     when(VALID_DEVICE_3_LINKED.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_3_LINKED);
-    when(VALID_DEVICE_4.getAuthTokenHash()).thenReturn(VALID_CREDENTIALS_4);
     when(UNDISCOVERABLE_DEVICE.getAuthTokenHash()).thenReturn(UNDISCOVERABLE_CREDENTIALS);
 
     when(VALID_DEVICE.isPrimary()).thenReturn(true);
@@ -141,14 +141,12 @@ public class AuthHelper {
     when(UNDISCOVERABLE_DEVICE.isPrimary()).thenReturn(true);
     when(VALID_DEVICE_3_PRIMARY.isPrimary()).thenReturn(true);
     when(VALID_DEVICE_3_LINKED.isPrimary()).thenReturn(false);
-    when(VALID_DEVICE_4.isPrimary()).thenReturn(true);
 
     when(VALID_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
     when(VALID_DEVICE_TWO.getId()).thenReturn(Device.PRIMARY_ID);
     when(UNDISCOVERABLE_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
     when(VALID_DEVICE_3_PRIMARY.getId()).thenReturn(Device.PRIMARY_ID);
     when(VALID_DEVICE_3_LINKED.getId()).thenReturn(VALID_DEVICE_3_LINKED_ID);
-    when(VALID_DEVICE_4.getId()).thenReturn(Device.PRIMARY_ID);
 
     when(UNDISCOVERABLE_DEVICE.isPrimary()).thenReturn(true);
 
@@ -161,14 +159,11 @@ public class AuthHelper {
     when(VALID_ACCOUNT_3.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(VALID_DEVICE_3_PRIMARY));
     when(VALID_ACCOUNT_3.getPrimaryDevice()).thenReturn(VALID_DEVICE_3_PRIMARY);
     when(VALID_ACCOUNT_3.getDevice((byte) 2)).thenReturn(Optional.of(VALID_DEVICE_3_LINKED));
-    when(VALID_ACCOUNT_4.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(VALID_DEVICE_4));
-    when(VALID_ACCOUNT_4.getPrimaryDevice()).thenReturn(VALID_DEVICE_4);
 
     when(VALID_ACCOUNT.getDevices()).thenReturn(List.of(VALID_DEVICE));
     when(VALID_ACCOUNT_TWO.getDevices()).thenReturn(List.of(VALID_DEVICE_TWO));
     when(UNDISCOVERABLE_ACCOUNT.getDevices()).thenReturn(List.of(UNDISCOVERABLE_DEVICE));
     when(VALID_ACCOUNT_3.getDevices()).thenReturn(List.of(VALID_DEVICE_3_PRIMARY, VALID_DEVICE_3_LINKED));
-    when(VALID_ACCOUNT_4.getDevices()).thenReturn(List.of(VALID_DEVICE_4));
 
     when(VALID_ACCOUNT.getNumber()).thenReturn(VALID_NUMBER);
     when(VALID_ACCOUNT.getNumberOptional()).thenReturn(Optional.of(VALID_NUMBER));
@@ -215,8 +210,24 @@ public class AuthHelper {
     when(VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(VALID_IDENTITY);
     when(VALID_ACCOUNT.getIdentityKey(IdentityType.PNI)).thenReturn(VALID_PNI_IDENTITY);
 
-    when(VALID_ACCOUNT_4.getAccountIdentifier()).thenReturn(VALID_UUID_4);
-    when(VALID_ACCOUNT_4.getIdentifier(IdentityType.ACI)).thenReturn(VALID_UUID_4);
+    when(NUMBERLESS_CREDENTIALS.verify(NUMBERLESS_PASSWORD)).thenReturn(true);
+    when(NUMBERLESS_DEVICE.getAuthTokenHash()).thenReturn(NUMBERLESS_CREDENTIALS);
+    when(NUMBERLESS_DEVICE.isPrimary()).thenReturn(true);
+    when(NUMBERLESS_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
+    when(NUMBERLESS_ACCOUNT.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(NUMBERLESS_DEVICE));
+    when(NUMBERLESS_ACCOUNT.getPrimaryDevice()).thenReturn(NUMBERLESS_DEVICE);
+    when(NUMBERLESS_ACCOUNT.getDevices()).thenReturn(List.of(NUMBERLESS_DEVICE));
+    when(NUMBERLESS_ACCOUNT.getAccountIdentifier()).thenReturn(NUMBERLESS_UUID);
+    when(NUMBERLESS_ACCOUNT.isIdentifiedBy(new AciServiceIdentifier(NUMBERLESS_UUID))).thenReturn(true);
+    when(NUMBERLESS_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(false);
+    when(NUMBERLESS_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(VALID_IDENTITY);
+    when(NUMBERLESS_ACCOUNT.getNumberOptional()).thenReturn(Optional.empty());
+    when(NUMBERLESS_ACCOUNT.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+    doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getNumber();
+    doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getPhoneNumberIdentifier();
+    doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getIdentityKey(IdentityType.PNI);
+    doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getIdentifier(IdentityType.PNI);
+    when(NUMBERLESS_ACCOUNT.getIdentifier(IdentityType.ACI)).thenReturn(NUMBERLESS_UUID);
 
     reset(ACCOUNTS_MANAGER);
 
@@ -235,7 +246,7 @@ public class AuthHelper {
     when(ACCOUNTS_MANAGER.getByAccountIdentifier(VALID_UUID_3)).thenReturn(Optional.of(VALID_ACCOUNT_3));
     when(ACCOUNTS_MANAGER.getByPhoneNumberIdentifier(VALID_PNI_3)).thenReturn(Optional.of(VALID_ACCOUNT_3));
 
-    when(ACCOUNTS_MANAGER.getByAccountIdentifier(VALID_UUID_4)).thenReturn(Optional.of(VALID_ACCOUNT_4));
+    when(ACCOUNTS_MANAGER.getByAccountIdentifier(NUMBERLESS_UUID)).thenReturn(Optional.of(NUMBERLESS_ACCOUNT));
 
     AccountsHelper.setupMockUpdateForAuthHelper(ACCOUNTS_MANAGER);
 

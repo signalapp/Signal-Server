@@ -88,11 +88,13 @@ message GetPreKeyCountResponse {
   uint32 aci_kem_pre_key_count = 2;
 
   // The approximate number of one-time EC pre-keys stored for the
-  // authenticated device and associated with the caller's PNI.
+  // authenticated device and associated with the caller's PNI. 0 if
+  // the account does not possess a phone number.
   uint32 pni_ec_pre_key_count = 3;
 
   // The approximate number of one-time KEM pre-keys stored for the
-  // authenticated device and associated with the caller's PNI.
+  // authenticated device and associated with the caller's PNI. 0 if
+  // the account does not possess a phone number.
   uint32 pni_kem_pre_key_count = 4;
 }
 

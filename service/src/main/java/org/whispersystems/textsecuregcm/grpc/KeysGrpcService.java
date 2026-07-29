@@ -60,17 +60,21 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
     final Account account = getAuthenticatedAccount(authenticatedDevice.accountIdentifier());
 
-    final CompletableFuture<Integer> aciEcKeyCountFuture =
-        keysManager.getEcCount(account.getIdentifier(IdentityType.ACI), authenticatedDevice.deviceId());
+    final UUID aci = account.getAccountIdentifier();
 
-    final CompletableFuture<Integer> pniEcKeyCountFuture =
-        keysManager.getEcCount(account.getIdentifier(IdentityType.PNI), authenticatedDevice.deviceId());
+    final CompletableFuture<Integer> aciEcKeyCountFuture =
+        keysManager.getEcCount(aci, authenticatedDevice.deviceId());
+
+    final CompletableFuture<Integer> pniEcKeyCountFuture = account.getPhoneNumberIdentifierOptional()
+        .map(pni -> keysManager.getEcCount(pni, authenticatedDevice.deviceId()))
+        .orElseGet(() -> CompletableFuture.completedFuture(0));
 
     final CompletableFuture<Integer> aciKemKeyCountFuture =
-        keysManager.getPqCount(account.getIdentifier(IdentityType.ACI), authenticatedDevice.deviceId());
+        keysManager.getPqCount(aci, authenticatedDevice.deviceId());
 
-    final CompletableFuture<Integer> pniKemKeyCountFuture =
-        keysManager.getPqCount(account.getIdentifier(IdentityType.PNI), authenticatedDevice.deviceId());
+    final CompletableFuture<Integer> pniKemKeyCountFuture = account.getPhoneNumberIdentifierOptional()
+        .map(pni -> keysManager.getPqCount(pni, authenticatedDevice.deviceId()))
+        .orElseGet(() -> CompletableFuture.completedFuture(0));
 
     CompletableFuture.allOf(aciEcKeyCountFuture, pniEcKeyCountFuture, aciKemKeyCountFuture, pniKemKeyCountFuture).join();
 
@@ -154,11 +158,13 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
 
     final Account account = getAuthenticatedAccount(authenticatedAccountUuid);
 
+    final UUID identifier = getIdentifier(account, identityType);
+
     final List<K> preKeys = requestPreKeys.stream()
         .map(requestPreKey -> extractPreKeyFunction.apply(requestPreKey, account.getIdentityKey(identityType)))
         .toList();
 
-    storeKeysFunction.apply(account.getIdentifier(identityType), preKeys).join();
+    storeKeysFunction.apply(identifier, preKeys).join();
   }
 
   @Override
@@ -166,15 +172,10 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     storeRepeatedUseKey(authenticatedDevice.accountIdentifier(),
-        request.getIdentityType(),
+        IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType()),
         request.getSignedPreKey(),
         (preKey, identityKey) -> KeysGrpcHelper.checkEcSignedPreKey(preKey, identityKey, INVALID_PUBLIC_KEY_EXCEPTION, INVALID_SIGNATURE_EXCEPTION),
-        (account, signedPreKey) -> {
-          final IdentityType identityType = IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType());
-          final UUID identifier = account.getIdentifier(identityType);
-
-          return keysManager.storeEcSignedPreKeys(identifier, authenticatedDevice.deviceId(), signedPreKey);
-        });
+        (identifier, signedPreKey) -> keysManager.storeEcSignedPreKeys(identifier, authenticatedDevice.deviceId(), signedPreKey));
 
     return SetPreKeyResponse.getDefaultInstance();
   }
@@ -184,36 +185,42 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     storeRepeatedUseKey(authenticatedDevice.accountIdentifier(),
-        request.getIdentityType(),
+        IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType()),
         request.getSignedPreKey(),
         (preKey, identityKey) -> KeysGrpcHelper.checkKemSignedPreKey(preKey, identityKey, INVALID_PUBLIC_KEY_EXCEPTION, INVALID_SIGNATURE_EXCEPTION),
-        (account, lastResortKey) -> {
-          final UUID identifier =
-              account.getIdentifier(IdentityTypeUtil.fromGrpcIdentityType(request.getIdentityType()));
-
-          return keysManager.storePqLastResort(identifier, authenticatedDevice.deviceId(), lastResortKey);
-        });
+        (identifier, lastResortKey) -> keysManager.storePqLastResort(identifier, authenticatedDevice.deviceId(), lastResortKey));
 
     return SetPreKeyResponse.getDefaultInstance();
   }
 
   private <K, R> void storeRepeatedUseKey(final UUID authenticatedAccountUuid,
-      final org.signal.chat.common.IdentityType identityType,
+      final IdentityType identityType,
       final R storeKeyRequest,
       final BiFunction<R, IdentityKey, K> extractKeyFunction,
-      final BiFunction<Account, K, CompletableFuture<Void>> storeKeyFunction) {
+      final BiFunction<UUID, K, CompletableFuture<Void>> storeKeyFunction) {
 
     final Account account = getAuthenticatedAccount(authenticatedAccountUuid);
 
-    final IdentityKey identityKey = account.getIdentityKey(IdentityTypeUtil.fromGrpcIdentityType(identityType));
+    final UUID identifier = getIdentifier(account, identityType);
+    final IdentityKey identityKey = account.getIdentityKey(identityType);
     final K key = extractKeyFunction.apply(storeKeyRequest, identityKey);
 
-    storeKeyFunction.apply(account, key).join();
+    storeKeyFunction.apply(identifier, key).join();
   }
-
 
   private Account getAuthenticatedAccount(final UUID authenticatedAccountId) {
     return accountsManager.getByAccountIdentifier(authenticatedAccountId)
         .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
   }
+
+  /// Get the identity of the requested `idenityType`, or throw an invalid arguments status if `account` does not
+  /// contain that type.
+  private static UUID getIdentifier(Account account, IdentityType identityType) {
+    return switch (identityType) {
+      case ACI -> account.getAccountIdentifier();
+      case PNI -> account.getPhoneNumberIdentifierOptional()
+          .orElseThrow(() -> GrpcExceptions.invalidArguments("PNI identity type not allowed for an account without a phone number"));
+    };
+  }
+
 }
