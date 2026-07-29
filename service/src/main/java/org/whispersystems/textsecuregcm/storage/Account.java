@@ -91,6 +91,7 @@ public class Account {
   @JsonProperty("pniIdentityKey")
   @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
   @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+  @Nullable
   private IdentityKey phoneNumberIdentityKey;
 
   @JsonProperty("cpv")
@@ -377,16 +378,50 @@ public class Account {
     this.identityKey = identityKey;
   }
 
+  /// Returns an identity key for the given identity type for this account with the assumption that all accounts have
+  /// identity keys for all identity types.
+  ///
+  /// @param identityType the identity type for which to retrieve an identity key
+  ///
+  /// @return the identity key for the given identity type
+  ///
+  /// @throws NoSuchElementException if the account does not have an identifier (and therefore identity key) for the given identity type
+  ///
+  /// @deprecated Different identity types have significantly differing existence requirements/guarantees
+  /// for their respective identity keys. Please use [#getAccountIdentityKey()] or
+  /// [#getPhoneNumberIdentityKeyOptional()] instead.
   public IdentityKey getIdentityKey(final IdentityType identityType) {
     requireNotStale();
 
     return switch (identityType) {
       case ACI -> identityKey;
-      case PNI -> phoneNumberIdentityKey;
+      case PNI -> Optional.ofNullable(phoneNumberIdentityKey).orElseThrow(NoSuchElementException::new);
     };
   }
 
+  /// Returns an identity key for the ACI identity for this account.
+  public IdentityKey getAccountIdentityKey() {
+    requireNotStale();
+    return identityKey;
+  }
+
+  /// Returns an identity key for the phone-number identity for this account, if it has such an identity.
+  ///
+  /// @return the identity key for the PNI identity for the account if it has one, or an empty `Optional` otherwise.
+  public Optional<IdentityKey> getPhoneNumberIdentityKey() {
+    requireNotStale();
+    return Optional.ofNullable(phoneNumberIdentityKey);
+  }
+
+  /// Sets the identity key for the phone-number identity of this account.
+  ///
+  /// @throws IllegalStateException if the account does not have a phone number identifier.
   public void setPhoneNumberIdentityKey(final IdentityKey phoneNumberIdentityKey) {
+    requireNotStale();
+
+    if (this.phoneNumberIdentifier == null) {
+      throw new IllegalStateException();
+    }
     this.phoneNumberIdentityKey = phoneNumberIdentityKey;
   }
 
