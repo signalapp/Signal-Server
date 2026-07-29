@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -26,6 +27,7 @@ import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
+import javax.annotation.Nullable;
 
 public class TestUser {
 
@@ -39,8 +41,10 @@ public class TestUser {
 
   private final byte[] unidentifiedAccessKey;
 
+  @Nullable
   private String phoneNumber;
 
+  @Nullable
   private IdentityKeyPair pniIdentityKey;
 
   private String accountPassword;
@@ -49,6 +53,7 @@ public class TestUser {
 
   private UUID aciUuid;
 
+  @Nullable
   private UUID pniUuid;
 
 
@@ -103,12 +108,12 @@ public class TestUser {
     return aciIdentityKey;
   }
 
-  public String phoneNumber() {
-    return phoneNumber;
+  public Optional<String> phoneNumber() {
+    return Optional.ofNullable(phoneNumber);
   }
 
-  public IdentityKeyPair pniIdentityKey() {
-    return pniIdentityKey;
+  public Optional<IdentityKeyPair> pniIdentityKey() {
+    return Optional.ofNullable(pniIdentityKey);
   }
 
   public String accountPassword() {
@@ -123,8 +128,8 @@ public class TestUser {
     return aciUuid;
   }
 
-  public UUID pniUuid() {
-    return pniUuid;
+  public Optional<UUID> pniUuid() {
+    return Optional.ofNullable(pniUuid);
   }
 
   public AccountAttributes accountAttributes() {
@@ -138,15 +143,15 @@ public class TestUser {
     this.aciUuid = aciUuid;
   }
 
-  public void setPniUuid(final UUID pniUuid) {
+  public void setPniUuid(@Nullable final UUID pniUuid) {
     this.pniUuid = pniUuid;
   }
 
-  public void setPhoneNumber(final String phoneNumber) {
+  public void setPhoneNumber(@Nullable final String phoneNumber) {
     this.phoneNumber = phoneNumber;
   }
 
-  public void setPniIdentityKey(final IdentityKeyPair pniIdentityKey) {
+  public void setPniIdentityKey(@Nullable final IdentityKeyPair pniIdentityKey) {
     this.pniIdentityKey = pniIdentityKey;
   }
 
