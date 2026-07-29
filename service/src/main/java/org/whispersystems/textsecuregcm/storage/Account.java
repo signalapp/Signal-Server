@@ -531,10 +531,17 @@ public class Account {
     this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
   }
 
+  /// Indicates whether this account may be discovered by its phone number via the contact discovery system (CDS).
+  ///
+  /// @return `true` if this account has a phone number and has opted into discovery by phone number or `false`
+  /// otherwise
+  ///
+  /// @see #getPhoneNumberIdentifierOptional()
+  /// @see #setDiscoverableByPhoneNumber(boolean)
   public boolean isDiscoverableByPhoneNumber() {
     requireNotStale();
 
-    return this.discoverableByPhoneNumber;
+    return getPhoneNumberIdentifierOptional().isPresent() && this.discoverableByPhoneNumber;
   }
 
   public void setDiscoverableByPhoneNumber(final boolean discoverableByPhoneNumber) {
