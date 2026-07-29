@@ -35,7 +35,7 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  private DynamicPaymentsConfiguration payments = new DynamicPaymentsConfiguration();
+  private DynamicPaymentsConfiguration payments = DynamicPaymentsConfiguration.DEFAULT;
 
   @JsonProperty
   @Valid

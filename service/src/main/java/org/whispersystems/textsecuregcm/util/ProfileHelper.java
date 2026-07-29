@@ -21,8 +21,10 @@ import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialRespons
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPaymentsConfiguration;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -41,12 +43,12 @@ public class ProfileHelper {
       final Map<String, BadgeConfiguration> badgeConfigurationMap,
       final List<String> badgeIds,
       final List<AccountBadge> accountBadges) {
-    LinkedHashMap<String, AccountBadge> existingBadges = new LinkedHashMap<>(accountBadges.size());
+    final LinkedHashMap<String, AccountBadge> existingBadges = new LinkedHashMap<>(accountBadges.size());
     for (final AccountBadge accountBadge : accountBadges) {
       existingBadges.putIfAbsent(accountBadge.id(), accountBadge);
     }
 
-    LinkedHashMap<String, AccountBadge> result = new LinkedHashMap<>(accountBadges.size());
+    final LinkedHashMap<String, AccountBadge> result = new LinkedHashMap<>(accountBadges.size());
     for (final String badgeId : badgeIds) {
 
       // duplicate in the list, ignore it
@@ -104,17 +106,27 @@ public class ProfileHelper {
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public static boolean isPaymentAddressUpdateForbidden(
-      final Account account, final Optional<VersionedProfile> maybeProfile,
+      final Account account,
+      final Optional<VersionedProfile> maybeProfile,
       final Optional<VersionedProfileV1> maybeV1Profile,
+      final String ipAddress,
+      final AsnInfoProvider asnInfoProvider,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
 
     final Optional<byte[]> currentPaymentAddress = maybeProfile.map(VersionedProfile::paymentAddress)
         .or(() -> maybeV1Profile.map(VersionedProfileV1::paymentAddress));
-    final boolean hasDisallowedPrefix = dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration()
-        .getDisallowedPrefixes().stream()
-        .anyMatch(prefix -> account.getNumber().startsWith(prefix));
 
-    return hasDisallowedPrefix && currentPaymentAddress.filter(a -> a.length != 0).isEmpty();
+    final DynamicPaymentsConfiguration paymentsConfiguration =
+        dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration();
+
+    final boolean hasDisallowedRegion = account.getNumberOptional()
+        .map(phoneNumber -> paymentsConfiguration.disallowedPrefixes().stream().anyMatch(phoneNumber::startsWith))
+        .orElseGet(() -> asnInfoProvider.lookup(ipAddress)
+            .map(asnInfo -> paymentsConfiguration.disallowedAsnRegions().stream()
+                .anyMatch(region -> region.equalsIgnoreCase(asnInfo.regionCode())))
+            .orElse(false));
+
+    return hasDisallowedRegion && currentPaymentAddress.filter(a -> a.length != 0).isEmpty();
   }
 
   @Nullable

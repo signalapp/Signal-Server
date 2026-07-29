@@ -81,6 +81,7 @@ import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialRequest;
 import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialRequestContext;
 import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
@@ -183,8 +184,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
 
     when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(account.getIdentifier(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
-    when(account.getNumber()).thenReturn(phoneNumber);
+    when(account.getNumberOptional()).thenReturn(Optional.of(phoneNumber));
     when(account.getBadges()).thenReturn(Collections.emptyList());
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
 
@@ -198,7 +198,8 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
-    when(dynamicPaymentsConfiguration.getDisallowedPrefixes()).thenReturn(Collections.emptyList());
+    when(dynamicPaymentsConfiguration.disallowedPrefixes()).thenReturn(Collections.emptyList());
+    when(dynamicPaymentsConfiguration.disallowedAsnRegions()).thenReturn(Collections.emptyList());
 
     when(profilesManager.deleteAvatar(anyString())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -206,6 +207,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         clock,
         accountsManager,
         profilesManager,
+        () -> AsnInfoProvider.EMPTY,
         dynamicConfigurationManager,
         badgesConfiguration,
         policyGenerator,
@@ -510,10 +512,9 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setV1Request(V1_REQUEST)
         .build();
     final String disallowedCountryCode = String.format("+%d", disallowedPhoneNumber.getCountryCode());
-    when(dynamicPaymentsConfiguration.getDisallowedPrefixes()).thenReturn(List.of(disallowedCountryCode));
-    when(account.getNumber()).thenReturn(PhoneNumberUtil.getInstance().format(
-        disallowedPhoneNumber,
-        PhoneNumberUtil.PhoneNumberFormat.E164));
+    when(dynamicPaymentsConfiguration.disallowedPrefixes()).thenReturn(List.of(disallowedCountryCode));
+    when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
+        disallowedPhoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164)));
     when(profilesManager.getV1(any(), anyString())).thenReturn(Optional.of(profile));
 
     final SetProfileResponse response = authenticatedServiceStub().setProfile(request);

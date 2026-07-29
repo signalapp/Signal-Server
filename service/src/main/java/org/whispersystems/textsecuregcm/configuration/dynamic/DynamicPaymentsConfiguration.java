@@ -6,15 +6,23 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotNull;
 import java.util.Collections;
 import java.util.List;
 
-public class DynamicPaymentsConfiguration {
+public record DynamicPaymentsConfiguration(@JsonProperty @NotNull List<String> disallowedPrefixes,
+                                           @JsonProperty @NotNull List<String> disallowedAsnRegions) {
 
-  @JsonProperty
-  private List<String> disallowedPrefixes = Collections.emptyList();
+  public static DynamicPaymentsConfiguration DEFAULT =
+      new DynamicPaymentsConfiguration(Collections.emptyList(), Collections.emptyList());
 
-  public List<String> getDisallowedPrefixes() {
-    return disallowedPrefixes;
+  public DynamicPaymentsConfiguration {
+    if (disallowedPrefixes == null) {
+      disallowedPrefixes = DEFAULT.disallowedPrefixes();
+    }
+
+    if (disallowedAsnRegions == null) {
+      disallowedAsnRegions = DEFAULT.disallowedAsnRegions();
+    }
   }
 }

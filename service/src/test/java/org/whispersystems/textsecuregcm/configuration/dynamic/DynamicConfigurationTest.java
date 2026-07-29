@@ -252,7 +252,7 @@ class DynamicConfigurationTest {
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
-      assertTrue(emptyConfig.getPaymentsConfiguration().getDisallowedPrefixes().isEmpty());
+      assertTrue(emptyConfig.getPaymentsConfiguration().disallowedPrefixes().isEmpty());
     }
 
     {
@@ -266,7 +266,7 @@ class DynamicConfigurationTest {
           DynamicConfigurationManager.parseConfiguration(paymentsConfigYaml, DynamicConfiguration.class).orElseThrow()
               .getPaymentsConfiguration();
 
-      assertEquals(List.of("+44"), config.getDisallowedPrefixes());
+      assertEquals(List.of("+44"), config.disallowedPrefixes());
     }
   }
 

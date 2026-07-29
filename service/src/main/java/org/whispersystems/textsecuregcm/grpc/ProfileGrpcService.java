@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.errors.FailedPrecondition;
@@ -37,8 +38,7 @@ import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialRequest;
 import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
@@ -46,7 +46,6 @@ import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
@@ -63,11 +62,10 @@ import org.whispersystems.textsecuregcm.util.ProfileHelper;
 
 public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
 
-  private static final Logger logger = LoggerFactory.getLogger(ProfileGrpcService.class);
-
   private final Clock clock;
   private final AccountsManager accountsManager;
   private final ProfilesManager  profilesManager;
+  private final Supplier<AsnInfoProvider> asnInfoProviderSupplier;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
   private final PostPolicyGenerator policyGenerator;
@@ -83,6 +81,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
       final Clock clock,
       final AccountsManager accountsManager,
       final ProfilesManager profilesManager,
+      final Supplier<AsnInfoProvider> asnInfoProviderSupplier,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final BadgesConfiguration badgesConfiguration,
       final PostPolicyGenerator policyGenerator,
@@ -92,9 +91,10 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     this.clock = clock;
     this.accountsManager = accountsManager;
     this.profilesManager = profilesManager;
+    this.asnInfoProviderSupplier = asnInfoProviderSupplier;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
-    this.badgeConfigurationMap = badgesConfiguration.getBadges().stream().collect(Collectors.toMap(
-        BadgeConfiguration::getId, Function.identity()));
+    this.badgeConfigurationMap = badgesConfiguration.getBadges().stream()
+        .collect(Collectors.toMap(BadgeConfiguration::getId, Function.identity()));
     this.policyGenerator = policyGenerator;
     this.genericServerSecretParams = genericServerSecretParams;
     this.profileBadgeConverter = profileBadgeConverter;
@@ -132,7 +132,9 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     final Optional<VersionedProfileV1> maybeV1Profile = profilesManager.getV1(
         authenticatedDevice.accountIdentifier(), HexFormat.of().formatHex(version));
 
-    if (!request.getPaymentAddress().isEmpty() && ProfileHelper.isPaymentAddressUpdateForbidden(account, maybeProfile, maybeV1Profile, dynamicConfigurationManager)) {
+    if (!request.getPaymentAddress().isEmpty() &&
+        ProfileHelper.isPaymentAddressUpdateForbidden(account, maybeProfile, maybeV1Profile, RequestAttributesUtil.getRemoteAddress().getHostAddress(), asnInfoProviderSupplier.get(), dynamicConfigurationManager)) {
+
       return SetProfileResponse.newBuilder()
           .setPaymentsForbiddenInRegion(PaymentsForbiddenInRegion.getDefaultInstance())
           .build();
@@ -172,7 +174,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     );
 
     try {
-      profilesManager.set(account.getIdentifier(IdentityType.ACI), v1Profile, profile,
+      profilesManager.set(account.getAccountIdentifier(), v1Profile, profile,
           request.getExpectedCurrentDataHash().isEmpty() ? null : request.getExpectedCurrentDataHash().toByteArray());
 
     } catch (WriteConflictException _) {
@@ -184,7 +186,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     }
 
     try {
-      accountsManager.updateCurrentProfileVersion(account.getIdentifier(IdentityType.ACI), version, expectedCurrentVersion, a -> {
+      accountsManager.updateCurrentProfileVersion(account.getAccountIdentifier(), version, expectedCurrentVersion, a -> {
 
         final List<AccountBadge> updatedBadges = Optional.of(request.getBadgeIdsList())
             .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges,
@@ -235,7 +237,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
           request.getAvatarCredentialsRequest().toByteArray());
 
       final AvatarUploadCredentialResponse credentialResponse = credentialRequest.issueCredential(
-          new ServiceId.Aci(account.getIdentifier(IdentityType.ACI)),
+          new ServiceId.Aci(account.getAccountIdentifier()),
           account.getZkCredentialKey().get(),
           Objects.requireNonNull(account.getZkCredentialKeyRotationId()),
           clock.instant().truncatedTo(ChronoUnit.DAYS),

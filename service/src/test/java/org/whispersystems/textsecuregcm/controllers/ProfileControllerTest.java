@@ -79,6 +79,7 @@ import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequestContext;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
@@ -161,6 +162,7 @@ class ProfileControllerTest {
           rateLimiters,
           accountsManager,
           profilesManager,
+          () -> AsnInfoProvider.EMPTY,
           dynamicConfigurationManager,
           new ProfileBadgeConverter() {
             @Override
@@ -202,7 +204,7 @@ class ProfileControllerTest {
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
-    when(dynamicPaymentsConfiguration.getDisallowedPrefixes()).thenReturn(Collections.emptyList());
+    when(dynamicPaymentsConfiguration.disallowedPrefixes()).thenReturn(Collections.emptyList());
 
     when(rateLimiters.getProfileLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameRateLimiter);
@@ -212,7 +214,6 @@ class ProfileControllerTest {
     when(profileAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_TWO_IDENTITY_KEY);
     when(profileAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY);
     when(profileAccount.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID_TWO);
-    when(profileAccount.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID_TWO);
     when(profileAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI_TWO);
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
     when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
@@ -223,7 +224,6 @@ class ProfileControllerTest {
     capabilitiesAccount = mock(Account.class);
 
     when(capabilitiesAccount.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID);
-    when(capabilitiesAccount.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
     when(capabilitiesAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTITY_KEY);
     when(capabilitiesAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
 
@@ -806,7 +806,7 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfilePaymentAddressCountryNotAllowed() throws InvalidInputException {
-    when(dynamicPaymentsConfiguration.getDisallowedPrefixes())
+    when(dynamicPaymentsConfiguration.disallowedPrefixes())
         .thenReturn(List.of(AuthHelper.VALID_NUMBER_TWO.substring(0, 3)));
 
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
@@ -836,7 +836,7 @@ class ProfileControllerTest {
   @MethodSource
   void testSetProfilePaymentAddressCountryNotAllowedExistingPaymentAddress(
       @Nullable final byte[] existingPaymentAddressOnProfile, final byte[] requestPaymentAddress, final boolean expectAllowed) throws InvalidInputException {
-    when(dynamicPaymentsConfiguration.getDisallowedPrefixes())
+    when(dynamicPaymentsConfiguration.disallowedPrefixes())
         .thenReturn(List.of(AuthHelper.VALID_NUMBER_TWO.substring(0, 3)));
 
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));

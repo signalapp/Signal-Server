@@ -157,8 +157,9 @@ message SetProfileResponse {
     // The current data hash did not match the request's expectation, indicating
     // another device on the account may have written an update the caller does not know about.
     errors.FailedPrecondition expected_data_write_conflict = 2 [(tag.reason) = "expected_data_write_conflict"];
-    // Payments are not permitted in the account's region, based on its phone number.
-    // The request should be retried without `payment_address.
+    // Payments are not permitted in the account's region, based on its phone
+    // number or the caller's IP address if the account does not have a phone
+    // number. The request should be retried without `payment_address.
     PaymentsForbiddenInRegion payments_forbidden_in_region = 3 [(tag.reason) = "payments_forbidden_in_region"];
     // The current version did not match the request's expectation, indicating
     // another device on the account may have created a new version the caller does not know about.
