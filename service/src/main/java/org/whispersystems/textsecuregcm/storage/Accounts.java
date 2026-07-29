@@ -39,7 +39,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -1585,23 +1584,25 @@ public class Accounts {
   CompletableFuture<Void> regenerateConstraints(final Account account) {
     final List<CompletableFuture<?>> constraintFutures = new ArrayList<>();
 
-    constraintFutures.add(writeConstraint(phoneNumberConstraintTableName,
-        account.getIdentifier(IdentityType.ACI),
-        ATTR_ACCOUNT_E164,
-        AttributeValues.fromString(account.getNumber())));
+    account.getNumberOptional().ifPresent(phoneNumber ->
+        constraintFutures.add(writeConstraint(phoneNumberConstraintTableName,
+            account.getAccountIdentifier(),
+            ATTR_ACCOUNT_E164,
+            AttributeValues.fromString(phoneNumber))));
 
-    constraintFutures.add(writeConstraint(phoneNumberIdentifierConstraintTableName,
-        account.getIdentifier(IdentityType.ACI),
-        ATTR_PNI_UUID,
-        AttributeValues.fromUUID(account.getPhoneNumberIdentifier())));
+    account.getPhoneNumberIdentifierOptional().ifPresent(phoneNumberIdentifier ->
+        constraintFutures.add(writeConstraint(phoneNumberIdentifierConstraintTableName,
+            account.getAccountIdentifier(),
+            ATTR_PNI_UUID,
+            AttributeValues.fromUUID(phoneNumberIdentifier))));
 
     account.getUsernameHash().ifPresent(usernameHash ->
-        constraintFutures.add(writeUsernameConstraint(account.getIdentifier(IdentityType.ACI),
+        constraintFutures.add(writeUsernameConstraint(account.getAccountIdentifier(),
             usernameHash,
             Optional.empty())));
 
     account.getUsernameHolds().forEach(usernameHold ->
-        constraintFutures.add(writeUsernameConstraint(account.getIdentifier(IdentityType.ACI),
+        constraintFutures.add(writeUsernameConstraint(account.getAccountIdentifier(),
             usernameHold.usernameHash(),
             Optional.of(Instant.ofEpochSecond(usernameHold.expirationSecs())))));
 

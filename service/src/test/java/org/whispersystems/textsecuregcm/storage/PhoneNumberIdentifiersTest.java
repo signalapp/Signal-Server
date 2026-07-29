@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -25,7 +26,6 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
@@ -216,8 +216,8 @@ class PhoneNumberIdentifiersTest {
     final UUID phoneNumberIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn(newFormatBeninE164);
-    when(account.getIdentifier(IdentityType.PNI)).thenReturn(phoneNumberIdentifier);
+    when(account.getNumberOptional()).thenReturn(Optional.of(newFormatBeninE164));
+    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
 
     phoneNumberIdentifiers.regeneratePhoneNumberIdentifierMappings(account).join();
 

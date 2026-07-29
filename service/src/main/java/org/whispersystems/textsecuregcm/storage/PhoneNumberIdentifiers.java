@@ -18,7 +18,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -246,7 +245,12 @@ public class PhoneNumberIdentifiers {
   }
 
   CompletableFuture<Void> regeneratePhoneNumberIdentifierMappings(final Account account) {
-    return setPni(account.getNumber(), Util.getAlternateForms(account.getNumber()), account.getIdentifier(IdentityType.PNI))
-        .thenRun(Util.NOOP);
+    return account.getNumberOptional()
+            .map(phoneNumber -> setPni(phoneNumber,
+                    Util.getAlternateForms(phoneNumber),
+                    account.getPhoneNumberIdentifierOptional()
+                            .orElseThrow(() -> new AssertionError("Account has a phone number, but no PNI")))
+                    .thenRun(Util.NOOP))
+            .orElseGet(() -> CompletableFuture.completedFuture(null));
   }
 }
