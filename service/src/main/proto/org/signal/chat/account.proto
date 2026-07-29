@@ -407,6 +407,9 @@ message ChangeNumberResponse {
     errors.FailedPrecondition invalid_registration_session = 7 [(tag.reason) = "invalid_registration_session"];
 
     errors.FailedPrecondition recovery_password_verification_failed = 8 [(tag.reason) = "recovery_password_verification_failed"];
+
+    // The account does not have a phone number
+    errors.FailedPrecondition account_does_not_have_phone_number = 9 [(tag.reason) = "account_has_no_phone_number"];
   }
 }
 
