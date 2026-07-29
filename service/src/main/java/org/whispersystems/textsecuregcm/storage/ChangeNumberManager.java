@@ -37,7 +37,6 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.MessageSender;
@@ -102,8 +101,12 @@ public class ChangeNumberManager {
 
     final Account account = accountAndMaybeExistingAccount.first();
 
+    if (account.getNumberOptional().isEmpty()) {
+      throw new IllegalArgumentException("account does not have a phone number");
+    }
+
     // Only verify and check reglock if there's a data change to be made...
-    if (!account.getNumber().equals(number)) {
+    if (!account.getNumberOptional().get().equals(number)) {
 
       final Optional<Duration> waitingPeriodRemaining = changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(account.getAccountIdentifier());
       if (waitingPeriodRemaining.isPresent()) {
@@ -130,7 +133,7 @@ public class ChangeNumberManager {
 
     // ...but always attempt to make the change in case a client retries and needs to re-send messages
     final long serverTimestamp = clock.millis();
-    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(account.getIdentifier(IdentityType.ACI));
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(account.getAccountIdentifier());
 
     // Note that these for-validation envelopes do NOT have the "updated PNI" field set, and we'll need to populate that
     // after actually changing the account's number.
@@ -160,13 +163,14 @@ public class ChangeNumberManager {
     }
 
     final Account updatedAccount = accountsManager.changeNumber(
-        account.getIdentifier(IdentityType.ACI), number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
+        account.getAccountIdentifier(), number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
     if (!messagesByDeviceId.isEmpty()) {
       try {
         // Now that we've actually updated the account, populate the "updated PNI" field on all envelopes
         messagesByDeviceId.replaceAll((_, envelope) ->
-            envelope.toBuilder().setUpdatedPni(UUIDUtil.toByteString(updatedAccount.getIdentifier(IdentityType.PNI)))
+            envelope.toBuilder().setUpdatedPni(UUIDUtil.toByteString(updatedAccount.getPhoneNumberIdentifierOptional()
+                    .orElseThrow(() -> new AssertionError("Account does not have a PNI after changing number"))))
                 .build());
 
         messageSender.sendMessages(updatedAccount,
@@ -178,11 +182,11 @@ public class ChangeNumberManager {
       } catch (MismatchedDevicesException | MessageTooLargeException e) {
         ImpossibleEvents.logImpossible(logger,
             "Changed number but could not send device messages after preliminary validation succeeded {}",
-            account.getIdentifier(IdentityType.ACI), e);
+            account.getAccountIdentifier(), e);
         throw e;
       } catch (final RuntimeException e) {
         logger.warn("Changed number but could not send all device messages for {}",
-            account.getIdentifier(IdentityType.ACI), e);
+            account.getAccountIdentifier(), e);
         throw e;
       }
     }

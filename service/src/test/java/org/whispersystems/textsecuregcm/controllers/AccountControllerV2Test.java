@@ -358,6 +358,28 @@ class AccountControllerV2Test {
       }
     }
 
+    @Test
+    void accountHasNoNumber() throws Exception {
+      doThrow(IllegalArgumentException.class)
+          .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+      try (final Response response = resources.getJerseyTest()
+          .target("/v2/accounts/number")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION,
+              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+          .put(Entity.entity(
+              new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", IDENTITY_KEY,
+                  Collections.emptyList(),
+                  Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
+                  Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR)),
+                  Map.of(Device.PRIMARY_ID, 17)),
+              MediaType.APPLICATION_JSON_TYPE))) {
+
+        assertEquals(400, response.getStatus());
+      }
+    }
+
     /**
      * Valid request JSON with the give session ID and recovery password
      */

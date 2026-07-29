@@ -903,6 +903,17 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
                 .build()));
   }
 
+  @Test
+  void changeNumberIllegalArgumentException() throws Exception {
+    final String message = "Horrors";
+
+    when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(new IllegalArgumentException(message));
+
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT.withDescription(message),
+        () -> authenticatedServiceStub().changeNumber(createChangeNumberRequest()));
+  }
+
   @ParameterizedTest
   @MethodSource
   void changeNumberUnavailable(final Exception exceptionToThrow) throws Exception {

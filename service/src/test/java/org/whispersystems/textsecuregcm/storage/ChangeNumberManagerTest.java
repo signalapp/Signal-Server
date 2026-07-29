@@ -111,7 +111,7 @@ public class ChangeNumberManagerTest {
       final Account account =
           accountsManager.getAccountsForChangeNumber(accountIdentifier, number).first();
 
-      final UUID uuid = account.getIdentifier(IdentityType.ACI);
+      final UUID uuid = account.getAccountIdentifier();
       final List<Device> devices = account.getDevices();
       final Device primaryDevice = account.getPrimaryDevice();
 
@@ -119,12 +119,12 @@ public class ChangeNumberManagerTest {
       updatedPhoneNumberIdentifiersByAccount.put(account, updatedPni);
 
       final Account updatedAccount = mock(Account.class);
-      when(updatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
-      when(updatedAccount.getIdentifier(IdentityType.PNI)).thenReturn(updatedPni);
+      when(updatedAccount.getAccountIdentifier()).thenReturn(uuid);
+      when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(updatedPni));
       when(updatedAccount.isIdentifiedBy(any())).thenReturn(false);
       when(updatedAccount.isIdentifiedBy(new AciServiceIdentifier(uuid))).thenReturn(true);
       when(updatedAccount.isIdentifiedBy(new PniServiceIdentifier(updatedPni))).thenReturn(true);
-      when(updatedAccount.getNumber()).thenReturn(number);
+      when(updatedAccount.getNumberOptional()).thenReturn(Optional.of(number));
       when(updatedAccount.getDevices()).thenReturn(devices);
       when(updatedAccount.getDevice(anyByte())).thenReturn(Optional.empty());
       when(updatedAccount.getPrimaryDevice()).thenReturn(primaryDevice);
@@ -156,8 +156,8 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn(originalNumber);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
 
@@ -194,8 +194,8 @@ public class ChangeNumberManagerTest {
     when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(linkedDeviceRegistrationId);
 
     final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn(originalNumber);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(aci);
+    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getAccountIdentifier()).thenReturn(aci);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(aci))).thenReturn(true);
     when(account.getDevice(anyByte())).thenReturn(Optional.empty());
@@ -255,7 +255,7 @@ public class ChangeNumberManagerTest {
         .setEphemeral(false)
         .build();
 
-    verify(messageSender).sendMessages(argThat(a -> a.getIdentifier(IdentityType.ACI).equals(aci)),
+    verify(messageSender).sendMessages(argThat(a -> a.getAccountIdentifier().equals(aci)),
         eq(new AciServiceIdentifier(aci)),
         eq(Map.of(linkedDeviceId, expectedEnvelope)),
         eq(Map.of(linkedDeviceId, linkedDeviceRegistrationId)),
@@ -280,8 +280,8 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn(targetNumber);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getNumberOptional()).thenReturn(Optional.of(targetNumber));
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
 
@@ -319,8 +319,8 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn(originalNumber);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
 
@@ -367,13 +367,13 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn(originalNumber);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
 
     final Account existingAccount = mock(Account.class);
-    when(existingAccount.getNumber()).thenReturn(targetNumber);
+    when(existingAccount.getNumberOptional()).thenReturn(Optional.of(targetNumber));
 
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.of(existingAccount)));
@@ -392,6 +392,35 @@ public class ChangeNumberManagerTest {
         Collections.emptyList(),
         Collections.emptyMap(),
         null, null, null));
+
+    verify(accountsManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
+    verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void changeNumberAccountHasNoNumber() throws Exception {
+    final String targetNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final IdentityKey pniIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
+
+    final Map<Byte, ECSignedPreKey> ecSignedPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
+
+    final Map<Byte, KEMSignedPreKey> kemLastResortPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair));
+
+    final UUID accountIdentifier = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getNumberOptional()).thenReturn(Optional.empty());
+
+    when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
+        .thenReturn(new Pair<>(account, Optional.empty()));
+
+    assertThrows(IllegalArgumentException.class,
+        () -> changeNumberManager.changeNumber(accountIdentifier, null, null, null, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), null, null, null));
 
     verify(accountsManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
     verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
@@ -427,8 +456,8 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn(originalNumber);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
 
