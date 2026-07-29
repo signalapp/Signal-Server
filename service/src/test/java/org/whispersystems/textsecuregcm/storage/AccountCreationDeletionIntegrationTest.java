@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -60,6 +61,7 @@ import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import org.whispersystems.textsecuregcm.util.ValidBase64URLString;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 
 public class AccountCreationDeletionIntegrationTest {
@@ -493,8 +495,10 @@ public class AccountCreationDeletionIntegrationTest {
         account.getAccountIdentifier().equals(existingAccountUuid) && account != reregisteredAccount));
   }
 
-  @Test
-  void deleteAccountWithNumber() throws InterruptedException {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void deleteAccount(final boolean hasE164)
+      throws InvalidInputException, VerificationFailedException, ReceiptAlreadyRedeemedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -531,38 +535,58 @@ public class AccountCreationDeletionIntegrationTest {
     final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciKeyPair);
     final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
-    final Account account = accountsManager.create(number,
-        accountAttributes,
-        badges,
-        new IdentityKey(aciKeyPair.getPublicKey()),
-        new IdentityKey(pniKeyPair.getPublicKey()),
-        new DeviceSpec(
-            deviceName,
-            password,
-            signalAgent,
-            deviceCapabilities,
-            new DeviceIdentityInfo(registrationId, aciSignedPreKey, aciPqLastResortPreKey),
-            Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)),
-            true,
-            Optional.empty(),
-            Optional.empty()),
-        null);
+    final Account account;
+    if (hasE164) {
+      account = accountsManager.create(number,
+          accountAttributes,
+          badges,
+          new IdentityKey(aciKeyPair.getPublicKey()),
+          new IdentityKey(pniKeyPair.getPublicKey()),
+          new DeviceSpec(
+              deviceName,
+              password,
+              signalAgent,
+              deviceCapabilities,
+              new DeviceIdentityInfo(registrationId, aciSignedPreKey, aciPqLastResortPreKey),
+              Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)),
+              true,
+              Optional.empty(),
+              Optional.empty()),
+          null);
+      assertTrue(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(),
+          accountAttributes.recoveryPassword().orElseThrow()));
+    } else {
+      account = accountsManager.create(accountAttributes,
+          badges,
+          new IdentityKey(aciKeyPair.getPublicKey()),
+          receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), 1),
+          new DeviceSpec(
+              deviceName,
+              password,
+              signalAgent,
+              deviceCapabilities,
+              new DeviceIdentityInfo(registrationId, aciSignedPreKey, aciPqLastResortPreKey),
+              Optional.empty(),
+              true,
+              Optional.empty(),
+              Optional.empty()),
+          null);
+    }
 
     final UUID aci = account.getIdentifier(IdentityType.ACI);
 
     assertTrue(accountsManager.getByAccountIdentifier(aci).isPresent());
-    assertTrue(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(),
-        accountAttributes.recoveryPassword().orElseThrow()));
-
     accountsManager.delete(account.getIdentifier(IdentityType.ACI), AccountsManager.DeletionReason.ADMIN_DELETED);
 
     assertFalse(accountsManager.getByAccountIdentifier(aci).isPresent());
     assertFalse(keysManager.getEcSignedPreKey(account.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
-    assertFalse(keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
-    assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join().isPresent());
-    assertFalse(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(),
-        accountAttributes.recoveryPassword().orElseThrow()));
+    if (hasE164) {
+      assertFalse(keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join().isPresent());
+      assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join().isPresent());
+      assertFalse(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(),
+          accountAttributes.recoveryPassword().orElseThrow()));
+    }
 
     verify(disconnectionRequestManager).requestDisconnection(argThat(disconnectedAccount ->
         disconnectedAccount.getIdentifier(IdentityType.ACI).equals(account.getIdentifier(IdentityType.ACI))));

@@ -63,6 +63,8 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.ZkCredentialKeyPair;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
@@ -1106,6 +1108,16 @@ class AccountsTest {
       assertPhoneNumberConstraintExists(recreatedAccount.getNumber(), recreatedAccount.getAccountIdentifier());
       assertPhoneNumberIdentifierConstraintExists(recreatedAccount.getPhoneNumberIdentifier(), recreatedAccount.getAccountIdentifier());
     }
+  }
+
+  @Test
+  void testDeleteNumberless() throws InvalidInputException, VerificationFailedException {
+    final Account deletedAccount = generateNumberlessAccount(UUID.randomUUID());
+    createNumberlessAccount(deletedAccount, receiptPresentation());
+
+    assertThat(accounts.getByAccountIdentifier(deletedAccount.getAccountIdentifier())).isPresent();
+    accounts.delete(deletedAccount.getAccountIdentifier(), Collections.emptyList());
+    assertThat(accounts.getByAccountIdentifier(deletedAccount.getAccountIdentifier())).isNotPresent();
   }
 
   @ParameterizedTest

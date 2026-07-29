@@ -1388,12 +1388,17 @@ public class Accounts {
             account = maybeAccount.get();
           }
 
-          final List<TransactWriteItem> transactWriteItems = new ArrayList<>(List.of(
-              buildConditionalDeleteAccount(account),
-              buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
-              buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
-              buildPutDeletedAccount(uuid, account.getPhoneNumberIdentifier())
-          ));
+
+          final List<TransactWriteItem> transactWriteItems = new ArrayList<>();
+          transactWriteItems.add(buildConditionalDeleteAccount(account));
+
+          account.getNumberOptional().ifPresent(e164 -> transactWriteItems.add(
+              buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, e164)));
+
+          account.getPhoneNumberIdentifierOptional().ifPresent(pni -> {
+            transactWriteItems.add(buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, pni));
+            transactWriteItems.add(buildPutDeletedAccount(uuid, pni));
+          });
 
           account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(
               buildDelete(usernamesConstraintTableName, UsernameTable.KEY_USERNAME_HASH, usernameHash)));
