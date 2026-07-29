@@ -13,6 +13,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.Test;
@@ -72,7 +73,7 @@ public class AccountTest {
 
       assertEquals(user.aciUuid(), accountIdentityResponse.uuid());
       assertNotEquals(user.pniUuid(), accountIdentityResponse.pni());
-      assertEquals(targetNumber, accountIdentityResponse.number());
+      assertEquals(Optional.of(targetNumber), accountIdentityResponse.number());
     } finally {
       Operations.deleteUser(user);
     }
