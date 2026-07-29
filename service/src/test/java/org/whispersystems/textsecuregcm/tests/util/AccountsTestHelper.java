@@ -180,13 +180,13 @@ public class AccountsTestHelper {
 
       if (number != null) {
         account.setNumber(number, UUID.randomUUID());
+        account.setPhoneNumberIdentityKey(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
       }
 
       account.setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess);
       account.setDiscoverableByPhoneNumber(discoverableByPhoneNumber);
       account.setBadges(Clock.systemUTC(), new ArrayList<>(badges));
       account.setIdentityKey(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-      account.setPhoneNumberIdentityKey(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
 
       assert !devices.isEmpty();
 
