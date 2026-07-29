@@ -171,15 +171,6 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.purchase.Configuration">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>Configuration</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
         <a href="#message-org.signal.chat.purchase.ConfirmPayPalBoostRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>ConfirmPayPalBoostRequest</code> 
@@ -575,15 +566,6 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.purchase.TaggedConfiguration">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>TaggedConfiguration</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
         <a href="#message-org.signal.chat.purchase.UpdateSubscriberRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>UpdateSubscriberRequest</code> 
@@ -772,11 +754,9 @@ via Donations.RedeemReceipt</p></p>
 
   
   <div class="block">
-    <p><p>Returns all configuration for badges, donation subscriptions, backup subscriptions, and one-time donation (
-"boost" and "gift") minimum and suggested amounts.</p>
-<p>Product descriptions may contain localized strings. Callers should set
-their language preferences via an "Accept-Language" header on the request
-https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
+    <p><p>Returns configuration for donation subscriptions, backup subscriptions, and one-time donation (
+"boost" and "gift") minimum and suggested amounts. Badges are referenced by ID only; resolve those
+IDs to full badge details via RemoteConfiguration.GetBadges.</p></p>
   </div>
   
 </div>
@@ -1596,102 +1576,6 @@ depending on which processor was used</p></td>
         </code>
       </td>
       <td class="content"><p>See <a href="https://stripe.com/docs/api/charges/object#charge_object-outcome-type">Outcome Type</a></p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.Configuration">
-  <span>
-    <a href="#message-org.signal.chat.purchase.Configuration" title="org.signal.chat.purchase.Configuration">message Configuration</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        currencies
-      </td>
-      <td>
-        <code title="map&lt;string, CurrencyConfiguration&gt;">
-          
-          <span>map&lt;string, CurrencyConfiguration&gt;</span>
-        </code>
-      </td>
-      <td class="content"><p>Map of lower-cased ISO 3 currency codes to currency-specific configuration</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        badge_levels
-      </td>
-      <td>
-        <code title="map&lt;uint64, LevelConfiguration&gt;">
-          
-          <span>map&lt;uint64, LevelConfiguration&gt;</span>
-        </code>
-      </td>
-      <td class="content"><p>Map of numeric donation level IDs to level-specific badge configuration</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>3</td>
-      <td>
-        backup
-      </td>
-      <td>
-        <code title="org.signal.chat.purchase.BackupConfiguration">
-          
-          <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.BackupConfiguration"><span title="org.signal.chat.purchase.BackupConfiguration">org.signal.chat.purchase.BackupConfiguration</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>Configuration for backup subscription options</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>4</td>
-      <td>
-        sepa_maximum_euros
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>Maximum value of a one-time SEPA donation</p></td>
       
     </tr>
     
@@ -3878,23 +3762,6 @@ for display purposes only</p></td>
   </thead>
   <tbody>
     
-    <tr>
-      <td>1</td>
-      <td>
-        etag
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>If present, the etag from a prior GetConfigurationResponse. If the
-provided etag matches the current configuration etag, the server may elide
-the configuration response.</p></td>
-      
-    </tr>
-    
     
   </tbody>
 </table>
@@ -3930,56 +3797,67 @@ the configuration response.</p></td>
   </thead>
   <tbody>
     
+    <tr>
+      <td>1</td>
+      <td>
+        currencies
+      </td>
+      <td>
+        <code title="map&lt;string, CurrencyConfiguration&gt;">
+          
+          <span>map&lt;string, CurrencyConfiguration&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>Map of lower-cased ISO 3 currency codes to currency-specific configuration</p></td>
+      
+    </tr>
     
+    <tr>
+      <td>2</td>
+      <td>
+        badge_levels
+      </td>
+      <td>
+        <code title="map&lt;uint64, LevelConfiguration&gt;">
+          
+          <span>map&lt;uint64, LevelConfiguration&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>Map of numeric donation level IDs to level-specific badge configuration</p></td>
       
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof response</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            1
-          </td>
-          <td>
-            tagged_configuration
-          </td>
-          <td>
-            <code title="org.signal.chat.purchase.TaggedConfiguration">
-              
-              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.TaggedConfiguration"><span title="org.signal.chat.purchase.TaggedConfiguration">org.signal.chat.purchase.TaggedConfiguration</span>
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        backup
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.BackupConfiguration">
+          
+          <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.BackupConfiguration"><span title="org.signal.chat.purchase.BackupConfiguration">org.signal.chat.purchase.BackupConfiguration</span>
     </a>
-            </code>
-          </td>
-          <td class="content"><p>The full configuration and corresponding ETag.</p></td>
-          
-        </tr>
+        </code>
+      </td>
+      <td class="content"><p>Configuration for backup subscription options</p></td>
       
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            etag_matched
-          </td>
-          <td>
-            <code title="bool">
-              
-              <span>bool</span>
-            </code>
-          </td>
-          <td class="content"><p>The etag in the request matched the current configuration ETag</p></td>
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        sepa_maximum_euros
+      </td>
+      <td>
+        <code title="string">
           
-        </tr>
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>Maximum value of a one-time SEPA donation</p></td>
       
+    </tr>
+    
     
   </tbody>
 </table>
@@ -4477,16 +4355,16 @@ the configuration response.</p></td>
     <tr>
       <td>1</td>
       <td>
-        badge
+        badge_id
       </td>
       <td>
-        <code title="org.signal.chat.common.Badge">
+        <code title="string">
           
-          <a href="org.signal.chat.common.html#message-org.signal.chat.common.Badge"><span title="org.signal.chat.common.Badge">org.signal.chat.common.Badge</span>
-    </a>
+          <span>string</span>
         </code>
       </td>
-      <td class="content"></td>
+      <td class="content"><p>The ID of the badge awarded at this level. Resolve to full badge details
+via RemoteConfiguration.GetBadges.</p></td>
       
     </tr>
     
@@ -5977,73 +5855,6 @@ one-time (boost, gift) badges</p></td>
       </div>
       
     
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.TaggedConfiguration">
-  <span>
-    <a href="#message-org.signal.chat.purchase.TaggedConfiguration" title="org.signal.chat.purchase.TaggedConfiguration">message TaggedConfiguration</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        configuration
-      </td>
-      <td>
-        <code title="org.signal.chat.purchase.Configuration">
-          
-          <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.Configuration"><span title="org.signal.chat.purchase.Configuration">org.signal.chat.purchase.Configuration</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        etag
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>An entity tag for <code>configuration</code>. This may be used in subsequent
-requests for the configuration version to optimize bandwidth.</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
       
     
       

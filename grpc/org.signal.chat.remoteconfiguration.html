@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.remoteconfiguration</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.remoteconfiguration.RemoteConfiguration">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>RemoteConfiguration</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.remoteconfiguration.Badges">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>Badges</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.remoteconfiguration.Configuration">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>Configuration</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.remoteconfiguration.GetBadgesRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetBadgesRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.remoteconfiguration.GetBadgesResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetBadgesResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.remoteconfiguration.GetConfigurationRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetConfigurationRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.remoteconfiguration.GetConfigurationResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetConfigurationResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.remoteconfiguration.TaggedBadges">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>TaggedBadges</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.remoteconfiguration.TaggedConfiguration">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>TaggedConfiguration</code> 
+        </a>
+      </p>
+      
+    
+
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.remoteconfiguration.RemoteConfiguration">
+  <a href="#service-org.signal.chat.remoteconfiguration.RemoteConfiguration" title="org.signal.chat.remoteconfiguration.RemoteConfiguration">service RemoteConfiguration</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Provides remote configuration applicable to the authenticated user</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.remoteconfiguration.RemoteConfiguration-GetConfiguration">
+      <a href="#service-org.signal.chat.remoteconfiguration.RemoteConfiguration-GetConfiguration">
+        rpc <code>GetConfiguration</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.remoteconfiguration.html#message-org.signal.chat.remoteconfiguration.GetConfigurationRequest"><span title="org.signal.chat.remoteconfiguration.GetConfigurationRequest">org.signal.chat.remoteconfiguration.GetConfigurationRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.remoteconfiguration.html#message-org.signal.chat.remoteconfiguration.GetConfigurationResponse"><span title="org.signal.chat.remoteconfiguration.GetConfigurationResponse">org.signal.chat.remoteconfiguration.GetConfigurationResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Fetches the configuration for the authenticated user. Returned
+values are based on the authenticated account and caller's client platform,
+which is derived from the "User-Agent" header.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.remoteconfiguration.RemoteConfiguration-GetBadges">
+      <a href="#service-org.signal.chat.remoteconfiguration.RemoteConfiguration-GetBadges">
+        rpc <code>GetBadges</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.remoteconfiguration.html#message-org.signal.chat.remoteconfiguration.GetBadgesRequest"><span title="org.signal.chat.remoteconfiguration.GetBadgesRequest">org.signal.chat.remoteconfiguration.GetBadgesRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.remoteconfiguration.html#message-org.signal.chat.remoteconfiguration.GetBadgesResponse"><span title="org.signal.chat.remoteconfiguration.GetBadgesResponse">org.signal.chat.remoteconfiguration.GetBadgesResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns detailed information for all configured badges, keyed by badge ID.</p>
+<p>Badge descriptions may contain localized strings. Callers should set their
+language preferences via an "Accept-Language" header on the request
+https://datatracker.ietf.org/doc/html/rfc3282#section-3</p>
+<p>Callers may cache a badges result for up to 1 day before checking (via
+etag) if there are any new updates.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.remoteconfiguration.Badges">
+  <span>
+    <a href="#message-org.signal.chat.remoteconfiguration.Badges" title="org.signal.chat.remoteconfiguration.Badges">message Badges</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        badges
+      </td>
+      <td>
+        <code title="map&lt;string, Badge&gt;">
+          
+          <span>map&lt;string, Badge&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>A map of badge ID to the detailed information for that badge.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.remoteconfiguration.Configuration">
+  <span>
+    <a href="#message-org.signal.chat.remoteconfiguration.Configuration" title="org.signal.chat.remoteconfiguration.Configuration">message Configuration</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        configuration
+      </td>
+      <td>
+        <code title="map&lt;string, string&gt;">
+          
+          <span>map&lt;string, string&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>A map of namespaced configuration keys to their resolved values. All
+configuration values are represented as strings. boolean values are
+represented as the strings "true" or "false".</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.remoteconfiguration.GetBadgesRequest">
+  <span>
+    <a href="#message-org.signal.chat.remoteconfiguration.GetBadgesRequest" title="org.signal.chat.remoteconfiguration.GetBadgesRequest">message GetBadgesRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        etag
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>If present, the etag from a prior GetBadgesResponse. If the provided etag
+matches the current badge etag, the server may elide the badge response.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.remoteconfiguration.GetBadgesResponse">
+  <span>
+    <a href="#message-org.signal.chat.remoteconfiguration.GetBadgesResponse" title="org.signal.chat.remoteconfiguration.GetBadgesResponse">message GetBadgesResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            tagged_badges
+          </td>
+          <td>
+            <code title="org.signal.chat.remoteconfiguration.TaggedBadges">
+              
+              <a href="org.signal.chat.remoteconfiguration.html#message-org.signal.chat.remoteconfiguration.TaggedBadges"><span title="org.signal.chat.remoteconfiguration.TaggedBadges">org.signal.chat.remoteconfiguration.TaggedBadges</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The full set of badges and corresponding etag.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            etag_matched
+          </td>
+          <td>
+            <code title="bool">
+              
+              <span>bool</span>
+            </code>
+          </td>
+          <td class="content"><p>The etag in the request matched the current badge etag.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.remoteconfiguration.GetConfigurationRequest">
+  <span>
+    <a href="#message-org.signal.chat.remoteconfiguration.GetConfigurationRequest" title="org.signal.chat.remoteconfiguration.GetConfigurationRequest">message GetConfigurationRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        etag
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>If present, the etag from a prior GetConfigurationResponse. If the
+provided etag matches the current configuration etag, the server may elide
+the configuration response.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.remoteconfiguration.GetConfigurationResponse">
+  <span>
+    <a href="#message-org.signal.chat.remoteconfiguration.GetConfigurationResponse" title="org.signal.chat.remoteconfiguration.GetConfigurationResponse">message GetConfigurationResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            tagged_configuration
+          </td>
+          <td>
+            <code title="org.signal.chat.remoteconfiguration.TaggedConfiguration">
+              
+              <a href="org.signal.chat.remoteconfiguration.html#message-org.signal.chat.remoteconfiguration.TaggedConfiguration"><span title="org.signal.chat.remoteconfiguration.TaggedConfiguration">org.signal.chat.remoteconfiguration.TaggedConfiguration</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The full configuration and corresponding etag.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            etag_matched
+          </td>
+          <td>
+            <code title="bool">
+              
+              <span>bool</span>
+            </code>
+          </td>
+          <td class="content"><p>The etag in the request matched the current configuration etag.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.remoteconfiguration.TaggedBadges">
+  <span>
+    <a href="#message-org.signal.chat.remoteconfiguration.TaggedBadges" title="org.signal.chat.remoteconfiguration.TaggedBadges">message TaggedBadges</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        badges
+      </td>
+      <td>
+        <code title="org.signal.chat.remoteconfiguration.Badges">
+          
+          <a href="org.signal.chat.remoteconfiguration.html#message-org.signal.chat.remoteconfiguration.Badges"><span title="org.signal.chat.remoteconfiguration.Badges">org.signal.chat.remoteconfiguration.Badges</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        etag
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>An entity tag for <code>badges</code>. This may be supplied in a subsequent request
+to optimize bandwidth when the set of badges has not changed.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.remoteconfiguration.TaggedConfiguration">
+  <span>
+    <a href="#message-org.signal.chat.remoteconfiguration.TaggedConfiguration" title="org.signal.chat.remoteconfiguration.TaggedConfiguration">message TaggedConfiguration</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        configuration
+      </td>
+      <td>
+        <code title="org.signal.chat.remoteconfiguration.Configuration">
+          
+          <a href="org.signal.chat.remoteconfiguration.html#message-org.signal.chat.remoteconfiguration.Configuration"><span title="org.signal.chat.remoteconfiguration.Configuration">org.signal.chat.remoteconfiguration.Configuration</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        etag
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>An entity tag for <code>configuration</code>. This may be supplied in a
+subsequent request to optimize bandwidth when the configuration has not
+changed.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>
