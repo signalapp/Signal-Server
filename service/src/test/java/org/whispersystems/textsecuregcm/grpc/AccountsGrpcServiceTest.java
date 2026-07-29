@@ -836,12 +836,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(updatedPni));
     when(updatedAccount.getUsernameHash()).thenReturn(Optional.empty());
 
-    final Account originalAccount = mock(Account.class);
-    when(originalAccount.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-        PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(originalAccount));
-
     when(changeNumberManager.changeNumber(eq(AUTHENTICATED_ACI), any(), any(), any(), eq(newNumber),
         any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(updatedAccount);
@@ -879,12 +873,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void changeNumberErrorResponse(final Exception exceptionToThrow, final ChangeNumberResponse expectedResponse)
       throws Exception {
 
-    final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
-
     when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(exceptionToThrow);
 
@@ -918,12 +906,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @ParameterizedTest
   @MethodSource
   void changeNumberUnavailable(final Exception exceptionToThrow) throws Exception {
-    final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
-
     when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(exceptionToThrow);
 
@@ -940,12 +922,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @Test
   void changeNumberRegistrationLockFailure() throws Exception {
     final long timeRemaining = Duration.ofDays(7).toMillis();
-
-    final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
 
     when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(new RegistrationLockFailureException(new org.whispersystems.textsecuregcm.entities.RegistrationLockFailure(
@@ -967,12 +943,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void changeNumberStaleDevices() throws Exception {
     final byte staleDeviceId = (byte) (Device.PRIMARY_ID + 1);
 
-    final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
-
     when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(new MismatchedDevicesException(new MismatchedDevices(Set.of(), Set.of(), Set.of(staleDeviceId))));
 
@@ -988,12 +958,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final byte missingDeviceId = (byte) (Device.PRIMARY_ID + 1);
     final byte extraDeviceId = (byte) (Device.PRIMARY_ID + 2);
 
-    final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
-
     when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(new MismatchedDevicesException(new MismatchedDevices(Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of())));
 
@@ -1005,52 +969,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         .build();
 
     assertEquals(expectedResponse, authenticatedServiceStub().changeNumber(createChangeNumberRequest()));
-  }
-
-  @Test
-  void changeNumberAccountHasNoNumber() throws Exception {
-    final Account numberlessAccount = mock(Account.class);
-    when(numberlessAccount.getNumberOptional()).thenReturn(Optional.empty());
-
-    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
-        .thenReturn(Optional.of(numberlessAccount));
-
-    final String newNumber = PhoneNumberUtil.getInstance().format(
-        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
-
-    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
-    final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
-
-    final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(1, pniIdentityKeyPair);
-    final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair);
-
-    final byte[] sessionId = TestRandomUtil.nextBytes(16);
-    final UUID updatedPni = UUID.randomUUID();
-
-    final ChangeNumberResponse response = authenticatedServiceStub().changeNumber(ChangeNumberRequest.newBuilder()
-        .setSessionId(ByteString.copyFrom(sessionId))
-        .setNumber(newNumber)
-        .setRegistrationLock(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
-        .setPniIdentityKey(ByteString.copyFrom(pniIdentityKey.serialize()))
-        .putDevicePniSignedPreKeys(Device.PRIMARY_ID, EcSignedPreKey.newBuilder()
-            .setKeyId(KeyIdUtil.toUnsignedInt(ecSignedPreKey.keyId()))
-            .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
-            .setSignature(ByteString.copyFrom(ecSignedPreKey.signature()))
-            .build())
-        .putDevicePniPqLastResortPreKeys(Device.PRIMARY_ID, KemSignedPreKey.newBuilder()
-            .setKeyId(KeyIdUtil.toUnsignedInt(kemSignedPreKey.keyId()))
-            .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
-            .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))
-            .build())
-        .putPniRegistrationIds(Device.PRIMARY_ID, 17)
-        .build());
-
-    final ChangeNumberResponse expectedResponse = ChangeNumberResponse.newBuilder()
-        .setAccountDoesNotHavePhoneNumber(FailedPrecondition.getDefaultInstance())
-        .build();
-
-    assertEquals(expectedResponse, response);
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   private static ChangeNumberRequest createChangeNumberRequest() {

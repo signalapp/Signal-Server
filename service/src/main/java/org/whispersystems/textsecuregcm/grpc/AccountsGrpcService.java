@@ -362,12 +362,6 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedPrimaryDevice();
 
-    if (getAuthenticatedAccount(authenticatedDevice).getNumberOptional().isEmpty()) {
-      return ChangeNumberResponse.newBuilder()
-          .setAccountDoesNotHavePhoneNumber(FailedPrecondition.getDefaultInstance())
-          .build();
-    }
-
     final IdentityKey pniIdentityKey;
     try {
       pniIdentityKey = new IdentityKey(request.getPniIdentityKey().toByteArray());

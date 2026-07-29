@@ -153,13 +153,6 @@ class AccountControllerV2Test {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void changeNumberSuccess(final boolean useSessionVerification) throws Exception {
-      final Account account = mock(Account.class);
-      when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-          PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID))
-          .thenReturn(Optional.of(account));
-
       @Nullable final String sessionId = useSessionVerification ? encodeSessionId("session") : null;
       @Nullable final byte[] recoveryPassword = useSessionVerification ? null : "recovery-password".getBytes(StandardCharsets.UTF_8);
 
@@ -251,13 +244,6 @@ class AccountControllerV2Test {
     @ParameterizedTest
     @MethodSource
     void invalidRegistrationId(final Integer pniRegistrationId, final int expectedStatusCode) {
-      final Account account = mock(Account.class);
-      when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-          PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID))
-          .thenReturn(Optional.of(account));
-
       final ChangeNumberRequest changeNumberRequest = new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", IDENTITY_KEY,
           Collections.emptyList(),
           Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
@@ -287,13 +273,6 @@ class AccountControllerV2Test {
 
     @Test
     void rateLimitedNumber() throws Exception {
-      final Account account = mock(Account.class);
-      when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-          PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID))
-          .thenReturn(Optional.of(account));
-
       doThrow(new RateLimitExceededException(null))
           .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
@@ -312,13 +291,6 @@ class AccountControllerV2Test {
     @MethodSource
     void phoneVerificationException(final Exception exception, final int expectedStatus)
         throws Exception {
-      final Account account = mock(Account.class);
-      when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-          PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID))
-          .thenReturn(Optional.of(account));
-
       doThrow(exception)
           .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
@@ -344,13 +316,6 @@ class AccountControllerV2Test {
 
     @Test
     void deviceMessageTooLarge() throws Exception {
-      final Account account = mock(Account.class);
-      when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-          PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID))
-          .thenReturn(Optional.of(account));
-
       doThrow(MessageTooLargeException.class)
           .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
@@ -373,13 +338,6 @@ class AccountControllerV2Test {
 
     @Test
     void messageDeliveryNotAllowed() throws Exception {
-      final Account account = mock(Account.class);
-      when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
-          PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
-
-      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID))
-          .thenReturn(Optional.of(account));
-
       doThrow(MessageDeliveryNotAllowedException.class)
           .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
@@ -397,32 +355,6 @@ class AccountControllerV2Test {
               MediaType.APPLICATION_JSON_TYPE))) {
 
         assertEquals(503, response.getStatus());
-      }
-    }
-
-    @Test
-    void accountHasNoNumber() throws Exception {
-      final Account numberlessAccount = mock(Account.class);
-      when(numberlessAccount.getNumberOptional()).thenReturn(Optional.empty());
-
-      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID))
-          .thenReturn(Optional.of(numberlessAccount));
-
-      try (final Response response = resources.getJerseyTest()
-          .target("/v2/accounts/number")
-          .request()
-          .header(HttpHeaders.AUTHORIZATION,
-              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-          .put(Entity.entity(
-              new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", IDENTITY_KEY,
-                  Collections.emptyList(),
-                  Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
-                  Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR)),
-                  Map.of(Device.PRIMARY_ID, 17)),
-              MediaType.APPLICATION_JSON_TYPE))) {
-
-        assertEquals(403, response.getStatus());
-        verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
       }
     }
 

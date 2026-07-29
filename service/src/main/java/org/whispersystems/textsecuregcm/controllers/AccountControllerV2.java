@@ -94,13 +94,6 @@ public class AccountControllerV2 {
       throw new ForbiddenException();
     }
 
-    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
-
-    if (account.getNumberOptional().isEmpty()) {
-      throw new ForbiddenException();
-    }
-
     if (!request.isSignatureValidOnEachSignedPreKey(userAgentString)) {
       throw new WebApplicationException("Invalid signature", 422);
     }
