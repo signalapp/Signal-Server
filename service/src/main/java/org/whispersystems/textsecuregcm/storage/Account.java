@@ -389,7 +389,8 @@ public class Account {
   ///
   /// @deprecated Different identity types have significantly differing existence requirements/guarantees
   /// for their respective identity keys. Please use [#getAccountIdentityKey()] or
-  /// [#getPhoneNumberIdentityKeyOptional()] instead.
+  /// [#getPhoneNumberIdentityKey()] instead.
+  @Deprecated
   public IdentityKey getIdentityKey(final IdentityType identityType) {
     requireNotStale();
 
