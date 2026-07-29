@@ -112,7 +112,7 @@ public final class Operations {
         .executeExpectSuccess(AccountIdentityResponse.class);
 
     user.setAciUuid(registrationResponse.uuid());
-    user.setPniUuid(registrationResponse.pni());
+    registrationResponse.pni().ifPresent(user::setPniUuid);
 
     return user;
   }

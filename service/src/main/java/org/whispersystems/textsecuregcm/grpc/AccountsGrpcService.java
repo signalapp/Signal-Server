@@ -516,9 +516,13 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   private static AccountIdentifiers buildAccountIdentifiers(final Account account) {
     final AccountIdentifiers.Builder accountIdentifiersBuilder = AccountIdentifiers.newBuilder()
-        .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(account.getAccountIdentifier())))
-        .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new PniServiceIdentifier(account.getPhoneNumberIdentifier())))
-        .setE164(account.getNumber());
+        .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(account.getAccountIdentifier())));
+
+    account.getPhoneNumberIdentifierOptional()
+        .map(phoneNumberIdentifier -> GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new PniServiceIdentifier(phoneNumberIdentifier)))
+        .ifPresent(accountIdentifiersBuilder::addServiceIdentifiers);
+
+    account.getNumberOptional().ifPresent(accountIdentifiersBuilder::setE164);
 
     account.getUsernameHash().ifPresent(usernameHash ->
         accountIdentifiersBuilder.setUsernameHash(ByteString.copyFrom(usernameHash)));

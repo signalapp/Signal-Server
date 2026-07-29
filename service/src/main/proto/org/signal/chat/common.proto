@@ -28,10 +28,11 @@ message ServiceIdentifier {
 // All identifiers associated with an account.
 message AccountIdentifiers {
   // A list of service identifiers for the identified account. Always includes
-  // exactly one ACI service identifier and one PNI service identifier.
+  // exactly one ACI service identifier and at most one PNI service identifier.
   repeated ServiceIdentifier service_identifiers = 1;
 
-  // The phone number associated with the identified account.
+  // The phone number associated with the identified account. May be empty if
+  // the given account does not have a phone number.
   string e164 = 2 [(org.signal.chat.require.e164) = true];
 
   // The username hash (if any) associated with the identified account. May be

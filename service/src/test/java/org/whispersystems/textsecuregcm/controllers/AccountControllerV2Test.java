@@ -128,11 +128,16 @@ class AccountControllerV2Test {
             final Account updatedAccount = mock(Account.class);
             when(updatedAccount.getAccountIdentifier()).thenReturn(uuid);
             when(updatedAccount.getNumber()).thenReturn(number);
+            when(updatedAccount.getNumberOptional()).thenReturn(Optional.of(number));
             when(updatedAccount.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
             if (number.equals(account.getNumber())) {
               when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
+              when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(AuthHelper.VALID_PNI));
             } else {
-              when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(UUID.randomUUID());
+              final UUID pni = UUID.randomUUID();
+
+              when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
+              when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(pni));
             }
             when(updatedAccount.getDevices()).thenReturn(devices);
 
@@ -169,8 +174,8 @@ class AccountControllerV2Test {
           any(), any(), any(), any(), any(), any(), any());
 
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
-      assertEquals(NEW_NUMBER, accountIdentityResponse.number());
-      assertNotEquals(AuthHelper.VALID_PNI, accountIdentityResponse.pni());
+      assertEquals(Optional.of(NEW_NUMBER), accountIdentityResponse.number());
+      assertNotEquals(Optional.of(AuthHelper.VALID_PNI), accountIdentityResponse.pni());
     }
 
     @Test
