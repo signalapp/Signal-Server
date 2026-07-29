@@ -49,7 +49,9 @@ public class SchedulingUtil {
           return ZonedDateTime.now(clock.withZone(zoneId)).with(preferredTime);
         })
         .orElseGet(() -> {
-          Metrics.counter(PARSED_TIMEZONE_COUNTER_NAME, HAS_TIMEZONE_TAG_NAME, String.valueOf(false)).increment();
+          if (account.getNumberOptional().isPresent()) {
+            Metrics.counter(PARSED_TIMEZONE_COUNTER_NAME, HAS_TIMEZONE_TAG_NAME, String.valueOf(false)).increment();
+          }
           return ZonedDateTime.now(ZoneId.systemDefault()).with(preferredTime);
         });
 
