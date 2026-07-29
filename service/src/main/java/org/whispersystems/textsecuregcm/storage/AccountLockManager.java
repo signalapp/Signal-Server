@@ -39,22 +39,20 @@ public class AccountLockManager {
     this.lockClient = lockClient;
   }
 
-  /**
-   * Acquires a distributed, pessimistic lock for the accounts identified by the given phone number identifiers. By
-   * design, the accounts need not actually exist in order to acquire a lock; this allows lock acquisition for
-   * operations that span account lifecycle changes (like deleting an account or changing a phone number). The given
-   * task runs once locks for all given identifiers have been acquired, and the locks are released as soon as the task
-   * completes by any means.
-   *
-   * @param phoneNumberIdentifiers  the phone number identifiers for which to acquire a distributed, pessimistic lock
-   * @param task                    the task to execute once locks have been acquired
-   * @param lockAcquisitionExecutor the executor on which to run blocking lock acquire/release tasks. this executor
-   *                                should not use virtual threads.
-   *
-   * @return the value returned by the given {@code task}
-   *
-   * @throws E if an exception is thrown by the given {@code task}
-   */
+  /// Acquires a distributed, pessimistic lock for the accounts identified by the given phone number identifiers. By
+  /// design, the accounts need not actually exist in order to acquire a lock; this allows lock acquisition for
+  /// operations that span account lifecycle changes (like deleting an account or changing a phone number). The given
+  /// task runs once locks for all given identifiers have been acquired, and the locks are released as soon as the task
+  /// completes by any means.
+  ///
+  /// @param phoneNumberIdentifiers  the phone number identifiers for which to acquire a distributed, pessimistic lock
+  /// @param task                    the task to execute once locks have been acquired
+  /// @param lockAcquisitionExecutor the executor on which to run blocking lock acquire/release tasks. this executor
+  ///                                should not use virtual threads.
+  ///
+  /// @return the value returned by the given {@code task}
+  ///
+  /// @throws E if an exception is thrown by the given {@code task}
   public <V, E extends Exception> V withLock(final Set<UUID> phoneNumberIdentifiers,
       final ThrowingSupplier<V, E> task,
       final Executor lockAcquisitionExecutor) throws E {
@@ -91,5 +89,30 @@ public class AccountLockManager {
         }
       }, lockAcquisitionExecutor).join();
     }
+  }
+
+  /// Acquires a distributed, pessimistic lock for a single account that already exists. The given task
+  /// runs once a lock for the identifier has been acquired, and the lock is released as soon as
+  /// the task completes by any means.
+  ///
+  /// If the account has a phone number, the lock will be based on its phone-number identifier, and
+  /// will therefore guard against collisions with other operations that lock the same phone number
+  /// identifier; if it does not, the lock will be based on its account identifier only. This is
+  /// safe because accounts without phone numbers can never get phone numbers and accounts with
+  /// them can never lose them, so we will never see two operations targeting the same account but
+  /// locking with different identifier types.
+  ///
+  /// @param account                 the account for which to acquire a distributed, pessimistic lock
+  /// @param task                    the task to execute once locks have been acquired
+  /// @param lockAcquisitionExecutor the executor on which to run blocking lock acquire/release tasks. this executor
+  ///                                should not use virtual threads.
+  ///
+  /// @return the value returned by the given {@code task}
+  ///
+  /// @throws E if an exception is thrown by the given {@code task}
+  public <V, E extends Exception> V withSingleAccountLock(Account account,
+      final ThrowingSupplier<V, E> task,
+      final Executor lockAcquisitionExecutor) throws E {
+    return withLock(Set.of(account.getPhoneNumberIdentifierOptional().orElse(account.getAccountIdentifier())), task, lockAcquisitionExecutor);
   }
 }

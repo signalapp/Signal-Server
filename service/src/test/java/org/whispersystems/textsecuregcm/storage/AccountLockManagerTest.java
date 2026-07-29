@@ -6,10 +6,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.amazonaws.services.dynamodbv2.AcquireLockOptions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBLockClient;
 import com.amazonaws.services.dynamodbv2.ReleaseLockOptions;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -28,6 +31,7 @@ class AccountLockManagerTest {
 
   private static final UUID FIRST_PNI = UUID.randomUUID();
   private static final UUID SECOND_PNI = UUID.randomUUID();
+  private static final UUID ACI = UUID.randomUUID();
 
   @BeforeEach
   void setUp() {
@@ -70,5 +74,27 @@ class AccountLockManagerTest {
     assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptySet(), () -> null,
         executor));
     verify(task, never()).run();
+  }
+
+  @Test
+  void withLockPniAccount() throws Exception {
+    final Account account = mock(Account.class);
+    when(account.getAccountIdentifier()).thenReturn(ACI);
+    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(FIRST_PNI));
+
+    accountLockManager.withSingleAccountLock(account, () -> null, executor);
+    verify(lockClient, times(1)).acquireLock(
+        AcquireLockOptions.builder(FIRST_PNI.toString()).withAcquireReleasedLocksConsistently(true).build());
+  }
+
+  @Test
+  void withLockNoPniAccount() throws Exception {
+    final Account account = mock(Account.class);
+    when(account.getAccountIdentifier()).thenReturn(ACI);
+    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+
+    accountLockManager.withSingleAccountLock(account, () -> null, executor);
+    verify(lockClient, times(1)).acquireLock(
+        AcquireLockOptions.builder(ACI.toString()).withAcquireReleasedLocksConsistently(true).build());
   }
 }
