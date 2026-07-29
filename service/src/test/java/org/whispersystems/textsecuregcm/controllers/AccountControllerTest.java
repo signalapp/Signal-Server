@@ -214,6 +214,7 @@ class AccountControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_TWO));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_3)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_3));
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_4)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_4));
     when(accountsManager.getByAccountIdentifier(AuthHelper.UNDISCOVERABLE_UUID)).thenReturn(Optional.of(AuthHelper.UNDISCOVERABLE_ACCOUNT));
 
     doAnswer(invocation -> {
@@ -265,6 +266,19 @@ class AccountControllerTest {
       assertThat(pinSaltCapture.getValue()).isNotEmpty();
 
       assertThat(pinCapture.getValue().length()).isEqualTo(66);
+    }
+  }
+
+  @Test
+  void testSetRegistrationLockAccountHasNoNumber() {
+    doThrow(new IllegalArgumentException()).when(AuthHelper.VALID_ACCOUNT_4).setRegistrationLock(any(), any());
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/registration_lock/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_4, AuthHelper.VALID_PASSWORD_4))
+        .put(Entity.json(new RegistrationLock("1234567890123456789012345678901234567890123456789012345678901234")))) {
+
+      assertThat(response.getStatus()).isEqualTo(400);
     }
   }
 

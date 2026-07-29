@@ -171,10 +171,14 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final SaltedTokenHash credentials =
         SaltedTokenHash.generateFor(formatRegistrationLock(request.getRegistrationLock().toByteArray()));
 
-    accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
-        account -> account.setRegistrationLock(credentials.hash(), credentials.salt()));
+    try {
+      accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
+          account -> account.setRegistrationLock(credentials.hash(), credentials.salt()));
 
-    return SetRegistrationLockResponse.getDefaultInstance();
+      return SetRegistrationLockResponse.getDefaultInstance();
+    } catch (IllegalArgumentException _) {
+      throw GrpcExceptions.invalidArguments(null);
+    }
   }
 
   @Override

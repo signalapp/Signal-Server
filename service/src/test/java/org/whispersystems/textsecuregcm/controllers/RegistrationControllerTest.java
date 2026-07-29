@@ -266,6 +266,7 @@ class RegistrationControllerTest {
 
     final Account account = mock(Account.class);
     when(accountsManager.getByE164(any())).thenReturn(Optional.of(account));
+    when(account.getNumberOptional()).thenReturn(Optional.of(NUMBER));
     when(account.hasCapability(DeviceCapability.TRANSFER)).thenReturn(deviceTransferSupported);
 
     final int expectedStatus;
@@ -317,6 +318,7 @@ class RegistrationControllerTest {
 
     final Account account = mock(Account.class);
     when(accountsManager.getByE164(oldFormatBeninNumber)).thenReturn(Optional.of(account));
+    when(account.getNumberOptional()).thenReturn(Optional.of(oldFormatBeninNumber));
     when(accountsManager.getByE164(newFormatBeninNumber)).thenReturn(Optional.empty());
 
     doThrow(new WebApplicationException(RegistrationLockError.MISMATCH.getExpectedStatus()))
@@ -347,6 +349,7 @@ class RegistrationControllerTest {
     if (existingAccount) {
       final Account account = mock(Account.class);
       when(account.hasCapability(DeviceCapability.TRANSFER)).thenReturn(transferSupported);
+      when(account.getNumberOptional()).thenReturn(Optional.of(NUMBER));
       maybeAccount = Optional.of(account);
     } else {
       maybeAccount = Optional.empty();
@@ -650,9 +653,10 @@ class RegistrationControllerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void reregistrationFlag(final boolean existingAccount) throws InterruptedException {
-    final Optional<Account> maybeAccount = Optional.ofNullable(existingAccount ? mock(Account.class) : null);
-    when(accountsManager.getByE164(any())).thenReturn(maybeAccount);
+  void reregistrationFlag(final boolean accountExists) throws InterruptedException {
+    final Account existingAccount = mock(Account.class);
+    when(existingAccount.getNumberOptional()).thenReturn(Optional.of(NUMBER));
+    when(accountsManager.getByE164(any())).thenReturn(accountExists ? Optional.of(existingAccount) : Optional.empty());
 
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
@@ -668,7 +672,7 @@ class RegistrationControllerTest {
     try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
       assertEquals(200, response.getStatus());
       final AccountCreationResponse creationResponse = response.readEntity(AccountCreationResponse.class);
-      assertEquals(existingAccount, creationResponse.reregistration());
+      assertEquals(accountExists, creationResponse.reregistration());
     }
   }
 

@@ -224,6 +224,7 @@ public class AccountsHelper {
           case "getIdentifier" -> when(updatedAccount.getIdentifier(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
           case "isIdentifiedBy" -> when(updatedAccount.isIdentifiedBy(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
           case "getNumber" -> when(updatedAccount.getNumber()).thenAnswer(stubbing);
+          case "getNumberOptional" -> when(updatedAccount.getNumberOptional()).thenAnswer(stubbing);
           case "getUsername" -> when(updatedAccount.getUsernameHash()).thenAnswer(stubbing);
           case "getUsernameHash" -> when(updatedAccount.getUsernameHash()).thenAnswer(stubbing);
           case "getUsernameLinkHandle" -> when(updatedAccount.getUsernameLinkHandle()).thenAnswer(stubbing);

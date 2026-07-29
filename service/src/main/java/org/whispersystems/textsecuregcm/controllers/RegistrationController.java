@@ -186,6 +186,7 @@ public class RegistrationController {
     }
 
     if (existingAccount.isPresent()) {
+      assert existingAccount.get().getNumberOptional().isPresent();
       registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(),
           registrationRequest.accountAttributes().getRegistrationLock(),
           userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION, verificationType);

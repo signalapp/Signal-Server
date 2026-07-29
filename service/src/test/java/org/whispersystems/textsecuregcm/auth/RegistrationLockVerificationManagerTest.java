@@ -19,11 +19,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -76,7 +78,7 @@ class RegistrationLockVerificationManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
-    when(account.getNumber()).thenReturn("+18005551212");
+    when(account.getNumberOptional()).thenReturn(Optional.of("+18005551212"));
     when(account.getDevices()).thenReturn(List.of(device));
 
     AccountsHelper.setupMockGet(accountsManager, account);
@@ -183,6 +185,14 @@ class RegistrationLockVerificationManagerTest {
         Arguments.of(StoredRegistrationLock.Status.EXPIRED, "reglock"),
         Arguments.of(StoredRegistrationLock.Status.REQUIRED, "reglock")
     );
+  }
+
+  @Test
+  void testAccountWithNoPhoneNumber() {
+    when(account.getNumberOptional()).thenReturn(Optional.empty());
+    assertThrows(IllegalArgumentException.class,
+        () -> registrationLockVerificationManager.verifyRegistrationLock(account, null, null,
+            RegistrationLockVerificationManager.Flow.REGISTRATION, PhoneVerificationRequest.VerificationType.SESSION));
   }
 
 }

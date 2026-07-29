@@ -166,8 +166,12 @@ public class AccountController {
   public void setRegistrationLock(@Auth AuthenticatedDevice auth, @NotNull @Valid RegistrationLock accountLock) {
     final SaltedTokenHash credentials = SaltedTokenHash.generateFor(accountLock.registrationLock());
 
-    accounts.update(auth.accountIdentifier(),
-        a -> a.setRegistrationLock(credentials.hash(), credentials.salt()));
+    try {
+      accounts.update(auth.accountIdentifier(),
+          a -> a.setRegistrationLock(credentials.hash(), credentials.salt()));
+    } catch (IllegalArgumentException _) {
+      throw new BadRequestException();
+    }
   }
 
   @DELETE

@@ -122,6 +122,7 @@ public class ChangeNumberManager {
       final Optional<Account> existingAccount = accountAndMaybeExistingAccount.second();
 
       if (existingAccount.isPresent()) {
+        assert existingAccount.get().getNumberOptional().isPresent();
         registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), registrationLock,
             userAgent, RegistrationLockVerificationManager.Flow.CHANGE_NUMBER, verificationType);
       }

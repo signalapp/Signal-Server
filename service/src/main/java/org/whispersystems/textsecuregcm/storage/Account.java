@@ -530,6 +530,10 @@ public class Account {
   public void setRegistrationLock(final String registrationLock, final String registrationLockSalt) {
     requireNotStale();
 
+    if (number == null) {
+      throw new IllegalArgumentException("Cannot set registration lock on account with no phone number");
+    }
+
     this.registrationLock     = registrationLock;
     this.registrationLockSalt = registrationLockSalt;
   }

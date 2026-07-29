@@ -216,7 +216,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @ParameterizedTest
   @ValueSource(bytes = { Device.PRIMARY_ID, Device.PRIMARY_ID + 1 })
   void setRegistrationLock(final byte deviceId) {
-    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (deviceId));
+    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
     final Account account = mock(Account.class);
 
@@ -246,6 +246,25 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
             .build()));
 
     verify(accountsManager, never()).update(any(UUID.class), any());
+  }
+
+  @Test
+  void setRegistrationLockAccountHasNoNumber() {
+    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, Device.PRIMARY_ID);
+
+    final Account account = mock(Account.class);
+
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    final String message = "no phone number";
+    doThrow(new IllegalArgumentException(message)).when(account).setRegistrationLock(any(), any());
+
+    final byte[] registrationLockSecret = TestRandomUtil.nextBytes(32);
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
+        () -> authenticatedServiceStub().setRegistrationLock(SetRegistrationLockRequest.newBuilder()
+        .setRegistrationLock(ByteString.copyFrom(registrationLockSecret))
+        .build()));
   }
 
   @ParameterizedTest
