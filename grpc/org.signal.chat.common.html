@@ -238,7 +238,7 @@
         </code>
       </td>
       <td class="content"><p>A list of service identifiers for the identified account. Always includes
-exactly one ACI service identifier and one PNI service identifier.</p></td>
+exactly one ACI service identifier and at most one PNI service identifier.</p></td>
       
     </tr>
     
@@ -253,7 +253,8 @@ exactly one ACI service identifier and one PNI service identifier.</p></td>
           <span>string</span>
         </code>
       </td>
-      <td class="content"><p>The phone number associated with the identified account.</p></td>
+      <td class="content"><p>The phone number associated with the identified account. May be empty if
+the given account does not have a phone number.</p></td>
       
     </tr>
     

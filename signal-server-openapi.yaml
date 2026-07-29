@@ -4235,10 +4235,12 @@ components:
           format: uuid
         number:
           type: string
-          description: the phone number associated with this account
+          description: the phone number associated with this account; may be null
+            if this account does not have a phone number
         pni:
           type: string
-          description: the account identifier for this account's phone-number identity
+          description: the account identifier for this account's phone-number identity;
+            may be null if this account does not have a phone number
           format: uuid
         usernameHash:
           type: string
@@ -6142,10 +6144,12 @@ components:
           format: uuid
         number:
           type: string
-          description: the phone number associated with this account
+          description: the phone number associated with this account; may be null
+            if this account does not have a phone number
         pni:
           type: string
-          description: the account identifier for this account's phone-number identity
+          description: the account identifier for this account's phone-number identity;
+            may be null if this account does not have a phone number
           format: uuid
         usernameHash:
           type: string
