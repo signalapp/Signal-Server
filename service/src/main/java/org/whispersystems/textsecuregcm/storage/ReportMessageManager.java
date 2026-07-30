@@ -67,7 +67,8 @@ public class ReportMessageManager {
       final UUID messageGuid,
       final UUID reporterUuid,
       final Optional<byte[]> reportSpamToken,
-      final String reporterUserAgent) {
+      final String reporterUserAgent,
+      final boolean sourceAccountDeleted) {
 
     final boolean found = sourceAci.map(uuid -> reportMessageDynamoDb.remove(hash(messageGuid, uuid.toString())))
         .orElse(false);
@@ -93,14 +94,13 @@ public class ReportMessageManager {
         });
       });
 
-      sourceNumber.ifPresent(number ->
-          reportedMessageListeners.forEach(listener -> {
-            try {
-              listener.handleMessageReported(number, messageGuid, reporterUuid, reportSpamToken);
-            } catch (final Exception e) {
-              logger.error("Failed to notify listener of reported message", e);
-            }
-          }));
+      reportedMessageListeners.forEach(listener -> {
+        try {
+          listener.handleMessageReported(sourceNumber, messageGuid, reporterUuid, reportSpamToken, sourceAccountDeleted);
+        } catch (final Exception e) {
+          logger.error("Failed to notify listener of reported message", e);
+        }
+      });
     }
   }
 
@@ -117,7 +117,9 @@ public class ReportMessageManager {
       return rateLimitCluster.withCluster(
           connection ->
               Math.max(
-                  connection.sync().pfcount(getReportedSenderPniKey(account.getPhoneNumberIdentifier())).intValue(),
+                  account.getPhoneNumberIdentifierOptional()
+                      .map(pni -> connection.sync().pfcount(getReportedSenderPniKey(pni)).intValue())
+                      .orElse(0),
                   connection.sync().pfcount(getReportedSenderAciKey(account.getAccountIdentifier())).intValue()));
     } catch (final RedisException e) {
       return 0;

@@ -740,15 +740,17 @@ public class MessageController {
     final Optional<UUID> sourceAci;
     final Optional<UUID> sourcePni;
 
+    boolean sourceAccountDeleted = false;
     if (source.startsWith("+")) {
       sourceNumber = Optional.of(source);
       final Optional<Account> maybeAccount = accountsManager.getByE164(source);
       if (maybeAccount.isPresent()) {
         sourceAci = maybeAccount.map(Account::getAccountIdentifier);
-        sourcePni = maybeAccount.map(Account::getPhoneNumberIdentifier);
+        sourcePni = maybeAccount.flatMap(Account::getPhoneNumberIdentifierOptional);
       } else {
         sourcePni = Optional.ofNullable(phoneNumberIdentifiers.getPhoneNumberIdentifier(source).join());
         sourceAci = sourcePni.flatMap(accountsManager::findRecentlyDeletedAccountIdentifier);
+        sourceAccountDeleted = true;
       }
     } else {
       sourceAci = Optional.of(UUID.fromString(source));
@@ -760,13 +762,14 @@ public class MessageController {
         sourcePni = accountsManager.findRecentlyDeletedPhoneNumberIdentifier(sourceAci.get());
         sourceNumber = sourcePni.flatMap(pni ->
             Util.getCanonicalNumber(phoneNumberIdentifiers.getPhoneNumber(pni).join()));
+        sourceAccountDeleted = true;
       } else {
-        sourceNumber = sourceAccount.map(Account::getNumber);
-        sourcePni = sourceAccount.map(Account::getPhoneNumberIdentifier);
+        sourceNumber = sourceAccount.flatMap(Account::getNumberOptional);
+        sourcePni = sourceAccount.flatMap(Account::getPhoneNumberIdentifierOptional);
       }
     }
 
-    UUID spamReporterUuid = auth.accountIdentifier();
+    final UUID spamReporterUuid = auth.accountIdentifier();
 
     // spam report token is optional, but if provided ensure it is non-empty.
     final Optional<byte[]> maybeSpamReportToken =
@@ -774,7 +777,7 @@ public class MessageController {
             .flatMap(r -> Optional.ofNullable(r.token()))
             .filter(t -> t.length > 0);
 
-    reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken, userAgent);
+    reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, spamReporterUuid, maybeSpamReportToken, userAgent, sourceAccountDeleted);
 
     return Response.status(Status.ACCEPTED)
         .build();

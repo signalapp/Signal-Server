@@ -35,10 +35,14 @@ public class ReportedMessageMetricsListener implements ReportedMessageListener {
   }
 
   @Override
-  public void handleMessageReported(final String sourceNumber, final UUID messageGuid, final UUID reporterUuid,
-      final Optional<byte[]> reportSpamToken) {
+  public void handleMessageReported(final Optional<String> sourceNumber, final UUID messageGuid, final UUID reporterUuid,
+      final Optional<byte[]> reportSpamToken, final boolean sourceAccountDeleted) {
 
-    final String sourceCountryCode = Util.getCountryCode(sourceNumber);
+    if (sourceNumber.isEmpty() && sourceAccountDeleted) {
+      return;
+    }
+
+    final String sourceCountryCode = sourceNumber.map(Util::getCountryCode).orElse("n/a");
 
     Metrics.counter(REPORTED_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, sourceCountryCode).increment();
 

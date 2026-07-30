@@ -10,5 +10,5 @@ import java.util.UUID;
 
 public interface ReportedMessageListener {
 
-  void handleMessageReported(String sourceNumber, UUID messageGuid, UUID reporterUuid, Optional<byte[]> reportSpamToken);
+  void handleMessageReported(Optional<String> sourceNumber, UUID messageGuid, UUID reporterUuid, Optional<byte[]> reportSpamToken, boolean sourceAccountDeleted);
 }
