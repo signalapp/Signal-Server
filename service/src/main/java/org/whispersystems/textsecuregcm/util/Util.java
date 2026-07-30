@@ -33,6 +33,9 @@ public class Util {
 
   public static final Runnable NOOP = () -> {};
 
+  public static final String COUNTRY_CODE_NOT_APPLICABLE = "n/a";
+  public static final String REGION_NOT_APPLICABLE = "n/a";
+
   // Use `CompletableFuture#thenApply(ASYNC_EMPTY_RESPONSE) to convert futures to
   // CompletableFuture<Response> instead of using NOOP to convert them to CompletableFuture<Void>
   // for jersey controllers; https://github.com/eclipse-ee4j/jersey/issues/3901 causes controllers
@@ -84,7 +87,7 @@ public class Util {
   }
 
   public static String getCountryCode(final Account account) {
-    return account.getNumberOptional().map(Util::getCountryCode).orElse("n/a");
+    return account.getNumberOptional().map(Util::getCountryCode).orElse(COUNTRY_CODE_NOT_APPLICABLE);
   }
 
   public static String getCountryCode(final String number) {
@@ -96,7 +99,7 @@ public class Util {
   }
 
   public static String getRegion(final Account account) {
-    return account.getNumberOptional().map(Util::getRegion).orElse("n/a");
+    return account.getNumberOptional().map(Util::getRegion).orElse(REGION_NOT_APPLICABLE);
   }
 
   public static String getRegion(final String number) {

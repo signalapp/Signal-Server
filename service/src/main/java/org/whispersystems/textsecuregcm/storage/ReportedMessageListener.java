@@ -10,5 +10,6 @@ import java.util.UUID;
 
 public interface ReportedMessageListener {
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   void handleMessageReported(Optional<String> sourceNumber, UUID messageGuid, UUID reporterUuid, Optional<byte[]> reportSpamToken, boolean sourceAccountDeleted);
 }

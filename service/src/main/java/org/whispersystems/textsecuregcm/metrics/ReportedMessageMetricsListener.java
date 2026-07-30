@@ -42,7 +42,7 @@ public class ReportedMessageMetricsListener implements ReportedMessageListener {
       return;
     }
 
-    final String sourceCountryCode = sourceNumber.map(Util::getCountryCode).orElse("n/a");
+    final String sourceCountryCode = sourceNumber.map(Util::getCountryCode).orElse(Util.COUNTRY_CODE_NOT_APPLICABLE);
 
     Metrics.counter(REPORTED_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, sourceCountryCode).increment();
 
