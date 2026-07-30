@@ -2599,8 +2599,9 @@ another device on the account may have written an update the caller does not kno
     </a>
             </code>
           </td>
-          <td class="content"><p>Payments are not permitted in the account's region, based on its phone number.
-The request should be retried without `payment_address.</p></td>
+          <td class="content"><p>Payments are not permitted in the account's region, based on its phone
+number or the caller's IP address if the account does not have a phone
+number. The request should be retried without `payment_address.</p></td>
           
         </tr>
       

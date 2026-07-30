@@ -2299,6 +2299,9 @@ paths:
         "200":
           description: Indicates that client and server have consistent views of repeated-use
             keys
+        "400":
+          description: The request was malformed or the account does not support the
+            requested identityType
         "401":
           description: Account authentication check failed
         "409":
@@ -2395,6 +2398,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PreKeyCount"
+        "400":
+          description: The request was malformed or the account does not support the
+            requested identityType
         "401":
           description: Account authentication check failed.
       security:
@@ -2426,6 +2432,9 @@ paths:
       responses:
         "200":
           description: Indicates that new keys were successfully stored.
+        "400":
+          description: The request was malformed or the account does not support the
+            requested identityType
         "401":
           description: Account authentication check failed.
         "403":
@@ -2978,7 +2987,8 @@ paths:
           description: Account authentication check failed.
         "403":
           description: "The request contained a payment address, but payments are\
-            \ not supported in the region of the account’s phone number."
+            \ not supported in the region of the account’s phone number or the caller's\
+            \ ASN if the account does not have a phone number."
         "412":
           description: The requesting account has the profiles_v2 capability
         "422":
@@ -5689,12 +5699,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        expiration:
-          type: string
-          format: date-time
         spendId:
           type: string
           format: byte
+        expiration:
+          type: string
+          format: date-time
         internalContentsForJNI:
           type: string
           format: byte
