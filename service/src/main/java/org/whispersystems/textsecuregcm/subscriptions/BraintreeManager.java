@@ -53,7 +53,7 @@ import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcessor {
+public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcessor, OneTimePaymentProcessor {
 
   private static final Logger logger = LoggerFactory.getLogger(BraintreeManager.class);
 
@@ -130,15 +130,27 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     return paymentMethod == PaymentMethod.PAYPAL;
   }
 
-  public Optional<PaymentDetails> getPaymentDetails(final String paymentId) {
+  @Override
+  public Optional<PaymentDetails> claimOneTimePurchase(final String paymentId) {
     try {
       final Transaction transaction = braintreeGateway.transaction().find(paymentId);
       ChargeFailure chargeFailure = null;
       if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
         chargeFailure = createChargeFailure(transaction);
       }
+
+      final Long level;
+      try {
+        level = Optional.ofNullable(transaction.getCustomFields())
+            .map(m -> m.get(BraintreeGraphqlClient.LEVEL_METADATA_NAME))
+            .map(Long::parseLong)
+            .orElse(null);
+      } catch (final NumberFormatException e) {
+        throw new IllegalStateException("failed to parse level metadata on payment intent %s".formatted(paymentId), e);
+      }
+
       return Optional.of(new PaymentDetails(transaction.getGraphQLId(),
-          transaction.getCustomFields(),
+          level,
           getPaymentStatus(transaction.getStatus()),
           transaction.getCreatedAt().toInstant(),
           chargeFailure));

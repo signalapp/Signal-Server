@@ -50,12 +50,13 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 
 class BraintreeGraphqlClient {
+  private static final Logger logger = LoggerFactory.getLogger(BraintreeGraphqlClient.class);
+
+  static final String LEVEL_METADATA_NAME = "level";
 
   // required header value, recommended to be the date the integration began
   // https://graphql.braintreepayments.com/guides/making_api_calls/#the-braintree-version-header
   private static final String BRAINTREE_VERSION = "2022-10-01";
-
-  private static final Logger logger = LoggerFactory.getLogger(BraintreeGraphqlClient.class);
 
   private final FaultTolerantHttpClient httpClient;
   private final URI graphqlUri;
@@ -165,7 +166,7 @@ class BraintreeGraphqlClient {
       throws IOException {
 
     final List<CustomFieldInput> customFields = List.of(
-        new CustomFieldInput("level", Optional.present(Long.toString(level))));
+        new CustomFieldInput(LEVEL_METADATA_NAME, Optional.present(Long.toString(level))));
 
     final ChargePaymentMethodInput input = buildChargePaymentMethodInput(paymentMethodId, amount, merchantAccount,
         customFields);

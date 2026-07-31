@@ -1,5 +1,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
@@ -7,6 +9,7 @@ import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
@@ -18,6 +21,9 @@ public class OneTimeDonationUtil {
   private static final String EURO_CURRENCY_CODE = "EUR";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(OneTimeDonationUtil.class);
+
+  private static final Counter MISSING_LEVEL_COUNTER =
+      Metrics.counter(MetricsUtil.name(OneTimeDonationUtil.class, "missingLevelMetadata"));
 
   /// Thrown if a one time donation level cannot be parsed or if it is not found in configuration
   public static class InvalidLevelException extends Exception {
@@ -102,17 +108,13 @@ public class OneTimeDonationUtil {
       final OneTimeDonationConfiguration oneTimeDonationConfiguration)
       throws InvalidLevelException {
 
-    long level = oneTimeDonationConfiguration.boost().level();
-    if (paymentDetails.customMetadata() != null) {
-      final String levelMetadata = paymentDetails.customMetadata()
-          .getOrDefault("level", Long.toString(oneTimeDonationConfiguration.boost().level()));
-      try {
-        level = Long.parseLong(levelMetadata);
-      } catch (final NumberFormatException e) {
-        LOGGER.error("failed to parse level metadata ({}) on payment intent {}", levelMetadata,
-            paymentDetails.id(), e);
-        throw new InvalidLevelException("failed to parse level metadata");
-      }
+    Long level = paymentDetails.level();
+    if (level == null) {
+      LOGGER.warn("paymentId {} did not have attached level metadata", paymentDetails.id());
+      MISSING_LEVEL_COUNTER.increment();
+
+      // Default to boost if the level was not encoded in the metadata
+      level = oneTimeDonationConfiguration.boost().level();
     }
 
     final Duration levelExpiration;

@@ -20,7 +20,6 @@ import com.stripe.model.PaymentIntent;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -271,8 +270,8 @@ public class OneTimeDonationsGrpcServiceTest extends
   void createBoostReceiptCredentialsPaymentRequired(
       @Nullable final ChargeFailure chargeFailure,
       final boolean expectChargeFailure) throws IOException {
-    when(stripeManager.getPaymentDetails(any())).thenReturn(
-        Optional.of(new PaymentDetails("id", Collections.emptyMap(), PaymentStatus.FAILED,
+    when(stripeManager.claimOneTimePurchase(any())).thenReturn(
+        Optional.of(new PaymentDetails("id", null, PaymentStatus.FAILED,
             clock.instant(), chargeFailure)));
 
     final CreateBoostReceiptCredentialsResponse response =
@@ -305,9 +304,9 @@ public class OneTimeDonationsGrpcServiceTest extends
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
 
-    when(stripeManager.getPaymentDetails(any())).thenReturn(
-        Optional.of(new PaymentDetails("id", Collections.emptyMap(), PaymentStatus.SUCCEEDED,
-            clock.instant(), null)));
+    when(stripeManager.claimOneTimePurchase(any())).thenReturn(
+        Optional.of(new PaymentDetails("id", oneTimeDonationConfiguration.boost().level(),
+            PaymentStatus.SUCCEEDED, clock.instant(), null)));
     doThrow(WriteConflictException.class).when(issuedReceiptsManager)
         .recordIssuance(any(), any(), any(), any());
 

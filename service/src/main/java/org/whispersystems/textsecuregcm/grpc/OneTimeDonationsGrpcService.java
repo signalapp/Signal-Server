@@ -261,11 +261,11 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
     switch (request.getProcessor()) {
       case PAYMENT_PROVIDER_STRIPE -> {
         processor = PaymentProvider.STRIPE;
-        maybePaymentDetails = stripeManager.getPaymentDetails(request.getPaymentIntentId());
+        maybePaymentDetails = stripeManager.claimOneTimePurchase(request.getPaymentIntentId());
       }
       case PAYMENT_PROVIDER_BRAINTREE -> {
         processor = PaymentProvider.BRAINTREE;
-        maybePaymentDetails = braintreeManager.getPaymentDetails(request.getPaymentIntentId());
+        maybePaymentDetails = braintreeManager.claimOneTimePurchase(request.getPaymentIntentId());
       }
       default -> throw GrpcExceptions.fieldViolation("processor", "Unsupported payment processor");
     }
