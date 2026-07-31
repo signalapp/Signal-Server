@@ -8,9 +8,11 @@ import com.apple.itunes.storekit.client.APIError;
 import com.apple.itunes.storekit.client.APIException;
 import com.apple.itunes.storekit.client.AppStoreServerAPIClient;
 import com.apple.itunes.storekit.model.Environment;
+import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import com.apple.itunes.storekit.model.LastTransactionsItem;
 import com.apple.itunes.storekit.model.Status;
 import com.apple.itunes.storekit.model.StatusResponse;
+import com.apple.itunes.storekit.model.TransactionInfoResponse;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
 import com.google.common.annotations.VisibleForTesting;
@@ -36,7 +38,7 @@ import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 /// Client for interacting with the storekit server APIs.
 ///
 /// This handles fetching information about a subscription from a transaction id, and then can be used to verify
-/// individual transactions from that subscription with [#verify]. Transactions generated with both production and
+/// individual transactions from that subscription with [#verifySubscription]. Transactions generated with both production and
 /// sandbox environments can be used.
 public class AppleAppStoreClient {
 
@@ -106,8 +108,8 @@ public class AppleAppStoreClient {
   }
 
 
-  /// Verify signature and decode transaction payloads
-  public AppleAppStoreDecodedTransaction verify(final Environment environment, final LastTransactionsItem tx) {
+  /// Verify signature and decode transaction payload for a recurring subscription
+  AppleAppStoreDecodedTransaction verifySubscription(final Environment environment, final LastTransactionsItem tx) {
     final SignedDataVerifier signedDataVerifier = switch (environment) {
       case PRODUCTION -> productionSignedDataVerifier;
       case SANDBOX -> sandboxSignedDataVerifier;
@@ -126,52 +128,108 @@ public class AppleAppStoreClient {
   public StatusResponse getAllSubscriptions(final String originalTransactionId, final Tags errorTags)
       throws SubscriptionNotFoundException, SubscriptionInvalidArgumentsException, RateLimitExceededException {
     try {
+      return lookupByTransactionId(originalTransactionId, errorTags,
+          (env, txId) -> client(env).getAllSubscriptionStatuses(txId, EMPTY_STATUSES));
+    } catch (APIException e) {
+      switch (e.getApiError()) {
+        case TRANSACTION_ID_NOT_FOUND, ORIGINAL_TRANSACTION_ID_NOT_FOUND, ACCOUNT_NOT_FOUND -> throw new SubscriptionNotFoundException();
+        case RATE_LIMIT_EXCEEDED -> throw new RateLimitExceededException(null);
+        case INVALID_ORIGINAL_TRANSACTION_ID -> throw new SubscriptionInvalidArgumentsException(e.getApiErrorMessage());
+        case null, default -> throw new UncheckedIOException(new IOException(e));
+      }
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  /// Lookup the transaction for a particular transactionId
+  Optional<JWSTransactionDecodedPayload> lookupTransaction(final String transactionId, final Tags errorTags)
+      throws RateLimitExceededException {
+    try {
+      return Optional.of(lookupByTransactionId(transactionId, errorTags, (environment, txId) -> {
+        try {
+          final TransactionInfoResponse transactionInfo = client(environment).getTransactionInfo(txId);
+          return verifier(environment).verifyAndDecodeTransaction(transactionInfo.getSignedTransactionInfo());
+        } catch (VerificationException e) {
+          throw new IOException("Failed to verify payload from App Store Server", e);
+        }
+      }));
+    } catch (APIException e) {
+      return switch (e.getApiError()) {
+        case TRANSACTION_ID_NOT_FOUND, ORIGINAL_TRANSACTION_ID_NOT_FOUND, ACCOUNT_NOT_FOUND, INVALID_TRANSACTION_ID, INVALID_ORIGINAL_TRANSACTION_ID -> Optional.empty();
+        case RATE_LIMIT_EXCEEDED -> throw new RateLimitExceededException(null);
+        case null, default -> throw new UncheckedIOException(new IOException(e));
+      };
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  interface TransactionFinder<T> {
+    /// Perform some lookup operation on `transactionId`
+    T lookup(final Environment environment, final String transactionId) throws IOException, APIException;
+  }
+
+  /// Lookup something via transaction-id.
+  ///
+  /// This performs the specified lookup operation in the production environment first, and then falls back to the
+  /// sandbox environment if it's not found.
+  ///
+  /// @param transactionId The transactionId to look up
+  /// @param errorTags Context for the operation to include on error metrics
+  /// @param lookupFunction [TransactionFinder] that performs the lookup operation
+  /// @return The result of the lookup operation
+  @VisibleForTesting
+  <T> T lookupByTransactionId(
+      final String transactionId, final Tags errorTags, final TransactionFinder<T> lookupFunction)
+      throws APIException, IOException {
+    try {
+      return lookupByTransactionIdInEnvironment(defaultEnvironment, transactionId, errorTags, lookupFunction);
+    } catch (final APIException e) {
+      // Transactions created in the sandbox environment aren't visible in production, so fall back to sandbox if the
+      // transaction isn't found. See: https://developer.apple.com/documentation/AppStoreServerAPI#Test-using-the-sandbox-environment
+      if (defaultEnvironment == Environment.PRODUCTION && e.getApiError() == APIError.TRANSACTION_ID_NOT_FOUND) {
+        return lookupByTransactionIdInEnvironment(Environment.SANDBOX, transactionId, errorTags, lookupFunction);
+      }
+      throw e;
+    }
+  }
+
+  private <T> T lookupByTransactionIdInEnvironment(final Environment env, final String transactionId, final Tags errorTags, final TransactionFinder<T> lookupFunction) throws APIException, IOException {
+    try {
       return retry.executeCallable(() -> {
         try {
-          return getAllSubscriptionsHelper(defaultEnvironment, originalTransactionId);
+          return lookupFunction.lookup(env, transactionId);
         } catch (final APIException e) {
           final APIError apiError = e.getApiError();
           Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, errorTags.and("reason", apiError != null ? apiError.name() : "http_" + e.getHttpStatusCode())).increment();
-          throw switch (e.getApiError()) {
-            case TRANSACTION_ID_NOT_FOUND, ORIGINAL_TRANSACTION_ID_NOT_FOUND, ACCOUNT_NOT_FOUND -> new SubscriptionNotFoundException();
-            case RATE_LIMIT_EXCEEDED -> new RateLimitExceededException(null);
-            case INVALID_ORIGINAL_TRANSACTION_ID -> new SubscriptionInvalidArgumentsException(e.getApiErrorMessage());
-            case null, default -> throw e;
-          };
+          throw e;
         } catch (final IOException e) {
           Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, "reason", "io_error").increment();
           throw e;
         }
       });
-    } catch (SubscriptionNotFoundException | SubscriptionInvalidArgumentsException | RateLimitExceededException e) {
+    } catch (IOException | APIException e) {
       throw e;
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    } catch (APIException e) {
-      throw new UncheckedIOException(new IOException(e));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
-  private StatusResponse getAllSubscriptionsHelper(final Environment env, final String originalTransactionId)
-      throws APIException, IOException {
-    final AppStoreServerAPIClient client = switch (env) {
+  private AppStoreServerAPIClient client(final Environment environment) {
+    return switch (environment) {
       case SANDBOX -> sandboxApiClient;
       case PRODUCTION -> productionApiClient;
-      default -> throw new IllegalArgumentException("Unknown environment: " + env);
+      default -> throw new IllegalStateException("unexpected environment");
     };
-    try {
-      return client.getAllSubscriptionStatuses(originalTransactionId, EMPTY_STATUSES);
-    } catch (APIException e) {
-      // First attempts to look up the transaction on the production environment, falling back to the sandbox env if
-      // the transaction is not found.
-      // See: https://developer.apple.com/documentation/AppStoreServerAPI#Test-using-the-sandbox-environment
-      if (env == Environment.PRODUCTION && e.getApiError() == APIError.TRANSACTION_ID_NOT_FOUND) {
-        return getAllSubscriptionsHelper(Environment.SANDBOX, originalTransactionId);
-      }
-      throw e;
-    }
+  }
+
+  private SignedDataVerifier verifier(final Environment environment) {
+    return switch (environment) {
+      case SANDBOX -> sandboxSignedDataVerifier;
+      case PRODUCTION -> productionSignedDataVerifier;
+      default -> throw new IllegalStateException("unexpected environment");
+    };
   }
 
   private static Set<InputStream> decodeRootCerts(final List<String> rootCerts) {

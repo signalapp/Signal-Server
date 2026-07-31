@@ -14,6 +14,10 @@ import com.google.api.services.androidpublisher.AndroidPublisherRequest;
 import com.google.api.services.androidpublisher.AndroidPublisherScopes;
 import com.google.api.services.androidpublisher.model.AutoRenewingPlan;
 import com.google.api.services.androidpublisher.model.Money;
+import com.google.api.services.androidpublisher.model.ProductLineItem;
+import com.google.api.services.androidpublisher.model.ProductOfferDetails;
+import com.google.api.services.androidpublisher.model.ProductPurchaseV2;
+import com.google.api.services.androidpublisher.model.PurchaseStateContext;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseLineItem;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseV2;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchasesAcknowledgeRequest;
@@ -55,7 +59,7 @@ import org.whispersystems.textsecuregcm.storage.PaymentTime;
  * <li> querying the current status of a token's underlying subscription </li>
  * </ul>
  */
-public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
+public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, OneTimePaymentProcessor {
 
   private static final Logger logger = LoggerFactory.getLogger(GooglePlayBillingManager.class);
 
@@ -308,6 +312,67 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
   }
 
 
+  /// @implNote Play consumable purchases must be consumed (or they will eventually be refunded). Retrieving the
+  /// PaymentInfo for a purchase also consumes the token. This does not mean subsequent attempts to generate a receipt
+  /// will fail, it just means we've told the play store that the purchase is complete. If the client fails after the
+  /// acknowledgement, they can just retry with no issue.
+  @Override
+  public Optional<PaymentDetails> claimOneTimePurchase(final String purchaseToken)
+      throws IOException, RateLimitExceededException, SubscriptionInvalidArgumentsException {
+    try {
+      final ProductPurchaseV2 productPurchaseV2 = executeTokenOperation(
+          publisher -> publisher.purchases().productsv2().getproductpurchasev2(packageName, purchaseToken));
+
+      final PaymentStatus paymentStatus = Optional
+          .ofNullable(productPurchaseV2.getPurchaseStateContext())
+          .map(PurchaseStateContext::getPurchaseState)
+          .flatMap(PurchaseState::fromString)
+          .map(purchaseState -> switch (purchaseState) {
+            case PENDING -> PaymentStatus.PROCESSING;
+            case CANCELLED -> PaymentStatus.FAILED;
+            case PURCHASED -> PaymentStatus.SUCCEEDED;
+            case PURCHASE_STATE_UNSPECIFIED -> PaymentStatus.UNKNOWN;
+          })
+          .orElse(PaymentStatus.UNKNOWN);
+
+      final ProductLineItem lineItem = getLineItem(productPurchaseV2);
+      final String productId = lineItem.getProductId();
+      final long level = productIdToLevel(productId);
+
+      Instant purchaseTime = null;
+      if (paymentStatus == PaymentStatus.SUCCEEDED) {
+        purchaseTime = parseTimestamp(productPurchaseV2.getPurchaseCompletionTime())
+            .orElseThrow(() -> new IOException("Invalid purchase time"));
+
+        final ConsumptionState consumptionState = Optional
+            .ofNullable(lineItem.getProductOfferDetails())
+            .map(ProductOfferDetails::getConsumptionState)
+            .flatMap(ConsumptionState::fromString)
+            .orElseThrow(() -> new IllegalStateException("Purchase did not contain a consumption state: " + lineItem.getProductOfferDetails()));
+
+        if (consumptionState == ConsumptionState.YET_TO_BE_CONSUMED) {
+          // Mark this token as consumed
+          executeTokenOperation(publisher ->
+              publisher.purchases().products().consume(packageName, productId, purchaseToken));
+        }
+      }
+      return Optional.of(new PaymentDetails(purchaseToken, level, paymentStatus, purchaseTime, null));
+    } catch (SubscriptionNotFoundException e) {
+      return Optional.empty();
+    }
+  }
+
+  private ProductLineItem getLineItem(final ProductPurchaseV2 purchase) throws SubscriptionInvalidArgumentsException {
+    final List<ProductLineItem> lineItems = purchase.getProductLineItem();
+    if (lineItems == null || lineItems.isEmpty()) {
+      throw new SubscriptionInvalidArgumentsException("purchase has no line items");
+    }
+    if (lineItems.size() > 1) {
+      logger.warn("{} line items found for purchase {}, expected 1", lineItems.size(), purchase.getOrderId());
+    }
+    return lineItems.getFirst();
+  }
+
   interface ApiCall<T> {
 
     AndroidPublisherRequest<T> req(AndroidPublisher publisher) throws IOException;
@@ -432,6 +497,61 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
 
     private static Optional<SubscriptionState> fromString(String s) {
       return Optional.ofNullable(SubscriptionState.VALUES.getOrDefault(s, null));
+    }
+
+    @VisibleForTesting
+    String apiString() {
+      return s;
+    }
+  }
+
+  // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.productsv2#PurchaseStateContext
+  @VisibleForTesting
+  enum PurchaseState {
+    PURCHASE_STATE_UNSPECIFIED("PURCHASE_STATE_UNSPECIFIED"),
+    PURCHASED("PURCHASED"),
+    CANCELLED("CANCELLED"),
+    PENDING("PENDING");
+
+    private static final Map<String, PurchaseState> VALUES = Arrays
+        .stream(PurchaseState.values())
+        .collect(Collectors.toMap(ss -> ss.s, ss -> ss));
+
+    private final String s;
+
+    PurchaseState(final String s) {
+      this.s = s;
+    }
+
+    private static Optional<PurchaseState> fromString(String s) {
+      return Optional.ofNullable(PurchaseState.VALUES.getOrDefault(s, null));
+    }
+
+    @VisibleForTesting
+    String apiString() {
+      return s;
+    }
+  }
+
+  // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.productsv2#ConsumptionState
+  @VisibleForTesting
+  enum ConsumptionState {
+    UNSPECIFIED("CONSUMPTION_STATE_UNSPECIFIED"),
+    YET_TO_BE_CONSUMED("CONSUMPTION_STATE_YET_TO_BE_CONSUMED"),
+    CONSUMED("CONSUMPTION_STATE_CONSUMED");
+
+    private static final Map<String, ConsumptionState> VALUES = Arrays
+        .stream(ConsumptionState.values())
+        .collect(Collectors.toMap(ss -> ss.s, ss -> ss));
+
+    private final String s;
+
+    ConsumptionState(final String s) {
+      this.s = s;
+    }
+
+    private static Optional<ConsumptionState> fromString(String s) {
+      return Optional.ofNullable(ConsumptionState.VALUES.getOrDefault(s, null));
     }
 
     @VisibleForTesting

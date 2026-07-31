@@ -16,12 +16,15 @@ import com.apple.itunes.storekit.client.APIException;
 import com.apple.itunes.storekit.client.AppStoreServerAPIClient;
 import com.apple.itunes.storekit.model.AutoRenewStatus;
 import com.apple.itunes.storekit.model.Environment;
+import com.apple.itunes.storekit.model.InAppOwnershipType;
 import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import com.apple.itunes.storekit.model.LastTransactionsItem;
 import com.apple.itunes.storekit.model.Status;
 import com.apple.itunes.storekit.model.StatusResponse;
 import com.apple.itunes.storekit.model.SubscriptionGroupIdentifierItem;
+import com.apple.itunes.storekit.model.TransactionInfoResponse;
+import com.apple.itunes.storekit.model.Type;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
 import java.io.IOException;
@@ -40,6 +43,7 @@ class AppleAppStoreManagerTest {
 
   private final static long LEVEL = 123L;
   private final static String ORIGINAL_TX_ID = "originalTxIdTest";
+  private final static String TRANSACTION_ID = "txIdTest";
   private final static String SUBSCRIPTION_GROUP_ID = "subscriptionGroupIdTest";
   private final static String SIGNED_RENEWAL_INFO = "signedRenewalInfoTest";
   private final static String SIGNED_TX_INFO = "signedRenewalInfoTest";
@@ -188,6 +192,37 @@ class AppleAppStoreManagerTest {
   public void cancelInactiveStatus(Status status) throws APIException, VerificationException, IOException {
     mockSubscription(status, AutoRenewStatus.ON);
     assertDoesNotThrow(() -> appleAppStoreManager.cancelAllActiveSubscriptions(ORIGINAL_TX_ID));
+  }
+
+  @Test
+  public void getPaymentDetails()
+      throws APIException, IOException, VerificationException, SubscriptionException, RateLimitExceededException {
+    when(apiClient.getTransactionInfo(TRANSACTION_ID))
+        .thenReturn(new TransactionInfoResponse().signedTransactionInfo(SIGNED_TX_INFO));
+    final JWSTransactionDecodedPayload payload = new JWSTransactionDecodedPayload()
+        .transactionId(TRANSACTION_ID)
+        .productId(PRODUCT_ID)
+        .type(Type.CONSUMABLE)
+        .inAppOwnershipType(InAppOwnershipType.PURCHASED)
+        .purchaseDate(Instant.EPOCH.plus(Duration.ofDays(1)).toEpochMilli());
+    when(signedDataVerifier.verifyAndDecodeTransaction(SIGNED_TX_INFO)).thenReturn(payload);
+
+    {
+      // PURCHASED payment
+      final PaymentDetails paymentDetails = appleAppStoreManager.claimOneTimePurchase(TRANSACTION_ID).orElseThrow();
+      assertThat(paymentDetails.id()).isEqualTo(TRANSACTION_ID);
+      assertThat(paymentDetails.level()).isEqualTo(LEVEL);
+      assertThat(paymentDetails.created()).isEqualTo(Instant.EPOCH.plus(Duration.ofDays(1)));
+      assertThat(paymentDetails.chargeFailure()).isNull();
+      assertThat(paymentDetails.status()).isEqualTo(PaymentStatus.SUCCEEDED);
+    }
+
+    {
+      // REVOKED payment
+      payload.setRevocationDate(Instant.EPOCH.plus(Duration.ofDays(2)).toEpochMilli());
+      final PaymentDetails paymentDetails = appleAppStoreManager.claimOneTimePurchase(TRANSACTION_ID).orElseThrow();
+      assertThat(paymentDetails.status()).isEqualTo(PaymentStatus.FAILED);
+    }
   }
 
   private void mockSubscription(final Status status, final AutoRenewStatus autoRenewStatus)

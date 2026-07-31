@@ -6,9 +6,11 @@
 package org.whispersystems.textsecuregcm.subscriptions;
 
 import com.apple.itunes.storekit.model.AutoRenewStatus;
+import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import com.apple.itunes.storekit.model.Status;
 import com.apple.itunes.storekit.model.StatusResponse;
 import com.apple.itunes.storekit.model.SubscriptionGroupIdentifierItem;
+import com.apple.itunes.storekit.model.Type;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -21,6 +23,8 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -33,7 +37,7 @@ import org.whispersystems.textsecuregcm.storage.PaymentTime;
  * subscription's <a
  * href="https://developer.apple.com/documentation/appstoreserverapi/originaltransactionid">originalTransactionId</a>.
  */
-public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
+public class AppleAppStoreManager implements SubscriptionPaymentProcessor, OneTimePaymentProcessor {
 
   private static final Logger logger = LoggerFactory.getLogger(AppleAppStoreManager.class);
 
@@ -74,7 +78,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
     if (!isSubscriptionActive(tx)) {
       throw new SubscriptionPaymentRequiredException();
     }
-    return getLevel(tx);
+    return getLevel(tx.transaction());
   }
 
 
@@ -94,7 +98,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
   public void cancelAllActiveSubscriptions(String originalTransactionId)
       throws SubscriptionInvalidArgumentsException, RateLimitExceededException {
     try {
-      final AppleAppStoreDecodedTransaction tx = lookup(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "cancel"));
+      final AppleAppStoreDecodedTransaction tx = lookupSubscription(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "cancel"));
       if (tx.signedTransaction().getStatus() != Status.EXPIRED &&
           tx.signedTransaction().getStatus() != Status.REVOKED &&
           tx.renewalInfo().getAutoRenewStatus() != AutoRenewStatus.OFF) {
@@ -109,7 +113,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
   @Override
   public SubscriptionInformation getSubscriptionInformation(final String originalTransactionId)
       throws RateLimitExceededException, SubscriptionNotFoundException {
-    final AppleAppStoreDecodedTransaction tx = lookup(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "info"));
+    final AppleAppStoreDecodedTransaction tx = lookupSubscription(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "info"));
     final SubscriptionStatus status = switch (tx.signedTransaction().getStatus()) {
       case ACTIVE -> SubscriptionStatus.ACTIVE;
       case BILLING_RETRY -> SubscriptionStatus.PAST_DUE;
@@ -119,7 +123,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
 
     return new SubscriptionInformation(
         getSubscriptionPrice(tx),
-        getLevel(tx),
+        getLevel(tx.transaction()),
         Instant.ofEpochMilli(tx.transaction().getOriginalPurchaseDate()),
         Instant.ofEpochMilli(tx.transaction().getExpiresDate()),
         isSubscriptionActive(tx),
@@ -135,7 +139,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
   @Override
   public ReceiptItem getReceiptItem(String originalTransactionId)
       throws RateLimitExceededException, SubscriptionNotFoundException, SubscriptionPaymentRequiredException {
-    final AppleAppStoreDecodedTransaction tx = lookup(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "receipt"));
+    final AppleAppStoreDecodedTransaction tx = lookupSubscription(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "receipt"));
     if (!isSubscriptionActive(tx)) {
       throw new SubscriptionPaymentRequiredException();
     }
@@ -146,11 +150,38 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
     final String itemId = tx.transaction().getWebOrderLineItemId();
     final PaymentTime paymentTime = PaymentTime.periodEnds(Instant.ofEpochMilli(tx.transaction().getExpiresDate()));
 
-    return new ReceiptItem(itemId, paymentTime, getLevel(tx));
+    return new ReceiptItem(itemId, paymentTime, getLevel(tx.transaction()));
 
   }
 
-  private AppleAppStoreDecodedTransaction lookup(final String originalTransactionId, final Tags tags)
+  @Override
+  public Optional<PaymentDetails> claimOneTimePurchase(final String transactionId)
+      throws RateLimitExceededException, SubscriptionInvalidArgumentsException {
+
+    final Optional<JWSTransactionDecodedPayload> maybeTransaction =
+        appleAppStoreClient.lookupTransaction(transactionId, Tags.of(LOOKUP_TYPE_TAG, "one_time"));
+    if (maybeTransaction.isEmpty()) {
+      return Optional.empty();
+    }
+    final JWSTransactionDecodedPayload transaction = maybeTransaction.get();
+
+    if (transaction.getType() != Type.CONSUMABLE) {
+      throw new SubscriptionInvalidArgumentsException("transaction is not a consumable one-time purchase");
+    }
+
+    final PaymentStatus paymentStatus = transaction.getRevocationDate() == null
+        ? PaymentStatus.SUCCEEDED
+        : PaymentStatus.FAILED;
+
+    return Optional.of(new PaymentDetails(
+        Objects.requireNonNull(transaction.getTransactionId()),
+        getLevel(transaction),
+        paymentStatus,
+        transaction.getPurchaseDate() != null ? Instant.ofEpochMilli(transaction.getPurchaseDate()) : null,
+        null));
+  }
+
+  private AppleAppStoreDecodedTransaction lookupSubscription(final String originalTransactionId, final Tags tags)
       throws RateLimitExceededException, SubscriptionNotFoundException {
     try {
       return lookupAndValidateTransaction(originalTransactionId, tags);
@@ -168,7 +199,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
         .orElseThrow(() -> new SubscriptionInvalidArgumentsException("transaction did not contain a backup subscription", null));
 
     final List<AppleAppStoreDecodedTransaction> txs = item.getLastTransactions().stream()
-        .map(txItem -> appleAppStoreClient.verify(statuses.getEnvironment(), txItem))
+        .map(txItem -> appleAppStoreClient.verifySubscription(statuses.getEnvironment(), txItem))
         .filter(tx -> tx.signedTransaction().getOriginalTransactionId().equals(originalTransactionId))
         .filter(decoded -> productIdToLevel.containsKey(decoded.transaction().getProductId()))
         .toList();
@@ -194,11 +225,11 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
         SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(tx.transaction().getCurrency(), amount));
   }
 
-  private long getLevel(final AppleAppStoreDecodedTransaction tx) {
-    final Long level = productIdToLevel.get(tx.transaction().getProductId());
+  private long getLevel(final JWSTransactionDecodedPayload tx) {
+    final Long level = productIdToLevel.get(tx.getProductId());
     if (level == null) {
       throw new UncheckedIOException(new IOException(
-          "Transaction for unknown productId " + tx.transaction().getProductId()));
+          "Transaction for unknown productId " + tx.getProductId()));
     }
     return level;
   }

@@ -22,6 +22,10 @@ import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.AutoRenewingPlan;
 import com.google.api.services.androidpublisher.model.Money;
 import com.google.api.services.androidpublisher.model.OfferDetails;
+import com.google.api.services.androidpublisher.model.ProductLineItem;
+import com.google.api.services.androidpublisher.model.ProductOfferDetails;
+import com.google.api.services.androidpublisher.model.ProductPurchaseV2;
+import com.google.api.services.androidpublisher.model.PurchaseStateContext;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseLineItem;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseV2;
 import java.io.IOException;
@@ -31,12 +35,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
@@ -60,13 +66,21 @@ class GooglePlayBillingManagerTest {
   private final AndroidPublisher.Purchases.Subscriptions.Cancel cancel =
       mock(AndroidPublisher.Purchases.Subscriptions.Cancel.class);
 
+  // Returned in response to a purchases.productsv2.getproductpurchasev2
+  private final AndroidPublisher.Purchases.Productsv2.Getproductpurchasev2 getProductPurchase =
+      mock(AndroidPublisher.Purchases.Productsv2.Getproductpurchasev2.class);
+
+  // Returned in response to a purchases.products.consume
+  private final AndroidPublisher.Purchases.Products.Consume consume =
+      mock(AndroidPublisher.Purchases.Products.Consume.class);
+
   private final MutableClock clock = MockUtils.mutableClock(0L);
 
   private GooglePlayBillingManager googlePlayBillingManager;
 
   @BeforeEach
   public void setup() throws IOException {
-    reset(subscriptionsv2Get);
+    reset(subscriptionsv2Get, getProductPurchase, consume);
     clock.setTimeMillis(0L);
 
     AndroidPublisher androidPublisher = mock(AndroidPublisher.class);
@@ -86,6 +100,14 @@ class GooglePlayBillingManagerTest {
         .thenReturn(acknowledge);
     when(subscriptions.cancel(PACKAGE_NAME, PRODUCT_ID, PURCHASE_TOKEN))
         .thenReturn(cancel);
+
+    AndroidPublisher.Purchases.Productsv2 productsv2 = mock(AndroidPublisher.Purchases.Productsv2.class);
+    when(purchases.productsv2()).thenReturn(productsv2);
+    when(productsv2.getproductpurchasev2(PACKAGE_NAME, PURCHASE_TOKEN)).thenReturn(getProductPurchase);
+
+    AndroidPublisher.Purchases.Products products = mock(AndroidPublisher.Purchases.Products.class);
+    when(purchases.products()).thenReturn(products);
+    when(products.consume(PACKAGE_NAME, PRODUCT_ID, PURCHASE_TOKEN)).thenReturn(consume);
 
     googlePlayBillingManager = new GooglePlayBillingManager(
         androidPublisher, clock, PACKAGE_NAME, Map.of(PRODUCT_ID, 201L));
@@ -249,6 +271,89 @@ class GooglePlayBillingManagerTest {
     assertThat(info.level()).isEqualTo(201L);
     assertThat(info.cancelAtPeriodEnd()).isTrue();
 
+  }
+
+  private static ProductPurchaseV2 productPurchase(
+      final String purchaseState,
+      @Nullable final String consumptionState,
+      final Instant purchaseCompletionTime,
+      final String productId) {
+
+    final ProductLineItem lineItem = new ProductLineItem().setProductId(productId);
+    if (consumptionState != null) {
+      lineItem.setProductOfferDetails(new ProductOfferDetails().setConsumptionState(consumptionState));
+    }
+
+    return new ProductPurchaseV2()
+        .setOrderId(ORDER_ID)
+        .setPurchaseStateContext(new PurchaseStateContext().setPurchaseState(purchaseState))
+        .setPurchaseCompletionTime(purchaseCompletionTime.toString())
+        .setProductLineItem(List.of(lineItem));
+  }
+
+  @CartesianTest
+  public void getPaymentDetails(
+      @CartesianTest.Enum final GooglePlayBillingManager.PurchaseState purchaseState,
+      @CartesianTest.Enum final GooglePlayBillingManager.ConsumptionState consumptionState)
+      throws IOException, RateLimitExceededException, SubscriptionException {
+    when(getProductPurchase.execute()).thenReturn(productPurchase(
+        purchaseState.apiString(),
+        consumptionState.apiString(),
+        Instant.EPOCH.plus(Duration.ofDays(3)),
+        PRODUCT_ID));
+
+    final PaymentStatus expected = switch (purchaseState) {
+      case PURCHASED -> PaymentStatus.SUCCEEDED;
+      case PENDING -> PaymentStatus.PROCESSING;
+      case CANCELLED -> PaymentStatus.FAILED;
+      case PURCHASE_STATE_UNSPECIFIED -> PaymentStatus.UNKNOWN;
+    };
+
+    assertThat(googlePlayBillingManager.claimOneTimePurchase(PURCHASE_TOKEN)).hasValueSatisfying(details -> {
+      assertThat(details.status()).isEqualTo(expected);
+      assertThat(details.id()).isEqualTo(PURCHASE_TOKEN);
+      assertThat(details.level()).isEqualTo(201L);
+    });
+
+    final boolean expectConsume = purchaseState == GooglePlayBillingManager.PurchaseState.PURCHASED &&
+        consumptionState == GooglePlayBillingManager.ConsumptionState.YET_TO_BE_CONSUMED;
+
+    verify(consume, times(expectConsume ? 1 : 0)).execute();
+  }
+
+  public static Stream<Arguments> getPaymentDetailsErrors() {
+    return Stream.of(
+        Arguments.of(404, null),
+        Arguments.of(410, null),
+        Arguments.of(400, IOException.class),
+        Arguments.of(429, RateLimitExceededException.class)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  public void getPaymentDetailsErrors(final int httpStatus, final @Nullable Class<? extends Exception> expectedException)
+      throws IOException, SubscriptionInvalidArgumentsException, RateLimitExceededException {
+    final HttpResponseException mockException = mock(HttpResponseException.class);
+    when(mockException.getStatusCode()).thenReturn(httpStatus);
+    when(getProductPurchase.execute()).thenThrow(mockException);
+
+    if (expectedException == null) {
+      assertThat(googlePlayBillingManager.claimOneTimePurchase(PURCHASE_TOKEN)).isEmpty();
+    } else {
+      assertThatException()
+          .isThrownBy(() -> googlePlayBillingManager.claimOneTimePurchase(PURCHASE_TOKEN))
+          // Verify the exception or its leaf cause is an instanceof expected. withRootCauseInstanceOf almost does what we
+          // want, but fails if the outermost exception does not have a cause
+          .matches(e -> {
+            Throwable cause = e;
+            while (cause.getCause() != null) {
+              cause = cause.getCause();
+            }
+            return expectedException.isInstance(cause);
+          });
+    }
+    verifyNoInteractions(consume);
   }
 
   public static Stream<Arguments> tokenErrors() {

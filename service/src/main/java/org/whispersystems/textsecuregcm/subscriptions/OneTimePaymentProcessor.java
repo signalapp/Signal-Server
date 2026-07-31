@@ -4,6 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.subscriptions;
 
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import java.io.IOException;
 import java.util.Optional;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -14,5 +15,5 @@ public interface OneTimePaymentProcessor {
   ///
   /// @param paymentIdentifier A string that identifies the payment in the payment processor
   /// @return Details about the purchase, or empty if there was no corresponding payment
-  Optional<PaymentDetails> claimOneTimePurchase(final String paymentIdentifier) throws IOException;
+  Optional<PaymentDetails> claimOneTimePurchase(final String paymentIdentifier) throws IOException, RateLimitExceededException, SubscriptionInvalidArgumentsException;
 }

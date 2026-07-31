@@ -20,5 +20,5 @@ import javax.annotation.Nullable;
 public record PaymentDetails(String id,
                              @Nullable Long level,
                              PaymentStatus status,
-                             Instant created,
+                             @Nullable Instant created,
                              @Nullable ChargeFailure chargeFailure) {}
