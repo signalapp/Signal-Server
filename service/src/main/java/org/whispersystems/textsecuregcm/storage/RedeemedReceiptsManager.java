@@ -17,7 +17,10 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
@@ -95,5 +98,45 @@ public class RedeemedReceiptsManager {
       final UUID ddbAccountUuid = UUIDUtil.fromByteBuffer(attributes.get(KEY_ACCOUNT_UUID).b().asByteBuffer());
       return ddbReceiptExpiration == receiptExpiration && ddbReceiptLevel == receiptLevel &&
           Objects.equals(ddbAccountUuid, accountUuid);
+  }
+
+  /// Creates a [TransactWriteItem] that inserts the receipt into the redeemed receipts table if the receipt serial
+  /// mapping for the specified accountUuid doesn't already exist. If a receipt serial mapping exists for another
+  /// account, the enclosing transaction fails.
+  ///
+  /// @param receiptSerial     The receipt serial
+  /// @param receiptExpiration The timestamp at which the receipt expires
+  /// @param receiptLevel      The receipt level indicating the type of entitlement
+  /// @param accountUuid       The account identifier
+  public TransactWriteItem buildTransactWriteItemForReceipt(
+      final ReceiptSerial receiptSerial,
+      final Instant receiptExpiration,
+      final long receiptLevel,
+      final UUID accountUuid) {
+
+    return TransactWriteItem.builder()
+        .put(Put.builder()
+            .tableName(table)
+            .item(Map.of(
+                KEY_SERIAL, AttributeValues.b(receiptSerial.serialize()),
+                // NOTE: this differs from the expiration for other receipt types (see RedeemedReceiptsManager#put) which
+                // sets the expiration to now + a static expiration time. The TTL handling needs to be unified in the future.
+                KEY_TTL, AttributeValues.n(receiptExpiration.getEpochSecond()),
+                KEY_RECEIPT_EXPIRATION, AttributeValues.n(receiptExpiration.getEpochSecond()),
+                KEY_RECEIPT_LEVEL, AttributeValues.n(receiptLevel),
+                KEY_ACCOUNT_UUID, AttributeValues.b(accountUuid),
+                KEY_REDEMPTION_TIME, AttributeValues.n(clock.instant().getEpochSecond())))
+            .conditionExpression("attribute_not_exists(#serial) OR (#account_uuid = :account_uuid AND #receipt_level = :receipt_level)")
+            .expressionAttributeNames(Map.of(
+                "#serial", KEY_SERIAL,
+                "#account_uuid", KEY_ACCOUNT_UUID,
+                "#receipt_level", KEY_RECEIPT_LEVEL))
+            .expressionAttributeValues(Map.of(
+                ":account_uuid", AttributeValues.b(accountUuid),
+                ":receipt_level", AttributeValues.n(receiptLevel)
+            ))
+            .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
+            .build())
+        .build();
   }
 }

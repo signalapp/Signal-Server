@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -12,6 +13,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.storage.ReceiptCredentialTestUtil.receiptPresentation;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.nio.charset.StandardCharsets;
@@ -33,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -42,6 +43,10 @@ import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
@@ -72,7 +77,8 @@ public class AccountCreationDeletionIntegrationTest {
       DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS,
-      DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS);
+      DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS,
+      DynamoDbExtensionSchema.Tables.REDEEMED_RECEIPTS);
 
   @RegisterExtension
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -81,6 +87,8 @@ public class AccountCreationDeletionIntegrationTest {
   static final S3LocalStackExtension S3_EXTENSION = new S3LocalStackExtension("testbucket");
 
   private static final Clock CLOCK = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+
+  private static final ServerSecretParams RECEIPT_PARAMS = ServerSecretParams.generate();
 
   private ScheduledExecutorService executor;
 
@@ -109,6 +117,8 @@ public class AccountCreationDeletionIntegrationTest {
         CLOCK,
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        new RedeemedReceiptsManager(CLOCK, DynamoDbExtensionSchema.Tables.REDEEMED_RECEIPTS.tableName(),
+            DYNAMO_DB_EXTENSION.getDynamoDbClient(), Duration.ofDays(30)),
         DynamoDbExtensionSchema.Tables.ACCOUNTS.tableName(),
         DynamoDbExtensionSchema.Tables.NUMBERS.tableName(),
         DynamoDbExtensionSchema.Tables.PNI_ASSIGNMENTS.tableName(),
@@ -201,7 +211,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         registrationLockSecret,
         discoverableByPhoneNumber,
-        deviceCapabilities);
+        deviceCapabilities, null);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
         RandomStringUtils.secure().nextAlphabetic(8),
@@ -269,8 +279,8 @@ public class AccountCreationDeletionIntegrationTest {
 
   @ParameterizedTest
   @MethodSource("deliveryChannels")
-  @Disabled("creating numberless accounts is not supported yet")
-  void createAccountWithoutNumber(final DeliveryChannels deliveryChannels) {
+  void createAccountWithoutNumber(final DeliveryChannels deliveryChannels)
+      throws InvalidInputException, VerificationFailedException, ReceiptAlreadyRedeemedException {
     final String password = RandomStringUtils.secure().nextAlphanumeric(16);
     final String signalAgent = RandomStringUtils.secure().nextAlphabetic(3);
     final int registrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
@@ -284,7 +294,8 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         null,
         false,
-        deviceCapabilities);
+        deviceCapabilities,
+        TestRandomUtil.nextBytes(16));
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
         RandomStringUtils.secure().nextAlphabetic(8),
@@ -308,6 +319,7 @@ public class AccountCreationDeletionIntegrationTest {
     final Account account = accountsManager.create(accountAttributes,
         badges,
         new IdentityKey(aciKeyPair.getPublicKey()),
+        receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), 1),
         new DeviceSpec(
             deviceName,
             password,
@@ -382,7 +394,8 @@ public class AccountCreationDeletionIntegrationTest {
       final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
       final Account existingAccount = accountsManager.create(number,
-          new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false, Set.of()),
+          new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false, Set.of(),
+              null),
           Collections.emptyList(),
           new IdentityKey(aciKeyPair.getPublicKey()),
           new IdentityKey(pniKeyPair.getPublicKey()),
@@ -415,7 +428,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         registrationLockSecret,
         discoverableByPhoneNumber,
-        deviceCapabilities);
+        deviceCapabilities, null);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
         RandomStringUtils.secure().nextAlphabetic(8),
@@ -501,7 +514,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         registrationLockSecret,
         true,
-        deviceCapabilities);
+        deviceCapabilities, null);
 
     accountAttributes.setRecoveryPassword(TestRandomUtil.nextBytes(16));
 
@@ -555,6 +568,160 @@ public class AccountCreationDeletionIntegrationTest {
         disconnectedAccount.getIdentifier(IdentityType.ACI).equals(account.getIdentifier(IdentityType.ACI))));
   }
 
+  @Test
+  void retryRegistrationAccountWithoutNumber()
+      throws InvalidInputException, VerificationFailedException, ReceiptAlreadyRedeemedException {
+
+    final ReceiptSerial receiptSerial = new ReceiptSerial(TestRandomUtil.nextBytes(ReceiptSerial.SIZE));
+    final String password = RandomStringUtils.secure().nextAlphanumeric(16);
+    final byte[] recoveryPassword = TestRandomUtil.nextBytes(32);
+    final ECKeyPair aciKeyPair = ECKeyPair.generate();
+    final IdentityKey aciIdentityKey = new IdentityKey(aciKeyPair.getPublicKey());
+    final DeliveryChannels deliveryChannels = new DeliveryChannels(false, "apns-token", null);
+
+    final UUID existingAccountUuid;
+    {
+      final Account existingAccount = accountsManager.create(
+          new AccountAttributes(true, 1, null, "name".getBytes(StandardCharsets.UTF_8), null, false, Set.of(), null)
+              .setRecoveryPassword(recoveryPassword),
+          Collections.emptyList(),
+          aciIdentityKey,
+          receiptPresentation(receiptSerial, CLOCK.instant().plus(Duration.ofDays(30)), 1),
+          new DeviceSpec(null,
+              password,
+              "OWI",
+              Set.of(),
+              new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+              Optional.empty(),
+              true,
+              Optional.empty(),
+              Optional.empty()),
+          null);
+
+      existingAccountUuid = existingAccount.getAccountIdentifier();
+    }
+
+    final String signalAgent = RandomStringUtils.secure().nextAlphabetic(3);
+    final int registrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
+    final byte[] deviceName = RandomStringUtils.secure().nextAlphabetic(16).getBytes(StandardCharsets.UTF_8);
+
+    final Set<DeviceCapability> deviceCapabilities = Set.of();
+
+    final AccountAttributes accountAttributes = new AccountAttributes(deliveryChannels.fetchesMessages(),
+        registrationId,
+        null,
+        deviceName,
+        null,
+        false,
+        deviceCapabilities, null).setRecoveryPassword(recoveryPassword);
+
+    final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
+        RandomStringUtils.secure().nextAlphabetic(8),
+        CLOCK.instant().plus(Duration.ofDays(7)),
+        true)));
+
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(5, aciKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(7, aciKeyPair);
+
+    final Optional<ApnRegistrationId> maybeApnRegistrationId =
+        deliveryChannels.apnsToken() != null
+            ? Optional.of(new ApnRegistrationId(deliveryChannels.apnsToken()))
+            : Optional.empty();
+
+    final Optional<GcmRegistrationId> maybeGcmRegistrationId = deliveryChannels.fcmToken() != null
+        ? Optional.of(new GcmRegistrationId(deliveryChannels.fcmToken()))
+        : Optional.empty();
+
+    final Account retriedAccount = accountsManager.create(accountAttributes,
+        badges,
+        aciIdentityKey,
+        receiptPresentation(receiptSerial,  CLOCK.instant().plus(Duration.ofDays(30)), 1),
+        new DeviceSpec(deviceName,
+            password,
+            signalAgent,
+            deviceCapabilities,
+            new DeviceIdentityInfo(registrationId, aciSignedPreKey, aciPqLastResortPreKey),
+            Optional.empty(),
+            accountAttributes.getFetchesMessages(),
+            maybeApnRegistrationId,
+            maybeGcmRegistrationId),
+        null);
+
+    assertExpectedStoredAccount(retriedAccount,
+        Optional.empty(),
+        password,
+        signalAgent,
+        deliveryChannels,
+        registrationId,
+        Optional.empty(),
+        deviceName,
+        false,
+        deviceCapabilities,
+        badges,
+        maybeApnRegistrationId,
+        maybeGcmRegistrationId,
+        Optional.empty(),
+        aciSignedPreKey,
+        Optional.empty(),
+        aciPqLastResortPreKey,
+        Optional.empty());
+
+    assertEquals(existingAccountUuid, retriedAccount.getAccountIdentifier());
+
+    assertTrue(retriedAccount.getNumberOptional().isEmpty());
+    assertTrue(retriedAccount.getPhoneNumberIdentifierOptional().isEmpty());
+    assertTrue(retriedAccount.getPhoneNumberIdentityKey().isEmpty());
+
+    verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
+        account.getAccountIdentifier().equals(existingAccountUuid) && account != retriedAccount));
+  }
+
+  @Test
+  void retryRegistrationAccountWithNoNumberDifferentRecoveryPassword()
+      throws InvalidInputException, VerificationFailedException, ReceiptAlreadyRedeemedException {
+
+    final ReceiptSerial receiptSerial = new ReceiptSerial(TestRandomUtil.nextBytes(ReceiptSerial.SIZE));
+    final String password = RandomStringUtils.secure().nextAlphanumeric(16);
+    final byte[] recoveryPassword = TestRandomUtil.nextBytes(32);
+    final ECKeyPair aciKeyPair = ECKeyPair.generate();
+    final IdentityKey aciIdentityKey = new IdentityKey(aciKeyPair.getPublicKey());
+
+    final Account existingAccount = accountsManager.create(
+        new AccountAttributes(true, 1, null, "name".getBytes(StandardCharsets.UTF_8), null, false, Set.of(), recoveryPassword),
+        Collections.emptyList(),
+        aciIdentityKey,
+        receiptPresentation(receiptSerial, CLOCK.instant().plus(Duration.ofDays(30)), 1),
+        new DeviceSpec(null,
+            password,
+            "OWI",
+            Set.of(),
+            new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+            Optional.empty(),
+            true,
+            Optional.empty(),
+            Optional.empty()),
+        null);
+
+    assertNotNull(existingAccount);
+
+    assertThrows(ReceiptAlreadyRedeemedException.class, () -> accountsManager.create(
+        // Using a different account recovery password should throw an exception
+        new AccountAttributes(true, 1, null, "name".getBytes(StandardCharsets.UTF_8), null, false, Set.of(), TestRandomUtil.nextBytes(16)),
+        Collections.emptyList(),
+        aciIdentityKey,
+        receiptPresentation(receiptSerial, CLOCK.instant().plus(Duration.ofDays(30)), 1),
+        new DeviceSpec(null,
+            password,
+            "OWI",
+            Set.of(),
+            new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+            Optional.empty(),
+            true,
+            Optional.empty(),
+            Optional.empty()),
+        null));
+  }
+
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private void assertExpectedStoredAccount(final Account account,
       final Optional<String> number,
@@ -605,5 +772,6 @@ public class AccountCreationDeletionIntegrationTest {
           assertEquals(pniSignedPreKey, keysManager.getEcSignedPreKey(pni, Device.PRIMARY_ID).join());
           assertEquals(pniPqLastResortPreKey, keysManager.getLastResort(pni, Device.PRIMARY_ID).join());
         });
+    assertEquals(number.isEmpty(), account.getAuthCredentialSalt().isPresent());
   }
 }

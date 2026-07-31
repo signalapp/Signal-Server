@@ -28,6 +28,7 @@ import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -62,6 +63,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
@@ -184,6 +186,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
   private static final int MAX_UPDATE_ATTEMPTS = 10;
 
+  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+  private static final int AUTH_CREDENTIAL_SALT_SIZE = 16;
+
   @VisibleForTesting
   static final Duration LINK_DEVICE_TOKEN_EXPIRATION_DURATION = Duration.ofMinutes(10);
 
@@ -293,6 +299,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   /// @param accountAttributes the account-level attributes to set on the account
   /// @param accountBadges the badges to set on the account
   /// @param aciIdentityKey the ACI identity key to associate with the account
+  /// @param receiptCredentialPresentation the receipt credential presentation of proof of payment for a Signal Login
   /// @param primaryDeviceSpec the attributes to set on the account's primary device
   /// @param userAgent the user agent of the client requesting to create an account
   ///
@@ -300,16 +307,27 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   public Account create(final AccountAttributes accountAttributes,
       final List<AccountBadge> accountBadges,
       final IdentityKey aciIdentityKey,
+      final ReceiptCredentialPresentation receiptCredentialPresentation,
       final DeviceSpec primaryDeviceSpec,
-      @Nullable final String userAgent) {
-    return Metrics.timer(CREATE_TIMER_NAME, HAS_NUMBER_TAG_NAME, "false").record(() -> {
-      try {
-        return create(Optional.empty(), Optional.empty(), accountAttributes, accountBadges, aciIdentityKey, Optional.empty(), primaryDeviceSpec, userAgent);
-      } catch (final RuntimeException e) {
-        logger.error("Unexpected exception while creating account", e);
-        throw e;
-      }
-    });
+      @Nullable final String userAgent) throws ReceiptAlreadyRedeemedException {
+
+    // This salt is required for generating PNI-based auth credentials (e.g. group credentials) for accounts without a number
+    final byte[] authCredentialSalt = new byte[AUTH_CREDENTIAL_SALT_SIZE];
+    SECURE_RANDOM.nextBytes(authCredentialSalt);
+
+    // We ignore this property on accounts without a number anyway, but ensure that it is false for consistency
+    accountAttributes.setDiscoverableByPhoneNumber(false);
+
+    final Timer.Sample sample = Timer.start();
+
+    try {
+      return create(Optional.empty(), Optional.empty(), Optional.of(receiptCredentialPresentation), Optional.of(authCredentialSalt), accountAttributes, accountBadges, aciIdentityKey, Optional.empty(), primaryDeviceSpec, userAgent);
+    } catch (final RuntimeException e) {
+      logger.error("Unexpected exception while creating account", e);
+      throw e;
+    } finally {
+      sample.stop(Metrics.timer(CREATE_TIMER_NAME, HAS_NUMBER_TAG_NAME, "false"));
+    }
   }
 
   /// Create an account with a phone number.
@@ -336,7 +354,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return Metrics.timer(CREATE_TIMER_NAME, HAS_NUMBER_TAG_NAME, "true").record(() -> {
       try {
         return accountLockManager.withLock(Set.of(pni),
-            () -> create(Optional.of(number), Optional.of(pni), accountAttributes, accountBadges, aciIdentityKey, Optional.of(pniIdentityKey), primaryDeviceSpec, userAgent), accountLockExecutor);
+            () -> create(Optional.of(number), Optional.of(pni), Optional.empty(), Optional.empty(), accountAttributes, accountBadges, aciIdentityKey, Optional.of(pniIdentityKey), primaryDeviceSpec, userAgent), accountLockExecutor);
+      } catch (final ReceiptAlreadyRedeemedException e) {
+        throw new AssertionError("ReceiptAlreadyRedeemedException must never be thrown for accounts with numbers");
       } catch (final RuntimeException e) {
         logger.error("Unexpected exception while creating account", e);
         throw e;
@@ -347,12 +367,15 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private Account create(final Optional<String> maybeNumber,
       final Optional<UUID> maybePni,
+      final Optional<ReceiptCredentialPresentation> maybeReceiptCredentialPresentation,
+      final Optional<byte[]> maybeAuthCredentialSalt,
       final AccountAttributes accountAttributes,
       final List<AccountBadge> accountBadges,
       final IdentityKey aciIdentityKey,
       final Optional<IdentityKey> maybePniIdentityKey,
       final DeviceSpec primaryDeviceSpec,
-      @Nullable final String userAgent) {
+      @Nullable final String userAgent) throws ReceiptAlreadyRedeemedException {
+    assert maybeNumber.isPresent() ^ maybeReceiptCredentialPresentation.isPresent();
     final Account account = new Account();
     final Optional<UUID> maybeRecentlyDeletedAccountIdentifier =
         maybePni.flatMap(accounts::findRecentlyDeletedAccountIdentifier);
@@ -362,6 +385,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       account.setPhoneNumberIdentityKey(maybePniIdentityKey.orElseThrow(() -> new IllegalArgumentException("PNI identity key must be provided if the account has a number")));
       account.setRegistrationLockFromAttributes(accountAttributes);
     });
+
+    maybeAuthCredentialSalt.ifPresent(account::setAuthCredentialSalt);
 
     // Reuse the ACI from any recently-deleted account with this number to cover cases where somebody is
     // re-registering.
@@ -390,13 +415,20 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     String previousPushTokenType = null;
 
     try {
-      accounts.create(account, keysManager.buildWriteItemsForNewDevice(account.getAccountIdentifier(),
+      final List<TransactWriteItem> newDeviceWriteItems = keysManager.buildWriteItemsForNewDevice(account.getAccountIdentifier(),
           account.getPhoneNumberIdentifierOptional(),
           Device.PRIMARY_ID,
           primaryDeviceSpec.aciInfo().signedPreKey(),
           primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::signedPreKey),
           primaryDeviceSpec.aciInfo().pqLastResortPreKey(),
-          primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::pqLastResortPreKey)));
+          primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::pqLastResortPreKey));
+      if (maybeNumber.isPresent()) {
+        accounts.create(account, newDeviceWriteItems);
+      } else {
+        assert accountAttributes.recoveryPassword().isPresent();
+        accounts.create(account, maybeReceiptCredentialPresentation.get(), accountAttributes.recoveryPassword().get(),
+            newDeviceWriteItems);
+      }
     } catch (final AccountAlreadyExistsException e) {
       accountCreationType = "re-registration";
 

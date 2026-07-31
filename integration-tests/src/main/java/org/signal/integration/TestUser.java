@@ -134,7 +134,7 @@ public class TestUser {
 
   public AccountAttributes accountAttributes() {
     return new AccountAttributes(true, registrationId, pniRegistrationId, "".getBytes(StandardCharsets.UTF_8), "", true,
-        DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES)
+        DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES, null)
         .setUnidentifiedAccessKey(unidentifiedAccessKey)
         .setRecoveryPassword(registrationPassword);
   }

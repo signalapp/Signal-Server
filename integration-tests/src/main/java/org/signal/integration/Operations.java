@@ -96,6 +96,7 @@ public final class Operations {
     // register account
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         registrationPassword,
+        null,
         accountAttributes,
         true,
         new IdentityKey(aciIdentityKeyPair.getPublicKey()),

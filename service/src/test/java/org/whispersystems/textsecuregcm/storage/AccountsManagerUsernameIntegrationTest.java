@@ -109,6 +109,8 @@ class AccountsManagerUsernameIntegrationTest {
         Clock.systemUTC(),
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        new RedeemedReceiptsManager(Clock.systemUTC(), Tables.REDEEMED_RECEIPTS.tableName(),
+            DYNAMO_DB_EXTENSION.getDynamoDbClient(), Duration.ofDays(30)),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),

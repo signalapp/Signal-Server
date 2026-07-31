@@ -53,7 +53,8 @@ public class AccountIdentityResponseBuilder {
         account.getUsernameHash().filter(h -> h.length > 0).orElse(null),
         account.getUsernameLinkHandle(),
         storageCapable,
-        new Entitlements(badges, backupEntitlement));
+        new Entitlements(badges, backupEntitlement),
+        account.getAuthCredentialSalt().orElse(null));
   }
 
   public static AccountIdentityResponse fromAccount(final Account account) {

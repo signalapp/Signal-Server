@@ -36,6 +36,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
@@ -167,6 +168,7 @@ public class Accounts {
 
   private final DynamoDbClient dynamoDbClient;
   private final DynamoDbAsyncClient dynamoDbAsyncClient;
+  private final RedeemedReceiptsManager redeemedReceiptsManager;
 
   private final String phoneNumberConstraintTableName;
   private final String phoneNumberIdentifierConstraintTableName;
@@ -179,6 +181,7 @@ public class Accounts {
       final Clock clock,
       final DynamoDbClient dynamoDbClient,
       final DynamoDbAsyncClient dynamoDbAsyncClient,
+      final RedeemedReceiptsManager redeemedReceiptsManager,
       final String accountsTableName,
       final String phoneNumberConstraintTableName,
       final String phoneNumberIdentifierConstraintTableName,
@@ -189,6 +192,7 @@ public class Accounts {
     this.clock = clock;
     this.dynamoDbClient = dynamoDbClient;
     this.dynamoDbAsyncClient = dynamoDbAsyncClient;
+    this.redeemedReceiptsManager = redeemedReceiptsManager;
     this.phoneNumberConstraintTableName = phoneNumberConstraintTableName;
     this.phoneNumberIdentifierConstraintTableName = phoneNumberIdentifierConstraintTableName;
     this.accountsTableName = accountsTableName;
@@ -293,6 +297,72 @@ public class Accounts {
     return true;
   }
 
+  boolean create(final Account account, final ReceiptCredentialPresentation receiptCredentialPresentation, final
+      byte[] accountRecoveryPasswordInRequest, final List<TransactWriteItem> additionalWriteItems)
+      throws AccountAlreadyExistsException, ReceiptAlreadyRedeemedException {
+
+    final Timer.Sample sample = Timer.start();
+
+    try {
+      final AttributeValue uuidAttr = AttributeValues.fromUUID(account.getAccountIdentifier());
+
+      final TransactWriteItem signalLoginReceiptConstraintPut =
+          redeemedReceiptsManager.buildTransactWriteItemForReceipt(
+              receiptCredentialPresentation.getReceiptSerial(),
+              Instant.ofEpochSecond(receiptCredentialPresentation.getReceiptExpirationTime()),
+              receiptCredentialPresentation.getReceiptLevel(),
+              account.getAccountIdentifier());
+      final TransactWriteItem accountPut = buildAccountPut(account, uuidAttr, Optional.empty(), Optional.empty());
+
+      final Collection<TransactWriteItem> writeItems = new ArrayList<>(
+          List.of(signalLoginReceiptConstraintPut, accountPut));
+
+      writeItems.addAll(additionalWriteItems);
+
+      final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+          .transactItems(writeItems)
+          .build();
+
+      try {
+        dynamoDbClient.transactWriteItems(request);
+      } catch (final TransactionCanceledException e) {
+
+        final CancellationReason receiptSerialConstraintCancellationReason = e.cancellationReasons().get(0);
+
+        if (conditionalCheckFailed(receiptSerialConstraintCancellationReason)) {
+          final UUID existingAccountUuid = UUIDUtil.fromByteBuffer(receiptSerialConstraintCancellationReason.item()
+              .get(RedeemedReceiptsManager.KEY_ACCOUNT_UUID).b().asByteBuffer());
+          final Account existingAccount = getByAccountIdentifier(existingAccountUuid)
+              // The account was already deleted, and we don't allow re-registering with the same receipt
+              .orElseThrow(ReceiptAlreadyRedeemedException::new);
+
+          // If the account recovery password in the request matches the existing account, this is likely a client retry,
+          // and we continue to allow for idempotency, otherwise this is an attempt to double-redeem a receipt
+          final boolean isRetry = existingAccount.getAccountRecoveryPassword().map(arp ->
+              PhoneNumberRecoveryPasswordsManager.verify(arp, accountRecoveryPasswordInRequest)).orElse(false);
+          if (!isRetry) {
+            throw new ReceiptAlreadyRedeemedException();
+          }
+
+          throw new AccountAlreadyExistsException(existingAccount);
+        }
+
+        final CancellationReason accountCancellationReason = e.cancellationReasons().get(1);
+        if (TRANSACTION_CONFLICT.equals(accountCancellationReason.code())) {
+          // this should only happen if two clients manage to make concurrent create() calls
+          throw new ContestedOptimisticLockException();
+        }
+
+        // this shouldn't happen
+        throw new RuntimeException("could not create account: " + extractCancellationReasonCodes(e));
+      }
+    } finally {
+      sample.stop(CREATE_TIMER);
+    }
+
+    return true;
+  }
+
   /**
    * Copies over any account attributes that should be preserved when a new account reclaims an account identifier.
    *
@@ -304,6 +374,7 @@ public class Accounts {
       final Collection<TransactWriteItem> additionalWriteItems) {
 
     if (!existingAccount.getAccountIdentifier().equals(accountToCreate.getAccountIdentifier()) ||
+        existingAccount.getNumberOptional().isPresent() != accountToCreate.getNumberOptional().isPresent() ||
         !existingAccount.getPhoneNumberIdentifierOptional().equals(accountToCreate.getPhoneNumberIdentifierOptional())) {
 
       log.error("Reclaimed accounts must match. Old account {}:{}:{}, New account {}:{}:{}",
@@ -998,12 +1069,14 @@ public class Accounts {
         final Optional<String> maybeExpectedExistingE164) {
       final UpdateAccountSpec base = forAccount(accountTableName, account);
 
+      final Map<String, String> attrNames = new HashMap<>(base.attrNames());
       final Map<String, AttributeValue> attrValues = new HashMap<>(base.attrValues());
       final UpdateExpression updateExpression = base.updateExpression();
       final List<String> setClauses = new ArrayList<>(updateExpression.setClauses());
 
       final String conditionExpression = account.getNumberOptional()
           .map(number -> {
+            attrNames.put("#number", ATTR_ACCOUNT_E164);
             attrValues.put(":number", AttributeValues.fromString(number));
             setClauses.add("#number = :number");
 
@@ -1020,7 +1093,7 @@ public class Accounts {
       return new UpdateAccountSpec(
           base.tableName(),
           base.key(),
-          base.attrNames(),
+          attrNames,
           attrValues,
           new UpdateExpression(setClauses, updateExpression.addClauses(), updateExpression.removeClauses()),
           conditionExpression
@@ -1031,7 +1104,6 @@ public class Accounts {
         final String accountTableName,
         final Account account) {
       final Map<String, String> attrNames = new HashMap<>(Map.of(
-          "#number", ATTR_ACCOUNT_E164,
           "#data", ATTR_ACCOUNT_DATA,
           "#cds", ATTR_CANONICALLY_DISCOVERABLE,
           "#version", ATTR_VERSION));
@@ -1094,7 +1166,7 @@ public class Accounts {
           attrNames,
           attrValues,
           new UpdateExpression(setClauses, addClauses, removeClauses),
-          "attribute_exists(#number) AND #version = :version");
+          "#version = :version");
     }
   }
 

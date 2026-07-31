@@ -804,7 +804,7 @@ class AccountControllerTest {
         .target("/v1/accounts/attributes/")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null, null)
             .setUnidentifiedAccessKey(unidentifiedAccessKey)
             .setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)))) {
 
@@ -828,7 +828,7 @@ class AccountControllerTest {
         .target("/v1/accounts/attributes/")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null, null)
             .setUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
@@ -841,7 +841,7 @@ class AccountControllerTest {
         .target("/v1/accounts/attributes/")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
-        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null, null)
             .setUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
@@ -856,7 +856,7 @@ class AccountControllerTest {
         .target("/v1/accounts/attributes/")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
-        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null, null)
             .setUnidentifiedAccessKey(new byte[16])
             .setRecoveryPassword(recoveryPassword)))) {
 
@@ -872,7 +872,7 @@ class AccountControllerTest {
         .target("/v1/accounts/attributes/")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null, null)
             .setUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
@@ -885,7 +885,7 @@ class AccountControllerTest {
         .target("/v1/accounts/attributes/")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null, null)
             .setUnidentifiedAccessKey(new byte[7])))) {
 
       assertThat(response.getStatus()).isEqualTo(422);

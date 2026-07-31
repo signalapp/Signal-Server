@@ -49,6 +49,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -75,7 +76,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
@@ -705,19 +708,21 @@ class AccountsManagerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
-  void testCreateFreshAccount(final boolean hasE164) throws AccountAlreadyExistsException {
+  void testCreateFreshAccount(final boolean hasE164)
+      throws AccountAlreadyExistsException, ReceiptAlreadyRedeemedException {
     when(accounts.create(any(), any())).thenReturn(true);
 
     final Optional<String> maybeE164 = hasE164 ? Optional.of("+18005550123") : Optional.empty();
     final Integer pniRegistrationId = hasE164 ? 2 : null;
-    final AccountAttributes attributes = new AccountAttributes(false, 1, pniRegistrationId, null, null, hasE164, null);
+    final AccountAttributes attributes = new AccountAttributes(false, 1, pniRegistrationId, null, null, hasE164, null,
+        TestRandomUtil.nextBytes(16));
 
-    final Account createdAccount = maybeE164
-        .map(e164 -> createAccount(e164, attributes))
-        .orElseGet(() -> createAccount(attributes));
+    final Account createdAccount = maybeE164.isPresent()
+        ? createAccount(maybeE164.get(), attributes)
+        : createAccount(attributes);
 
     // Check existence (or lack thereof) of phone number, phone number identifier, phone number identity key,
-    // and phone number identity registration ID
+    // phone number identity registration ID, and auth credential salt.
     final Device primaryDevice = createdAccount.getDevices().stream().findFirst().orElseThrow();
     assertEquals(maybeE164, createdAccount.getNumberOptional());
     maybeE164.ifPresentOrElse(
@@ -725,14 +730,20 @@ class AccountsManagerTest {
           assertTrue(phoneNumberIdentifiersByE164.containsKey(number));
           assertTrue(createdAccount.getPhoneNumberIdentityKey().isPresent());
           assertEquals(pniRegistrationId, primaryDevice.getPhoneNumberIdentityRegistrationId().orElseThrow());
+          assertTrue(createdAccount.getAuthCredentialSalt().isEmpty());
         },
         () -> {
           assertTrue(phoneNumberIdentifiersByE164.isEmpty());
           assertTrue(createdAccount.getPhoneNumberIdentityKey().isEmpty());
           assertTrue(primaryDevice.getPhoneNumberIdentityRegistrationId().isEmpty());
+          assertTrue(createdAccount.getAuthCredentialSalt().isPresent());
         });
 
-    verify(accounts).create(argThat(account -> maybeE164.equals(account.getNumberOptional())), any());
+    if (maybeE164.isPresent()) {
+      verify(accounts).create(argThat(account -> maybeE164.equals(account.getNumberOptional())), any());
+    } else {
+      verify(accounts).create(argThat(account -> account.getNumberOptional().isEmpty()), any(), any(), any());
+    }
     verify(keysManager).buildWriteItemsForNewDevice(
         eq(createdAccount.getAccountIdentifier()),
         eq(createdAccount.getPhoneNumberIdentifierOptional()),
@@ -753,29 +764,42 @@ class AccountsManagerTest {
   void testReregisterAccount(
       final Optional<String> maybeE164,
       final Optional<String> maybeExistingAccountE164)
-      throws AccountAlreadyExistsException {
+      throws AccountAlreadyExistsException, ReceiptAlreadyRedeemedException {
     final UUID existingUuid = UUID.randomUUID();
     final Integer pniRegistrationId = maybeE164.isPresent() ? 2 : null;
-    final AccountAttributes attributes = new AccountAttributes(false, 1, pniRegistrationId, null, null, maybeE164.isPresent(), null);
+    final AccountAttributes attributes = new AccountAttributes(false, 1, pniRegistrationId, null, null, maybeE164.isPresent(), null,
+        null);
+    final byte[] recoveryPassword = TestRandomUtil.nextBytes(32);
+    attributes.setRecoveryPassword(recoveryPassword);
 
-    when(accounts.create(any(), any()))
-        .thenAnswer(invocation -> {
-          final Account requestedAccount = invocation.getArgument(0);
+    final Answer<Boolean> existingAccountAnswer = invocation -> {
+      final Account requestedAccount = invocation.getArgument(0);
 
-          final Account existingAccount = mock(Account.class);
-          when(existingAccount.getAccountIdentifier()).thenReturn(existingUuid);
-          when(existingAccount.getNumberOptional()).thenReturn(maybeExistingAccountE164);
-          when(existingAccount.getPhoneNumberIdentifierOptional()).thenReturn(requestedAccount.getPhoneNumberIdentifierOptional());
-          when(existingAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
+      final Device existingPrimaryDevice = mock(Device.class);
 
-          throw new AccountAlreadyExistsException(existingAccount);
-        });
+      final Account existingAccount = mock(Account.class);
+      when(existingAccount.getAccountIdentifier()).thenReturn(existingUuid);
+      when(existingAccount.getNumberOptional()).thenReturn(maybeExistingAccountE164);
+      when(existingAccount.getPhoneNumberIdentifierOptional()).thenReturn(requestedAccount.getPhoneNumberIdentifierOptional());
+      when(existingAccount.getPrimaryDevice()).thenReturn(existingPrimaryDevice);
+      when(existingAccount.getAccountIdentityKey()).thenReturn(requestedAccount.getAccountIdentityKey());
+      when(existingAccount.getAccountRecoveryPassword()).thenReturn(
+          Optional.of(SaltedTokenHash.generateFor(HexFormat.of().formatHex(recoveryPassword))));
+
+      throw new AccountAlreadyExistsException(existingAccount);
+    };
+
+    if (maybeE164.isPresent()) {
+      when(accounts.create(any(), any())).thenAnswer(existingAccountAnswer);
+    } else {
+      when(accounts.create(any(), any(), any(), any())).thenAnswer(existingAccountAnswer);
+    }
 
     when(accounts.reclaimAccount(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final Account reregisteredAccount = maybeE164
-        .map(number -> createAccount(number, attributes))
-        .orElseGet(() -> createAccount(attributes));
+    final Account reregisteredAccount = maybeE164.isPresent()
+        ? createAccount(maybeE164.get(), attributes)
+        : createAccount(attributes);
 
     // Check existence (or lack thereof) of phone number, phone number identifier, phone number identity key,
     // and phone number identity registration ID
@@ -794,8 +818,13 @@ class AccountsManagerTest {
           assertTrue(primaryDevice.getPhoneNumberIdentityRegistrationId().isEmpty());
         });
 
-    verify(accounts)
-        .create(argThat(account -> existingUuid.equals(account.getAccountIdentifier())), any());
+    if (maybeE164.isPresent()) {
+      verify(accounts)
+          .create(argThat(account -> existingUuid.equals(account.getAccountIdentifier())), any());
+    } else {
+      verify(accounts)
+          .create(argThat(account -> existingUuid.equals(account.getAccountIdentifier())), any(), any(), any());
+    }
 
     verify(keysManager).buildWriteItemsForNewDevice(
         eq(reregisteredAccount.getAccountIdentifier()),
@@ -832,7 +861,7 @@ class AccountsManagerTest {
     when(accounts.create(any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";
-    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
+    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null, null);
 
     final Account account = createAccount(e164, attributes);
 
@@ -856,7 +885,7 @@ class AccountsManagerTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void testCreateWithDiscoverability(final boolean discoverable) throws InterruptedException {
-    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, discoverable, null);
+    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, discoverable, null, null);
     final Account account = createAccount("+18005550123", attributes);
 
     assertEquals(discoverable, account.isDiscoverableByPhoneNumber());
@@ -866,7 +895,7 @@ class AccountsManagerTest {
   @ValueSource(booleans = {true, false})
   void testCreateWithStorageCapability(final boolean hasStorage) throws InterruptedException {
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null,
-            true, hasStorage ? Set.of(DeviceCapability.STORAGE) : Set.of());
+            true, hasStorage ? Set.of(DeviceCapability.STORAGE) : Set.of(), null);
 
     final Account account = createAccount("+18005550123", attributes);
 
@@ -1365,12 +1394,13 @@ class AccountsManagerTest {
     return device;
   }
 
-  private Account createAccount(final AccountAttributes accountAttributes) {
+  private Account createAccount(final AccountAttributes accountAttributes) throws ReceiptAlreadyRedeemedException {
     final ECKeyPair aciKeyPair = ECKeyPair.generate();
 
     return accountsManager.create(accountAttributes,
         new ArrayList<>(),
         new IdentityKey(aciKeyPair.getPublicKey()),
+        mock(ReceiptCredentialPresentation.class),
         new DeviceSpec(
             accountAttributes.getName(),
             "password",

@@ -96,6 +96,8 @@ class AccountsManagerChangeNumberIntegrationTest {
           Clock.systemUTC(),
           DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+          new RedeemedReceiptsManager(Clock.systemUTC(), Tables.REDEEMED_RECEIPTS.tableName(),
+              DYNAMO_DB_EXTENSION.getDynamoDbClient(), Duration.ofDays(30)),
           Tables.ACCOUNTS.tableName(),
           Tables.NUMBERS.tableName(),
           Tables.PNI_ASSIGNMENTS.tableName(),
@@ -227,7 +229,8 @@ class AccountsManagerChangeNumberIntegrationTest {
     final ECKeyPair rotatedPniIdentityKeyPair = ECKeyPair.generate();
     final ECSignedPreKey rotatedSignedPreKey = KeysHelper.signedECPreKey(1L, rotatedPniIdentityKeyPair);
     final KEMSignedPreKey rotatedKemSignedPreKey = KeysHelper.signedKEMPreKey(2L, rotatedPniIdentityKeyPair);
-    final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, rotatedPniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of());
+    final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, rotatedPniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of(),
+        null);
     final Account account = AccountsHelper.createAccount(accountsManager, originalNumber, accountAttributes);
 
     keysManager.storeEcSignedPreKeys(account.getIdentifier(IdentityType.ACI),

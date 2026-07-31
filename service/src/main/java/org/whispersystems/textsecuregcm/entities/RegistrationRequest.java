@@ -22,17 +22,30 @@ import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 
 public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   The ID of an existing verification session as it appears in a verification session
-                                  metadata object. Must be provided if `recoveryPassword` is not provided; must not be
-                                  provided if `recoveryPassword` is provided.
+                                  metadata object. Must be provided if `recoveryPassword` and `receiptCredentialPresentation`
+                                  are not provided; must not be provided if `recoveryPassword` or `receiptCredentialPresentation`
+                                  is provided.
                                   """)
+                                  @Nullable
                                   String sessionId,
 
                                   @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
                                   @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A base64-encoded registration recovery password. Must be provided if `sessionId` is
-                                  not provided; must not be provided if `sessionId` is provided
+                                  A base64-encoded registration recovery password. Must be provided if `sessionId` and
+                                  `receiptCredentialPresentation` are not provided; must not be provided if `sessionId`
+                                  or `receiptCredentialPresentation` is provided.
                                   """)
+                                  @Nullable
                                   byte[] recoveryPassword,
+
+                                  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
+                                  A base64-encoded receipt credential presentation that allows for redeeming a Signal Login.
+                                  Must be provided if `sessionId` and `recoveryPassword` are not provided;
+                                  must not be provided if `sessionId` or `recoveryPassword` is provided.
+                                  """)
+                                  @Nullable
+                                  byte[] receiptCredentialPresentation,
 
                                   @NotNull
                                   @Valid
@@ -58,13 +71,14 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
                                   IdentityKey aciIdentityKey,
 
-                                  @NotNull
                                   @Valid
-                                  @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = """
+                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   The PNI-associated identity key for the account, encoded as a base64 string.
+                                  Must be provided for an account with a phone number.
                                   """)
                                   @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
                                   @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+                                  @Nullable
                                   IdentityKey pniIdentityKey,
 
                                   @NotNull
@@ -75,14 +89,18 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
 
   public boolean isEverySignedKeyValid(@Nullable final String userAgent) {
     if (deviceActivationRequest().aciSignedPreKey() == null ||
-        deviceActivationRequest().pniSignedPreKey().isEmpty() ||
-        deviceActivationRequest().aciPqLastResortPreKey() == null ||
-        deviceActivationRequest().pniPqLastResortPreKey().isEmpty()) {
+        deviceActivationRequest().aciPqLastResortPreKey() == null) {
+      return false;
+    }
+
+    final boolean allPniPresentOrAllAbsent = ((pniIdentityKey == null) == deviceActivationRequest().pniSignedPreKey().isEmpty())
+        && ((pniIdentityKey == null) == deviceActivationRequest().pniPqLastResortPreKey().isEmpty());
+    if (!allPniPresentOrAllAbsent) {
       return false;
     }
 
     return PreKeySignatureValidator.validatePreKeySignatures(aciIdentityKey(), List.of(deviceActivationRequest().aciSignedPreKey(), deviceActivationRequest().aciPqLastResortPreKey()), userAgent, "register")
-        && PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey(), List.of(deviceActivationRequest().pniSignedPreKey().get(), deviceActivationRequest().pniPqLastResortPreKey().get()), userAgent, "register");
+        && (pniIdentityKey == null || PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey(), List.of(deviceActivationRequest().pniSignedPreKey().get(), deviceActivationRequest().pniPqLastResortPreKey().get()), userAgent, "register"));
   }
 
   @VisibleForTesting

@@ -10,31 +10,52 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.ws.rs.ClientErrorException;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.http.HttpStatus;
 
 public interface PhoneVerificationRequest {
 
   enum VerificationType {
     SESSION,
-    RECOVERY_PASSWORD
+    RECOVERY_PASSWORD,
+    RECEIPT_CREDENTIAL
   }
 
   String sessionId();
 
   byte[] recoveryPassword();
 
+  default byte[] receiptCredentialPresentation() {
+    return null;
+  }
+
   // for the @AssertTrue to work with bean validation, method name must follow 'isSmth()'/'getSmth()' naming convention
   @AssertTrue
   @Schema(hidden = true)
   default boolean isValid() {
-    // checking that exactly one of sessionId/recoveryPassword is non-empty
-    return isNotBlank(sessionId()) ^ (recoveryPassword() != null && recoveryPassword().length > 0);
+    // exactly one of sessionId/recoveryPassword/receiptCredentialPresentation should be present
+    return presentVerificationTypes().size() == 1;
   }
 
   default PhoneVerificationRequest.VerificationType verificationType() {
-    return isNotBlank(sessionId()) ? PhoneVerificationRequest.VerificationType.SESSION
-        : PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD;
+    return presentVerificationTypes().get(0);
+  }
+
+  default List<VerificationType> presentVerificationTypes() {
+    final List<VerificationType> types = new ArrayList<>(1);
+    if (isNotBlank(sessionId())) {
+      types.add(VerificationType.SESSION);
+    }
+    if (ArrayUtils.isNotEmpty(recoveryPassword())) {
+      types.add(VerificationType.RECOVERY_PASSWORD);
+    }
+    if (ArrayUtils.isNotEmpty(receiptCredentialPresentation())) {
+      types.add(VerificationType.RECEIPT_CREDENTIAL);
+    }
+    return types;
   }
 
   default byte[] decodeSessionId() {

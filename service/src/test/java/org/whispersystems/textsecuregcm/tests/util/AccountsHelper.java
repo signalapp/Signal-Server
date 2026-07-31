@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import jakarta.annotation.Nullable;
 import org.junit.platform.commons.util.StringUtils;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
@@ -38,19 +39,26 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceIdentityInfo;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public class AccountsHelper {
 
-  public static Account generateTestAccount(String number, List<Device> devices) {
+  public static Account generateTestAccount(@Nullable String number, List<Device> devices) {
     return generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, null);
   }
 
-  public static Account generateTestAccount(String number, UUID uuid, final UUID phoneNumberIdentifier, List<Device> devices, byte[] unidentifiedAccessKey) {
+  public static Account generateTestAccount(@Nullable String number, UUID uuid, final @Nullable UUID phoneNumberIdentifier, List<Device> devices, byte[] unidentifiedAccessKey) {
+    return generateTestAccount(number, uuid, phoneNumberIdentifier, devices, unidentifiedAccessKey, TestRandomUtil.nextBytes(16));
+
+  }
+
+  public static Account generateTestAccount(@Nullable String number, UUID uuid, final @Nullable UUID phoneNumberIdentifier, List<Device> devices, byte[] unidentifiedAccessKey, final byte[] accountRecoveryPassword) {
     final Account account = new Account();
     account.setNumber(number, phoneNumberIdentifier);
     account.setAccountIdentifier(uuid);
     devices.forEach(account::addDevice);
     account.setUnidentifiedAccessKey(unidentifiedAccessKey);
+    account.setAccountRecoveryPassword(accountRecoveryPassword);
 
     return account;
   }

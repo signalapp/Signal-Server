@@ -24,7 +24,11 @@ public class PhoneNumberRecoveryPasswordsManager {
 
   public boolean verify(final UUID phoneNumberIdentifier, final byte[] password) {
     return phoneNumberRecoveryPasswords.lookup(phoneNumberIdentifier)
-        .filter(hash -> hash.verify(bytesToString(password))).isPresent();
+        .filter(hash -> verify(hash, password)).isPresent();
+  }
+
+  public static boolean verify(final SaltedTokenHash saltedTokenHash, final byte[] password) {
+    return saltedTokenHash.verify(bytesToString(password));
   }
 
   public boolean store(final UUID phoneNumberIdentifier, final byte[] password) {
