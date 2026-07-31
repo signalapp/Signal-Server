@@ -76,17 +76,4 @@ public class ClearIssuedReceiptRedemptionsCommand extends AbstractCommandWithDep
       throw new RuntimeException(ex);
     }
   }
-
-  public static void main(String[] args) throws Exception {
-    final String subscriberId = "7ywqmymkSMBkBi9v06Iy4AN8DiN_lg8gHXM8TSpO0Z0";
-
-    final SubscriberCredentials creds = SubscriberCredentials
-        .process(Optional.empty(), subscriberId, Clock.systemUTC());
-    System.out.println(Base64.getEncoder().encodeToString(creds.subscriberUser()));
-
-    final String pc = "AWN1c19TV3hDUEhlWDBldzB0UA==";
-    final byte[] bc = Base64.getDecoder().decode(pc);
-    System.out.println(bc[0]);
-    System.out.println(new String(bc, 1, bc.length - 1));
-  }
 }
