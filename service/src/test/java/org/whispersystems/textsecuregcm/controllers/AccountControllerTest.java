@@ -88,7 +88,7 @@ import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -133,8 +133,8 @@ class AccountControllerTest {
   private static final Account senderRegLockAccount = mock(Account.class);
   private static final Account senderHasStorage = mock(Account.class);
   private static final Account senderTransfer = mock(Account.class);
-  private static final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
-      mock(RegistrationRecoveryPasswordsManager.class);
+  private static final PhoneNumberRecoveryPasswordsManager PHONE_NUMBER_RECOVERY_PASSWORDS_MANAGER =
+      mock(PhoneNumberRecoveryPasswordsManager.class);
   private static final UsernameHashZkProofVerifier usernameZkProofVerifier = mock(UsernameHashZkProofVerifier.class);
 
   private final byte[] registration_lock_key = new byte[32];
@@ -157,7 +157,7 @@ class AccountControllerTest {
       .addResource(new AccountController(
               accountsManager,
           rateLimiters,
-          registrationRecoveryPasswordsManager,
+          PHONE_NUMBER_RECOVERY_PASSWORDS_MANAGER,
           usernameZkProofVerifier
       ))
       .build();
@@ -856,7 +856,7 @@ class AccountControllerTest {
             .setRecoveryPassword(recoveryPassword)))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
-      verify(registrationRecoveryPasswordsManager).store(AuthHelper.UNDISCOVERABLE_PNI, recoveryPassword);
+      verify(PHONE_NUMBER_RECOVERY_PASSWORDS_MANAGER).store(AuthHelper.UNDISCOVERABLE_PNI, recoveryPassword);
     }
   }
 

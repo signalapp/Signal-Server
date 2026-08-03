@@ -111,7 +111,7 @@ import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -134,7 +134,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   private UsernameHashZkProofVerifier usernameHashZkProofVerifier;
 
   @Mock
-  private RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager;
 
   private final TestClock testClock = TestClock.pinned(Instant.now());
 
@@ -155,7 +155,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     return new AccountsGrpcService(accountsManager,
         rateLimiters,
         usernameHashZkProofVerifier,
-        registrationRecoveryPasswordsManager,
+        phoneNumberRecoveryPasswordsManager,
         testClock,
         changeNumberManager);
   }
@@ -729,7 +729,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
             .setRegistrationRecoveryPassword(ByteString.copyFrom(registrationRecoveryPassword))
             .build()));
 
-    verify(registrationRecoveryPasswordsManager).store(account.getIdentifier(IdentityType.PNI), registrationRecoveryPassword);
+    verify(phoneNumberRecoveryPasswordsManager).store(account.getIdentifier(IdentityType.PNI), registrationRecoveryPassword);
   }
 
   @Test

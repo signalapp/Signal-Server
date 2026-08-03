@@ -123,8 +123,8 @@ class AccountsManagerChangeNumberIntegrationTest {
       final ProfilesManager profilesManager = mock(ProfilesManager.class);
       when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
 
-      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
-          mock(RegistrationRecoveryPasswordsManager.class);
+      final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
+          mock(PhoneNumberRecoveryPasswordsManager.class);
 
       accountsManager = new AccountsManager(
           accounts,
@@ -139,7 +139,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           secureStorageClient,
           svr2Client,
           disconnectionRequestManager,
-          registrationRecoveryPasswordsManager,
+              phoneNumberRecoveryPasswordsManager,
           executor,
           executor,
           executor,

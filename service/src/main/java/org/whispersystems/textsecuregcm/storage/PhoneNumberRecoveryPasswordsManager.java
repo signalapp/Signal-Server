@@ -11,16 +11,16 @@ import java.util.HexFormat;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 
-public class RegistrationRecoveryPasswordsManager {
+public class PhoneNumberRecoveryPasswordsManager {
 
-  private final RegistrationRecoveryPasswords registrationRecoveryPasswords;
+  private final PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords;
 
-  public RegistrationRecoveryPasswordsManager(final RegistrationRecoveryPasswords registrationRecoveryPasswords) {
-    this.registrationRecoveryPasswords = requireNonNull(registrationRecoveryPasswords);
+  public PhoneNumberRecoveryPasswordsManager(final PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords) {
+    this.phoneNumberRecoveryPasswords = requireNonNull(phoneNumberRecoveryPasswords);
   }
 
   public boolean verify(final UUID phoneNumberIdentifier, final byte[] password) {
-    return registrationRecoveryPasswords.lookup(phoneNumberIdentifier)
+    return phoneNumberRecoveryPasswords.lookup(phoneNumberIdentifier)
         .filter(hash -> hash.verify(bytesToString(password))).isPresent();
   }
 
@@ -28,11 +28,11 @@ public class RegistrationRecoveryPasswordsManager {
     final String token = bytesToString(password);
     final SaltedTokenHash tokenHash = SaltedTokenHash.generateFor(token);
 
-    return registrationRecoveryPasswords.addOrReplace(phoneNumberIdentifier, tokenHash);
+    return phoneNumberRecoveryPasswords.addOrReplace(phoneNumberIdentifier, tokenHash);
   }
 
   public boolean remove(final UUID phoneNumberIdentifier) {
-    return registrationRecoveryPasswords.removeEntry(phoneNumberIdentifier);
+    return phoneNumberRecoveryPasswords.removeEntry(phoneNumberIdentifier);
   }
 
   private static String bytesToString(final byte[] bytes) {

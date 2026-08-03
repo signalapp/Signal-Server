@@ -133,7 +133,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final SecureStorageClient secureStorageClient;
   private final SecureValueRecoveryClient secureValueRecovery2Client;
   private final DisconnectionRequestManager disconnectionRequestManager;
-  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager;
   private final Executor accountLockExecutor;
   private final ScheduledExecutorService messagesPollExecutor;
   private final ScheduledExecutorService retryExecutor;
@@ -215,7 +215,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final SecureStorageClient secureStorageClient,
       final SecureValueRecoveryClient secureValueRecovery2Client,
       final DisconnectionRequestManager disconnectionRequestManager,
-      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
       final Executor accountLockExecutor,
       final ScheduledExecutorService messagesPollExecutor, final ScheduledExecutorService retryExecutor,
       final Clock clock,
@@ -232,7 +232,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.secureStorageClient = secureStorageClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
     this.disconnectionRequestManager = disconnectionRequestManager;
-    this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
+    this.phoneNumberRecoveryPasswordsManager = requireNonNull(phoneNumberRecoveryPasswordsManager);
     this.accountLockExecutor = accountLockExecutor;
     this.messagesPollExecutor = messagesPollExecutor;
     this.retryExecutor = retryExecutor;
@@ -413,7 +413,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     redisSet(account);
 
     final boolean rrpCreated = accountAttributes.recoveryPassword().map(registrationRecoveryPassword ->
-            registrationRecoveryPasswordsManager
+            phoneNumberRecoveryPasswordsManager
                 .store(account.getIdentifier(IdentityType.PNI), registrationRecoveryPassword))
         .orElse(false);
 
@@ -1217,7 +1217,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             profilesManager.deleteAll(account.getAccountIdentifier(), true))
         .join();
 
-    registrationRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI));
+    phoneNumberRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI));
 
     accounts.delete(account.getAccountIdentifier(), additionalWriteItems);
     redisDelete(account);

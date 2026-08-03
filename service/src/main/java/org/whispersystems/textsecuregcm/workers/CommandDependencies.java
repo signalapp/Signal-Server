@@ -73,8 +73,8 @@ import org.whispersystems.textsecuregcm.storage.ProfileAvatars;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesV2;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswords;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.RepeatedUseECSignedPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.RepeatedUseKEMSignedPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
@@ -107,7 +107,7 @@ public record CommandDependencies(
     MessagesCache messagesCache,
     MessagesManager messagesManager,
     KeysManager keysManager,
-    RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+    PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
     APNSender apnSender,
     FcmSender fcmSender,
     PushNotificationManager pushNotificationManager,
@@ -253,7 +253,7 @@ public record CommandDependencies(
         .build();
 
 
-    RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
+    PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords = new PhoneNumberRecoveryPasswords(
         configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),
         configuration.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
         dynamoDbClient,
@@ -340,8 +340,8 @@ public record CommandDependencies(
             reportMessageManager, messageDeletionExecutor, Clock.systemUTC(), experimentEnrollmentManager);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
-    RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
-        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
+    PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
+        new PhoneNumberRecoveryPasswordsManager(phoneNumberRecoveryPasswords);
     final ChangeNumberWaitingPeriods changeNumberWaitingPeriods = new ChangeNumberWaitingPeriods(
         configuration.getDynamoDbTables().getChangeNumberWaitingPeriods().getTableName(), dynamoDbClient);
     final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = new ChangeNumberWaitingPeriodManager(
@@ -349,7 +349,7 @@ public record CommandDependencies(
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
         changeNumberWaitingPeriodManager, secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
-        registrationRecoveryPasswordsManager, accountLockExecutor, messagePollExecutor,
+        phoneNumberRecoveryPasswordsManager, accountLockExecutor, messagePollExecutor,
         retryExecutor, clock, configuration.getLinkDeviceSecretConfiguration().secret().value());
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster, retryExecutor);
     final BackupsDb backupsDb =
@@ -434,7 +434,7 @@ public record CommandDependencies(
         messagesCache,
         messagesManager,
         keys,
-        registrationRecoveryPasswordsManager,
+        phoneNumberRecoveryPasswordsManager,
         apnSender,
         fcmSender,
         pushNotificationManager,

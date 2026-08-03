@@ -66,7 +66,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -87,17 +87,17 @@ public class AccountController {
 
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;
-  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager;
   private final UsernameHashZkProofVerifier usernameHashZkProofVerifier;
 
   public AccountController(
       AccountsManager accounts,
       RateLimiters rateLimiters,
-      RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
       UsernameHashZkProofVerifier usernameHashZkProofVerifier) {
     this.accounts = accounts;
     this.rateLimiters = rateLimiters;
-    this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.phoneNumberRecoveryPasswordsManager = phoneNumberRecoveryPasswordsManager;
     this.usernameHashZkProofVerifier = usernameHashZkProofVerifier;
   }
 
@@ -247,7 +247,7 @@ public class AccountController {
 
     // if registration recovery password was sent to us, store it (or refresh its expiration)
     attributes.recoveryPassword().ifPresent(registrationRecoveryPassword -> {
-      final boolean rrpCreated = registrationRecoveryPasswordsManager
+      final boolean rrpCreated = phoneNumberRecoveryPasswordsManager
           .store(updatedAccount.getIdentifier(IdentityType.PNI), registrationRecoveryPassword);
       Metrics.counter(RECOVERY_PASSWORD_SET_COUNTER_NAME, Tags.of(
               UserAgentTagUtil.getPlatformTag(userAgent),

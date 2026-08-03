@@ -128,8 +128,8 @@ public class AddRemoveDeviceIntegrationTest {
     final ProfilesManager profilesManager = mock(ProfilesManager.class);
     when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
-        mock(RegistrationRecoveryPasswordsManager.class);
+    final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
+        mock(PhoneNumberRecoveryPasswordsManager.class);
 
     PUBSUB_SERVER_EXTENSION.getRedisClient().useConnection(connection -> {
       connection.sync().flushall();
@@ -149,7 +149,7 @@ public class AddRemoveDeviceIntegrationTest {
         secureStorageClient,
         svr2Client,
         mock(DisconnectionRequestManager.class),
-        mock(RegistrationRecoveryPasswordsManager.class),
+        mock(PhoneNumberRecoveryPasswordsManager.class),
         accountLockExecutor,
         scheduledExecutorService,
         scheduledExecutorService,

@@ -17,8 +17,8 @@ import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriods;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswords;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -28,7 +28,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class IntegrationTools {
 
-  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager;
 
   private final VerificationSessionManager verificationSessionManager;
 
@@ -45,14 +45,14 @@ public class IntegrationTools {
     final DynamoDbClient dynamoDbClient =
         config.dynamoDbClient().buildSyncClient(credentialsProvider, new NoopAwsSdkMetricPublisher());
 
-    final RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
+    final PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords = new PhoneNumberRecoveryPasswords(
         config.dynamoDbTables().registrationRecovery(), Duration.ofDays(1), dynamoDbClient, Clock.systemUTC());
 
     final VerificationSessions verificationSessions = new VerificationSessions(
         dynamoDbClient, config.dynamoDbTables().verificationSessions(), Clock.systemUTC());
 
     return new IntegrationTools(
-        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords),
+        new PhoneNumberRecoveryPasswordsManager(phoneNumberRecoveryPasswords),
         new VerificationSessionManager(verificationSessions),
         new PhoneNumberIdentifiers(dynamoDbAsyncClient, config.dynamoDbTables().phoneNumberIdentifiers()),
         new ChangeNumberWaitingPeriods(config.dynamoDbTables().changeNumberWaitingPeriods(), dynamoDbClient)
@@ -60,11 +60,11 @@ public class IntegrationTools {
   }
 
   private IntegrationTools(
-      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
       final VerificationSessionManager verificationSessionManager,
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final ChangeNumberWaitingPeriods changeNumberWaitingPeriods) {
-    this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.phoneNumberRecoveryPasswordsManager = phoneNumberRecoveryPasswordsManager;
     this.verificationSessionManager = verificationSessionManager;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.changeNumberWaitingPeriods = changeNumberWaitingPeriods;
@@ -74,7 +74,7 @@ public class IntegrationTools {
     try {
       final UUID pni = phoneNumberIdentifiers
           .getPhoneNumberIdentifier(phoneNumber).get(5, TimeUnit.SECONDS);
-      registrationRecoveryPasswordsManager.store(pni, password);
+      phoneNumberRecoveryPasswordsManager.store(pni, password);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {
       throw new RuntimeException("failed to get pni", e);
     }

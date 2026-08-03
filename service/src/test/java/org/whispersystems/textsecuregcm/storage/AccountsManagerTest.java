@@ -195,8 +195,8 @@ class AccountsManagerTest {
       return task.get();
     }).when(accountLockManager).withLock(anySet(), any(), any());
 
-    final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
-        mock(RegistrationRecoveryPasswordsManager.class);
+    final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
+        mock(PhoneNumberRecoveryPasswordsManager.class);
 
     when(keysManager.deleteSingleUsePreKeys(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -228,7 +228,7 @@ class AccountsManagerTest {
         storageClient,
         svr2Client,
         disconnectionRequestManager,
-        registrationRecoveryPasswordsManager,
+        phoneNumberRecoveryPasswordsManager,
         mock(Executor.class),
         mock(ScheduledExecutorService.class),
         mock(ScheduledExecutorService.class),

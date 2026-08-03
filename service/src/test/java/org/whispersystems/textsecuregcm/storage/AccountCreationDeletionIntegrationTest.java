@@ -131,8 +131,8 @@ public class AccountCreationDeletionIntegrationTest {
     final ProfilesManager profilesManager = mock(ProfilesManager.class);
     when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
-        mock(RegistrationRecoveryPasswordsManager.class);
+    final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
+        mock(PhoneNumberRecoveryPasswordsManager.class);
 
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -150,7 +150,7 @@ public class AccountCreationDeletionIntegrationTest {
         secureStorageClient,
         svr2Client,
         disconnectionRequestManager,
-        registrationRecoveryPasswordsManager,
+        phoneNumberRecoveryPasswordsManager,
         executor,
         executor,
         executor,

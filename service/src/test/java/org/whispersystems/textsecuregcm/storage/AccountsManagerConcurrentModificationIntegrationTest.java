@@ -123,7 +123,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(SecureStorageClient.class),
           mock(SecureValueRecoveryClient.class),
           mock(DisconnectionRequestManager.class),
-          mock(RegistrationRecoveryPasswordsManager.class),
+          mock(PhoneNumberRecoveryPasswordsManager.class),
           mock(Executor.class),
           mock(ScheduledExecutorService.class),
           mock(ScheduledExecutorService.class),

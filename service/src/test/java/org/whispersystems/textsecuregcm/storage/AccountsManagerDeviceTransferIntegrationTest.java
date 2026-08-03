@@ -68,7 +68,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(SecureStorageClient.class),
         mock(SecureValueRecoveryClient.class),
         mock(DisconnectionRequestManager.class),
-        mock(RegistrationRecoveryPasswordsManager.class),
+        mock(PhoneNumberRecoveryPasswordsManager.class),
         mock(ExecutorService.class),
         mock(ScheduledExecutorService.class),
         mock(ScheduledExecutorService.class),

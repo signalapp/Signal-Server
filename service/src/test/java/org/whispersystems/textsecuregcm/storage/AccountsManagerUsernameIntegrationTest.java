@@ -147,7 +147,7 @@ class AccountsManagerUsernameIntegrationTest {
         mock(SecureStorageClient.class),
         mock(SecureValueRecoveryClient.class),
         disconnectionRequestManager,
-        mock(RegistrationRecoveryPasswordsManager.class),
+        mock(PhoneNumberRecoveryPasswordsManager.class),
         Executors.newSingleThreadExecutor(),
         Executors.newSingleThreadScheduledExecutor(),
         Executors.newSingleThreadScheduledExecutor(),

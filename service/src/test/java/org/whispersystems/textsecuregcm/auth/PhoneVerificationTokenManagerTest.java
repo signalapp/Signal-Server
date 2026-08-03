@@ -31,13 +31,13 @@ import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class PhoneVerificationTokenManagerTest {
 
   private RegistrationServiceClient registrationServiceClient;
-  private RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager;
   private RegistrationRecoveryChecker registrationRecoveryChecker;
   private PhoneNumberIdentifiers phoneNumberIdentifiers;
 
@@ -55,12 +55,12 @@ class PhoneVerificationTokenManagerTest {
         .thenReturn(CompletableFuture.completedFuture(PHONE_NUMBER_IDENTIFIER));
 
     registrationServiceClient = mock(RegistrationServiceClient.class);
-    registrationRecoveryPasswordsManager = mock(RegistrationRecoveryPasswordsManager.class);
+    phoneNumberRecoveryPasswordsManager = mock(PhoneNumberRecoveryPasswordsManager.class);
     registrationRecoveryChecker = mock(RegistrationRecoveryChecker.class);
 
     phoneVerificationTokenManager = new PhoneVerificationTokenManager(phoneNumberIdentifiers,
         registrationServiceClient,
-        registrationRecoveryPasswordsManager,
+        phoneNumberRecoveryPasswordsManager,
         registrationRecoveryChecker);
   }
 
@@ -169,7 +169,7 @@ class PhoneVerificationTokenManagerTest {
       when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(PHONE_NUMBER, null, null, null))
           .thenReturn(true);
 
-      when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
+      when(phoneNumberRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
           .thenReturn(true);
 
       assertDoesNotThrow(() -> phoneVerificationTokenManager.verify(
@@ -188,7 +188,7 @@ class PhoneVerificationTokenManagerTest {
       when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(PHONE_NUMBER, null, null, null))
           .thenReturn(false);
 
-      when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
+      when(phoneNumberRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
           .thenReturn(true);
 
       assertThrows(RecoveryPasswordVerificationFailedException.class, () -> phoneVerificationTokenManager.verify(
@@ -207,7 +207,7 @@ class PhoneVerificationTokenManagerTest {
       when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(PHONE_NUMBER, null, null, null))
           .thenReturn(true);
 
-      when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
+      when(phoneNumberRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
           .thenReturn(false);
 
       assertThrows(RecoveryPasswordVerificationFailedException.class, () -> phoneVerificationTokenManager.verify(

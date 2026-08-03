@@ -91,7 +91,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.util.RegistrationIdValidator;
@@ -106,21 +106,21 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   private final AccountsManager accountsManager;
   private final RateLimiters rateLimiters;
   private final UsernameHashZkProofVerifier usernameHashZkProofVerifier;
-  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager;
   private final Clock clock;
   private final ChangeNumberManager changeNumberManager;
 
   public AccountsGrpcService(final AccountsManager accountsManager,
       final RateLimiters rateLimiters,
       final UsernameHashZkProofVerifier usernameHashZkProofVerifier,
-      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
       final Clock clock,
       final ChangeNumberManager changeNumberManager) {
 
     this.accountsManager = accountsManager;
     this.rateLimiters = rateLimiters;
     this.usernameHashZkProofVerifier = usernameHashZkProofVerifier;
-    this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.phoneNumberRecoveryPasswordsManager = phoneNumberRecoveryPasswordsManager;
     this.clock = clock;
     this.changeNumberManager = changeNumberManager;
   }
@@ -321,7 +321,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public SetRegistrationRecoveryPasswordResponse setRegistrationRecoveryPassword(final SetRegistrationRecoveryPasswordRequest request) {
-    registrationRecoveryPasswordsManager.store(getAuthenticatedAccount().getIdentifier(IdentityType.PNI),
+    phoneNumberRecoveryPasswordsManager.store(getAuthenticatedAccount().getIdentifier(IdentityType.PNI),
             request.getRegistrationRecoveryPassword().toByteArray());
 
     return SetRegistrationRecoveryPasswordResponse.getDefaultInstance();

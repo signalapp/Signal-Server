@@ -25,7 +25,7 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 
-public class RegistrationRecoveryPasswords {
+public class PhoneNumberRecoveryPasswords {
 
   // For historical reasons, we record the PNI as a UUID string rather than a compact byte array
   static final String KEY_PNI = "P";
@@ -41,7 +41,7 @@ public class RegistrationRecoveryPasswords {
 
   private final Clock clock;
 
-  public RegistrationRecoveryPasswords(
+  public PhoneNumberRecoveryPasswords(
       final String tableName,
       final Duration expiration,
       final DynamoDbClient dynamoDbClient,
@@ -62,7 +62,7 @@ public class RegistrationRecoveryPasswords {
     return Optional.ofNullable(getItemResponse.item())
         .filter(item -> item.containsKey(ATTR_SALT))
         .filter(item -> item.containsKey(ATTR_HASH))
-        .map(RegistrationRecoveryPasswords::saltedTokenHashFromItem);
+        .map(PhoneNumberRecoveryPasswords::saltedTokenHashFromItem);
   }
 
   ///  Add a PNI -> RRP mapping, or replace the current one if it already exists

@@ -39,7 +39,7 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
 
@@ -49,12 +49,12 @@ class RegistrationLockVerificationManagerTest {
   private final DisconnectionRequestManager disconnectionRequestManager = mock(DisconnectionRequestManager.class);
   private final ExternalServiceCredentialsGenerator svr2CredentialsGenerator = mock(
       ExternalServiceCredentialsGenerator.class);
-  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
-      RegistrationRecoveryPasswordsManager.class);
+  private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager = mock(
+      PhoneNumberRecoveryPasswordsManager.class);
   private final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-      accountsManager, disconnectionRequestManager, svr2CredentialsGenerator, registrationRecoveryPasswordsManager,
+      accountsManager, disconnectionRequestManager, svr2CredentialsGenerator, phoneNumberRecoveryPasswordsManager,
       pushNotificationManager, rateLimiters);
 
   private final RateLimiter pinLimiter = mock(RateLimiter.class);
@@ -104,9 +104,9 @@ class RegistrationLockVerificationManagerTest {
         yield new Pair<>(RegistrationLockFailureException.class, e -> {
           if (e instanceof RegistrationLockFailureException) {
             if (!verificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
-              verify(registrationRecoveryPasswordsManager).remove(account.getIdentifier(IdentityType.PNI));
+              verify(phoneNumberRecoveryPasswordsManager).remove(account.getIdentifier(IdentityType.PNI));
             } else {
-              verify(registrationRecoveryPasswordsManager, never()).remove(any());
+              verify(phoneNumberRecoveryPasswordsManager, never()).remove(any());
             }
             verify(disconnectionRequestManager).requestDisconnection(account.getAccountIdentifier(), List.of(Device.PRIMARY_ID));
             try {
@@ -134,7 +134,7 @@ class RegistrationLockVerificationManagerTest {
           } catch (final NotPushRegisteredException ignored2) {
           }
 
-          verify(registrationRecoveryPasswordsManager, never()).remove(any());
+          verify(phoneNumberRecoveryPasswordsManager, never()).remove(any());
           verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
         });
       }
@@ -172,7 +172,7 @@ class RegistrationLockVerificationManagerTest {
             PhoneVerificationRequest.VerificationType.SESSION));
 
     verify(account, never()).lockAuthTokenHash();
-    verify(registrationRecoveryPasswordsManager, never()).remove(any());
+    verify(phoneNumberRecoveryPasswordsManager, never()).remove(any());
     verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
   }
 

@@ -317,10 +317,10 @@ public final class DynamoDbExtensionSchema {
         List.of(), List.of()),
 
     REGISTRATION_RECOVERY_PASSWORDS("registration_recovery_passwords_test",
-        RegistrationRecoveryPasswords.KEY_PNI,
+        PhoneNumberRecoveryPasswords.KEY_PNI,
         null,
         List.of(AttributeDefinition.builder()
-            .attributeName(RegistrationRecoveryPasswords.KEY_PNI)
+            .attributeName(PhoneNumberRecoveryPasswords.KEY_PNI)
             .attributeType(ScalarAttributeType.S)
             .build()),
         List.of(), List.of()),

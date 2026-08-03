@@ -22,7 +22,7 @@ import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 
 public class PhoneVerificationTokenManager {
 
@@ -33,16 +33,16 @@ public class PhoneVerificationTokenManager {
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
 
   private final RegistrationServiceClient registrationServiceClient;
-  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager;
   private final RegistrationRecoveryChecker registrationRecoveryChecker;
 
   public PhoneVerificationTokenManager(final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final RegistrationServiceClient registrationServiceClient,
-      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
       final RegistrationRecoveryChecker registrationRecoveryChecker) {
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.registrationServiceClient = registrationServiceClient;
-    this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.phoneNumberRecoveryPasswordsManager = phoneNumberRecoveryPasswordsManager;
     this.registrationRecoveryChecker = registrationRecoveryChecker;
   }
 
@@ -127,7 +127,7 @@ public class PhoneVerificationTokenManager {
       final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number)
           .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-      final boolean verified = registrationRecoveryPasswordsManager.verify(phoneNumberIdentifier, recoveryPassword);
+      final boolean verified = phoneNumberRecoveryPasswordsManager.verify(phoneNumberIdentifier, recoveryPassword);
 
       if (!verified) {
         throw new RecoveryPasswordVerificationFailedException();

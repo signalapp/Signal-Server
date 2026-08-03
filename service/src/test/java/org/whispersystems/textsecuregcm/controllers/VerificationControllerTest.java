@@ -87,7 +87,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -109,8 +109,8 @@ class VerificationControllerTest {
   private final VerificationSessionManager verificationSessionManager = mock(VerificationSessionManager.class);
   private final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private final RegistrationCaptchaManager registrationCaptchaManager = mock(RegistrationCaptchaManager.class);
-  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
-      RegistrationRecoveryPasswordsManager.class);
+  private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager = mock(
+      PhoneNumberRecoveryPasswordsManager.class);
   private final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final AccountsManager accountsManager = mock(AccountsManager.class);
@@ -136,7 +136,7 @@ class VerificationControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,
-              registrationCaptchaManager, registrationRecoveryPasswordsManager, phoneNumberIdentifiers, rateLimiters, accountsManager,
+              registrationCaptchaManager, phoneNumberRecoveryPasswordsManager, phoneNumberIdentifiers, rateLimiters, accountsManager,
               carrierDataProvider, RegistrationFraudChecker.noop(), dynamicConfigurationManager, experimentEnrollmentManager, clock))
       .build();
 
@@ -608,7 +608,7 @@ class VerificationControllerTest {
       assertTrue(verificationSessionResponse.verified());
       assertTrue(verificationSessionResponse.requestedInformation().isEmpty());
 
-      verify(registrationRecoveryPasswordsManager).remove(PNI);
+      verify(phoneNumberRecoveryPasswordsManager).remove(PNI);
     }
   }
 
@@ -885,7 +885,7 @@ class VerificationControllerTest {
     try (Response response = request.get()) {
       assertEquals(HttpStatus.SC_OK, response.getStatus());
 
-      verify(registrationRecoveryPasswordsManager).remove(PNI);
+      verify(phoneNumberRecoveryPasswordsManager).remove(PNI);
     }
   }
 
@@ -1214,7 +1214,7 @@ class VerificationControllerTest {
           VerificationSessionResponse.class);
       assertTrue(verificationSessionResponse.verified());
 
-      verify(registrationRecoveryPasswordsManager).remove(PNI);
+      verify(phoneNumberRecoveryPasswordsManager).remove(PNI);
     }
   }
 
@@ -1335,7 +1335,7 @@ class VerificationControllerTest {
 
       assertTrue(verificationSessionResponse.verified());
 
-      verify(registrationRecoveryPasswordsManager).remove(PNI);
+      verify(phoneNumberRecoveryPasswordsManager).remove(PNI);
     }
   }
 
