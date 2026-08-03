@@ -13,12 +13,15 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import io.micrometer.core.instrument.Tags;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
+/// Tracks when a payment intent actually becomes paid. May be updated externally by a webhook from the payment provider.
 public class OneTimeDonationsManager {
   public static final String KEY_PAYMENT_ID = "P"; // S
   public static final String ATTR_PAID_AT = "A"; // N
@@ -38,7 +41,7 @@ public class OneTimeDonationsManager {
     this.dynamoDbClient = Objects.requireNonNull(dynamoDbClient);
   }
 
-  public Instant getPaidAt(final String paymentId, final Instant fallbackTimestamp) {
+  public Instant getPaidAt(final PaymentProvider paymentProvider, final String paymentId, final Instant fallbackTimestamp) {
     final GetItemRequest getItemRequest = GetItemRequest.builder()
         .consistentRead(Boolean.TRUE)
         .tableName(table)
@@ -48,7 +51,7 @@ public class OneTimeDonationsManager {
 
     final GetItemResponse getItemResponse = dynamoDbClient.getItem(getItemRequest);
     if (!getItemResponse.hasItem()) {
-      Metrics.counter(ONETIME_DONATION_NOT_FOUND_COUNTER_NAME).increment();
+      Metrics.counter(ONETIME_DONATION_NOT_FOUND_COUNTER_NAME, Tags.of("processor", paymentProvider.name())).increment();
       return fallbackTimestamp;
     }
 

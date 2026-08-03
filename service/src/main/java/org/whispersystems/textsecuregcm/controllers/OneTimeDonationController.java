@@ -389,7 +389,7 @@ public class OneTimeDonationController {
     } catch (WriteConflictException _) {
       throw new WebApplicationException(Response.Status.CONFLICT);
     }
-    final Instant paidAt = oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created());
+    final Instant paidAt = oneTimeDonationsManager.getPaidAt(request.processor, paymentDetails.id(), paymentDetails.created());
     final Instant expiration = paidAt
         .plus(levelDetails.levelExpiration())
         .truncatedTo(ChronoUnit.DAYS)

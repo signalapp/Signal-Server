@@ -311,7 +311,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
           .setReceiptAlreadyIssued(FailedPrecondition.getDefaultInstance()).build();
     }
 
-    final Instant paidAt = oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created());
+    final Instant paidAt = oneTimeDonationsManager.getPaidAt(processor, paymentDetails.id(), paymentDetails.created());
     final Instant expiration = paidAt
         .plus(levelDetails.levelExpiration())
         .truncatedTo(ChronoUnit.DAYS)
