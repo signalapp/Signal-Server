@@ -334,6 +334,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
     account.setBadges(clock, accountBadges);
 
+    accountAttributes.recoveryPassword().ifPresent(account::setAccountRecoveryPassword);
+
     String accountCreationType = maybeRecentlyDeletedAccountIdentifier.isPresent() ? "recently-deleted" : "new";
 
     final String pushTokenType;
@@ -1227,13 +1229,18 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   private void delete(final Account account) {
-    final List<TransactWriteItem> additionalWriteItems = account.getDevices().stream()
+    final List<TransactWriteItem> additionalWriteItems = new ArrayList<>();
+
+    account.getDevices().stream()
         .flatMap(device -> keysManager.buildWriteItemsForRemovedDevice(
                 account.getIdentifier(IdentityType.ACI),
                 account.getIdentifier(IdentityType.PNI),
                 device.getId())
             .stream())
-        .toList();
+        .forEach(additionalWriteItems::add);
+
+    account.getPhoneNumberIdentifierOptional().ifPresent(phoneNumberIdentifier ->
+        additionalWriteItems.add(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForRemovePassword(phoneNumberIdentifier)));
 
     CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getAccountIdentifier()),
@@ -1243,8 +1250,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             messagesManager.clear(account.getAccountIdentifier()),
             profilesManager.deleteAll(account.getAccountIdentifier(), true))
         .join();
-
-    phoneNumberRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI));
 
     accounts.delete(account.getAccountIdentifier(), additionalWriteItems);
     redisDelete(account);

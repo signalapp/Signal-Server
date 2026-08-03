@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -60,7 +61,8 @@ class AccountsManagerChangeNumberIntegrationTest {
       Tables.EC_KEYS,
       Tables.PAGED_PQ_KEYS,
       Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
-      Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
+      Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS,
+      Tables.REGISTRATION_RECOVERY_PASSWORDS);
 
   @RegisterExtension
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -123,8 +125,14 @@ class AccountsManagerChangeNumberIntegrationTest {
       final ProfilesManager profilesManager = mock(ProfilesManager.class);
       when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
 
+      final PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords =
+          new PhoneNumberRecoveryPasswords(DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
+              Duration.ofDays(1),
+              DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+              Clock.systemUTC());
+
       final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
-          mock(PhoneNumberRecoveryPasswordsManager.class);
+          new PhoneNumberRecoveryPasswordsManager(phoneNumberRecoveryPasswords);
 
       accountsManager = new AccountsManager(
           accounts,

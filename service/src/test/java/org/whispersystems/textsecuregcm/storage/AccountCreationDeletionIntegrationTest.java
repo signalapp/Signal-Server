@@ -51,6 +51,7 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 
 public class AccountCreationDeletionIntegrationTest {
@@ -67,7 +68,8 @@ public class AccountCreationDeletionIntegrationTest {
       DynamoDbExtensionSchema.Tables.EC_KEYS,
       DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
-      DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
+      DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS,
+      DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS);
 
   @RegisterExtension
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -81,6 +83,7 @@ public class AccountCreationDeletionIntegrationTest {
 
   private AccountsManager accountsManager;
   private KeysManager keysManager;
+  private PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager;
   private DisconnectionRequestManager disconnectionRequestManager;
 
   record DeliveryChannels(boolean fetchesMessages, String apnsToken, String fcmToken) {}
@@ -131,8 +134,13 @@ public class AccountCreationDeletionIntegrationTest {
     final ProfilesManager profilesManager = mock(ProfilesManager.class);
     when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
-        mock(PhoneNumberRecoveryPasswordsManager.class);
+    final PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords =
+        new PhoneNumberRecoveryPasswords(DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
+            Duration.ofDays(1),
+            DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+            CLOCK);
+
+    phoneNumberRecoveryPasswordsManager = new PhoneNumberRecoveryPasswordsManager(phoneNumberRecoveryPasswords);
 
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -423,6 +431,8 @@ public class AccountCreationDeletionIntegrationTest {
         true,
         deviceCapabilities);
 
+    accountAttributes.setRecoveryPassword(TestRandomUtil.nextBytes(16));
+
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
         RandomStringUtils.secure().nextAlphabetic(8),
         CLOCK.instant().plus(Duration.ofDays(7)),
@@ -460,6 +470,8 @@ public class AccountCreationDeletionIntegrationTest {
     final UUID aci = account.getIdentifier(IdentityType.ACI);
 
     assertTrue(accountsManager.getByAccountIdentifier(aci).isPresent());
+    assertTrue(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(),
+        accountAttributes.recoveryPassword().orElseThrow()));
 
     accountsManager.delete(account.getIdentifier(IdentityType.ACI), AccountsManager.DeletionReason.ADMIN_DELETED);
 
@@ -468,6 +480,8 @@ public class AccountCreationDeletionIntegrationTest {
     assertFalse(keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
+    assertFalse(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(),
+        accountAttributes.recoveryPassword().orElseThrow()));
 
     verify(disconnectionRequestManager).requestDisconnection(argThat(disconnectedAccount ->
         disconnectedAccount.getIdentifier(IdentityType.ACI).equals(account.getIdentifier(IdentityType.ACI))));

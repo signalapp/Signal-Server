@@ -17,13 +17,16 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class PhoneNumberRecoveryPasswords {
 
@@ -71,19 +74,32 @@ public class PhoneNumberRecoveryPasswords {
   /// @param data The salted registration recovery password
   /// @return true if a new mapping was added, false if an existing mapping was updated
   public boolean addOrReplace(final UUID phoneNumberIdentifier, final SaltedTokenHash data) {
-    final long expirationSeconds = expirationSeconds();
-
     final PutItemResponse response = dynamoDbClient.putItem(PutItemRequest.builder()
         .tableName(tableName)
         .returnValues(ReturnValue.ALL_OLD)
         .item(Map.of(
             KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString()),
-            ATTR_EXP, AttributeValues.fromLong(expirationSeconds),
+            ATTR_EXP, AttributeValues.fromLong(expirationSeconds()),
             ATTR_SALT, AttributeValues.fromString(data.salt()),
             ATTR_HASH, AttributeValues.fromString(data.hash())))
         .build());
 
     return response.attributes() == null || response.attributes().isEmpty();
+  }
+
+  TransactWriteItem buildWriteItemForAddOrReplace(final UUID phoneNumberIdentifier, final SaltedTokenHash data) {
+    final long expirationSeconds = expirationSeconds();
+
+    return TransactWriteItem.builder()
+        .put(Put.builder()
+            .tableName(tableName)
+            .item(Map.of(
+                KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString()),
+                ATTR_EXP, AttributeValues.fromLong(expirationSeconds),
+                ATTR_SALT, AttributeValues.fromString(data.salt()),
+                ATTR_HASH, AttributeValues.fromString(data.hash())))
+            .build())
+        .build();
   }
 
   ///  Remove the entry associated with the provided PNI
@@ -97,6 +113,15 @@ public class PhoneNumberRecoveryPasswords {
         .build());
 
     return response.attributes() != null && !response.attributes().isEmpty();
+  }
+
+  TransactWriteItem buildWriteItemForRemove(final UUID phoneNumberIdentifier) {
+    return TransactWriteItem.builder()
+        .delete(Delete.builder()
+            .tableName(tableName)
+            .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
+            .build())
+        .build();
   }
 
   @VisibleForTesting

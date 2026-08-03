@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -98,6 +99,7 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class AccountControllerTest {
@@ -227,6 +229,9 @@ class AccountControllerTest {
 
       return null;
     }).when(usernameZkProofVerifier).verifyProof(any(), any());
+
+    when(PHONE_NUMBER_RECOVERY_PASSWORDS_MANAGER.buildTransactWriteItemForStorePassword(any(), any()))
+        .thenReturn(TransactWriteItem.builder().build());
   }
 
   @AfterEach
@@ -856,7 +861,8 @@ class AccountControllerTest {
             .setRecoveryPassword(recoveryPassword)))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
-      verify(PHONE_NUMBER_RECOVERY_PASSWORDS_MANAGER).store(AuthHelper.UNDISCOVERABLE_PNI, recoveryPassword);
+      verify(accountsManager).update(eq(AuthHelper.UNDISCOVERABLE_UUID), any(), argThat(additionWriteItems -> additionWriteItems.size() == 1));
+      verify(AuthHelper.UNDISCOVERABLE_ACCOUNT).setAccountRecoveryPassword(recoveryPassword);
     }
   }
 

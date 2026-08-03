@@ -12,6 +12,8 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +85,6 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
@@ -98,6 +99,7 @@ import org.whispersystems.textsecuregcm.util.RegistrationIdValidator;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
@@ -277,7 +279,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
         ? account.getUsernameLinkHandle()
         : UUID.randomUUID();
 
-    accountsManager.update(account.getIdentifier(IdentityType.ACI),
+    accountsManager.update(account.getAccountIdentifier(),
         a -> a.setUsernameLinkDetails(linkHandle, request.getUsernameCiphertext().toByteArray()));
 
     return responseBuilder.setUsernameLinkHandle(UUIDUtil.toByteString(linkHandle)).build();
@@ -321,8 +323,16 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public SetRegistrationRecoveryPasswordResponse setRegistrationRecoveryPassword(final SetRegistrationRecoveryPasswordRequest request) {
-    phoneNumberRecoveryPasswordsManager.store(getAuthenticatedAccount().getIdentifier(IdentityType.PNI),
-            request.getRegistrationRecoveryPassword().toByteArray());
+    final Account account = getAuthenticatedAccount();
+    final byte[] recoveryPassword = request.getRegistrationRecoveryPassword().toByteArray();
+
+    final Collection<TransactWriteItem> additionalWriteItems = account.getPhoneNumberIdentifierOptional()
+        .map(phoneNumberIdentifier ->
+            List.of(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, recoveryPassword)))
+        .orElseGet(Collections::emptyList);
+
+    // TODO Once we retire `AccountController`, replace this with a new `AccountsManager#setRecoveryPassword` method
+    accountsManager.update(account.getAccountIdentifier(), a -> a.setAccountRecoveryPassword(recoveryPassword), additionalWriteItems);
 
     return SetRegistrationRecoveryPasswordResponse.getDefaultInstance();
   }

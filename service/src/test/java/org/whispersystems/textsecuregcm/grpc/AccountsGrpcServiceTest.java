@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -99,7 +100,6 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.EncryptedUsername;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -121,6 +121,7 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, AccountsGrpc.AccountsBlockingStub> {
 
@@ -171,9 +172,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(account.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
     when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
-    when(account.getNumber()).thenReturn(e164);
     when(account.getNumberOptional()).thenReturn(Optional.of(e164));
     when(account.getUsernameHash()).thenReturn(Optional.of(usernameHash));
     when(account.getUsernameLinkHandle()).thenReturn(usernameLinkHandle);
@@ -286,7 +285,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @Test
   void reserveUsernameHash() throws UsernameHashNotAvailableException {
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
@@ -547,7 +546,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void setUsernameLink(final boolean keepLink) {
     final Account account = mock(Account.class);
     final UUID oldHandle = UUID.randomUUID();
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(account.getUsernameHash()).thenReturn(Optional.of(new byte[AccountController.USERNAME_HASH_LENGTH]));
     when(account.getUsernameLinkHandle()).thenReturn(oldHandle);
 
@@ -717,19 +716,24 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final UUID phoneNumberIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.PNI)).thenReturn(phoneNumberIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
     final byte[] registrationRecoveryPassword = TestRandomUtil.nextBytes(32);
 
+    when(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, registrationRecoveryPassword))
+        .thenReturn(TransactWriteItem.builder().build());
+
     assertDoesNotThrow(() ->
         authenticatedServiceStub().setRegistrationRecoveryPassword(SetRegistrationRecoveryPasswordRequest.newBuilder()
             .setRegistrationRecoveryPassword(ByteString.copyFrom(registrationRecoveryPassword))
             .build()));
 
-    verify(phoneNumberRecoveryPasswordsManager).store(account.getIdentifier(IdentityType.PNI), registrationRecoveryPassword);
+    verify(account).setAccountRecoveryPassword(registrationRecoveryPassword);
+    verify(accountsManager).update(eq(AUTHENTICATED_ACI), any(), argThat(additionalWriteItems -> additionalWriteItems.size() == 1));
   }
 
   @Test
@@ -741,7 +745,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void setZkCredentialKey(final boolean matchesCurrentZkCredentialKey) throws Exception {
+  void setZkCredentialKey(final boolean matchesCurrentZkCredentialKey) {
 
     final ZkCredentialPublicKey publicKey = ZkCredentialKeyPair.generate().getPublicKey();
     final long rotationId = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
@@ -849,9 +853,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final Account updatedAccount = mock(Account.class);
     when(updatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(updatedAccount.getNumber()).thenReturn(newNumber);
     when(updatedAccount.getNumberOptional()).thenReturn(Optional.of(newNumber));
-    when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(updatedPni);
     when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(updatedPni));
     when(updatedAccount.getUsernameHash()).thenReturn(Optional.empty());
 

@@ -130,6 +130,15 @@ public class AccountsHelper {
       return account;
     });
 
+    when(mockAccountsManager.update(any(UUID.class), any(), any())).thenAnswer(invocation -> {
+      final UUID accountIdentifier = invocation.getArgument(0, UUID.class);
+      final Account account = mockAccountsManager.getByAccountIdentifier(accountIdentifier).orElseThrow();
+
+      invocation.getArgument(1, Consumer.class).accept(account);
+
+      return account;
+    });
+
     when(mockAccountsManager.update(any(Account.class), any())).thenAnswer(invocation -> {
       final Account account = invocation.getArgument(0);
 
@@ -220,6 +229,7 @@ public class AccountsHelper {
       for (Stubbing stubbing : mockingDetails.getStubbings()) {
         switch (stubbing.getInvocation().getMethod().getName()) {
           case "getAccountIdentifier" -> when(updatedAccount.getAccountIdentifier()).thenAnswer(stubbing);
+          case "getPhoneNumberIdentifierOptional" -> when(updatedAccount.getPhoneNumberIdentifierOptional()).thenAnswer(stubbing);
           case "getPhoneNumberIdentifier" -> when(updatedAccount.getPhoneNumberIdentifier()).thenAnswer(stubbing);
           case "getIdentifier" -> when(updatedAccount.getIdentifier(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
           case "isIdentifiedBy" -> when(updatedAccount.isIdentifiedBy(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);

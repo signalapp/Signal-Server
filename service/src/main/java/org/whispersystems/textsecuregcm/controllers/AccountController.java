@@ -4,12 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -30,11 +25,13 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -62,7 +59,6 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -72,6 +68,7 @@ import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundExcep
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.Util;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
@@ -80,10 +77,6 @@ public class AccountController {
   public static final int MAXIMUM_USERNAME_HASHES_LIST_LENGTH = 20;
   public static final int USERNAME_HASH_LENGTH = 32;
   public static final int MAXIMUM_USERNAME_CIPHERTEXT_LENGTH = 128;
-
-  private static final String RECOVERY_PASSWORD_SET_COUNTER_NAME =
-      name(AccountController.class, "recoveryPasswordSet");
-
 
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;
@@ -224,9 +217,17 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   public void setAccountAttributes(
       @Auth AuthenticatedDevice auth,
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String signalAgent,
       @NotNull @Valid AccountAttributes attributes) {
+
+    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
+
+    final Collection<TransactWriteItem> additionalWriteItems =
+        account.getPhoneNumberIdentifierOptional()
+            .flatMap(phoneNumberIdentifier -> attributes.recoveryPassword().map(recoveryPassword ->
+                List.of(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, recoveryPassword))))
+            .orElseGet(Collections::emptyList);
 
     final Account updatedAccount = accounts.update(auth.accountIdentifier(), a -> {
       a.getDevice(auth.deviceId()).ifPresent(d -> {
@@ -243,17 +244,9 @@ public class AccountController {
       a.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
       a.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
       a.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
-    });
 
-    // if registration recovery password was sent to us, store it (or refresh its expiration)
-    attributes.recoveryPassword().ifPresent(registrationRecoveryPassword -> {
-      final boolean rrpCreated = phoneNumberRecoveryPasswordsManager
-          .store(updatedAccount.getIdentifier(IdentityType.PNI), registrationRecoveryPassword);
-      Metrics.counter(RECOVERY_PASSWORD_SET_COUNTER_NAME, Tags.of(
-              UserAgentTagUtil.getPlatformTag(userAgent),
-              Tag.of("outcome", rrpCreated ? "created" : "updated")))
-          .increment();
-    });
+      attributes.recoveryPassword().ifPresent(a::setAccountRecoveryPassword);
+    }, additionalWriteItems);
   }
 
   @GET

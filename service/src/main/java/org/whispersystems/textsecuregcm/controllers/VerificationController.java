@@ -749,6 +749,9 @@ public class VerificationController {
       // the RRP. It's possible the client will not actually be able to register (e.g. failed reglock challenge), and
       // so we will have removed the RRP unnecessarily. The impact of this is low, since the owner of the RRP
       // can always just fallback to session-based verification.
+      //
+      // Note that we do not remove the recovery password from the account itself because re-creation is imminent, and
+      // that process will overwrite the recovery password (along with the rest of the account record).
       existingRRP = phoneNumberRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join());
     }
 
@@ -824,6 +827,9 @@ public class VerificationController {
         // the RRP. It's possible the client will not actually be able to register (e.g. failed reglock challenge), and
         // so we will have removed the RRP unnecessarily. The impact of this is low, since the owner of the RRP
         // can always just fallback to session-based verification.
+        //
+        // Note that we do not remove the recovery password from the account itself because re-creation is imminent, and
+        // that process will overwrite the recovery password (along with the rest of the account record).
         phoneNumberRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join());
       }
 
