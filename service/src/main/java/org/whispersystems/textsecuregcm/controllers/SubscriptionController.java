@@ -66,6 +66,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.DonationPermitHeader;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
+import org.whispersystems.textsecuregcm.configuration.LoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
@@ -106,6 +107,7 @@ public class SubscriptionController {
   private final Clock clock;
   private final SubscriptionConfiguration subscriptionConfiguration;
   private final OneTimeDonationConfiguration oneTimeDonationConfiguration;
+  private final LoginPurchaseConfiguration loginPurchaseConfiguration;
   private final SubscriptionManager subscriptionManager;
   private final StripeManager stripeManager;
   private final BraintreeManager braintreeManager;
@@ -124,6 +126,7 @@ public class SubscriptionController {
       Clock clock,
       SubscriptionConfiguration subscriptionConfiguration,
       OneTimeDonationConfiguration oneTimeDonationConfiguration,
+      LoginPurchaseConfiguration loginPurchaseConfiguration,
       SubscriptionManager subscriptionManager,
       StripeManager stripeManager,
       BraintreeManager braintreeManager,
@@ -137,6 +140,7 @@ public class SubscriptionController {
     this.clock = Objects.requireNonNull(clock);
     this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
     this.oneTimeDonationConfiguration = Objects.requireNonNull(oneTimeDonationConfiguration);
+    this.loginPurchaseConfiguration = Objects.requireNonNull(loginPurchaseConfiguration);
     this.stripeManager = Objects.requireNonNull(stripeManager);
     this.braintreeManager = Objects.requireNonNull(braintreeManager);
     this.googlePlayBillingManager = Objects.requireNonNull(googlePlayBillingManager);
@@ -167,6 +171,8 @@ public class SubscriptionController {
         buildDonationLevelsConfiguration(subscriptionConfiguration, oneTimeDonationConfiguration, badgeTranslator,
             acceptableLanguages),
         new BackupConfiguration(backupLevels, subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays()),
+        new LoginConfiguration(loginPurchaseConfiguration.level(), loginPurchaseConfiguration.playProductId(),
+            loginPurchaseConfiguration.appStoreProductId()),
         oneTimeDonationConfiguration.sepaMaximumEuros());
   }
 
@@ -532,8 +538,19 @@ public class SubscriptionController {
       Map<Long, LevelConfiguration> levels,
       @Schema(description = "Backup specific configuration")
       BackupConfiguration backup,
+      @Schema(description = "Signal Login specific configuration")
+      LoginConfiguration login,
       @Schema(description = "The maximum value of a one-time donation SEPA transaction")
       BigDecimal sepaMaximumEuros) {}
+
+  @Schema(description = "Configuration for one-time Signal Login purchases")
+  public record LoginConfiguration(
+      @Schema(description = "The receipt level associated with a Signal Login purchase")
+      long level,
+      @Schema(description = "The play billing productID associated with a Signal Login purchase")
+      String playProductId,
+      @Schema(description = "The App Store productID associated with a Signal Login purchase")
+      String appStoreProductId) {}
 
   public record BackupConfiguration(
       @Schema(description = "A map of numeric backup level IDs to level-specific backup configuration")

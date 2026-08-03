@@ -33,6 +33,8 @@ message GetConfigurationResponse {
   BackupConfiguration backup = 3;
   // Maximum value of a one-time SEPA donation
   string sepa_maximum_euros = 4;
+  // Configuration for one-time Signal Login purchases
+  LoginConfiguration login = 5;
 }
 
 message AmountList {
@@ -80,4 +82,14 @@ message BackupConfiguration {
   map<uint64, BackupLevelConfiguration> levels = 1;
   // The number of days of media a free tier backup user gets
   uint64 free_tier_media_days = 2;
+}
+
+// Configuration for one-time Signal Login purchases
+message LoginConfiguration {
+  // The receipt level associated with a Signal Login purchase
+  uint64 level = 1;
+  // The play billing productID associated with a Signal Login purchase
+  string play_product_id = 2;
+  // The App Store productID associated with a Signal Login purchase
+  string app_store_product_id = 3;
 }

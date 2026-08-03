@@ -22,6 +22,7 @@ import org.signal.chat.purchase.GetConfigurationRequest;
 import org.signal.chat.purchase.GetConfigurationResponse;
 import org.signal.chat.purchase.PaymentMethod;
 import org.signal.chat.purchase.ProductConfigurationGrpc;
+import org.whispersystems.textsecuregcm.configuration.LoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
@@ -36,6 +37,9 @@ public class ProductConfigurationGrpcServiceTest extends
 
   private final OneTimeDonationConfiguration oneTimeDonationConfiguration =
       SubscriptionConfigTestHelper.getOneTimeConfig();
+
+  private static final LoginPurchaseConfiguration LOGIN_PURCHASE_CONFIGURATION =
+      new LoginPurchaseConfiguration(300L, "testLoginPlayProductId", "testLoginAppStoreProductId");
 
   @Mock
   private StripeManager stripeManager;
@@ -65,7 +69,7 @@ public class ProductConfigurationGrpcServiceTest extends
 
 
     return new ProductConfigurationGrpcService(subscriptionConfiguration, oneTimeDonationConfiguration,
-        List.of(stripeManager, braintreeManager), 1234L);
+        LOGIN_PURCHASE_CONFIGURATION, List.of(stripeManager, braintreeManager), 1234L);
   }
 
   @Test
@@ -127,6 +131,10 @@ public class ProductConfigurationGrpcServiceTest extends
     assertTrue(configuration.getBadgeLevelsOrThrow(1L).getBadgeDurationSeconds() > 0);
     assertEquals("GIFT", configuration.getBadgeLevelsOrThrow(100L).getBadgeId());
     assertTrue(configuration.getBadgeLevelsOrThrow(100L).getBadgeDurationSeconds() > 0);
+
+    assertEquals(LOGIN_PURCHASE_CONFIGURATION.level(), configuration.getLogin().getLevel());
+    assertEquals(LOGIN_PURCHASE_CONFIGURATION.playProductId(), configuration.getLogin().getPlayProductId());
+    assertEquals(LOGIN_PURCHASE_CONFIGURATION.appStoreProductId(), configuration.getLogin().getAppStoreProductId());
   }
 
 

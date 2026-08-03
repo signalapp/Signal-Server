@@ -130,6 +130,7 @@ import org.whispersystems.textsecuregcm.controllers.DonationController;
 import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
 import org.whispersystems.textsecuregcm.controllers.KeyTransparencyController;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
+import org.whispersystems.textsecuregcm.controllers.LoginPurchaseController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.OneTimeDonationController;
 import org.whispersystems.textsecuregcm.controllers.PaymentsController;
@@ -300,7 +301,9 @@ import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
+import org.whispersystems.textsecuregcm.subscriptions.LoginPurchaseManager;
 import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
 import org.whispersystems.textsecuregcm.telephony.hlrlookup.HlrLookupCarrierDataProvider;
@@ -987,6 +990,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         List.of(stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager),
         zkReceiptOperations, issuedReceiptsManager);
 
+    final LoginPurchaseManager loginPurchaseManager = new LoginPurchaseManager(
+        Map.of(
+            PaymentProvider.APPLE_APP_STORE, appleAppStoreManager,
+            PaymentProvider.GOOGLE_PLAY_BILLING, googlePlayBillingManager),
+        issuedReceiptsManager,
+        zkReceiptOperations,
+        config.getLoginPurchase().level(),
+        clock);
+
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
         .stream()
         .map(ServiceLoader.Provider::get)
@@ -1109,7 +1121,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new ChallengeGrpcService(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
             new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new, donationPermitsManager, rateLimiters),
             new ProductConfigurationGrpcService(config.getSubscription(), config.getOneTimeDonations(),
-                List.of(stripeManager, braintreeManager), config.getBackupConfiguration().maxTotalMediaSize()),
+                config.getLoginPurchase(), List.of(stripeManager, braintreeManager),
+                config.getBackupConfiguration().maxTotalMediaSize()),
             new RemoteConfigurationGrpcService(remoteConfigsManager, profileBadgeConverter,
                 config.getBadges().getBadges().stream()
                     .map(BadgeConfiguration::getId)
@@ -1284,12 +1297,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             phoneNumberIdentifiers, rateLimiters, accountsManager, carrierDataProvider, registrationFraudChecker,
             dynamicConfigurationManager, experimentEnrollmentManager, clock),
         new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
-            subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
+            config.getLoginPurchase(), subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager,
+            appleAppStoreManager,
             profileBadgeConverter, bankMandateTranslator, donationPermitsManager,
             config.getBackupConfiguration().maxTotalMediaSize()),
         new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
             payPalDonationsTranslator, zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager,
-            donationPermitsManager)
+            donationPermitsManager),
+        new LoginPurchaseController(loginPurchaseManager, dynamicConfigurationManager)
     );
 
     for (Object controller : commonControllers) {

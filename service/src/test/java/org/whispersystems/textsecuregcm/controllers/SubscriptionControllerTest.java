@@ -60,6 +60,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
+import org.whispersystems.textsecuregcm.configuration.LoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetBankMandateResponse;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSubscriptionConfigurationResponse;
@@ -109,8 +110,10 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
+  private static final LoginPurchaseConfiguration LOGIN_PURCHASE_CONFIG =
+      new LoginPurchaseConfiguration(300L, "testLoginPlayProductId", "testLoginAppStoreProductId");
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK,
-      SUBSCRIPTION_CONFIG, ONETIME_CONFIG,
+      SUBSCRIPTION_CONFIG, ONETIME_CONFIG, LOGIN_PURCHASE_CONFIG,
       new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
           ZK_OPS, ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER,
       BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR, DONATION_PERMITS_MANAGER, MAX_TOTAL_BACKUP_MEDIA_BYTES);
@@ -1073,6 +1076,10 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
       assertThat(configuration.mediaTtlDays()).isEqualTo(40);
     });
     assertThat(response.backup().freeTierMediaDays()).isEqualTo(30);
+
+    assertThat(response.login().level()).isEqualTo(LOGIN_PURCHASE_CONFIG.level());
+    assertThat(response.login().playProductId()).isEqualTo(LOGIN_PURCHASE_CONFIG.playProductId());
+    assertThat(response.login().appStoreProductId()).isEqualTo(LOGIN_PURCHASE_CONFIG.appStoreProductId());
 
     // check the badge vs purchasable badge fields
     // subscription levels are Badge, while one-time levels are PurchasableBadge, which adds `duration`

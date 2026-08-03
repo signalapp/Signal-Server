@@ -44,6 +44,7 @@ import org.whispersystems.textsecuregcm.configuration.HlrLookupConfiguration;
 import org.whispersystems.textsecuregcm.configuration.IdlePrimaryDeviceReminderConfiguration;
 import org.whispersystems.textsecuregcm.configuration.KeyTransparencyServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
+import org.whispersystems.textsecuregcm.configuration.LoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
@@ -265,6 +266,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   @NotNull
   private OneTimeDonationConfiguration oneTimeDonations;
+
+  @Valid
+  @JsonProperty
+  @NotNull
+  private LoginPurchaseConfiguration loginPurchase;
 
   @Valid
   @JsonProperty
@@ -530,6 +536,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public OneTimeDonationConfiguration getOneTimeDonations() {
     return oneTimeDonations;
+  }
+
+  public LoginPurchaseConfiguration getLoginPurchase() {
+    return loginPurchase;
   }
 
   public PagedSingleUseKEMPreKeyStoreConfiguration getPagedSingleUseKEMPreKeyStore() {

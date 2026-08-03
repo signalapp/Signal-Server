@@ -85,6 +85,10 @@ public class DynamicConfiguration {
   @Valid
   private DynamicTurnConfiguration turn = new DynamicTurnConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicLoginPurchaseConfiguration loginPurchase = new DynamicLoginPurchaseConfiguration(false);
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -153,5 +157,9 @@ public class DynamicConfiguration {
 
   public DynamicTurnConfiguration getTurnConfiguration() {
     return turn;
+  }
+
+  public DynamicLoginPurchaseConfiguration getLoginPurchaseConfiguration() {
+    return loginPurchase;
   }
 }

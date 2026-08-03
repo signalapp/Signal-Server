@@ -4,7 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.subscriptions;
 
-import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import java.io.IOException;
 import java.util.Optional;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;

@@ -12,7 +12,9 @@ import org.signal.chat.purchase.CurrencyConfiguration;
 import org.signal.chat.purchase.GetConfigurationRequest;
 import org.signal.chat.purchase.GetConfigurationResponse;
 import org.signal.chat.purchase.LevelConfiguration;
+import org.signal.chat.purchase.LoginConfiguration;
 import org.signal.chat.purchase.SimpleProductConfigurationGrpc;
+import org.whispersystems.textsecuregcm.configuration.LoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
@@ -24,6 +26,7 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
   public ProductConfigurationGrpcService(
       final SubscriptionConfiguration subscriptionConfiguration,
       final OneTimeDonationConfiguration oneTimeDonationConfiguration,
+      final LoginPurchaseConfiguration loginPurchaseConfiguration,
       List<CustomerAwareSubscriptionPaymentProcessor> paymentProcessors,
       final long backupMediaStorageAllowanceBytes) {
     this.configurationResponse = GetConfigurationResponse.newBuilder()
@@ -31,6 +34,7 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
         .setSepaMaximumEuros(oneTimeDonationConfiguration.sepaMaximumEuros().toString())
         .putAllCurrencies(buildCurrencyConfigurations(subscriptionConfiguration, oneTimeDonationConfiguration, paymentProcessors))
         .putAllBadgeLevels(buildLevelConfigurations(subscriptionConfiguration, oneTimeDonationConfiguration))
+        .setLogin(buildLoginConfiguration(loginPurchaseConfiguration))
         .build();
   }
 
@@ -82,6 +86,15 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
     return BackupConfiguration.newBuilder()
         .putAllLevels(backupLevels)
         .setFreeTierMediaDays(subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays())
+        .build();
+  }
+
+  private static LoginConfiguration buildLoginConfiguration(
+      final LoginPurchaseConfiguration loginPurchaseConfiguration) {
+    return LoginConfiguration.newBuilder()
+        .setLevel(loginPurchaseConfiguration.level())
+        .setPlayProductId(loginPurchaseConfiguration.playProductId())
+        .setAppStoreProductId(loginPurchaseConfiguration.appStoreProductId())
         .build();
   }
 
