@@ -994,15 +994,18 @@ class AccountsManagerTest {
     assertEquals(hasStorage, account.hasCapability(DeviceCapability.STORAGE));
   }
 
-  @Test
-  void testAddDevice() throws LinkDeviceTokenAlreadyUsedException {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testAddDevice(boolean accountHasPhoneNumber) throws LinkDeviceTokenAlreadyUsedException {
     final String phoneNumber =
         PhoneNumberUtil.getInstance().format(PhoneNumberUtil.getInstance().getExampleNumber("US"),
             PhoneNumberUtil.PhoneNumberFormat.E164);
 
-    final Account account = AccountsHelper.generateTestAccount(phoneNumber, List.of(generateTestDevice(CLOCK.millis())));
-    final UUID aci = account.getIdentifier(IdentityType.ACI);
-    final UUID pni = account.getIdentifier(IdentityType.PNI);
+    final Account account = accountHasPhoneNumber
+      ? AccountsHelper.generateTestAccount(phoneNumber, List.of(generateTestDevice(CLOCK.millis())))
+      : AccountsHelper.generateTestAccountNoPhoneNumber(List.of(generateTestDevice(CLOCK.millis())));
+    final UUID aci = account.getAccountIdentifier();
+    final Optional<UUID> maybePni = account.getPhoneNumberIdentifierOptional();
     account.setIdentityKey(new IdentityKey(ECKeyPair.generate().getPublicKey()));
 
     final byte nextDeviceId = account.getNextDeviceId();
@@ -1027,39 +1030,42 @@ class AccountsManagerTest {
 
     CLOCK.pin(CLOCK.instant().plusSeconds(60));
 
-    final Pair<Account, Device> updatedAccountAndDevice = accountsManager.addDevice(aci, new DeviceSpec(
+    final Pair<Account, Device> updatedAccountAndDevice = accountsManager.addDevice(
+        aci,
+        new DeviceSpec(
             deviceNameCiphertext,
             password,
             signalAgent,
             deviceCapabilities,
             new DeviceIdentityInfo(aciRegistrationId, aciSignedPreKey, aciPqLastResortPreKey),
-            Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)),
+            Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)).filter(_ -> accountHasPhoneNumber),
             true,
             Optional.empty(),
             Optional.empty()),
             accountsManager.generateLinkDeviceToken(aci));
 
     verify(keysManager).deleteSingleUsePreKeys(aci, nextDeviceId);
-    verify(keysManager).deleteSingleUsePreKeys(pni, nextDeviceId);
+    maybePni.ifPresent(pni -> verify(keysManager).deleteSingleUsePreKeys(pni, nextDeviceId));
     verify(messagesManager).clear(aci, nextDeviceId);
 
     verify(keysManager).buildWriteItemsForNewDevice(
         aci,
-        Optional.of(pni),
+        maybePni,
         nextDeviceId,
         aciSignedPreKey,
-        Optional.of(pniSignedPreKey),
+        maybePni.map(_ -> pniSignedPreKey),
         aciPqLastResortPreKey,
-        Optional.of(pniPqLastResortPreKey));
+        maybePni.map(_ ->pniPqLastResortPreKey));
 
+    verifyNoMoreInteractions(keysManager);
     final Device device = updatedAccountAndDevice.second();
 
     assertEquals(deviceNameCiphertext, device.getName());
     assertTrue(device.getAuthTokenHash().verify(password));
     assertEquals(signalAgent, device.getUserAgent());
     assertEquals(Collections.emptySet(), device.getCapabilities());
-    assertEquals(aciRegistrationId, device.getRegistrationId(IdentityType.ACI));
-    assertEquals(pniRegistrationId, device.getRegistrationId(IdentityType.PNI));
+    assertEquals(aciRegistrationId, device.getAccountRegistrationId());
+    assertEquals(accountHasPhoneNumber ? Optional.of(pniRegistrationId) : Optional.empty(), device.getPhoneNumberIdentityRegistrationId());
     assertTrue(device.getFetchesMessages());
     assertNull(device.getApnId());
     assertNull(device.getGcmId());

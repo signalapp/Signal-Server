@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Size;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
@@ -29,13 +30,11 @@ public record DeviceAttributes(
     Integer phoneNumberIdentityRegistrationId,
 
     @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
-
     @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
     @Size(max = 225)
     byte[] name,
 
     @JsonSerialize(using = DeviceCapabilityAdapter.Serializer.class)
-
     @JsonDeserialize(using = DeviceCapabilityAdapter.Deserializer.class)
     @Nullable
     Set<DeviceCapability> capabilities) {

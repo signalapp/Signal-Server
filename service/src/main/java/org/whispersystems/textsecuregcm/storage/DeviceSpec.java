@@ -22,7 +22,7 @@ public record DeviceSpec(
     boolean fetchesMessages,
     Optional<ApnRegistrationId> apnRegistrationId,
     Optional<GcmRegistrationId> gcmRegistrationId) {
-  
+
   public Device toDevice(final byte deviceId, final Clock clock, final IdentityKey aciIdentityKey) {
     final long created = clock.millis();
 

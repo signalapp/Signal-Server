@@ -22,7 +22,6 @@ public abstract class PreKeySignatureValidator {
       final Collection<SignedPreKey<?>> signedPreKeys,
       @Nullable final String userAgent,
       final String context) {
-
     final boolean success = signedPreKeys.stream().allMatch(signedPreKey -> signedPreKey.signatureValid(identityKey));
 
     if (!success) {

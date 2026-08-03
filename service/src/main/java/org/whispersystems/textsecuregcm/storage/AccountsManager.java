@@ -516,11 +516,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   public Pair<Account, Device> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final String linkDeviceToken)
       throws LinkDeviceTokenAlreadyUsedException {
 
-    final UUID phoneNumberIdentifier = accounts.getByAccountIdentifier(accountIdentifier)
-        .map(account -> account.getIdentifier(IdentityType.PNI))
+    final Account account = accounts.getByAccountIdentifier(accountIdentifier)
         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
 
-    return accountLockManager.withLock(Set.of(phoneNumberIdentifier),
+    return accountLockManager.withSingleAccountLock(account,
         () -> addDevice(accountIdentifier, deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
         accountLockExecutor);
   }
@@ -532,16 +531,19 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     final byte nextDeviceId = account.getNextDeviceId();
 
-    CompletableFuture.allOf(
+    CompletableFuture
+        .allOf(
             keysManager.deleteSingleUsePreKeys(account.getAccountIdentifier(), nextDeviceId),
-            keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier(), nextDeviceId),
+            account.getPhoneNumberIdentifierOptional()
+                .map(pni -> keysManager.deleteSingleUsePreKeys(pni, nextDeviceId))
+                .orElse(CompletableFuture.completedFuture(null)),
             messagesManager.clear(account.getAccountIdentifier(), nextDeviceId))
         .join();
 
-    account.addDevice(deviceSpec.toDevice(nextDeviceId, clock, account.getIdentityKey(IdentityType.ACI)));
+    account.addDevice(deviceSpec.toDevice(nextDeviceId, clock, account.getAccountIdentityKey()));
 
     final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(
-        account.getIdentifier(IdentityType.ACI),
+        account.getAccountIdentifier(),
         account.getPhoneNumberIdentifierOptional(),
         nextDeviceId,
         deviceSpec.aciInfo().signedPreKey(),

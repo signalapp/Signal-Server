@@ -66,6 +66,14 @@ public class AccountsHelper {
     return account;
   }
 
+  public static Account generateTestAccountNoPhoneNumber(List<Device> devices) {
+    final Account account = new Account();
+    account.setAccountIdentifier(UUID.randomUUID());
+    devices.forEach(account::addDevice);
+
+    return account;
+  }
+
   public static void setupMockUpdate(final AccountsManager mockAccountsManager) {
     setupMockUpdate(mockAccountsManager, true);
   }

@@ -655,46 +655,6 @@ class RegistrationControllerTest {
 
 
   @ParameterizedTest
-  @MethodSource
-  void atomicAccountCreationSuccess(final RegistrationRequest registrationRequest,
-      final IdentityKey expectedAciIdentityKey,
-      final IdentityKey expectedPniIdentityKey,
-      final DeviceSpec expectedDeviceSpec) {
-
-    final UUID accountIdentifier = UUID.randomUUID();
-    final UUID phoneNumberIdentifier = UUID.randomUUID();
-    final Device device = mock(Device.class);
-
-    final Account account = MockUtils.buildMock(Account.class, a -> {
-      when(a.getAccountIdentifier()).thenReturn(accountIdentifier);
-      when(a.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
-      when(a.getPrimaryDevice()).thenReturn(device);
-    });
-
-    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
-        .thenReturn(account);
-
-    final Invocation.Builder request = resources.getJerseyTest()
-        .target("/v1/registration")
-        .request()
-        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
-
-    try (Response response = request.post(Entity.json(registrationRequest))) {
-      assertEquals(200, response.getStatus());
-      final AccountIdentityResponse identityResponse = response.readEntity(AccountIdentityResponse.class);
-      assertEquals(accountIdentifier, identityResponse.uuid());
-    }
-
-    verify(accountsManager).create(
-        eq(NUMBER),
-        argThat(attributes -> accountAttributesEqual(attributes, registrationRequest.accountAttributes())),
-        eq(expectedAciIdentityKey),
-        eq(expectedPniIdentityKey),
-        eq(expectedDeviceSpec),
-        any());
-  }
-
-  @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void reregistrationFlag(final boolean accountExists) {
     final Account existingAccount = mock(Account.class);
@@ -1177,6 +1137,45 @@ class RegistrationControllerTest {
         && Arrays.equals(a.recoveryPassword().orElse(null), b.recoveryPassword().orElse(null));
   }
 
+  @ParameterizedTest
+  @MethodSource
+  void atomicAccountCreationSuccess(final RegistrationRequest registrationRequest,
+      final IdentityKey expectedAciIdentityKey,
+      final IdentityKey expectedPniIdentityKey,
+      final DeviceSpec expectedDeviceSpec) throws InterruptedException {
+
+    final UUID accountIdentifier = UUID.randomUUID();
+    final UUID phoneNumberIdentifier = UUID.randomUUID();
+    final Device device = mock(Device.class);
+
+    final Account account = mock(Account.class);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
+    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
+    when(account.getPrimaryDevice()).thenReturn(device);
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+    try (Response response = request.post(Entity.json(registrationRequest))) {
+      assertEquals(200, response.getStatus());
+      final AccountIdentityResponse identityResponse = response.readEntity(AccountIdentityResponse.class);
+      assertEquals(accountIdentifier, identityResponse.uuid());
+    }
+
+    verify(accountsManager).create(
+        eq(NUMBER),
+        argThat(attributes -> accountAttributesEqual(attributes, registrationRequest.accountAttributes())),
+        eq(expectedAciIdentityKey),
+        eq(expectedPniIdentityKey),
+        eq(expectedDeviceSpec),
+        any());
+  }
+
   private static List<Arguments> atomicAccountCreationSuccess() {
     final IdentityKey aciIdentityKey;
     final IdentityKey pniIdentityKey;
@@ -1203,13 +1202,11 @@ class RegistrationControllerTest {
     final Set<DeviceCapability> deviceCapabilities = DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES;
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities,
-            null)
+        new AccountAttributes(true, registrationId, pniRegistrationId, deviceName, null, true, deviceCapabilities, null)
             .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities,
-            null)
+        new AccountAttributes(false, registrationId, pniRegistrationId, deviceName, null, true, deviceCapabilities, null)
             .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
 
     final String apnsToken = "apns-token";

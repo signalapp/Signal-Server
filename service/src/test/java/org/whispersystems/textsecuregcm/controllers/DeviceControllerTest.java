@@ -138,9 +138,11 @@ class DeviceControllerTest {
 
     when(account.getNextDeviceId()).thenReturn(NEXT_DEVICE_ID);
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
+    when(account.getNumberOptional()).thenReturn(Optional.of((AuthHelper.VALID_NUMBER)));
     when(account.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
     when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
+    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(AuthHelper.VALID_PNI));
     when(account.getIdentifier(IdentityType.PNI)).thenReturn(AuthHelper.VALID_PNI);
     when(account.getPrimaryDevice()).thenReturn(primaryDevice);
     when(account.getDevice(anyByte())).thenReturn(Optional.empty());
@@ -214,11 +216,12 @@ class DeviceControllerTest {
   @ParameterizedTest
   @MethodSource
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void linkDeviceAtomic(final boolean fetchesMessages,
-                        final Optional<ApnRegistrationId> apnRegistrationId,
-                        final Optional<GcmRegistrationId> gcmRegistrationId,
-                        final Optional<String> expectedApnsToken,
-                        final Optional<String> expectedGcmToken) throws LinkDeviceTokenAlreadyUsedException {
+  void linkDeviceAtomic(final boolean withPhoneNumber,
+    final boolean fetchesMessages,
+    final Optional<ApnRegistrationId> apnRegistrationId,
+    final Optional<GcmRegistrationId> gcmRegistrationId,
+    final Optional<String> expectedApnsToken,
+    final Optional<String> expectedGcmToken) throws LinkDeviceTokenAlreadyUsedException {
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
@@ -238,8 +241,10 @@ class DeviceControllerTest {
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(aciIdentityKey);
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(aciIdentityKey);
+    when(account.getPhoneNumberIdentityKey()).thenReturn(
+        Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey()))
+            .filter(_ -> withPhoneNumber));
 
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
@@ -252,12 +257,15 @@ class DeviceControllerTest {
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
-    final DeviceAttributes deviceAttributes = new DeviceAttributes(fetchesMessages, 1234, 5678, null,
-         DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
+    final EnumSet<DeviceCapability> capabilities = EnumSet.copyOf(DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
+    capabilities.add(DeviceCapability.OPTIONAL_PHONE_NUMBER);
+
+    final DeviceAttributes deviceAttributes = new DeviceAttributes(fetchesMessages, 1234, withPhoneNumber ? 5678 : null, null,
+        capabilities);
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         deviceAttributes,
-        new DeviceActivationRequest(aciSignedPreKey, Optional.of(pniSignedPreKey), aciPqLastResortPreKey, Optional.of(pniPqLastResortPreKey), apnRegistrationId, gcmRegistrationId));
+        new DeviceActivationRequest(aciSignedPreKey, Optional.of(pniSignedPreKey).filter(_ -> withPhoneNumber), aciPqLastResortPreKey, Optional.of(pniPqLastResortPreKey).filter(_ -> withPhoneNumber), apnRegistrationId, gcmRegistrationId));
 
     final LinkDeviceResponse response = resources.getJerseyTest()
         .target("/v1/devices/link")
@@ -286,10 +294,14 @@ class DeviceControllerTest {
     final String gcmToken = "gcm-token";
 
     return Stream.of(
-        Arguments.of(true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.of(false, Optional.of(new ApnRegistrationId(apnsToken)), Optional.empty(), Optional.of(apnsToken), Optional.empty()),
-        Arguments.of(false, Optional.of(new ApnRegistrationId(apnsToken)), Optional.empty(), Optional.of(apnsToken), Optional.empty()),
-        Arguments.of(false, Optional.empty(), Optional.of(new GcmRegistrationId(gcmToken)), Optional.empty(), Optional.of(gcmToken))
+        Arguments.of(true, true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+        Arguments.of(true, false, Optional.of(new ApnRegistrationId(apnsToken)), Optional.empty(), Optional.of(apnsToken), Optional.empty()),
+        Arguments.of(true, false, Optional.of(new ApnRegistrationId(apnsToken)), Optional.empty(), Optional.of(apnsToken), Optional.empty()),
+        Arguments.of(true, false, Optional.empty(), Optional.of(new GcmRegistrationId(gcmToken)), Optional.empty(), Optional.of(gcmToken)),
+        Arguments.of(false, true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+        Arguments.of(false, false, Optional.of(new ApnRegistrationId(apnsToken)), Optional.empty(), Optional.of(apnsToken), Optional.empty()),
+        Arguments.of(false, false, Optional.of(new ApnRegistrationId(apnsToken)), Optional.empty(), Optional.of(apnsToken), Optional.empty()),
+        Arguments.of(false, false, Optional.empty(), Optional.of(new GcmRegistrationId(gcmToken)), Optional.empty(), Optional.of(gcmToken))
     );
   }
 
@@ -320,8 +332,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
     when(account.hasCapability(capability)).thenReturn(accountHasCapability);
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
@@ -376,8 +388,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
@@ -422,8 +434,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         new DeviceAttributes(false, 1234, 5678, null, null),
@@ -458,8 +470,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
 
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
@@ -507,8 +519,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
 
     when(commands.get(anyString())).thenReturn("");
 
@@ -558,8 +570,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.token(),
         new DeviceAttributes(fetchesMessages, 1234, 5678, null, null),
@@ -599,9 +611,8 @@ class DeviceControllerTest {
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(account.getDevices()).thenReturn(List.of(existingDevice));
-
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(aciIdentityKey);
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
+    when(account.getAccountIdentityKey()).thenReturn(aciIdentityKey);
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(pniIdentityKey));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         new DeviceAttributes(true, 1234, 5678, null, null),
@@ -638,6 +649,37 @@ class DeviceControllerTest {
   }
 
   @Test
+  void linkDeviceSpuriousPniMaterial() {
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(accountsManager.checkDeviceLinkingToken(any())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
+
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
+    final IdentityKey pniIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+
+    when(account.getAccountIdentityKey()).thenReturn(aciIdentityKey);
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.empty());
+
+    final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
+        new DeviceAttributes(true, 1234, 5678, null, null),
+        new DeviceActivationRequest(aciSignedPreKey, Optional.of(pniSignedPreKey), aciPqLastResortPreKey, Optional.of(pniPqLastResortPreKey), Optional.empty(), Optional.empty()));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(422, response.getStatus());
+    }
+  }
+
+  @Test
   void linkDeviceAtomicMissingCapabilities() {
     final ECSignedPreKey aciSignedPreKey;
     final ECSignedPreKey pniSignedPreKey;
@@ -658,8 +700,8 @@ class DeviceControllerTest {
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(account.getDevices()).thenReturn(List.of(existingDevice));
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
 
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
@@ -677,6 +719,46 @@ class DeviceControllerTest {
     }
   }
 
+  @Test
+  void linkDeviceAtomicMissingOptionalPhoneNumberCapability() {
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
+
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+
+    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
+
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+
+    when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
+
+    final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
+        new DeviceAttributes(true, 1234, 5678, null, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES),
+        new DeviceActivationRequest(aciSignedPreKey, Optional.of(pniSignedPreKey), aciPqLastResortPreKey, Optional.of(pniPqLastResortPreKey), Optional.empty(), Optional.empty()));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(409, response.getStatus());
+    }
+  }
+
   @ParameterizedTest
   @MethodSource
   void linkDeviceAtomicInvalidSignature(final IdentityKey aciIdentityKey,
@@ -691,8 +773,8 @@ class DeviceControllerTest {
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(account.getDevices()).thenReturn(List.of(existingDevice));
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(aciIdentityKey);
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
+    when(account.getAccountIdentityKey()).thenReturn(aciIdentityKey);
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(pniIdentityKey));
 
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
@@ -752,8 +834,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         new DeviceAttributes(false, 1234, 5678, TestRandomUtil.nextBytes(512), null),
@@ -786,8 +868,8 @@ class DeviceControllerTest {
     final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(aciIdentityKey);
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(aciIdentityKey);
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
 
     when(accountsManager.addDevice(any(), any(), any())).thenAnswer(invocation -> {
       final Account a = accountsManager.getByAccountIdentifier(invocation.getArgument(0)).orElseThrow();
@@ -848,8 +930,8 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+    when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(pniIdentityKeyPair.getPublicKey())));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         null,

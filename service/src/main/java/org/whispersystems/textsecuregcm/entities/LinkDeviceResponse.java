@@ -5,7 +5,8 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import java.util.Optional;
 import java.util.UUID;
 
-public record LinkDeviceResponse(UUID uuid, UUID pni, byte deviceId) {
+public record LinkDeviceResponse(UUID uuid, Optional<UUID> pni, byte deviceId) {
 }
