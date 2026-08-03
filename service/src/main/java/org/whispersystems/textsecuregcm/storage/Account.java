@@ -145,6 +145,14 @@ public class Account {
   @JsonProperty("holds")
   private List<UsernameHold> usernameHolds = Collections.emptyList();
 
+  @JsonProperty("arps")
+  @Nullable
+  private String accountRecoveryPasswordSalt;
+
+  @JsonProperty("arph")
+  @Nullable
+  private String accountRecoveryPasswordHash;
+
   @JsonIgnore
   private boolean stale;
 
@@ -676,6 +684,24 @@ public class Account {
 
   public void setZkCredentialKeyRotationId(@Nullable final Long zkCredentialKeyRotationId) {
     this.zkCredentialKeyRotationId = zkCredentialKeyRotationId;
+  }
+
+  public Optional<SaltedTokenHash> getAccountRecoveryPassword() {
+    requireNotStale();
+
+    return accountRecoveryPasswordSalt != null && accountRecoveryPasswordHash != null
+        ? Optional.of(new SaltedTokenHash(accountRecoveryPasswordSalt, accountRecoveryPasswordHash))
+        : Optional.empty();
+  }
+
+  public void setAccountRecoveryPassword(final byte[] accountRecoveryPassword) {
+    requireNotStale();
+
+    final SaltedTokenHash saltedTokenHash =
+        SaltedTokenHash.generateFor(HexFormat.of().formatHex(accountRecoveryPassword));
+
+    this.accountRecoveryPasswordSalt = saltedTokenHash.salt();
+    this.accountRecoveryPasswordHash = saltedTokenHash.hash();
   }
 
   public void markStale() {

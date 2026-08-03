@@ -243,6 +243,7 @@ public class AccountsHelper {
           case "hasLockedCredentials" -> when(updatedAccount.hasLockedCredentials()).thenAnswer(stubbing);
           case "getCurrentProfileVersion" -> when(updatedAccount.getCurrentProfileVersion()).thenAnswer(stubbing);
           case "getUnidentifiedAccessKey" -> when(updatedAccount.getUnidentifiedAccessKey()).thenAnswer(stubbing);
+          case "getRecoveryPassword" -> when(updatedAccount.getAccountRecoveryPassword()).thenAnswer(stubbing);
           default -> throw new IllegalArgumentException("unsupported method: Account#" + stubbing.getInvocation().getMethod().getName());
         }
       }
