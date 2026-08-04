@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -37,7 +38,6 @@ import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
@@ -112,11 +112,16 @@ public class CertificateController {
     final List<GroupCredentials.GroupCredential> credentials = new ArrayList<>();
     final List<GroupCredentials.CallLinkAuthCredential> callLinkAuthCredentials = new ArrayList<>();
 
-    final ServiceId.Aci aci = new ServiceId.Aci(account.getIdentifier(IdentityType.ACI));
-    final ServiceId.Pni pni = new ServiceId.Pni(account.getIdentifier(IdentityType.PNI));
+    final ServiceId.Aci aci = new ServiceId.Aci(account.getAccountIdentifier());
+    final Optional<ServiceId.Pni> maybePni = account.getPhoneNumberIdentifierOptional().map(ServiceId.Pni::new);
 
     for (Instant redemption : redemptionRange) {
-      AuthCredentialWithPniResponse authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniZkc(aci, pni, redemption);
+      final AuthCredentialWithPniResponse authCredentialWithPni =
+          maybePni.map(pni -> serverZkAuthOperations.issueAuthCredentialWithPniZkc(aci, pni, redemption))
+              .orElseGet(() -> serverZkAuthOperations.issueAuthCredentialZkcWithoutPni(aci,
+                  account.getAuthCredentialSalt()
+                      .orElseThrow(() -> new IllegalStateException("account without PNI must have auth credential salt")),
+                  redemption));
       credentials.add(new GroupCredentials.GroupCredential(
           authCredentialWithPni.serialize(),
           (int) redemption.getEpochSecond()));
@@ -126,6 +131,6 @@ public class CertificateController {
           redemption.getEpochSecond()));
     }
 
-    return new GroupCredentials(credentials, callLinkAuthCredentials, pni.getRawUUID());
+    return new GroupCredentials(credentials, callLinkAuthCredentials, maybePni.map(ServiceId.Pni::getRawUUID).orElse(null));
   }
 }

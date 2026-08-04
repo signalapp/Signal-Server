@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.signal.chat.credentials.ExternalServiceType;
 import org.signal.chat.credentials.GetCreateCallLinkCredentialsRequest;
@@ -24,6 +25,7 @@ import org.signal.chat.credentials.SimpleCredentialsGrpc;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
 import org.signal.libsignal.zkgroup.calllinks.CreateCallLinkCredentialRequest;
@@ -34,7 +36,6 @@ import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -121,17 +122,26 @@ public class CredentialsGrpcService extends SimpleCredentialsGrpc.CredentialsImp
         accountsManager.getByAccountIdentifier(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier())
             .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
-    final ServiceId.Aci aci = new ServiceId.Aci(account.getIdentifier(IdentityType.ACI));
-    final ServiceId.Pni pni = new ServiceId.Pni(account.getIdentifier(IdentityType.PNI));
+    final ServiceId.Aci aci = new ServiceId.Aci(account.getAccountIdentifier());
+    final Optional<ServiceId.Pni> maybePni = account.getPhoneNumberIdentifierOptional().map(ServiceId.Pni::new);
 
-    final GetGroupCredentialsResponse.Builder responseBuilder = GetGroupCredentialsResponse.newBuilder()
-        .setPni(UUIDUtil.toByteString(pni.getRawUUID()));
+    final GetGroupCredentialsResponse.Builder responseBuilder = GetGroupCredentialsResponse.newBuilder();
+
+    maybePni.ifPresent(pni -> responseBuilder.setPni(UUIDUtil.toByteString(pni.getRawUUID())));
 
     for (final Instant redemption : redemptionRange) {
+      final AuthCredentialWithPniResponse authCredentialWithPniResponse =
+          maybePni.map(pni ->
+                  serverZkAuthOperations.issueAuthCredentialWithPniZkc(aci, pni, redemption))
+              .orElseGet(() -> serverZkAuthOperations.issueAuthCredentialZkcWithoutPni(aci,
+                  account.getAuthCredentialSalt()
+                      .orElseThrow(
+                          () -> new IllegalStateException("account without PNI must have auth credential salt")),
+                  redemption));
       responseBuilder.addGroupCredentials(GetGroupCredentialsResponse.CredentialAndRedemptionTime.newBuilder()
           .setRedemptionTimeSeconds(redemption.getEpochSecond())
           .setCredential(ByteString.copyFrom(
-              serverZkAuthOperations.issueAuthCredentialWithPniZkc(aci, pni, redemption).serialize()))
+              authCredentialWithPniResponse.serialize()))
           .build());
 
       responseBuilder.addCallLinkAuthCredentials(GetGroupCredentialsResponse.CredentialAndRedemptionTime.newBuilder()

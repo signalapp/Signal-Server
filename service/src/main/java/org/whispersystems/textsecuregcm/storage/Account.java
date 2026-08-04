@@ -153,6 +153,10 @@ public class Account {
   @Nullable
   private String accountRecoveryPasswordHash;
 
+  @JsonProperty("acs")
+  @Nullable
+  private byte[] authCredentialSalt;
+
   @JsonIgnore
   private boolean stale;
 
@@ -705,6 +709,16 @@ public class Account {
 
     this.accountRecoveryPasswordSalt = saltedAccountRecoveryPasswordHash.salt();
     this.accountRecoveryPasswordHash = saltedAccountRecoveryPasswordHash.hash();
+  }
+
+  public Optional<byte[]> getAuthCredentialSalt() {
+    requireNotStale();
+    return Optional.ofNullable(authCredentialSalt);
+  }
+
+  public void setAuthCredentialSalt(final byte[] authCredentialSalt) {
+    requireNotStale();
+    this.authCredentialSalt = authCredentialSalt;
   }
 
   public void markStale() {

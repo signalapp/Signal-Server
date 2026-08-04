@@ -43,6 +43,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.signal.chat.credentials.CredentialsGrpc;
@@ -73,7 +74,6 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -151,9 +151,8 @@ public class CredentialsGrpcServiceTest
   void setUp() {
     when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(authenticatedAccount.getNumberOptional()).thenReturn(Optional.of(PHONE_NUMBER));
-    when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
-    when(authenticatedAccount.getIdentifier(IdentityType.PNI)).thenReturn(AUTHENTICATED_PNI);
-    when(authenticatedAccount.getIdentityKey(IdentityType.ACI))
+    when(authenticatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(AUTHENTICATED_PNI));
+    when(authenticatedAccount.getAccountIdentityKey())
         .thenReturn(new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey()));
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(authenticatedAccount));
@@ -208,7 +207,7 @@ public class CredentialsGrpcServiceTest
 
   @ParameterizedTest
   @ValueSource(ints = { -1, 0, 1000 })
-  public void testUnrecognizedService(final int externalServiceTypeValue) throws Exception {
+  public void testUnrecognizedService(final int externalServiceTypeValue) {
     assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().getExternalServiceCredentials(
         GetExternalServiceCredentialsRequest.newBuilder()
             .setExternalServiceValue(externalServiceTypeValue)
@@ -216,7 +215,7 @@ public class CredentialsGrpcServiceTest
   }
 
   @Test
-  public void testInvalidRequest() throws Exception {
+  public void testInvalidRequest() {
     assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().getExternalServiceCredentials(
         GetExternalServiceCredentialsRequest.newBuilder()
             .build()));
@@ -244,7 +243,7 @@ public class CredentialsGrpcServiceTest
    */
   @ParameterizedTest
   @EnumSource(mode = EnumSource.Mode.EXCLUDE, names = { "UNRECOGNIZED", "EXTERNAL_SERVICE_TYPE_UNSPECIFIED" })
-  public void testHaveExternalServiceDefinitionForServiceTypes(final ExternalServiceType externalServiceType) throws Exception {
+  public void testHaveExternalServiceDefinitionForServiceTypes(final ExternalServiceType externalServiceType) {
     assertTrue(
         Arrays.stream(ExternalServiceDefinitions.values()).anyMatch(v -> v.externalService() == externalServiceType),
         "`ExternalServiceDefinitions` enum entry is missing for the `%s` value of `ExternalServiceType`".formatted(externalServiceType)
@@ -302,9 +301,31 @@ public class CredentialsGrpcServiceTest
     checkDeliveryCertificate(response.getCertificateWithoutE164().toByteArray(), false);
   }
 
-  @ParameterizedTest
+  @CartesianTest
   @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7})
-  void getGroupCredentials(final int redemptionEndOffsetDays) {
+  void getGroupCredentials(
+      @CartesianTest.Values(ints = {0, 1, 2, 3, 4, 5, 6, 7}) final int redemptionEndOffsetDays,
+      @CartesianTest.Values(booleans = {true, false}) final boolean accountHasPhoneNumber
+  ) {
+
+    final Account account = mock(Account.class);
+    when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getAccountIdentityKey())
+        .thenReturn(new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey()));
+    when(account.getPhoneNumberIdentifierOptional()).thenReturn(
+        Optional.ofNullable(accountHasPhoneNumber ? AUTHENTICATED_PNI : null));
+
+    final byte[] authCredentialSalt;
+    if (accountHasPhoneNumber) {
+      authCredentialSalt = null;
+    } else {
+      authCredentialSalt = TestRandomUtil.nextBytes(16);
+    }
+    when(account.getAuthCredentialSalt()).thenReturn(Optional.ofNullable(authCredentialSalt));
+
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
+
+
     final Instant startOfDay = CLOCK.instant().truncatedTo(ChronoUnit.DAYS);
 
     final GetGroupCredentialsResponse response =
@@ -313,9 +334,14 @@ public class CredentialsGrpcServiceTest
             .setRedemptionEndSeconds(startOfDay.plus(Duration.ofDays(redemptionEndOffsetDays)).getEpochSecond())
             .build());
 
-    assertEquals(AUTHENTICATED_PNI, UUIDUtil.fromByteString(response.getPni()));
     assertEquals(redemptionEndOffsetDays + 1, response.getGroupCredentialsCount());
     assertEquals(redemptionEndOffsetDays + 1, response.getCallLinkAuthCredentialsCount());
+
+    if (accountHasPhoneNumber) {
+      assertEquals(AUTHENTICATED_PNI, UUIDUtil.fromByteString(response.getPni()));
+    } else {
+      assertTrue(response.getPni().isEmpty());
+    }
 
     final ClientZkAuthOperations clientZkAuthOperations =
         new ClientZkAuthOperations(SERVER_SECRET_PARAMS.getPublicParams());
@@ -327,13 +353,21 @@ public class CredentialsGrpcServiceTest
 
       final int index = i;
 
-      assertDoesNotThrow(() -> {
-        clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
+      if (accountHasPhoneNumber) {
+        assertDoesNotThrow(() -> {
+          clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
+              new ServiceId.Aci(AUTHENTICATED_ACI),
+              new ServiceId.Pni(AUTHENTICATED_PNI),
+              redemptionTime.getEpochSecond(),
+              new AuthCredentialWithPniResponse(response.getGroupCredentials(index).getCredential().toByteArray()));
+        });
+      } else {
+        assertDoesNotThrow(() -> clientZkAuthOperations.receiveAuthCredentialWithoutPni(
             new ServiceId.Aci(AUTHENTICATED_ACI),
-            new ServiceId.Pni(AUTHENTICATED_PNI),
+            authCredentialSalt,
             redemptionTime.getEpochSecond(),
-            new AuthCredentialWithPniResponse(response.getGroupCredentials(index).getCredential().toByteArray()));
-      });
+            new AuthCredentialWithPniResponse(response.getGroupCredentials(index).getCredential().toByteArray())));
+      }
 
       assertDoesNotThrow(() -> {
         new CallLinkAuthCredentialResponse(response.getCallLinkAuthCredentials(index).getCredential().toByteArray())

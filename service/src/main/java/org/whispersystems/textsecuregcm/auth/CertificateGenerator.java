@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
@@ -42,7 +41,7 @@ public class CertificateGenerator {
     SenderCertificate.Certificate.Builder builder = SenderCertificate.Certificate.newBuilder()
         .setSenderDevice(Math.toIntExact(deviceId))
         .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
-        .setIdentityKey(ByteString.copyFrom(account.getIdentityKey(IdentityType.ACI).serialize()))
+        .setIdentityKey(ByteString.copyFrom(account.getAccountIdentityKey().serialize()))
         .setSenderUuid(UUIDUtil.toByteString(account.getAccountIdentifier()));
 
     if (includeE164) {

@@ -246,6 +246,19 @@ class AccountTest {
   }
 
   @Test
+  public void testAuthCredentialSaltRoundTrip() throws Exception {
+    final Account account = AccountsHelper.generateTestAccount("+12345678901", UUID.randomUUID(), UUID.randomUUID(), List.of(createDevice(Device.PRIMARY_ID)), new byte[0]);
+    assertThat(account.getAuthCredentialSalt()).isEmpty();
+
+    final byte[] authCredentialSalt = TestRandomUtil.nextBytes(16);
+    account.setAuthCredentialSalt(authCredentialSalt);
+
+    final String json = SystemMapper.jsonMapper().writeValueAsString(account);
+    final Account deserialized = SystemMapper.jsonMapper().readValue(json, Account.class);
+    assertThat(deserialized.getAuthCredentialSalt()).hasValue(authCredentialSalt);
+  }
+
+  @Test
   public void testProfileVersionDeserialization() throws Exception {
       final byte[] version = TestRandomUtil.nextBytes(32);
       final String jsonTemplate = """

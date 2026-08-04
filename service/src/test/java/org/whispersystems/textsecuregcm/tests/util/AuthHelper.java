@@ -58,6 +58,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public class AuthHelper {
   // Static seed to ensure reproducible tests.
@@ -91,6 +92,7 @@ public class AuthHelper {
 
   public static final UUID   NUMBERLESS_UUID     = UUID.randomUUID();
   public static final String NUMBERLESS_PASSWORD = "numberless";
+  public static final byte[] NUMBERLESS_AUTH_CREDENTIAL_SALT = TestRandomUtil.nextBytes(16);
 
   public static final ECKeyPair VALID_IDENTITY_KEY_PAIR = ECKeyPair.generate();
   public static final IdentityKey VALID_IDENTITY = new IdentityKey(VALID_IDENTITY_KEY_PAIR.getPublicKey());
@@ -208,7 +210,9 @@ public class AuthHelper {
     when(VALID_ACCOUNT_3.isIdentifiedBy(new PniServiceIdentifier(VALID_PNI_3))).thenReturn(true);
 
     when(VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(VALID_IDENTITY);
+    when(VALID_ACCOUNT.getAccountIdentityKey()).thenReturn(VALID_IDENTITY);
     when(VALID_ACCOUNT.getIdentityKey(IdentityType.PNI)).thenReturn(VALID_PNI_IDENTITY);
+    when(VALID_ACCOUNT.getPhoneNumberIdentityKey()).thenReturn(Optional.of(VALID_PNI_IDENTITY));
 
     when(NUMBERLESS_CREDENTIALS.verify(NUMBERLESS_PASSWORD)).thenReturn(true);
     when(NUMBERLESS_DEVICE.getAuthTokenHash()).thenReturn(NUMBERLESS_CREDENTIALS);
@@ -221,8 +225,10 @@ public class AuthHelper {
     when(NUMBERLESS_ACCOUNT.isIdentifiedBy(new AciServiceIdentifier(NUMBERLESS_UUID))).thenReturn(true);
     when(NUMBERLESS_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(false);
     when(NUMBERLESS_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(VALID_IDENTITY);
+    when(NUMBERLESS_ACCOUNT.getAccountIdentityKey()).thenReturn(VALID_IDENTITY);
     when(NUMBERLESS_ACCOUNT.getNumberOptional()).thenReturn(Optional.empty());
     when(NUMBERLESS_ACCOUNT.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+    when(NUMBERLESS_ACCOUNT.getAuthCredentialSalt()).thenReturn(Optional.of(NUMBERLESS_AUTH_CREDENTIAL_SALT));
     doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getNumber();
     doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getPhoneNumberIdentifier();
     doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getIdentityKey(IdentityType.PNI);

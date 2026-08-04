@@ -27,7 +27,6 @@ import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
@@ -61,7 +60,7 @@ class CertificateGeneratorTest {
     final CertificateGenerator certificateGenerator = new CertificateGenerator(
         SIGNING_CERTIFICATE_DATA, SIGNING_KEY, 1, embedSigner);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
+    when(account.getAccountIdentityKey()).thenReturn(IDENTITY_KEY);
     when(account.getAccountIdentifier()).thenReturn(ACI);
     when(account.getNumberOptional()).thenReturn(Optional.of(E164));
 
@@ -101,7 +100,7 @@ class CertificateGeneratorTest {
     final CertificateGenerator certificateGenerator = new CertificateGenerator(
         SIGNING_CERTIFICATE_DATA, SIGNING_KEY, 1, embedSigner);
 
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
+    when(account.getAccountIdentityKey()).thenReturn(IDENTITY_KEY);
     when(account.getAccountIdentifier()).thenReturn(ACI);
     when(account.getNumberOptional()).thenReturn(Optional.empty());
 

@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -26,10 +25,10 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
+import java.util.UUID;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -52,7 +51,6 @@ import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -98,13 +96,8 @@ class CertificateControllerTest {
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new CertificateController(ACCOUNTS_MANAGER, CERTIFICATE_GENERATOR, SERVER_ZK_AUTH_OPERATIONS, genericServerSecretParams, clock))
+      .addResource(new CertificateController(AuthHelper.ACCOUNTS_MANAGER, CERTIFICATE_GENERATOR, SERVER_ZK_AUTH_OPERATIONS, genericServerSecretParams, clock))
       .build();
-
-  @BeforeEach
-  void setUp() {
-    when(ACCOUNTS_MANAGER.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
-  }
 
   @Test
   void testSigningCertificate() throws Exception {
@@ -227,62 +220,25 @@ class CertificateControllerTest {
 
   @Test
   void testValidCertificateAccountHasNoNumber() {
-    final Account numberlessAccount = mock(Account.class);
-    when(numberlessAccount.getNumberOptional()).thenReturn(Optional.empty());
-
-    when(ACCOUNTS_MANAGER.getByAccountIdentifier(AuthHelper.VALID_UUID))
-        .thenReturn(Optional.of(numberlessAccount));
-
     final Response response = resources.getJerseyTest()
         .target("/v1/certificate/delivery")
         .queryParam("includeUuid", "true")
         .queryParam("includeE164", "true")
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD))
         .get();
 
     assertEquals(400, response.getStatus());
   }
 
-  @Test
-  void testGetSingleGroupCredentialWithPniAsServiceId() {
-    final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
+  @ParameterizedTest
+  @MethodSource("getGroupCredentials")
+  void testGetSingleGroupCredential(final boolean accountHasNumber,
+      final UUID aci,
+      final String password,
+      @Nullable UUID pni,
+      @Nullable byte[] authCredentialSalt) {
 
-    final GroupCredentials credentials = resources.getJerseyTest()
-        .target("/v1/certificate/auth/group")
-        .queryParam("redemptionStartSeconds", startOfDay.getEpochSecond())
-        .queryParam("redemptionEndSeconds", startOfDay.getEpochSecond())
-        .queryParam("pniAsServiceId", true)
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(GroupCredentials.class);
-
-    assertEquals(1, credentials.credentials().size());
-    assertEquals(1, credentials.callLinkAuthCredentials().size());
-
-    assertEquals(AuthHelper.VALID_PNI, credentials.pni());
-    assertEquals(startOfDay.getEpochSecond(), credentials.credentials().getFirst().redemptionTime());
-    assertEquals(startOfDay.getEpochSecond(), credentials.callLinkAuthCredentials().getFirst().redemptionTime());
-
-    final ClientZkAuthOperations clientZkAuthOperations =
-        new ClientZkAuthOperations(SERVER_SECRET_PARAMS.getPublicParams());
-
-    assertDoesNotThrow(() -> {
-      clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
-          new ServiceId.Aci(AuthHelper.VALID_UUID),
-          new ServiceId.Pni(AuthHelper.VALID_PNI),
-          (int) startOfDay.getEpochSecond(),
-          new AuthCredentialWithPniResponse(credentials.credentials().getFirst().credential()));
-    });
-
-    assertDoesNotThrow(() -> {
-      new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().getFirst().credential())
-          .receive(new ServiceId.Aci(AuthHelper.VALID_UUID), startOfDay, genericServerSecretParams.getPublicParams());
-    });
-  }
-
-  @Test
-  void testGetSingleGroupCredential() {
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
 
     final GroupCredentials credentials = resources.getJerseyTest()
@@ -290,47 +246,67 @@ class CertificateControllerTest {
         .queryParam("redemptionStartSeconds", startOfDay.getEpochSecond())
         .queryParam("redemptionEndSeconds", startOfDay.getEpochSecond())
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .header("Authorization", AuthHelper.getAuthHeader(aci, password))
         .get(GroupCredentials.class);
 
     assertEquals(1, credentials.credentials().size());
     assertEquals(1, credentials.callLinkAuthCredentials().size());
 
-    assertEquals(AuthHelper.VALID_PNI, credentials.pni());
+    assertEquals(pni, credentials.pni());
     assertEquals(startOfDay.getEpochSecond(), credentials.credentials().getFirst().redemptionTime());
     assertEquals(startOfDay.getEpochSecond(), credentials.callLinkAuthCredentials().getFirst().redemptionTime());
 
     final ClientZkAuthOperations clientZkAuthOperations =
         new ClientZkAuthOperations(SERVER_SECRET_PARAMS.getPublicParams());
 
-    assertDoesNotThrow(() -> {
-      clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
-          new ServiceId.Aci(AuthHelper.VALID_UUID),
-          new ServiceId.Pni(AuthHelper.VALID_PNI),
-          (int) startOfDay.getEpochSecond(),
-          new AuthCredentialWithPniResponse(credentials.credentials().getFirst().credential()));
-    });
+    if (accountHasNumber) {
+      assertDoesNotThrow(() -> {
+        clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
+            new ServiceId.Aci(aci),
+            new ServiceId.Pni(pni),
+            (int) startOfDay.getEpochSecond(),
+            new AuthCredentialWithPniResponse(credentials.credentials().getFirst().credential()));
+      });
+    } else {
+      assertDoesNotThrow(() -> clientZkAuthOperations.receiveAuthCredentialWithoutPni(
+          new ServiceId.Aci(aci),
+          authCredentialSalt,
+          startOfDay.getEpochSecond(),
+          new AuthCredentialWithPniResponse(credentials.credentials().getFirst().credential())));
+
+    }
 
     assertDoesNotThrow(() -> {
       new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().getFirst().credential())
-          .receive(new ServiceId.Aci(AuthHelper.VALID_UUID), startOfDay, genericServerSecretParams.getPublicParams());
+          .receive(new ServiceId.Aci(aci), startOfDay, genericServerSecretParams.getPublicParams());
     });
   }
 
-  @Test
-  void testGetWeekLongGroupCredentials() {
+  static Collection<Arguments> getGroupCredentials() {
+    return List.of(
+      Arguments.argumentSet("account with phone number", true, AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD, AuthHelper.VALID_PNI, null),
+      Arguments.argumentSet("account without phone number", false, AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD, null, AuthHelper.NUMBERLESS_AUTH_CREDENTIAL_SALT)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource("getGroupCredentials")
+  void testGetWeekLongGroupCredentials(final boolean accountHasNumber,
+      final UUID aci,
+      final String password,
+      @Nullable UUID pni,
+      @Nullable byte[] authCredentialSalt) {
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
 
     final GroupCredentials credentials = resources.getJerseyTest()
         .target("/v1/certificate/auth/group")
         .queryParam("redemptionStartSeconds", startOfDay.getEpochSecond())
         .queryParam("redemptionEndSeconds", startOfDay.plus(Duration.ofDays(7)).getEpochSecond())
-        .queryParam("pniAsServiceId", true)
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .header("Authorization", AuthHelper.getAuthHeader(aci, password))
         .get(GroupCredentials.class);
 
-    assertEquals(AuthHelper.VALID_PNI, credentials.pni());
+    assertEquals(pni, credentials.pni());
     assertEquals(8, credentials.credentials().size());
     assertEquals(8, credentials.callLinkAuthCredentials().size());
 
@@ -344,17 +320,25 @@ class CertificateControllerTest {
 
       final int index = i;
 
-      assertDoesNotThrow(() -> {
-        clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
-            new ServiceId.Aci(AuthHelper.VALID_UUID),
-            new ServiceId.Pni(AuthHelper.VALID_PNI),
-            redemptionTime.getEpochSecond(),
-            new AuthCredentialWithPniResponse(credentials.credentials().get(index).credential()));
-      });
+      if (accountHasNumber) {
+        assertDoesNotThrow(() -> {
+          clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
+              new ServiceId.Aci(aci),
+              new ServiceId.Pni(pni),
+              redemptionTime.getEpochSecond(),
+              new AuthCredentialWithPniResponse(credentials.credentials().get(index).credential()));
+        });
+      } else {
+        assertDoesNotThrow(() -> clientZkAuthOperations.receiveAuthCredentialWithoutPni(
+            new ServiceId.Aci(aci),
+            authCredentialSalt,
+            startOfDay.getEpochSecond(),
+            new AuthCredentialWithPniResponse(credentials.credentials().getFirst().credential())));
+      }
 
       assertDoesNotThrow(() -> {
         new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().get(index).credential())
-            .receive(new ServiceId.Aci(AuthHelper.VALID_UUID), redemptionTime, genericServerSecretParams.getPublicParams());
+            .receive(new ServiceId.Aci(aci), redemptionTime, genericServerSecretParams.getPublicParams());
       });
     }
   }
