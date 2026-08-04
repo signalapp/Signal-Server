@@ -304,7 +304,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
     }
 
     try {
-      issuedReceiptsManager.recordIssuance(
+      issuedReceiptsManager.recordOneTimeIssuance(
           paymentDetails.id(), processor, receiptCredentialRequest, clock.instant());
     } catch (final WriteConflictException e) {
       return CreateBoostReceiptCredentialsResponse.newBuilder()

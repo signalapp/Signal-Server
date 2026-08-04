@@ -345,7 +345,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
         PaymentStatus.SUCCEEDED,
         Instant.now(),
         null)));
-    doThrow(WriteConflictException.class).when(ISSUED_RECEIPTS_MANAGER).recordIssuance(any(), any(), any(), any());
+    doThrow(WriteConflictException.class).when(ISSUED_RECEIPTS_MANAGER).recordOneTimeIssuance(any(), any(), any(), any());
 
     try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
         .request()

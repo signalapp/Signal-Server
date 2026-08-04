@@ -381,7 +381,7 @@ public record CommandDependencies(
         configuration.getDynamoDbTables().getIssuedReceipts().getExpiration(),
         dynamoDbClient,
         configuration.getDynamoDbTables().getIssuedReceipts().getGenerator(),
-        configuration.getDynamoDbTables().getIssuedReceipts().getmaxIssuedReceiptsPerPaymentId());
+        configuration.getDynamoDbTables().getIssuedReceipts().getMaxReceiptsPerSubscriptionPayment());
 
     final ServerSecretParams zkSecretParams = new ServerSecretParams(configuration.getGroupsZkConfig().serverSecret().value());
     final ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);

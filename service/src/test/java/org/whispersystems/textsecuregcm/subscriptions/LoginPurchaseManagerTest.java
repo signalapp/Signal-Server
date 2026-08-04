@@ -94,7 +94,7 @@ class LoginPurchaseManagerTest {
         .truncatedTo(ChronoUnit.DAYS)
         .getEpochSecond());
 
-    verify(issuedReceiptsManager).recordIssuance(
+    verify(issuedReceiptsManager).recordOneTimeIssuance(
         PURCHASE_ID, PROVIDER, receiptCredentialRequestContext.getRequest(), NOW);
   }
 
@@ -149,7 +149,7 @@ class LoginPurchaseManagerTest {
     when(paymentProcessor.claimOneTimePurchase(PURCHASE_ID))
         .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
     doThrow(new WriteConflictException())
-        .when(issuedReceiptsManager).recordIssuance(any(), any(), any(), any());
+        .when(issuedReceiptsManager).recordOneTimeIssuance(any(), any(), any(), any());
     assertThatExceptionOfType(SubscriptionReceiptAlreadyRedeemedException.class).isThrownBy(() -> {
       loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest());
     });

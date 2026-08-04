@@ -120,6 +120,19 @@ class IssuedReceiptsManagerTest {
         .isExactlyInstanceOf(WriteConflictException.class);
   }
 
+  @ParameterizedTest
+  @EnumSource(PaymentProvider.class)
+  void testSingleIssuance(final PaymentProvider processor) throws WriteConflictException {
+    final Instant now = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
+    final ReceiptCredentialRequest request = randomReceiptCredentialRequest();
+
+    issuedReceiptsManager.recordOneTimeIssuance("item-1", processor, request, now);
+    // Retrying with the same request should still succeed
+    issuedReceiptsManager.recordOneTimeIssuance("item-1", processor, request, now);
+    assertThatThrownBy(
+        () -> issuedReceiptsManager.recordOneTimeIssuance("item-1", processor, randomReceiptCredentialRequest(), now))
+        .isExactlyInstanceOf(WriteConflictException.class);
+  }
 
   private GetItemResponse getItem(final PaymentProvider processor, final String itemId) {
     final DynamoDbClient client = DYNAMO_DB_EXTENSION.getDynamoDbClient();

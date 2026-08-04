@@ -384,7 +384,7 @@ public class OneTimeDonationController {
       throw new BadRequestException("invalid receipt credential request", e);
     }
     try {
-      issuedReceiptsManager.recordIssuance(paymentDetails.id(), request.processor,
+      issuedReceiptsManager.recordOneTimeIssuance(paymentDetails.id(), request.processor,
           receiptCredentialRequest, clock.instant());
     } catch (WriteConflictException _) {
       throw new WebApplicationException(Response.Status.CONFLICT);

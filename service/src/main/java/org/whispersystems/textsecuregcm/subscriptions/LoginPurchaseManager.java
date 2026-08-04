@@ -90,7 +90,7 @@ public class LoginPurchaseManager {
     }
 
     try {
-      issuedReceiptsManager.recordIssuance(paymentDetails.id(), paymentProvider, receiptCredentialRequest,
+      issuedReceiptsManager.recordOneTimeIssuance(paymentDetails.id(), paymentProvider, receiptCredentialRequest,
           clock.instant());
     } catch (WriteConflictException _) {
       throw new SubscriptionReceiptAlreadyRedeemedException();

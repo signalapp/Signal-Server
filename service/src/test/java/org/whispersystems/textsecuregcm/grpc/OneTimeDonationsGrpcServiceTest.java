@@ -308,7 +308,7 @@ public class OneTimeDonationsGrpcServiceTest extends
         Optional.of(new PaymentDetails("id", oneTimeDonationConfiguration.boost().level(),
             PaymentStatus.SUCCEEDED, clock.instant(), null)));
     doThrow(WriteConflictException.class).when(issuedReceiptsManager)
-        .recordIssuance(any(), any(), any(), any());
+        .recordOneTimeIssuance(any(), any(), any(), any());
 
     final CreateBoostReceiptCredentialsResponse response =
         unauthenticatedServiceStub().createBoostReceiptCredentials(

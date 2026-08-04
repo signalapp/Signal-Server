@@ -44,33 +44,60 @@ public class IssuedReceiptsManager {
   private final Duration expiration;
   private final DynamoDbClient dynamoDbClient;
   private final byte[] receiptTagGenerator;
-  private final EnumMap<PaymentProvider, Integer> maxIssuedReceiptsPerPaymentId;
+  private final EnumMap<PaymentProvider, Integer> maxReceiptsPerSubscriptionPayment;
 
   public IssuedReceiptsManager(
       @Nonnull final String table,
       @Nonnull final Duration expiration,
       @Nonnull final DynamoDbClient dynamoDbClient,
       @Nonnull final byte[] receiptTagGenerator,
-      @Nonnull final EnumMap<PaymentProvider, Integer> maxIssuedReceiptsPerPaymentId) {
+      @Nonnull final EnumMap<PaymentProvider, Integer> maxReceiptsPerSubscriptionPayment) {
     this.table = Objects.requireNonNull(table);
     this.expiration = Objects.requireNonNull(expiration);
     this.dynamoDbClient = Objects.requireNonNull(dynamoDbClient);
     this.receiptTagGenerator = Objects.requireNonNull(receiptTagGenerator);
-    this.maxIssuedReceiptsPerPaymentId = Objects.requireNonNull(maxIssuedReceiptsPerPaymentId);
+    this.maxReceiptsPerSubscriptionPayment = Objects.requireNonNull(maxReceiptsPerSubscriptionPayment);
+  }
+
+  /// Records the issuance of a receipt credential for a one-time purchases.
+  ///
+  /// Same as [#recordIssuance] except one-time purchases never allow multiple receipts on a single payment
+  public void recordOneTimeIssuance(
+      final String processorItemId,
+      final PaymentProvider processor,
+      final ReceiptCredentialRequest request,
+      final Instant now) throws WriteConflictException {
+    recordIssuance(processorItemId, processor, request, 1, now);
   }
 
   /// Returns normally if either this processor item was never issued a receipt credential
   /// previously OR if it was issued a receipt credential previously for the exact same receipt credential request
   /// enabling clients to retry in case they missed the original response.
   ///
-  /// If this item has already been used to issue another receipt, throws [WriteConflictException].
+  /// A subscription payment may be issued as many distinct receipts as `maxReceiptsPerSubscriptionPayment` allows for
+  /// its [PaymentProvider]. After that, a distinct receipt request  throws [WriteConflictException].
   ///
-  /// For [PaymentProvider#STRIPE], item is expected to refer to an invoice line item (subscriptions) or a
-  /// payment intent (one-time).
+  /// For [PaymentProvider#STRIPE], item is expected to refer to an invoice line item (subscriptions) or a payment
+  /// intent (one-time).
+  ///
+  /// @param processorItemId The identifier of the item within the processor
+  /// @param processor       The processor used
+  /// @param request         The [ReceiptCredentialRequest] to generate a receipt for. Subsequent retries for the same
+  ///                        `processorItemId` should use the same request
+  /// @param now             The current time
   public void recordIssuance(
       final String processorItemId,
       final PaymentProvider processor,
       final ReceiptCredentialRequest request,
+      final Instant now) throws WriteConflictException {
+    recordIssuance(processorItemId, processor, request, maxReceiptsPerSubscriptionPayment.get(processor), now);
+  }
+
+  private void recordIssuance(
+      final String processorItemId,
+      final PaymentProvider processor,
+      final ReceiptCredentialRequest request,
+      final int maxReceipts,
       final Instant now) throws WriteConflictException {
 
     final AttributeValue key = dynamoDbKey(processor, processorItemId);
@@ -89,7 +116,7 @@ public class IssuedReceiptsManager {
             ":tag", b(tag),
             ":singletonTag", AttributeValue.fromBs(List.of(SdkBytes.fromByteArray(tag))),
             ":exp", n(now.plus(expiration).getEpochSecond()),
-            ":maxTags", n(maxIssuedReceiptsPerPaymentId.get(processor))))
+            ":maxTags", n(maxReceipts)))
         .build();
     try {
       dynamoDbClient.updateItem(updateItemRequest);

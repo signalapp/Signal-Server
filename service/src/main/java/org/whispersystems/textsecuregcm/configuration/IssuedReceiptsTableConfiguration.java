@@ -17,19 +17,17 @@ public class IssuedReceiptsTableConfiguration extends DynamoDbTables.TableWithEx
 
   private final byte[] generator;
 
-  /**
-   * The maximum number of issued receipts the issued receipt manager should issue for a particular itemId
-   */
-  private final EnumMap<PaymentProvider, Integer> maxIssuedReceiptsPerPaymentId;
+  /// The maximum number of receipts that may be issued for a single subscription payment.
+  private final EnumMap<PaymentProvider, Integer> maxReceiptsPerSubscriptionPayment;
 
   public IssuedReceiptsTableConfiguration(
       @JsonProperty("tableName") final String tableName,
       @JsonProperty("expiration") final Duration expiration,
       @JsonProperty("generator") final byte[] generator,
-      @JsonProperty("maxIssuedReceiptsPerPaymentId") final Map<PaymentProvider, Integer> maxIssuedReceiptsPerPaymentId) {
+      @JsonProperty("maxReceiptsPerSubscriptionPayment") final Map<PaymentProvider, Integer> maxReceiptsPerSubscriptionPayment) {
     super(tableName, expiration);
     this.generator = generator;
-    this.maxIssuedReceiptsPerPaymentId = EnumMapUtil.toCompleteEnumMap(PaymentProvider.class, maxIssuedReceiptsPerPaymentId);
+    this.maxReceiptsPerSubscriptionPayment = EnumMapUtil.toCompleteEnumMap(PaymentProvider.class, maxReceiptsPerSubscriptionPayment);
   }
 
   @NotEmpty
@@ -37,7 +35,7 @@ public class IssuedReceiptsTableConfiguration extends DynamoDbTables.TableWithEx
     return generator;
   }
 
-  public EnumMap<PaymentProvider, Integer> getmaxIssuedReceiptsPerPaymentId() {
-    return maxIssuedReceiptsPerPaymentId;
+  public EnumMap<PaymentProvider, Integer> getMaxReceiptsPerSubscriptionPayment() {
+    return maxReceiptsPerSubscriptionPayment;
   }
 }
