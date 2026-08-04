@@ -697,11 +697,14 @@ public class Account {
   public void setAccountRecoveryPassword(final byte[] accountRecoveryPassword) {
     requireNotStale();
 
-    final SaltedTokenHash saltedTokenHash =
-        SaltedTokenHash.generateFor(HexFormat.of().formatHex(accountRecoveryPassword));
+    setAccountRecoveryPassword(SaltedTokenHash.generateFor(HexFormat.of().formatHex(accountRecoveryPassword)));
+  }
 
-    this.accountRecoveryPasswordSalt = saltedTokenHash.salt();
-    this.accountRecoveryPasswordHash = saltedTokenHash.hash();
+  public void setAccountRecoveryPassword(final SaltedTokenHash saltedAccountRecoveryPasswordHash) {
+    requireNotStale();
+
+    this.accountRecoveryPasswordSalt = saltedAccountRecoveryPasswordHash.salt();
+    this.accountRecoveryPasswordHash = saltedAccountRecoveryPasswordHash.hash();
   }
 
   public void markStale() {

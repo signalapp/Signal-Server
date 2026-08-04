@@ -1725,4 +1725,33 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       throw new AssertionError("Every implementation of the Java platform is required to support the SHA-256 MessageDigest algorithm", e);
     }
   }
+
+  public void migrateAccountRecoveryPassword(final Account account) {
+    accountLockManager.withSingleAccountLock(account, () -> {
+      migrateAccountRecoveryPassword(account.getAccountIdentifier(), MAX_UPDATE_ATTEMPTS);
+      return null;
+    }, accountLockExecutor);
+  }
+
+  private void migrateAccountRecoveryPassword(final UUID accountIdentifier, final int retries) {
+    try {
+      final Account account = accounts.getByAccountIdentifier(accountIdentifier)
+          .orElseThrow(ContestedOptimisticLockException::new);
+
+      account.getPhoneNumberIdentifierOptional()
+          .flatMap(phoneNumberRecoveryPasswordsManager::getPasswordAndWriteItemForMigration)
+          .ifPresent(passwordAndWriteItem -> {
+            account.setAccountRecoveryPassword(passwordAndWriteItem.first());
+            accounts.updateTransactionally(account, List.of(passwordAndWriteItem.second()));
+
+            redisDelete(account);
+          });
+    } catch (final ContestedOptimisticLockException | TransactionCanceledException e) {
+      if (retries > 0) {
+        migrateAccountRecoveryPassword(accountIdentifier, retries - 1);
+      }
+
+      throw e;
+    }
+  }
 }

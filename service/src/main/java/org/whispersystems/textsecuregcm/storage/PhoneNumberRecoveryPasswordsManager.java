@@ -8,8 +8,10 @@ package org.whispersystems.textsecuregcm.storage;
 import static java.util.Objects.requireNonNull;
 
 import java.util.HexFormat;
+import java.util.Optional;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
+import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class PhoneNumberRecoveryPasswordsManager {
@@ -46,5 +48,12 @@ public class PhoneNumberRecoveryPasswordsManager {
 
   private static String bytesToString(final byte[] bytes) {
     return HexFormat.of().formatHex(bytes);
+  }
+
+  Optional<Pair<SaltedTokenHash, TransactWriteItem>> getPasswordAndWriteItemForMigration(final UUID phoneNumberIdentifier) {
+    final Optional<SaltedTokenHash> maybeExistingPassword = phoneNumberRecoveryPasswords.lookup(phoneNumberIdentifier);
+
+    return maybeExistingPassword.map(existingPassword ->
+        new Pair<>(existingPassword, phoneNumberRecoveryPasswords.buildWriteItemForMigration(phoneNumberIdentifier, existingPassword)));
   }
 }

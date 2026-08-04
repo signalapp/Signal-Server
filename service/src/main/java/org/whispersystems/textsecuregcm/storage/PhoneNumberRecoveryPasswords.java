@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
+import software.amazon.awssdk.services.dynamodb.model.Update;
 
 public class PhoneNumberRecoveryPasswords {
 
@@ -131,5 +132,22 @@ public class PhoneNumberRecoveryPasswords {
 
   private static SaltedTokenHash saltedTokenHashFromItem(final Map<String, AttributeValue> item) {
     return new SaltedTokenHash(item.get(ATTR_HASH).s(), item.get(ATTR_SALT).s());
+  }
+
+  TransactWriteItem buildWriteItemForMigration(final UUID phoneNumberIdentifier, final SaltedTokenHash expectedPassword) {
+    return TransactWriteItem.builder()
+        .update(Update.builder()
+            .tableName(tableName)
+            .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
+            .conditionExpression("attribute_exists(#pni) AND #salt = :salt AND #hash = :hash")
+            .expressionAttributeNames(Map.of(
+                "#pni", KEY_PNI,
+                "#salt", ATTR_SALT,
+                "#hash", ATTR_HASH))
+            .expressionAttributeValues(Map.of(
+                ":salt", AttributeValues.fromString(expectedPassword.salt()),
+                ":hash", AttributeValues.fromString(expectedPassword.hash())))
+            .build())
+        .build();
   }
 }
