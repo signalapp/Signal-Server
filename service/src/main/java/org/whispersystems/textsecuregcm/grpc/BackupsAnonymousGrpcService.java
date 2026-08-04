@@ -265,7 +265,7 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
       final BackupManager.ListMediaResult listResult = backupManager.list(
           backupUser,
           request.hasCursor() ? Optional.of(request.getCursor()) : Optional.empty(),
-          request.getLimit());
+          request.hasLimit() ? Optional.of(request.getLimit()) : Optional.empty());
       final ListMediaResponse.ListResult.Builder builder = ListMediaResponse.ListResult.newBuilder();
       for (BackupManager.StorageDescriptorWithLength sd : listResult.media()) {
         builder.addPage(ListMediaResponse.ListEntry.newBuilder()

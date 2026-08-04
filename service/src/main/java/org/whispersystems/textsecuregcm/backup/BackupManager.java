@@ -59,6 +59,8 @@ public class BackupManager {
 
   static final String MESSAGE_BACKUP_NAME = "messageBackup";
 
+  private static final int DEFAULT_LIST_MEDIA_LIMIT = 1000;
+
   private static final String ZK_AUTHN_COUNTER_NAME = MetricsUtil.name(BackupManager.class, "authentication");
   private static final String ZK_AUTHZ_FAILURE_COUNTER_NAME = MetricsUtil.name(BackupManager.class,
       "authorizationFailure");
@@ -458,17 +460,19 @@ public class BackupManager {
    *
    * @param backupUser An already ZK authenticated backup user
    * @param cursor     A cursor returned by a previous call that can be used to resume listing
-   * @param limit      The maximum number of list results to return
+   * @param limit      The maximum number of list results to return, or empty to use
+   *                   {@link #DEFAULT_LIST_MEDIA_LIMIT}
    * @return A {@link ListMediaResult}
    * @throws BackupPermissionException if the credential does not have the correct level
    */
   public ListMediaResult list(
       final AuthenticatedBackupUser backupUser,
       final Optional<String> cursor,
-      final int limit) throws BackupPermissionException {
+      final Optional<Integer> limit) throws BackupPermissionException {
     checkBackupLevel(backupUser, BackupLevel.FREE);
-    final RemoteStorageManager.ListResult result =
-        remoteStorageManager.list(cdnMediaDirectory(backupUser), cursor, limit).toCompletableFuture().join();
+    final RemoteStorageManager.ListResult result = remoteStorageManager
+        .list(cdnMediaDirectory(backupUser), cursor, limit.orElse(DEFAULT_LIST_MEDIA_LIMIT))
+        .toCompletableFuture().join();
     return new ListMediaResult(result
         .objects()
         .stream()

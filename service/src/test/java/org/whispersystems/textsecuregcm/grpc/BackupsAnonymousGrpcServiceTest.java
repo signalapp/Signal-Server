@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
@@ -290,7 +291,7 @@ class BackupsAnonymousGrpcServiceTest extends
 
     final int limit = 17;
 
-    when(backupManager.list(any(), eq(expectedCursor), eq(limit)))
+    when(backupManager.list(any(), eq(expectedCursor), eq(Optional.of(limit))))
         .thenReturn(new BackupManager.ListMediaResult(
             List.of(new BackupManager.StorageDescriptorWithLength(1, mediaId, 100)),
             returnedCursor));
@@ -461,6 +462,21 @@ class BackupsAnonymousGrpcServiceTest extends
             .setSignedPresentation(signedPresentation(presentation))
             .setLimit(count)
             .build()));
+  }
+
+  @Test
+  void listMediaUnsetLimit() throws BackupException {
+    when(backupManager.list(any(), any(), eq(Optional.empty())))
+        .thenReturn(new BackupManager.ListMediaResult(List.of(), Optional.empty()));
+
+    // should be able to list without setting a limit
+    final ListMediaResponse response = unauthenticatedServiceStub().listMedia(
+        ListMediaRequest.newBuilder()
+            .setSignedPresentation(signedPresentation(presentation))
+            .build());
+
+    assertThat(response.hasListResult()).isTrue();
+    verify(backupManager).list(any(), any(), eq(Optional.empty()));
   }
 
 

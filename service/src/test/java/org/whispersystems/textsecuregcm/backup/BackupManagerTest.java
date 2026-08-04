@@ -667,7 +667,7 @@ public class BackupManagerTest {
             Optional.of("newCursor")
         )));
 
-    final BackupManager.ListMediaResult result = backupManager.list(backupUser, cursor, 17);
+    final BackupManager.ListMediaResult result = backupManager.list(backupUser, cursor, Optional.of(17));
     assertThat(result.media()).hasSize(1);
     assertThat(result.media().getFirst().cdn()).isEqualTo(13);
     assertThat(result.media().getFirst().key()).isEqualTo(

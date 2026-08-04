@@ -473,9 +473,11 @@ message ListMediaRequest {
   // A cursor returned by a previous call to ListMedia, absent on the first call
   optional string cursor = 2;
 
-  // If provided, the maximum number of entries to return in a page
-  uint32 limit = 3 [(require.range) = {min: 1, max: 10000}];
+  // If provided, the maximum number of entries to return in a page. If absent,
+  // a server-chosen default is used.
+  optional uint32 limit = 3 [(require.range) = {min: 1, max: 10000}];
 }
+
 message ListMediaResponse {
   message ListEntry {
     // The backup cdn where this media object is stored

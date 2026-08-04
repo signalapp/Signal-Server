@@ -562,7 +562,7 @@ public class ArchiveControllerTest {
     final Optional<String> expectedCursor = cursorProvided ? Optional.of("myCursor") : Optional.empty();
     final Optional<String> returnedCursor = cursorReturned ? Optional.of("newCursor") : Optional.empty();
 
-    when(backupManager.list(any(), eq(expectedCursor), eq(17)))
+    when(backupManager.list(any(), eq(expectedCursor), eq(Optional.of(17))))
         .thenReturn(new BackupManager.ListMediaResult(
             List.of(new BackupManager.StorageDescriptorWithLength(1, mediaId, 100)),
             returnedCursor

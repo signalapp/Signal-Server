@@ -975,7 +975,7 @@ public class ArchiveController {
     final AuthenticatedBackupUser backupUser =
         backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
     final BackupManager.ListMediaResult listResult =
-        backupManager.list(backupUser, cursor, limit.orElse(1000));
+        backupManager.list(backupUser, cursor, limit);
     return new ListResponse(listResult.media()
             .stream().map(entry -> new StoredMediaObject(entry.cdn(), entry.key(), entry.length()))
             .toList(),
