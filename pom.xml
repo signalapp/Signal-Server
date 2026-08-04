@@ -285,7 +285,7 @@
       <dependency>
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
-        <version>0.96.2</version>
+        <version>0.100.0</version>
       </dependency>
       <dependency>
         <groupId>org.signal</groupId>
