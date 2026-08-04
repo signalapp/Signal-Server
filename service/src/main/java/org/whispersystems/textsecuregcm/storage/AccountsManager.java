@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -961,6 +962,17 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     });
   }
 
+  public Account update(final UUID accountIdentifier,
+      final Consumer<Account> updater,
+      final Collection<TransactWriteItem> additionalWriteItems) {
+
+    return update(accountIdentifier, a -> {
+      updater.accept(a);
+      // assume that all updaters passed to the public method actually modify the account
+      return true;
+    }, additionalWriteItems);
+  }
+
   /// Using a pessimistic lock, updates the current profile version to `newVersion` if `currentProfileVersion` matches
   /// `expectedCurrentVersion`. The caller may provide a supplementary `Consumer<Account>` for additional updates
   ///
@@ -1021,12 +1033,27 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
    * @param accountIdentifier identifier of account to update
    * @param updater must return {@code true} if the account was actually updated
    */
-  private Account update(UUID accountIdentifier, Function<Account, Boolean> updater) {
+  private Account update(final UUID accountIdentifier, final Function<Account, Boolean> updater) {
+    return update(accountIdentifier, updater, Collections.emptyList());
+  }
+
+  /**
+   * @param accountIdentifier identifier of account to update
+   * @param updater must return {@code true} if the account was actually updated
+   * @param additionalWriteItems additional write items to include in a transactional update
+   */
+  private Account update(final UUID accountIdentifier,
+      final Function<Account, Boolean> updater,
+      final Collection<TransactWriteItem> additionalWriteItems) {
+
+    final ThrowingConsumer<Account, RuntimeException> persister = additionalWriteItems.isEmpty()
+        ? accounts::update
+        : account -> accounts.updateTransactionally(account, additionalWriteItems);
 
     return updateTimer.record(() -> {
 
       final Account updatedAccount = updateWithRetries(updater,
-          accounts::update,
+          persister,
           () -> accounts.getByAccountIdentifier(accountIdentifier).orElseThrow(),
           AccountChangeValidator.GENERAL_CHANGE_VALIDATOR);
 
