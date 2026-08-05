@@ -338,10 +338,6 @@ paths:
       - Account
       operationId: setAccountAttributes
       parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       - name: X-Signal-Agent
         in: header
         schema:
