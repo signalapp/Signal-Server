@@ -17,6 +17,7 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ConditionCheck;
 import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
@@ -27,7 +28,6 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
-import software.amazon.awssdk.services.dynamodb.model.Update;
 
 public class PhoneNumberRecoveryPasswords {
 
@@ -134,9 +134,9 @@ public class PhoneNumberRecoveryPasswords {
     return new SaltedTokenHash(item.get(ATTR_HASH).s(), item.get(ATTR_SALT).s());
   }
 
-  TransactWriteItem buildWriteItemForMigration(final UUID phoneNumberIdentifier, final SaltedTokenHash expectedPassword) {
+  TransactWriteItem buildConditionCheckForMigration(final UUID phoneNumberIdentifier, final SaltedTokenHash expectedPassword) {
     return TransactWriteItem.builder()
-        .update(Update.builder()
+        .conditionCheck(ConditionCheck.builder()
             .tableName(tableName)
             .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
             .conditionExpression("attribute_exists(#pni) AND #salt = :salt AND #hash = :hash")

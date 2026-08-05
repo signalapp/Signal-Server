@@ -39,7 +39,7 @@ class PhoneNumberRecoveryPasswordsTest {
   }
 
   @Test
-  void buildWriteItemForMigration() {
+  void buildConditionCheckForMigration() {
     final UUID phoneNumberIdentifier = UUID.randomUUID();
 
     final SaltedTokenHash originalPassword =
@@ -48,7 +48,7 @@ class PhoneNumberRecoveryPasswordsTest {
     phoneNumberRecoveryPasswords.addOrReplace(phoneNumberIdentifier, originalPassword);
 
     final TransactWriteItem transactWriteItem =
-        phoneNumberRecoveryPasswords.buildWriteItemForMigration(phoneNumberIdentifier, originalPassword);
+        phoneNumberRecoveryPasswords.buildConditionCheckForMigration(phoneNumberIdentifier, originalPassword);
 
     assertDoesNotThrow(() -> DYNAMO_DB_EXTENSION.getDynamoDbClient().transactWriteItems(TransactWriteItemsRequest.builder()
         .transactItems(transactWriteItem)

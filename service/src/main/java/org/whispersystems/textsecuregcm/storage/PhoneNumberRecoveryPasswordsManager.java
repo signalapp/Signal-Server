@@ -54,6 +54,6 @@ public class PhoneNumberRecoveryPasswordsManager {
     final Optional<SaltedTokenHash> maybeExistingPassword = phoneNumberRecoveryPasswords.lookup(phoneNumberIdentifier);
 
     return maybeExistingPassword.map(existingPassword ->
-        new Pair<>(existingPassword, phoneNumberRecoveryPasswords.buildWriteItemForMigration(phoneNumberIdentifier, existingPassword)));
+        new Pair<>(existingPassword, phoneNumberRecoveryPasswords.buildConditionCheckForMigration(phoneNumberIdentifier, existingPassword)));
   }
 }
