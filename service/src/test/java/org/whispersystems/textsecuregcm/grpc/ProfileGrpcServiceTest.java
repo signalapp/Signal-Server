@@ -103,6 +103,7 @@ import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.storage.VersionedProfileV1;
 import org.whispersystems.textsecuregcm.storage.WriteConflictException;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
@@ -167,7 +168,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
                 new BadgeSvg("ll", "ld")
             )
         )),
-        Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3")
+        Map.of(ReceiptLevel.ONE_TIME_DONATION, "TEST1", ReceiptLevel.ONE_TIME_GIFT_DONATION, "TEST2", ReceiptLevel.SUBSCRIPTION_HIGH, "TEST3")
     );
     final RateLimiters rateLimiters = mock(RateLimiters.class);
     final String phoneNumber = PhoneNumberUtil.getInstance().format(

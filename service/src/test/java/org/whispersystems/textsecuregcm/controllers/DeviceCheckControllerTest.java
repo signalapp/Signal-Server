@@ -61,7 +61,6 @@ import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 class DeviceCheckControllerTest {
 
   private final static Duration REDEMPTION_DURATION = Duration.ofDays(5);
-  private final static long REDEMPTION_LEVEL = 201L;
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private final static BackupAuthManager backupAuthManager = mock(BackupAuthManager.class);
   private final static AppleDeviceCheckManager appleDeviceCheckManager = mock(AppleDeviceCheckManager.class);
@@ -78,7 +77,7 @@ class DeviceCheckControllerTest {
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new DeviceCheckController(clock, accountsManager, backupAuthManager, appleDeviceCheckManager, rateLimiters,
-          REDEMPTION_LEVEL, REDEMPTION_DURATION))
+          REDEMPTION_DURATION))
       .build();
 
   @BeforeEach

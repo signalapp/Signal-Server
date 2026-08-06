@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.Nulls;
 import io.dropwizard.validation.ValidationMethod;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -21,12 +22,12 @@ import java.util.stream.Collectors;
 
 public class BadgesConfiguration {
   private final List<BadgeConfiguration> badges;
-  private final Map<Long, String> receiptLevels;
+  private final Map<ReceiptLevel, String> receiptLevels;
 
   @JsonCreator
   public BadgesConfiguration(
       @JsonProperty("badges") @JsonSetter(nulls = Nulls.AS_EMPTY) final List<BadgeConfiguration> badges,
-      @JsonProperty("receiptLevels") @JsonSetter(nulls = Nulls.AS_EMPTY) final Map<Long, String> receiptLevels) {
+      @JsonProperty("receiptLevels") @JsonSetter(nulls = Nulls.AS_EMPTY) final Map<ReceiptLevel, String> receiptLevels) {
     this.badges = Objects.requireNonNull(badges);
     this.receiptLevels = Objects.requireNonNull(receiptLevels);
   }
@@ -39,7 +40,7 @@ public class BadgesConfiguration {
 
   @Valid
   @NotNull
-  public Map<Long, String> getReceiptLevels() {
+  public Map<ReceiptLevel, String> getReceiptLevels() {
     return receiptLevels;
   }
 

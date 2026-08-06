@@ -994,8 +994,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             PaymentProvider.APPLE_APP_STORE, appleAppStoreManager,
             PaymentProvider.GOOGLE_PLAY_BILLING, googlePlayBillingManager),
         issuedReceiptsManager,
-        zkReceiptOperations,
-        config.getLoginPurchase().level());
+        zkReceiptOperations);
 
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
         .stream()
@@ -1270,7 +1269,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ChallengeController(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
         new DeviceController(accountsManager, rateLimiters, persistentTimer),
         new DeviceCheckController(clock, accountsManager, backupAuthManager, appleDeviceCheckManager, rateLimiters,
-            config.getDeviceCheck().backupRedemptionLevel(),
             config.getDeviceCheck().backupRedemptionDuration()),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),

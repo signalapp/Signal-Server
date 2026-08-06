@@ -44,13 +44,13 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor, OneTi
   private static final String LOOKUP_TYPE_TAG = "lookup_type";
 
   private final AppleAppStoreClient appleAppStoreClient;
-  private final Map<String, Long> productIdToLevel;
+  private final Map<String, ReceiptLevel> productIdToLevel;
   private final String subscriptionGroupId;
 
   public AppleAppStoreManager(
-      AppleAppStoreClient appleAppStoreClient,
+      final AppleAppStoreClient appleAppStoreClient,
       final String subscriptionGroupId,
-      final Map<String, Long> productIdToLevel) {
+      final Map<String, ReceiptLevel> productIdToLevel) {
     this.appleAppStoreClient = appleAppStoreClient;
     this.subscriptionGroupId = subscriptionGroupId;
     this.productIdToLevel = productIdToLevel;
@@ -78,7 +78,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor, OneTi
     if (!isSubscriptionActive(tx)) {
       throw new SubscriptionPaymentRequiredException();
     }
-    return getLevel(tx.transaction());
+    return getLevel(tx.transaction()).getValue();
   }
 
 
@@ -123,7 +123,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor, OneTi
 
     return new SubscriptionInformation(
         getSubscriptionPrice(tx),
-        getLevel(tx.transaction()),
+        getLevel(tx.transaction()).getValue(),
         Instant.ofEpochMilli(tx.transaction().getOriginalPurchaseDate()),
         Instant.ofEpochMilli(tx.transaction().getExpiresDate()),
         isSubscriptionActive(tx),
@@ -150,7 +150,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor, OneTi
     final String itemId = tx.transaction().getWebOrderLineItemId();
     final PaymentTime paymentTime = PaymentTime.periodEnds(Instant.ofEpochMilli(tx.transaction().getExpiresDate()));
 
-    return new ReceiptItem(itemId, paymentTime, getLevel(tx.transaction()));
+    return new ReceiptItem(itemId, paymentTime, getLevel(tx.transaction()).getValue());
 
   }
 
@@ -225,8 +225,8 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor, OneTi
         SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(tx.transaction().getCurrency(), amount));
   }
 
-  private long getLevel(final JWSTransactionDecodedPayload tx) {
-    final Long level = productIdToLevel.get(tx.getProductId());
+  private ReceiptLevel getLevel(final JWSTransactionDecodedPayload tx) {
+    final ReceiptLevel level = productIdToLevel.get(tx.getProductId());
     if (level == null) {
       throw new UncheckedIOException(new IOException(
           "Transaction for unknown productId " + tx.getProductId()));

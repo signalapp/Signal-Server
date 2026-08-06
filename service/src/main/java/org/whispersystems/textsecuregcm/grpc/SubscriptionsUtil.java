@@ -31,6 +31,7 @@ import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionP
 import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -80,8 +81,8 @@ public class SubscriptionsUtil {
           final OneTimeDonationCurrencyConfiguration currencyConfig = currencyAndConfig.getValue();
 
           final Map<Long, List<BigDecimal>> oneTimeLevelsToSuggestedAmounts = Map.of(
-              oneTimeDonationConfiguration.boost().level(), currencyConfig.boosts(),
-              oneTimeDonationConfiguration.gift().level(), List.of(currencyConfig.gift())
+              ReceiptLevel.ONE_TIME_DONATION.getValue(), currencyConfig.boosts(),
+              ReceiptLevel.ONE_TIME_GIFT_DONATION.getValue(), List.of(currencyConfig.gift())
           );
 
           final Function<Map<Long, ? extends SubscriptionLevelConfiguration>, Map<Long, BigDecimal>> extractSubscriptionAmounts = levels ->
@@ -125,7 +126,7 @@ public class SubscriptionsUtil {
 
     final Badge boostBadge = badgeTranslator.translate(acceptableLanguages,
         oneTimeDonationConfiguration.boost().badge());
-    donationLevels.put(oneTimeDonationConfiguration.boost().level(),
+    donationLevels.put(ReceiptLevel.ONE_TIME_DONATION.getValue(),
         new LevelConfiguration(
             // NB: the one-time badges are PurchasableBadge, which has a `duration` field
             new PurchasableBadge(
@@ -133,7 +134,7 @@ public class SubscriptionsUtil {
                 oneTimeDonationConfiguration.boost().expiration())));
 
     final Badge giftBadge = badgeTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.gift().badge());
-    donationLevels.put(oneTimeDonationConfiguration.gift().level(),
+    donationLevels.put(ReceiptLevel.ONE_TIME_GIFT_DONATION.getValue(),
         new LevelConfiguration(
             new PurchasableBadge(
                 giftBadge,

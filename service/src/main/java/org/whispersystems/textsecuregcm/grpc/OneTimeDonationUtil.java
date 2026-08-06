@@ -1,7 +1,5 @@
 package org.whispersystems.textsecuregcm.grpc;
 
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
@@ -9,11 +7,11 @@ import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 
 public class OneTimeDonationUtil {
@@ -21,9 +19,6 @@ public class OneTimeDonationUtil {
   private static final String EURO_CURRENCY_CODE = "EUR";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(OneTimeDonationUtil.class);
-
-  private static final Counter MISSING_LEVEL_COUNTER =
-      Metrics.counter(MetricsUtil.name(OneTimeDonationUtil.class, "missingLevelMetadata"));
 
   /// Thrown if a one time donation level cannot be parsed or if it is not found in configuration
   public static class InvalidLevelException extends Exception {
@@ -34,7 +29,7 @@ public class OneTimeDonationUtil {
   }
 
   public record LocalizedPayPalDonationLineItem(Locale locale, String itemName){}
-  public record DonationLevelDetails(long level, Duration levelExpiration){}
+  public record DonationLevelDetails(ReceiptLevel level, Duration levelExpiration){}
 
   public sealed interface OneTimeDonationRequestValidationResult permits OneTimeDonationRequestValidationResult.Success,
       OneTimeDonationRequestValidationResult.UnsupportedCurrency,
@@ -63,8 +58,9 @@ public class OneTimeDonationUtil {
       final CustomerAwareSubscriptionPaymentProcessor manager
   ) {
 
-    if (!(level == oneTimeDonationConfiguration.gift().level()
-        || level == oneTimeDonationConfiguration.boost().level())) {
+    if (ReceiptLevel.lookupLevel(level)
+        .map(rl -> rl != ReceiptLevel.ONE_TIME_DONATION && rl != ReceiptLevel.ONE_TIME_GIFT_DONATION)
+        .orElse(true)) {
       return new OneTimeDonationRequestValidationResult.UnsupportedLevel();
     }
 
@@ -108,25 +104,15 @@ public class OneTimeDonationUtil {
       final OneTimeDonationConfiguration oneTimeDonationConfiguration)
       throws InvalidLevelException {
 
-    Long level = paymentDetails.level();
-    if (level == null) {
-      LOGGER.warn("paymentId {} did not have attached level metadata", paymentDetails.id());
-      MISSING_LEVEL_COUNTER.increment();
-
-      // Default to boost if the level was not encoded in the metadata
-      level = oneTimeDonationConfiguration.boost().level();
-    }
-
-    final Duration levelExpiration;
-    if (level == oneTimeDonationConfiguration.boost().level()) {
-      levelExpiration = oneTimeDonationConfiguration.boost().expiration();
-    } else if (level == oneTimeDonationConfiguration.gift().level()) {
-      levelExpiration = oneTimeDonationConfiguration.gift().expiration();
-    } else {
-      LOGGER.error("level ({}) returned from payment intent that is unknown to the server", level);
-      throw new InvalidLevelException("unrecognized level");
-    }
-    return new DonationLevelDetails(level, levelExpiration);
+    final Duration levelExpiration = switch (paymentDetails.level()) {
+      case ONE_TIME_DONATION -> oneTimeDonationConfiguration.boost().expiration();
+      case ONE_TIME_GIFT_DONATION -> oneTimeDonationConfiguration.gift().expiration();
+      default -> {
+        LOGGER.error("level ({}) returned from payment intent that is unknown to the server", paymentDetails.level());
+        throw new InvalidLevelException("unrecognized level");
+      }
+    };
+    return new DonationLevelDetails(paymentDetails.level(), levelExpiration);
   }
 
 }

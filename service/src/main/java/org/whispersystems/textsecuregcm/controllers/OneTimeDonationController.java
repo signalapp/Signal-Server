@@ -397,7 +397,7 @@ public class OneTimeDonationController {
     final ReceiptCredentialResponse receiptCredentialResponse;
     try {
       receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-          receiptCredentialRequest, expiration.getEpochSecond(), levelDetails.level());
+          receiptCredentialRequest, expiration.getEpochSecond(), levelDetails.level().getValue());
     } catch (final VerificationFailedException e) {
       throw new BadRequestException("receipt credential request failed verification", e);
     }

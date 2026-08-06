@@ -49,7 +49,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -92,6 +91,7 @@ import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
@@ -171,7 +171,7 @@ public class SubscriptionController {
         buildDonationLevelsConfiguration(subscriptionConfiguration, oneTimeDonationConfiguration, badgeTranslator,
             acceptableLanguages),
         new BackupConfiguration(backupLevels, subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays()),
-        new LoginConfiguration(loginPurchaseConfiguration.level(), loginPurchaseConfiguration.playProductId(),
+        new LoginConfiguration(ReceiptLevel.LOGIN.getValue(), loginPurchaseConfiguration.playProductId(),
             loginPurchaseConfiguration.appStoreProductId()),
         oneTimeDonationConfiguration.sepaMaximumEuros());
   }

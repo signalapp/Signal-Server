@@ -10,6 +10,5 @@ import java.time.Duration;
  * Configuration for Device Check operations
  *
  * @param backupRedemptionDuration How long to grant backup access for redemptions via device check
- * @param backupRedemptionLevel    What backup level to grant redemptions via device check
  */
-public record DeviceCheckConfiguration(Duration backupRedemptionDuration, long backupRedemptionLevel) {}
+public record DeviceCheckConfiguration(Duration backupRedemptionDuration) {}

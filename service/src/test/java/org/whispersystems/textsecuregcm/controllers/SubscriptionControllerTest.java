@@ -81,6 +81,7 @@ import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
@@ -111,7 +112,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
   private static final LoginPurchaseConfiguration LOGIN_PURCHASE_CONFIG =
-      new LoginPurchaseConfiguration(300L, "testLoginPlayProductId", "testLoginAppStoreProductId");
+      new LoginPurchaseConfiguration("testLoginPlayProductId", "testLoginAppStoreProductId");
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK,
       SUBSCRIPTION_CONFIG, ONETIME_CONFIG, LOGIN_PURCHASE_CONFIG,
       new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
@@ -1077,7 +1078,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     });
     assertThat(response.backup().freeTierMediaDays()).isEqualTo(30);
 
-    assertThat(response.login().level()).isEqualTo(LOGIN_PURCHASE_CONFIG.level());
+    assertThat(response.login().level()).isEqualTo(ReceiptLevel.LOGIN.getValue());
     assertThat(response.login().playProductId()).isEqualTo(LOGIN_PURCHASE_CONFIG.playProductId());
     assertThat(response.login().appStoreProductId()).isEqualTo(LOGIN_PURCHASE_CONFIG.appStoreProductId());
 

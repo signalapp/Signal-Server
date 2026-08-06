@@ -54,6 +54,7 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidAmountException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -342,7 +343,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
     when(ONE_TIME_DONATIONS_MANAGER.getPaidAt(any(), anyString(), any())).thenReturn(Instant.now());
     when(STRIPE_MANAGER.claimOneTimePurchase(any())).thenReturn(Optional.of(new PaymentDetails(
         "id",
-        ONETIME_CONFIG.boost().level(),
+        ReceiptLevel.ONE_TIME_DONATION,
         PaymentStatus.SUCCEEDED,
         Instant.now(),
         null)));

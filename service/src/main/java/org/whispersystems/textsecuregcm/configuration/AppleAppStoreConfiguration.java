@@ -12,6 +12,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import javax.annotation.Nullable;
 
 /**
@@ -38,7 +39,7 @@ public record AppleAppStoreConfiguration(
     @NotBlank String keyId,
     @NotNull SecretString encodedKey,
     @NotBlank String subscriptionGroupId,
-    @NotNull Map<String, Long> productIdToLevel,
+    @NotNull Map<String, ReceiptLevel> productIdToLevel,
     @NotNull List<@NotBlank String> appleRootCerts,
     @Nullable String retryConfigurationName) {
 }

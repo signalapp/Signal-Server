@@ -24,7 +24,6 @@ public class LoginPurchaseManager {
   private final Map<PaymentProvider, OneTimePaymentProcessor> oneTimePaymentProcessors;
   private final IssuedReceiptsManager issuedReceiptsManager;
   private final ServerZkReceiptOperations zkReceiptOperations;
-  private final long loginLevel;
 
   // Signal Login receipt credentials expire after 5 years
   @VisibleForTesting
@@ -35,17 +34,13 @@ public class LoginPurchaseManager {
   /// @param oneTimePaymentProcessors The processor to use for each supported [PaymentProvider]
   /// @param issuedReceiptsManager    Tracks which purchases have already had receipt credentials issued for them
   /// @param zkReceiptOperations      Used to issue receipt credentials
-  /// @param loginLevel               The receipt level that identifies a Signal Login purchase. Purchases for any other
-  ///                                 level are rejected.
   public LoginPurchaseManager(
       final Map<PaymentProvider, OneTimePaymentProcessor> oneTimePaymentProcessors,
       final IssuedReceiptsManager issuedReceiptsManager,
-      final ServerZkReceiptOperations zkReceiptOperations,
-      final long loginLevel) {
+      final ServerZkReceiptOperations zkReceiptOperations) {
     this.oneTimePaymentProcessors = oneTimePaymentProcessors;
     this.issuedReceiptsManager = issuedReceiptsManager;
     this.zkReceiptOperations = zkReceiptOperations;
-    this.loginLevel = loginLevel;
   }
 
   /// Verify a completed one-time purchase and issue a receipt credential for it.
@@ -80,7 +75,7 @@ public class LoginPurchaseManager {
           .<SubscriptionPaymentRequiredException>map(
               cf -> new SubscriptionChargeFailurePaymentRequiredException(paymentProvider, cf))
           .orElseGet(SubscriptionPaymentRequiredException::new);
-    } else if (paymentDetails.level() == null || paymentDetails.level() != loginLevel) {
+    } else if (paymentDetails.level() != ReceiptLevel.LOGIN) {
       throw new SubscriptionInvalidArgumentsException("purchase was for an unexpected product");
     }
 
@@ -97,6 +92,6 @@ public class LoginPurchaseManager {
     }
 
     return zkReceiptOperations.issueReceiptCredential(receiptCredentialRequest, expiration.getEpochSecond(),
-        loginLevel);
+        ReceiptLevel.LOGIN.getValue());
   }
 }

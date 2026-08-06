@@ -65,7 +65,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
 
   private final AndroidPublisher androidPublisher;
   private final String packageName;
-  private final Map<String, Long> productIdToLevel;
+  private final Map<String, ReceiptLevel> productIdToLevel;
   private final Clock clock;
 
   private static final String VALIDATE_COUNTER_NAME = MetricsUtil.name(GooglePlayBillingManager.class, "validate");
@@ -77,7 +77,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
       final InputStream credentialsStream,
       final String packageName,
       final String applicationName,
-      final Map<String, Long> productIdToLevel)
+      final Map<String, ReceiptLevel> productIdToLevel)
       throws GeneralSecurityException, IOException {
     this(new AndroidPublisher.Builder(
             GoogleNetHttpTransport.newTrustedTransport(),
@@ -95,7 +95,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
       final AndroidPublisher androidPublisher,
       final Clock clock,
       final String packageName,
-      final Map<String, Long> productIdToLevel) {
+      final Map<String, ReceiptLevel> productIdToLevel) {
     this.clock = clock;
     this.androidPublisher = androidPublisher;
     this.productIdToLevel = productIdToLevel;
@@ -189,9 +189,9 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
     };
 
     final SubscriptionPurchaseLineItem purchase = getLineItem(subscription);
-    final long level = productIdToLevel(purchase.getProductId());
+    final ReceiptLevel level = productIdToLevel(purchase.getProductId());
 
-    return new ValidatedToken(level, purchase.getProductId(), purchaseToken, requiresAck);
+    return new ValidatedToken(level.getValue(), purchase.getProductId(), purchaseToken, requiresAck);
   }
 
 
@@ -255,7 +255,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
         .orElse(false);
     return new SubscriptionInformation(
         price,
-        productIdToLevel(lineItem.getProductId()),
+        productIdToLevel(lineItem.getProductId()).getValue(),
         billingCycleAnchor.orElse(null),
         expiration.orElse(null),
         expiration.map(clock.instant()::isBefore).orElse(false),
@@ -308,7 +308,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
     return new ReceiptItem(
         subscription.getLatestOrderId(),
         PaymentTime.periodEnds(expiration),
-        productIdToLevel(purchase.getProductId()));
+        productIdToLevel(purchase.getProductId()).getValue());
   }
 
 
@@ -337,7 +337,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
 
       final ProductLineItem lineItem = getLineItem(productPurchaseV2);
       final String productId = lineItem.getProductId();
-      final long level = productIdToLevel(productId);
+      final ReceiptLevel level = productIdToLevel(productId);
 
       Instant purchaseTime = null;
       if (paymentStatus == PaymentStatus.SUCCEEDED) {
@@ -421,8 +421,8 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
     return executeTokenOperation(publisher -> publisher.purchases().subscriptionsv2().get(packageName, purchaseToken));
   }
 
-  private long productIdToLevel(final String productId) {
-    final Long level = this.productIdToLevel.get(productId);
+  private ReceiptLevel productIdToLevel(final String productId) {
+    final ReceiptLevel level = this.productIdToLevel.get(productId);
     if (level == null) {
       logger.error("productId={} had no associated level", productId);
       // This was a productId a user was able to successfully purchase from our catalog,

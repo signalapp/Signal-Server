@@ -24,10 +24,9 @@ public record OneTimeDonationConfiguration(@Valid ExpiringLevelConfiguration boo
 
   /**
    * @param badge      the numeric donation level ID
-   * @param level      the badge ID associated with the level
    * @param expiration the duration after which the level expires
    */
-  public record ExpiringLevelConfiguration(@NotEmpty String badge, @Positive long level, Duration expiration) {
+  public record ExpiringLevelConfiguration(@NotEmpty String badge, Duration expiration) {
 
   }
 }

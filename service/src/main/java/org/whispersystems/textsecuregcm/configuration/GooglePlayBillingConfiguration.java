@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 
 /**
  * @param credentialsJson  Service account credentials for Play Billing API
@@ -21,4 +22,4 @@ public record GooglePlayBillingConfiguration(
     @NotBlank String credentialsJson,
     @NotNull String packageName,
     @NotBlank String applicationName,
-    @NotNull Map<String, Long> productIdToLevel) {}
+    @NotNull Map<String, ReceiptLevel> productIdToLevel) {}

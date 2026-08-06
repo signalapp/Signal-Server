@@ -55,6 +55,7 @@ import org.whispersystems.textsecuregcm.storage.DonationPermits;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -75,7 +76,7 @@ class DonationControllerTest {
                 List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))),
             new BadgeConfiguration("TEST3", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
                 List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld")))),
-        Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3"));
+        Map.of(ReceiptLevel.ONE_TIME_DONATION, "TEST1", ReceiptLevel.ONE_TIME_GIFT_DONATION, "TEST2", ReceiptLevel.SUBSCRIPTION_HIGH, "TEST3"));
   }
 
   private final TestClock clock = TestClock.pinned(Instant.ofEpochSecond(nowEpochSeconds));

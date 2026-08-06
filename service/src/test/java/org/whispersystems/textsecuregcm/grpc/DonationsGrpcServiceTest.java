@@ -48,6 +48,7 @@ import org.whispersystems.textsecuregcm.storage.DonationPermits;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -95,8 +96,8 @@ class DonationsGrpcServiceTest extends SimpleBaseGrpcTest<DonationsGrpcService, 
     } catch (final InvalidInputException e) {
       throw new RuntimeException(e);
     }
-    when(receiptCredentialPresentation.getReceiptLevel()).thenReturn(1L);
-    when(badgesConfiguration.getReceiptLevels()).thenReturn(Map.of(1L, "testBadge"));
+    when(receiptCredentialPresentation.getReceiptLevel()).thenReturn(ReceiptLevel.ONE_TIME_DONATION.getValue());
+    when(badgesConfiguration.getReceiptLevels()).thenReturn(Map.of(ReceiptLevel.ONE_TIME_DONATION, "testBadge"));
     when(receiptCredentialPresentation.getReceiptExpirationTime()).thenReturn(EXPIRATION_TIME_EPOCH_SECONDS);
     when(receiptCredentialPresentation.getReceiptSerial()).thenReturn(receiptSerial);
 

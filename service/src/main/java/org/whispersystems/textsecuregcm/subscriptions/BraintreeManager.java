@@ -139,15 +139,12 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
         chargeFailure = createChargeFailure(transaction);
       }
 
-      final Long level;
-      try {
-        level = Optional.ofNullable(transaction.getCustomFields())
-            .map(m -> m.get(BraintreeGraphqlClient.LEVEL_METADATA_NAME))
-            .map(Long::parseLong)
-            .orElse(null);
-      } catch (final NumberFormatException e) {
-        throw new IllegalStateException("failed to parse level metadata on payment intent %s".formatted(paymentId), e);
-      }
+      final ReceiptLevel level = Optional.ofNullable(transaction.getCustomFields())
+          .map(m -> m.get(BraintreeGraphqlClient.LEVEL_METADATA_NAME))
+          .map(Long::parseLong)
+          .flatMap(ReceiptLevel::lookupLevel)
+          .orElseThrow(() -> new IllegalStateException(
+              "failed to retrieve level metadata from payment intent %s".formatted(paymentId)));
 
       return Optional.of(new PaymentDetails(transaction.getGraphQLId(),
           level,

@@ -44,7 +44,6 @@ class LoginPurchaseManagerTest {
 
   private static final PaymentProvider PROVIDER = PaymentProvider.APPLE_APP_STORE;
   private static final String PURCHASE_ID = "purchaseId";
-  private static final long LEVEL = 123L;
   private static final Instant PURCHASED_AT = Instant.now().minus(Duration.ofHours(3));
   private static final ChargeFailure CHARGE_FAILURE =
       new ChargeFailure("generic_decline", "some failure message", null, null, null);
@@ -70,14 +69,13 @@ class LoginPurchaseManagerTest {
     loginPurchaseManager = new LoginPurchaseManager(
         Map.of(PROVIDER, paymentProcessor),
         issuedReceiptsManager,
-        new ServerZkReceiptOperations(SERVER_SECRET_PARAMS),
-        LEVEL);
+        new ServerZkReceiptOperations(SERVER_SECRET_PARAMS));
   }
 
   @Test
   void generateReceiptSuccess() throws Exception {
     when(paymentProcessor.claimOneTimePurchase(PURCHASE_ID))
-        .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
+        .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, ReceiptLevel.LOGIN, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
 
     final ReceiptCredentialResponse receipt =
         loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest());
@@ -88,7 +86,7 @@ class LoginPurchaseManagerTest {
         .plus(LoginPurchaseManager.LOGIN_EXPIRATION)
         .truncatedTo(ChronoUnit.DAYS);
 
-    assertThat(receiptCredential.getReceiptLevel()).isEqualTo(LEVEL);
+    assertThat(receiptCredential.getReceiptLevel()).isEqualTo(ReceiptLevel.LOGIN.getValue());
     assertThat(receiptCredential.getReceiptExpirationTime()).isEqualTo(expectedExpiration.getEpochSecond());
 
     verify(issuedReceiptsManager).recordOneTimeIssuance(
@@ -99,15 +97,15 @@ class LoginPurchaseManagerTest {
     return Stream.of(
         Arguments.of(Optional.empty(), SubscriptionNotFoundException.class),
         Arguments.of(
-            Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL, PaymentStatus.PROCESSING, PURCHASED_AT, null)),
+            Optional.of(new PaymentDetails(PURCHASE_ID, ReceiptLevel.LOGIN, PaymentStatus.PROCESSING, PURCHASED_AT, null)),
             SubscriptionReceiptRequestedForOpenPaymentException.class),
         Arguments.of(
-            Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL, PaymentStatus.FAILED, PURCHASED_AT, CHARGE_FAILURE)),
+            Optional.of(new PaymentDetails(PURCHASE_ID, ReceiptLevel.LOGIN, PaymentStatus.FAILED, PURCHASED_AT, CHARGE_FAILURE)),
             SubscriptionChargeFailurePaymentRequiredException.class),
         Arguments.of(
-            Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL, PaymentStatus.FAILED, PURCHASED_AT, null)),
+            Optional.of(new PaymentDetails(PURCHASE_ID, ReceiptLevel.LOGIN, PaymentStatus.FAILED, PURCHASED_AT, null)),
             SubscriptionPaymentRequiredException.class),
-        Arguments.of(Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL, PaymentStatus.UNKNOWN, PURCHASED_AT, null)),
+        Arguments.of(Optional.of(new PaymentDetails(PURCHASE_ID, ReceiptLevel.LOGIN, PaymentStatus.UNKNOWN, PURCHASED_AT, null)),
             SubscriptionPaymentRequiredException.class));
   }
 
@@ -132,7 +130,7 @@ class LoginPurchaseManagerTest {
   @Test
   void generateReceiptNonLoginLevel() throws Exception {
     when(paymentProcessor.claimOneTimePurchase(PURCHASE_ID))
-        .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL + 1, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
+        .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, ReceiptLevel.ONE_TIME_DONATION, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
     assertThatExceptionOfType(SubscriptionInvalidArgumentsException.class).isThrownBy(() ->
       loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest()));
     verifyNoInteractions(issuedReceiptsManager);
@@ -141,7 +139,7 @@ class LoginPurchaseManagerTest {
   @Test
   void generateReceiptAlreadyRedeemed() throws Exception {
     when(paymentProcessor.claimOneTimePurchase(PURCHASE_ID))
-        .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
+        .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, ReceiptLevel.LOGIN, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
     doThrow(new WriteConflictException())
         .when(issuedReceiptsManager).recordOneTimeIssuance(any(), any(), any(), any());
     assertThatExceptionOfType(SubscriptionReceiptAlreadyRedeemedException.class).isThrownBy(() ->

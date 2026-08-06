@@ -64,6 +64,7 @@ import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidAmountException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
@@ -306,7 +307,7 @@ public class OneTimeDonationsGrpcServiceTest extends
 
     when(oneTimeDonationsManager.getPaidAt(any(), anyString(), any())).thenReturn(clock.instant());
     when(stripeManager.claimOneTimePurchase(any())).thenReturn(
-        Optional.of(new PaymentDetails("id", oneTimeDonationConfiguration.boost().level(),
+        Optional.of(new PaymentDetails("id", ReceiptLevel.ONE_TIME_DONATION,
             PaymentStatus.SUCCEEDED, clock.instant(), null)));
     doThrow(WriteConflictException.class).when(issuedReceiptsManager)
         .recordOneTimeIssuance(any(), any(), any(), any());

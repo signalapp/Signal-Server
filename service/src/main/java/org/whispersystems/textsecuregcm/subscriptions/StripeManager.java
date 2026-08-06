@@ -253,15 +253,12 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor,
         }
       }
 
-      final Long level;
-      try {
-        level = Optional.ofNullable(paymentIntent.getMetadata())
-            .map(m -> m.get(METADATA_KEY_LEVEL))
-            .map(Long::parseLong)
-            .orElse(null);
-      } catch (final NumberFormatException e) {
-        throw new IllegalStateException("failed to parse level metadata on payment intent %s".formatted(paymentIntentId), e);
-      }
+      final ReceiptLevel level = Optional.ofNullable(paymentIntent.getMetadata())
+          .map(m -> m.get(METADATA_KEY_LEVEL))
+          .map(Long::parseLong)
+          .flatMap(ReceiptLevel::lookupLevel)
+          .orElseThrow(() -> new IllegalStateException(
+              "failed to retrieve level metadata from payment intent %s".formatted(paymentIntentId)));
 
       return Optional.of(new PaymentDetails(paymentIntent.getId(),
           level,

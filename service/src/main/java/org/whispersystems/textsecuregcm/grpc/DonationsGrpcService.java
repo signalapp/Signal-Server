@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 
 public class DonationsGrpcService extends SimpleDonationsGrpc.DonationsImplBase {
 
@@ -73,7 +74,10 @@ public class DonationsGrpcService extends SimpleDonationsGrpc.DonationsImplBase 
       final ReceiptSerial receiptSerial = receiptCredentialPresentation.getReceiptSerial();
       final Instant receiptExpiration = Instant.ofEpochSecond(receiptCredentialPresentation.getReceiptExpirationTime());
       final long receiptLevel = receiptCredentialPresentation.getReceiptLevel();
-      final String badgeId = badgesConfiguration.getReceiptLevels().get(receiptLevel);
+      final String badgeId = ReceiptLevel
+          .lookupLevel(receiptLevel)
+          .map(badgesConfiguration.getReceiptLevels()::get)
+          .orElse(null);
       if (badgeId == null) {
         // Since the receipt presentation checked out, the server messed up because it doesn't recognize a receipt level it previously issued.
         LOGGER.error("Server doesn't recognize previously issued receipt level; please check badgesConfiguration for issues");

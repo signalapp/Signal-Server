@@ -29,6 +29,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Locale;
 import org.glassfish.jersey.server.ManagedAsync;
+import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -59,7 +60,6 @@ public class DeviceCheckController {
   private final BackupAuthManager backupAuthManager;
   private final AppleDeviceCheckManager deviceCheckManager;
   private final RateLimiters rateLimiters;
-  private final long backupRedemptionLevel;
   private final Duration backupRedemptionDuration;
 
   public DeviceCheckController(
@@ -68,13 +68,11 @@ public class DeviceCheckController {
       final BackupAuthManager backupAuthManager,
       final AppleDeviceCheckManager deviceCheckManager,
       final RateLimiters rateLimiters,
-      final long backupRedemptionLevel,
       final Duration backupRedemptionDuration) {
     this.clock = clock;
     this.accountsManager = accountsManager;
     this.backupAuthManager = backupAuthManager;
     this.deviceCheckManager = deviceCheckManager;
-    this.backupRedemptionLevel = backupRedemptionLevel;
     this.backupRedemptionDuration = backupRedemptionDuration;
     this.rateLimiters = rateLimiters;
   }
@@ -252,7 +250,7 @@ public class DeviceCheckController {
     switch (request.assertionRequest().action()) {
       case BACKUP -> backupAuthManager.extendBackupVoucher(
               account,
-              new Account.BackupVoucher(backupRedemptionLevel, clock.instant().plus(backupRedemptionDuration)));
+              new Account.BackupVoucher(BackupLevel.PAID.getValue(), clock.instant().plus(backupRedemptionDuration)));
     }
   }
 

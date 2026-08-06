@@ -41,6 +41,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 
 @Path("/v1/donation")
 @Tag(name = "Donations")
@@ -117,7 +118,10 @@ public class DonationController {
     final ReceiptSerial receiptSerial = receiptCredentialPresentation.getReceiptSerial();
     final Instant receiptExpiration = Instant.ofEpochSecond(receiptCredentialPresentation.getReceiptExpirationTime());
     final long receiptLevel = receiptCredentialPresentation.getReceiptLevel();
-    final String badgeId = badgesConfiguration.getReceiptLevels().get(receiptLevel);
+    final String badgeId = ReceiptLevel
+        .lookupLevel(receiptLevel)
+        .map(badgesConfiguration.getReceiptLevels()::get)
+        .orElse(null);
     if (badgeId == null) {
       return Response.serverError()
           .entity("server does not recognize the requested receipt level")

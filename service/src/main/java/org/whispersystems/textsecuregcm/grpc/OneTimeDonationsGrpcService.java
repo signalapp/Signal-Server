@@ -320,7 +320,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
     final ReceiptCredentialResponse receiptCredentialResponse;
     try {
       receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-          receiptCredentialRequest, expiration.getEpochSecond(), levelDetails.level());
+          receiptCredentialRequest, expiration.getEpochSecond(), levelDetails.level().getValue());
     } catch (final VerificationFailedException e) {
       throw GrpcExceptions.fieldViolation("receipt_credential_request",
           "receipt credential request failed verification");

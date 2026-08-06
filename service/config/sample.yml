@@ -74,7 +74,6 @@ appleDeviceCheck:
 
 deviceCheck:
   backupRedemptionDuration: P30D
-  backupRedemptionLevel: 201
 
 dynamoDbClient:
   region: us-west-2 # AWS Region
@@ -365,7 +364,7 @@ badges:
         - light: example-light.svg
           dark: example-dark.svg
   receiptLevels:
-    '1': TEST
+    ONE_TIME_DONATION: TEST
 
 subscription: # configuration for Stripe subscriptions
   badgeExpiration: P30D
@@ -385,18 +384,15 @@ subscription: # configuration for Stripe subscriptions
             BRAINTREE: plan_example # braintree Plan ID
 
 loginPurchase:
-  level: 300
   playProductId: login_example
   appStoreProductId: login_example
 
 oneTimeDonations:
   sepaMaximumEuros: '10000'
   boost:
-    level: 1
     expiration: P90D
     badge: EXAMPLE
   gift:
-    level: 10
     expiration: P90D
     badge: EXAMPLE
   currencies:
