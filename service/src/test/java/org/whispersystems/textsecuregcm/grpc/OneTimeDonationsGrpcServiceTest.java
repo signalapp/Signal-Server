@@ -304,6 +304,7 @@ public class OneTimeDonationsGrpcServiceTest extends
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
 
+    when(oneTimeDonationsManager.getPaidAt(any(), anyString(), any())).thenReturn(clock.instant());
     when(stripeManager.claimOneTimePurchase(any())).thenReturn(
         Optional.of(new PaymentDetails("id", oneTimeDonationConfiguration.boost().level(),
             PaymentStatus.SUCCEEDED, clock.instant(), null)));

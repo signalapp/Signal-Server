@@ -40,34 +40,41 @@ public class IssuedReceiptsManager {
   public static final String KEY_EXPIRATION = "E";  // N
   public static final String KEY_ISSUED_RECEIPT_TAG_SET = "T"; // BS
 
+  // An issued receipt will stay in the table until the receipt's expiration + TTL_PADDING
+  @VisibleForTesting
+  static final Duration TTL_PADDING = Duration.ofDays(30);
+
   private final String table;
-  private final Duration expiration;
   private final DynamoDbClient dynamoDbClient;
   private final byte[] receiptTagGenerator;
   private final EnumMap<PaymentProvider, Integer> maxReceiptsPerSubscriptionPayment;
 
   public IssuedReceiptsManager(
       @Nonnull final String table,
-      @Nonnull final Duration expiration,
       @Nonnull final DynamoDbClient dynamoDbClient,
       @Nonnull final byte[] receiptTagGenerator,
       @Nonnull final EnumMap<PaymentProvider, Integer> maxReceiptsPerSubscriptionPayment) {
     this.table = Objects.requireNonNull(table);
-    this.expiration = Objects.requireNonNull(expiration);
     this.dynamoDbClient = Objects.requireNonNull(dynamoDbClient);
     this.receiptTagGenerator = Objects.requireNonNull(receiptTagGenerator);
     this.maxReceiptsPerSubscriptionPayment = Objects.requireNonNull(maxReceiptsPerSubscriptionPayment);
   }
 
-  /// Records the issuance of a receipt credential for a one-time purchases.
+  /// Records the issuance of a receipt credential for a one-time purchase.
   ///
   /// Same as [#recordIssuance] except one-time purchases never allow multiple receipts on a single payment
+  ///
+  /// @param processorItemId   The identifier of the item within the processor
+  /// @param processor         The processor used
+  /// @param request           The [ReceiptCredentialRequest] to generate a receipt for. Subsequent retries for the same
+  ///                          `processorItemId` should use the same request
+  /// @param receiptExpiration When the corresponding issued receipt will expire
   public void recordOneTimeIssuance(
       final String processorItemId,
       final PaymentProvider processor,
       final ReceiptCredentialRequest request,
-      final Instant now) throws WriteConflictException {
-    recordIssuance(processorItemId, processor, request, 1, now);
+      final Instant receiptExpiration) throws WriteConflictException {
+    recordIssuance(processorItemId, processor, request, 1, receiptExpiration);
   }
 
   /// Returns normally if either this processor item was never issued a receipt credential
@@ -80,17 +87,17 @@ public class IssuedReceiptsManager {
   /// For [PaymentProvider#STRIPE], item is expected to refer to an invoice line item (subscriptions) or a payment
   /// intent (one-time).
   ///
-  /// @param processorItemId The identifier of the item within the processor
-  /// @param processor       The processor used
-  /// @param request         The [ReceiptCredentialRequest] to generate a receipt for. Subsequent retries for the same
-  ///                        `processorItemId` should use the same request
-  /// @param now             The current time
+  /// @param processorItemId  The identifier of the item within the processor
+  /// @param processor        The processor used
+  /// @param request          The [ReceiptCredentialRequest] to generate a receipt for. Subsequent retries for the same
+  ///                         `processorItemId` should use the same request
+  /// @param receiptExpiration When the corresponding issued receipt will expire
   public void recordIssuance(
       final String processorItemId,
       final PaymentProvider processor,
       final ReceiptCredentialRequest request,
-      final Instant now) throws WriteConflictException {
-    recordIssuance(processorItemId, processor, request, maxReceiptsPerSubscriptionPayment.get(processor), now);
+      final Instant receiptExpiration) throws WriteConflictException {
+    recordIssuance(processorItemId, processor, request, maxReceiptsPerSubscriptionPayment.get(processor), receiptExpiration);
   }
 
   private void recordIssuance(
@@ -98,7 +105,7 @@ public class IssuedReceiptsManager {
       final PaymentProvider processor,
       final ReceiptCredentialRequest request,
       final int maxReceipts,
-      final Instant now) throws WriteConflictException {
+      final Instant receiptExpiration) throws WriteConflictException {
 
     final AttributeValue key = dynamoDbKey(processor, processorItemId);
     final byte[] tag = generateIssuedReceiptTag(request);
@@ -115,7 +122,7 @@ public class IssuedReceiptsManager {
         .expressionAttributeValues(Map.of(
             ":tag", b(tag),
             ":singletonTag", AttributeValue.fromBs(List.of(SdkBytes.fromByteArray(tag))),
-            ":exp", n(now.plus(expiration).getEpochSecond()),
+            ":exp", n(receiptExpiration.plus(TTL_PADDING).getEpochSecond()),
             ":maxTags", n(maxReceipts)))
         .build();
     try {

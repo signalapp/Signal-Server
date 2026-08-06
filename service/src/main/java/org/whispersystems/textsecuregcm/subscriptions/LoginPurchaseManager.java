@@ -5,7 +5,6 @@
 package org.whispersystems.textsecuregcm.subscriptions;
 
 import java.io.IOException;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -26,7 +25,6 @@ public class LoginPurchaseManager {
   private final IssuedReceiptsManager issuedReceiptsManager;
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final long loginLevel;
-  private final Clock clock;
 
   // Signal Login receipt credentials expire after 5 years
   @VisibleForTesting
@@ -39,18 +37,15 @@ public class LoginPurchaseManager {
   /// @param zkReceiptOperations      Used to issue receipt credentials
   /// @param loginLevel               The receipt level that identifies a Signal Login purchase. Purchases for any other
   ///                                 level are rejected.
-  /// @param clock                    A clock
   public LoginPurchaseManager(
       final Map<PaymentProvider, OneTimePaymentProcessor> oneTimePaymentProcessors,
       final IssuedReceiptsManager issuedReceiptsManager,
       final ServerZkReceiptOperations zkReceiptOperations,
-      final long loginLevel,
-      final Clock clock) {
+      final long loginLevel) {
     this.oneTimePaymentProcessors = oneTimePaymentProcessors;
     this.issuedReceiptsManager = issuedReceiptsManager;
     this.zkReceiptOperations = zkReceiptOperations;
     this.loginLevel = loginLevel;
-    this.clock = clock;
   }
 
   /// Verify a completed one-time purchase and issue a receipt credential for it.
@@ -89,19 +84,19 @@ public class LoginPurchaseManager {
       throw new SubscriptionInvalidArgumentsException("purchase was for an unexpected product");
     }
 
-    try {
-      issuedReceiptsManager.recordOneTimeIssuance(paymentDetails.id(), paymentProvider, receiptCredentialRequest,
-          clock.instant());
-    } catch (WriteConflictException _) {
-      throw new SubscriptionReceiptAlreadyRedeemedException();
-    }
-
     // Calculating the expiration from the creation date works for IAP purchases. However, for other processors, the
     // creation date of the payment intent might be days before the payment actually completed. If we support non-IAP
     // processors we should attempt to get the latest date. see OneTimeDonationController/OneTimeDonationManager
     final Instant expiration = paymentDetails.created().plus(LOGIN_EXPIRATION).truncatedTo(ChronoUnit.DAYS);
 
-    return zkReceiptOperations.issueReceiptCredential(
-        receiptCredentialRequest, expiration.getEpochSecond(), loginLevel);
+    try {
+      issuedReceiptsManager.recordOneTimeIssuance(paymentDetails.id(), paymentProvider, receiptCredentialRequest,
+          expiration);
+    } catch (WriteConflictException _) {
+      throw new SubscriptionReceiptAlreadyRedeemedException();
+    }
+
+    return zkReceiptOperations.issueReceiptCredential(receiptCredentialRequest, expiration.getEpochSecond(),
+        loginLevel);
   }
 }

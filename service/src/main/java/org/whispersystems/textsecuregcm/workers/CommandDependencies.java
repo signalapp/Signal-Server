@@ -378,7 +378,6 @@ public record CommandDependencies(
 
     final IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         configuration.getDynamoDbTables().getIssuedReceipts().getTableName(),
-        configuration.getDynamoDbTables().getIssuedReceipts().getExpiration(),
         dynamoDbClient,
         configuration.getDynamoDbTables().getIssuedReceipts().getGenerator(),
         configuration.getDynamoDbTables().getIssuedReceipts().getMaxReceiptsPerSubscriptionPayment());

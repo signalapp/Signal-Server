@@ -303,19 +303,19 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
       throw GrpcExceptions.fieldViolation("receipt_credential_request", "invalid receipt credential request");
     }
 
-    try {
-      issuedReceiptsManager.recordOneTimeIssuance(
-          paymentDetails.id(), processor, receiptCredentialRequest, clock.instant());
-    } catch (final WriteConflictException e) {
-      return CreateBoostReceiptCredentialsResponse.newBuilder()
-          .setReceiptAlreadyIssued(FailedPrecondition.getDefaultInstance()).build();
-    }
-
     final Instant paidAt = oneTimeDonationsManager.getPaidAt(processor, paymentDetails.id(), paymentDetails.created());
     final Instant expiration = paidAt
         .plus(levelDetails.levelExpiration())
         .truncatedTo(ChronoUnit.DAYS)
         .plus(1, ChronoUnit.DAYS);
+
+    try {
+      issuedReceiptsManager.recordOneTimeIssuance(
+          paymentDetails.id(), processor, receiptCredentialRequest, expiration);
+    } catch (final WriteConflictException e) {
+      return CreateBoostReceiptCredentialsResponse.newBuilder()
+          .setReceiptAlreadyIssued(FailedPrecondition.getDefaultInstance()).build();
+    }
 
     final ReceiptCredentialResponse receiptCredentialResponse;
     try {

@@ -810,7 +810,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ProvisioningManager provisioningManager = new ProvisioningManager(pubsubClient);
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
-        config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
         dynamoDbClient,
         config.getDynamoDbTables().getIssuedReceipts().getGenerator(),
         config.getDynamoDbTables().getIssuedReceipts().getMaxReceiptsPerSubscriptionPayment());
@@ -996,8 +995,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             PaymentProvider.GOOGLE_PLAY_BILLING, googlePlayBillingManager),
         issuedReceiptsManager,
         zkReceiptOperations,
-        config.getLoginPurchase().level(),
-        clock);
+        config.getLoginPurchase().level());
 
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
         .stream()

@@ -383,17 +383,17 @@ public class OneTimeDonationController {
     } catch (final InvalidInputException e) {
       throw new BadRequestException("invalid receipt credential request", e);
     }
-    try {
-      issuedReceiptsManager.recordOneTimeIssuance(paymentDetails.id(), request.processor,
-          receiptCredentialRequest, clock.instant());
-    } catch (WriteConflictException _) {
-      throw new WebApplicationException(Response.Status.CONFLICT);
-    }
     final Instant paidAt = oneTimeDonationsManager.getPaidAt(request.processor, paymentDetails.id(), paymentDetails.created());
     final Instant expiration = paidAt
         .plus(levelDetails.levelExpiration())
         .truncatedTo(ChronoUnit.DAYS)
         .plus(1, ChronoUnit.DAYS);
+    try {
+      issuedReceiptsManager.recordOneTimeIssuance(paymentDetails.id(), request.processor,
+          receiptCredentialRequest, expiration);
+    } catch (WriteConflictException _) {
+      throw new WebApplicationException(Response.Status.CONFLICT);
+    }
     final ReceiptCredentialResponse receiptCredentialResponse;
     try {
       receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(

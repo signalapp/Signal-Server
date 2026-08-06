@@ -111,7 +111,6 @@ dynamoDbTables:
     expiration: P7D # Duration of time until rows expire
   issuedReceipts:
     tableName: issued_receipts_test
-    expiration: P30D # Duration of time until rows expire
     generator: abcdefg12345678= # random base64-encoded binary sequence
     maxReceiptsPerSubscriptionPayment:
       STRIPE: 1

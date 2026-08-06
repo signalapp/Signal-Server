@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -211,13 +210,14 @@ public class SubscriptionManager {
     final PaymentProvider processor = record.getProcessorCustomer().orElseThrow().processor();
     final SubscriptionPaymentProcessor manager = getProcessor(processor);
     final SubscriptionPaymentProcessor.ReceiptItem receipt = manager.getReceiptItem(record.subscriptionId);
+    final Instant expirationInstant = expiration.apply(receipt);
     final ReceiptCredentialResponse receiptCredentialResponse;
     try {
       issuedReceiptsManager
-          .recordIssuance(receipt.itemId(), manager.getProvider(), receiptCredentialRequest, subscriberCredentials.now());
+          .recordIssuance(receipt.itemId(), manager.getProvider(), receiptCredentialRequest, expirationInstant);
       receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
           receiptCredentialRequest,
-          expiration.apply(receipt).getEpochSecond(),
+          expirationInstant.getEpochSecond(),
           receipt.level());
     } catch (final VerificationFailedException e) {
       throw new SubscriptionInvalidArgumentsException("receipt credential request failed verification", e);

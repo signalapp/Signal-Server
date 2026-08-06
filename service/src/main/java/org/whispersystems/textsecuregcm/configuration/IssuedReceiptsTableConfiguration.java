@@ -7,13 +7,12 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotEmpty;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.util.EnumMapUtil;
-import java.time.Duration;
 import java.util.EnumMap;
 import java.util.Map;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
+import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 
-public class IssuedReceiptsTableConfiguration extends DynamoDbTables.TableWithExpiration {
+public class IssuedReceiptsTableConfiguration extends DynamoDbTables.Table {
 
   private final byte[] generator;
 
@@ -22,10 +21,9 @@ public class IssuedReceiptsTableConfiguration extends DynamoDbTables.TableWithEx
 
   public IssuedReceiptsTableConfiguration(
       @JsonProperty("tableName") final String tableName,
-      @JsonProperty("expiration") final Duration expiration,
       @JsonProperty("generator") final byte[] generator,
       @JsonProperty("maxReceiptsPerSubscriptionPayment") final Map<PaymentProvider, Integer> maxReceiptsPerSubscriptionPayment) {
-    super(tableName, expiration);
+    super(tableName);
     this.generator = generator;
     this.maxReceiptsPerSubscriptionPayment = EnumMapUtil.toCompleteEnumMap(PaymentProvider.class, maxReceiptsPerSubscriptionPayment);
   }

@@ -339,6 +339,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
 
+    when(ONE_TIME_DONATIONS_MANAGER.getPaidAt(any(), anyString(), any())).thenReturn(Instant.now());
     when(STRIPE_MANAGER.claimOneTimePurchase(any())).thenReturn(Optional.of(new PaymentDetails(
         "id",
         ONETIME_CONFIG.boost().level(),

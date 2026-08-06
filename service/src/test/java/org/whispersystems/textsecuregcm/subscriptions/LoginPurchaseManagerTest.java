@@ -13,10 +13,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Optional;
@@ -47,8 +45,7 @@ class LoginPurchaseManagerTest {
   private static final PaymentProvider PROVIDER = PaymentProvider.APPLE_APP_STORE;
   private static final String PURCHASE_ID = "purchaseId";
   private static final long LEVEL = 123L;
-  private static final Instant NOW = Instant.now();
-  private static final Instant PURCHASED_AT = NOW.minus(Duration.ofHours(3));
+  private static final Instant PURCHASED_AT = Instant.now().minus(Duration.ofHours(3));
   private static final ChargeFailure CHARGE_FAILURE =
       new ChargeFailure("generic_decline", "some failure message", null, null, null);
 
@@ -74,8 +71,7 @@ class LoginPurchaseManagerTest {
         Map.of(PROVIDER, paymentProcessor),
         issuedReceiptsManager,
         new ServerZkReceiptOperations(SERVER_SECRET_PARAMS),
-        LEVEL,
-        Clock.fixed(NOW, ZoneOffset.UTC));
+        LEVEL);
   }
 
   @Test
@@ -88,14 +84,15 @@ class LoginPurchaseManagerTest {
     final ReceiptCredential receiptCredential =
         clientZkReceiptOperations.receiveReceiptCredential(receiptCredentialRequestContext, receipt);
 
-    assertThat(receiptCredential.getReceiptLevel()).isEqualTo(LEVEL);
-    assertThat(receiptCredential.getReceiptExpirationTime()).isEqualTo(PURCHASED_AT
+    final Instant expectedExpiration = PURCHASED_AT
         .plus(LoginPurchaseManager.LOGIN_EXPIRATION)
-        .truncatedTo(ChronoUnit.DAYS)
-        .getEpochSecond());
+        .truncatedTo(ChronoUnit.DAYS);
+
+    assertThat(receiptCredential.getReceiptLevel()).isEqualTo(LEVEL);
+    assertThat(receiptCredential.getReceiptExpirationTime()).isEqualTo(expectedExpiration.getEpochSecond());
 
     verify(issuedReceiptsManager).recordOneTimeIssuance(
-        PURCHASE_ID, PROVIDER, receiptCredentialRequestContext.getRequest(), NOW);
+        PURCHASE_ID, PROVIDER, receiptCredentialRequestContext.getRequest(), expectedExpiration);
   }
 
   static Stream<Arguments> generateReceiptErrors() {
@@ -119,18 +116,16 @@ class LoginPurchaseManagerTest {
   void generateReceiptErrors(final Optional<PaymentDetails> paymentDetails, final Class<? extends Exception> expectedException)
       throws SubscriptionInvalidArgumentsException, RateLimitExceededException, IOException {
     when(paymentProcessor.claimOneTimePurchase(PURCHASE_ID)).thenReturn(paymentDetails);
-    assertThatExceptionOfType(expectedException).isThrownBy(() -> {
-      loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest());
-    });
+    assertThatExceptionOfType(expectedException).isThrownBy(() ->
+        loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest()));
   }
 
   @Test
   void generateReceiptUnknownLevel() throws Exception {
     when(paymentProcessor.claimOneTimePurchase(PURCHASE_ID))
         .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, null, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
-    assertThatExceptionOfType(SubscriptionInvalidArgumentsException.class).isThrownBy(() -> {
-      loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest());
-    });
+    assertThatExceptionOfType(SubscriptionInvalidArgumentsException.class).isThrownBy(() ->
+      loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest()));
     verifyNoInteractions(issuedReceiptsManager);
   }
 
@@ -138,9 +133,8 @@ class LoginPurchaseManagerTest {
   void generateReceiptNonLoginLevel() throws Exception {
     when(paymentProcessor.claimOneTimePurchase(PURCHASE_ID))
         .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL + 1, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
-    assertThatExceptionOfType(SubscriptionInvalidArgumentsException.class).isThrownBy(() -> {
-      loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest());
-    });
+    assertThatExceptionOfType(SubscriptionInvalidArgumentsException.class).isThrownBy(() ->
+      loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest()));
     verifyNoInteractions(issuedReceiptsManager);
   }
 
@@ -150,8 +144,7 @@ class LoginPurchaseManagerTest {
         .thenReturn(Optional.of(new PaymentDetails(PURCHASE_ID, LEVEL, PaymentStatus.SUCCEEDED, PURCHASED_AT, null)));
     doThrow(new WriteConflictException())
         .when(issuedReceiptsManager).recordOneTimeIssuance(any(), any(), any(), any());
-    assertThatExceptionOfType(SubscriptionReceiptAlreadyRedeemedException.class).isThrownBy(() -> {
-      loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest());
-    });
+    assertThatExceptionOfType(SubscriptionReceiptAlreadyRedeemedException.class).isThrownBy(() ->
+      loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest()));
   }
 }
