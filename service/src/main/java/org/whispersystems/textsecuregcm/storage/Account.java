@@ -689,8 +689,8 @@ public class Account {
   public Optional<SaltedTokenHash> getAccountRecoveryPassword() {
     requireNotStale();
 
-    return accountRecoveryPasswordSalt != null && accountRecoveryPasswordHash != null
-        ? Optional.of(new SaltedTokenHash(accountRecoveryPasswordSalt, accountRecoveryPasswordHash))
+    return accountRecoveryPasswordHash != null && accountRecoveryPasswordSalt != null
+        ? Optional.of(new SaltedTokenHash(accountRecoveryPasswordHash, accountRecoveryPasswordSalt))
         : Optional.empty();
   }
 
