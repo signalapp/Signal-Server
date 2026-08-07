@@ -2439,6 +2439,62 @@ paths:
           description: Invalid request format.
       security:
       - authenticatedAccount: []
+  /v1/login-purchase/receipt_credentials:
+    post:
+      tags:
+      - LoginPurchase
+      summary: Create a receipt credential for a completed one-time login purchase
+      description: |
+        Verify a completed one-time purchase with the payment provider and issue a receipt credential that can be
+        redeemed for a login.
+
+        This endpoint must be called on an unauthenticated connection. Retries for the same purchaseIdentifier MUST
+        use the same receiptCredentialRequest.
+      operationId: createLoginReceiptCredential
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLoginReceiptCredentialRequest"
+        required: true
+      responses:
+        "200":
+          description: Successfully created receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateLoginReceiptCredentialResponse"
+        "204":
+          description: The purchase is still pending with the payment provider. The
+            client may retry later.
+        "400":
+          description: |
+            Invalid request: malformed request, failed zkgroup verification, unsupported paymentProvider, the provided
+            purchase identifier not for a Signal Login, or login purchases are not currently enabled.
+        "402":
+          description: The purchase did not complete successfully. The body may include
+            ChargeFailure details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeFailureResponse"
+        "403":
+          description: The request was made on an authenticated channel
+        "404":
+          description: The payment provider has no purchase with the provided purchaseIdentifier
+        "409":
+          description: "The purchase was already redeemed for a receipt credential,\
+            \ but with a different receipt credential request"
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, a positive integer indicating the number of\
+                \ seconds before a subsequent attempt could succeed"
+              style: simple
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/messages/report/{source}/{messageGuid}:
     post:
       tags:
@@ -5534,6 +5590,85 @@ components:
             $ref: "#/components/schemas/KEMSignedPreKey"
         pqLastResortPreKey:
           $ref: "#/components/schemas/KEMSignedPreKey"
+    CreateLoginReceiptCredentialResponse:
+      type: object
+      properties:
+        receiptCredentialResponse:
+          type: string
+          format: byte
+    ChargeFailure:
+      type: object
+      properties:
+        code:
+          type: string
+          description: |
+            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
+            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
+            depending on which processor was used
+        message:
+          type: string
+          description: |
+            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
+            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
+            depending on which processor was used
+        outcomeNetworkStatus:
+          type: string
+          nullable: true
+          externalDocs:
+            description: Outcome Network Status
+            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status
+        outcomeReason:
+          type: string
+          nullable: true
+          externalDocs:
+            description: Outcome Reason
+            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-reason
+        outcomeType:
+          type: string
+          nullable: true
+          externalDocs:
+            description: Outcome Type
+            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-type
+      description: |2
+          Meaningfully interpreting chargeFailure response fields requires inspecting the processor field first.
+
+          For Stripe, code will be one of the [codes defined here](https://stripe.com/docs/api/charges/object#charge_object-failure_code),
+          while message [may contain a further textual description](https://stripe.com/docs/api/charges/object#charge_object-failure_message).
+          The outcome fields are nullable, but present values will directly map to Stripe [response properties](https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status)
+
+          For Braintree, the outcome fields will be null. The code and message will contain one of
+            - a processor decline code (as a string) in code, and associated text in message, as defined this [table](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses)
+            - `gateway` in code, with a [reason](https://developer.paypal.com/braintree/articles/control-panel/transactions/gateway-rejections) in message
+            - `code` = "unknown", message = "unknown"
+
+          IAP payment processors will never include charge failure information, and detailed order information should be
+          retrieved from the payment processor directly
+    ChargeFailureResponse:
+      type: object
+      properties:
+        processor:
+          type: string
+        chargeFailure:
+          $ref: "#/components/schemas/ChargeFailure"
+    CreateLoginReceiptCredentialRequest:
+      required:
+      - paymentProvider
+      - purchaseIdentifier
+      - receiptCredentialRequest
+      type: object
+      properties:
+        purchaseIdentifier:
+          type: string
+        receiptCredentialRequest:
+          type: string
+          format: byte
+        paymentProvider:
+          type: string
+          enum:
+          - STRIPE
+          - BRAINTREE
+          - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
     SpamReport:
       type: object
       properties:
@@ -6341,60 +6476,6 @@ components:
           - BRAINTREE
           - GOOGLE_PLAY_BILLING
           - APPLE_APP_STORE
-    ChargeFailure:
-      type: object
-      properties:
-        code:
-          type: string
-          description: |
-            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
-            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
-            depending on which processor was used
-        message:
-          type: string
-          description: |
-            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
-            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
-            depending on which processor was used
-        outcomeNetworkStatus:
-          type: string
-          nullable: true
-          externalDocs:
-            description: Outcome Network Status
-            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status
-        outcomeReason:
-          type: string
-          nullable: true
-          externalDocs:
-            description: Outcome Reason
-            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-reason
-        outcomeType:
-          type: string
-          nullable: true
-          externalDocs:
-            description: Outcome Type
-            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-type
-      description: |2
-          Meaningfully interpreting chargeFailure response fields requires inspecting the processor field first.
-
-          For Stripe, code will be one of the [codes defined here](https://stripe.com/docs/api/charges/object#charge_object-failure_code),
-          while message [may contain a further textual description](https://stripe.com/docs/api/charges/object#charge_object-failure_message).
-          The outcome fields are nullable, but present values will directly map to Stripe [response properties](https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status)
-
-          For Braintree, the outcome fields will be null. The code and message will contain one of
-            - a processor decline code (as a string) in code, and associated text in message, as defined this [table](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses)
-            - `gateway` in code, with a [reason](https://developer.paypal.com/braintree/articles/control-panel/transactions/gateway-rejections) in message
-            - `code` = "unknown", message = "unknown"
-
-          IAP payment processors will never include charge failure information, and detailed order information should be
-          retrieved from the payment processor directly
-    ChargeFailureResponse:
-      type: object
-      properties:
-        processor:
-          type: string
-        chargeFailure:
-          $ref: "#/components/schemas/ChargeFailure"
     GetReceiptCredentialsRequest:
       required:
       - receiptCredentialRequest
@@ -6511,6 +6592,8 @@ components:
             configuration
         backup:
           $ref: "#/components/schemas/BackupConfiguration"
+        login:
+          $ref: "#/components/schemas/LoginConfiguration"
         sepaMaximumEuros:
           type: number
           description: The maximum value of a one-time donation SEPA transaction
@@ -6526,6 +6609,20 @@ components:
           $ref: "#/components/schemas/Badge"
       description: Configuration for a donation level - use to present appropriate
         client interfaces
+    LoginConfiguration:
+      type: object
+      properties:
+        level:
+          type: integer
+          description: The receipt level associated with a Signal Login purchase
+          format: int64
+        playProductId:
+          type: string
+          description: The play billing productID associated with a Signal Login purchase
+        appStoreProductId:
+          type: string
+          description: The App Store productID associated with a Signal Login purchase
+      description: Configuration for one-time Signal Login purchases
     GetSubscriptionInformationResponse:
       type: object
       properties:
