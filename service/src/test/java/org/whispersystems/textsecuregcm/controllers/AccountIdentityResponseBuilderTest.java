@@ -10,7 +10,13 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.Entitlements;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
@@ -64,4 +70,24 @@ class AccountIdentityResponseBuilderTest {
         .containsExactly("badge1", "badge2");
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void build(final boolean hasPhoneNumber) {
+    final Account account = mock(Account.class);
+    when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
+
+    when(account.getNumberOptional()).thenReturn(hasPhoneNumber
+        ? Optional.of(PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164))
+        : Optional.empty());
+
+    when(account.getPhoneNumberIdentifierOptional())
+        .thenReturn(hasPhoneNumber ? Optional.of(UUID.randomUUID()) : Optional.empty());
+
+    final AccountIdentityResponse accountIdentityResponse = new AccountIdentityResponseBuilder(account).build();
+
+    assertThat(accountIdentityResponse.uuid()).isEqualTo(account.getAccountIdentifier());
+    assertThat(accountIdentityResponse.number()).isEqualTo(account.getNumberOptional());
+    assertThat(accountIdentityResponse.pni()).isEqualTo(account.getPhoneNumberIdentifierOptional());
+  }
 }
