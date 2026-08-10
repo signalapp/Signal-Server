@@ -1362,7 +1362,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return cacheCluster.withCluster(connection -> CompletableFuture.allOf(
         account.getPhoneNumberIdentifierOptional().map(pni ->
                 connection.async().setex(getAccountMapKey(pni.toString()), CACHE_TTL_SECONDS, account.getAccountIdentifier().toString())
-            .toCompletableFuture())
+                    .toCompletableFuture())
             .orElseGet(() -> CompletableFuture.completedFuture(null)),
         connection.async().setex(getAccountEntityKey(account.getAccountIdentifier()), CACHE_TTL_SECONDS, accountJson)
             .toCompletableFuture()));
