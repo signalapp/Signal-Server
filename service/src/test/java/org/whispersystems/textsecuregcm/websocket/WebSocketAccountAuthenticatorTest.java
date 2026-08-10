@@ -12,7 +12,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.net.HttpHeaders;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.dropwizard.auth.basic.BasicCredentials;
 import java.time.Instant;
 import java.util.Optional;
@@ -32,13 +31,11 @@ import org.whispersystems.websocket.auth.InvalidCredentialsException;
 
 class WebSocketAccountAuthenticatorTest {
 
-  private static final String VALID_USER = PhoneNumberUtil.getInstance().format(
-      PhoneNumberUtil.getInstance().getExampleNumber("NZ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+  private static final UUID VALID_USER = UUID.randomUUID();
 
   private static final String VALID_PASSWORD = "valid";
 
-  private static final String INVALID_USER = PhoneNumberUtil.getInstance().format(
-      PhoneNumberUtil.getInstance().getExampleNumber("AU"), PhoneNumberUtil.PhoneNumberFormat.E164);
+  private static final UUID INVALID_USER = UUID.randomUUID();
 
   private static final String INVALID_PASSWORD = "invalid";
 
@@ -50,10 +47,10 @@ class WebSocketAccountAuthenticatorTest {
   void setUp() {
     accountAuthenticator = mock(AccountAuthenticator.class);
 
-    when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
+    when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER.toString(), VALID_PASSWORD))))
         .thenReturn(Optional.of(new AuthenticatedDevice(UUID.randomUUID(), Device.PRIMARY_ID, Instant.now())));
 
-    when(accountAuthenticator.authenticate(eq(new BasicCredentials(INVALID_USER, INVALID_PASSWORD))))
+    when(accountAuthenticator.authenticate(eq(new BasicCredentials(INVALID_USER.toString(), INVALID_PASSWORD))))
         .thenReturn(Optional.empty());
 
     upgradeRequest = mock(JettyServerUpgradeRequest.class);
@@ -81,9 +78,9 @@ class WebSocketAccountAuthenticatorTest {
 
   private static Stream<Arguments> testAuthenticate() {
     final String headerWithValidAuth =
-        HeaderUtils.basicAuthHeader(VALID_USER, VALID_PASSWORD);
+        HeaderUtils.basicAuthHeader(VALID_USER.toString(), VALID_PASSWORD);
     final String headerWithInvalidAuth =
-        HeaderUtils.basicAuthHeader(INVALID_USER, INVALID_PASSWORD);
+        HeaderUtils.basicAuthHeader(INVALID_USER.toString(), INVALID_PASSWORD);
     return Stream.of(
         Arguments.of(headerWithValidAuth, true, false),
         Arguments.of(headerWithInvalidAuth, false, true),
