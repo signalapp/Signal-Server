@@ -32,16 +32,16 @@ class AccountChangeValidator {
 
   public void validateChange(final Account originalAccount, final Account updatedAccount) {
     if (!allowNumberChange) {
-      assert updatedAccount.getNumber().equals(originalAccount.getNumber());
+      assert updatedAccount.getNumberOptional().equals(originalAccount.getNumberOptional());
 
-      if (!updatedAccount.getNumber().equals(originalAccount.getNumber())) {
+      if (!updatedAccount.getNumberOptional().equals(originalAccount.getNumberOptional())) {
         logger.error("Account number changed via \"normal\" update; numbers must be changed via changeNumber method",
             new RuntimeException());
       }
 
-      assert updatedAccount.getPhoneNumberIdentifier().equals(originalAccount.getPhoneNumberIdentifier());
+      assert updatedAccount.getPhoneNumberIdentifierOptional().equals(originalAccount.getPhoneNumberIdentifierOptional());
 
-      if (!updatedAccount.getPhoneNumberIdentifier().equals(originalAccount.getPhoneNumberIdentifier())) {
+      if (!updatedAccount.getPhoneNumberIdentifierOptional().equals(originalAccount.getPhoneNumberIdentifierOptional())) {
         logger.error(
             "Phone number identifier changed via \"normal\" update; PNIs must be changed via changeNumber method",
             new RuntimeException());
