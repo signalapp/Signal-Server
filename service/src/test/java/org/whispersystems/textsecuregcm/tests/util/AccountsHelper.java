@@ -13,6 +13,7 @@ import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,12 +23,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import jakarta.annotation.Nullable;
 import org.junit.platform.commons.util.StringUtils;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceAttributes;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -38,6 +41,8 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceIdentityInfo;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
+import org.whispersystems.textsecuregcm.storage.ReceiptAlreadyRedeemedException;
+import org.whispersystems.textsecuregcm.storage.ReceiptCredentialTestUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
@@ -277,41 +282,90 @@ public class AccountsHelper {
     return updatedAccount;
   }
 
-  public static Account createAccount(final AccountsManager accountsManager, final String e164)
-      throws InterruptedException {
-
-    return createAccount(accountsManager, e164, new AccountAttributes().setDeviceAttributes(
-        new DeviceAttributes(false, 1, 1, new byte[0], Collections.emptySet())));
+  public static Account createAccount(final AccountsManager accountsManager, final String e164) {
+    return new AccountBuilder(accountsManager).e164(e164).build();
   }
 
-  public static Account createAccount(final AccountsManager accountsManager, final String e164, final AccountAttributes accountAttributes)
-      throws InterruptedException {
+  public static class AccountBuilder {
 
-    return createAccount(accountsManager, e164, accountAttributes, ECKeyPair.generate(), ECKeyPair.generate());
-  }
+    private final AccountsManager accountsManager;
 
-  public static Account createAccount(final AccountsManager accountsManager,
-      final String e164,
-      final AccountAttributes accountAttributes,
-      final ECKeyPair aciKeyPair,
-      final ECKeyPair pniKeyPair) throws InterruptedException {
+    @Nullable
+    private String e164;
 
-    return accountsManager.create(e164,
-        accountAttributes,
-        new ArrayList<>(),
-        new IdentityKey(aciKeyPair.getPublicKey()),
-        new IdentityKey(pniKeyPair.getPublicKey()),
-        new DeviceSpec(
-            accountAttributes.getName(),
-            "password",
-            "OWT",
-            accountAttributes.getCapabilities(),
-            new DeviceIdentityInfo(accountAttributes.getRegistrationId(), KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
-            Optional.of(new DeviceIdentityInfo(accountAttributes.getPhoneNumberIdentityRegistrationId().orElseThrow(() -> new AssertionError("Must provide PNI registration ID for account with number")),
-                KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
-            accountAttributes.getFetchesMessages(),
-            Optional.empty(),
-            Optional.empty()),
-        null);
+    @Nullable
+    private AccountAttributes accountAttributes;
+
+    public AccountBuilder(final AccountsManager accountsManager) {
+      this.accountsManager = accountsManager;
+    }
+
+    public AccountBuilder e164(@Nullable final String e164) {
+      this.e164 = e164;
+      return this;
+    }
+
+    public AccountBuilder accountAttributes(final AccountAttributes accountAttributes) {
+      this.accountAttributes = accountAttributes;
+      return this;
+    }
+
+    public Account build() {
+      final AccountAttributes accountAttributes = this.accountAttributes != null
+          ? this.accountAttributes
+          : new AccountAttributes()
+              .setDeviceAttributes(new DeviceAttributes(false, 1, e164 != null ? 1 : null, new byte[0], Collections.emptySet()))
+              .setRecoveryPassword(TestRandomUtil.nextBytes(32));
+
+      final ECKeyPair aciKeyPair = ECKeyPair.generate();
+      final ECKeyPair pniKeyPair = ECKeyPair.generate();
+
+      final DeviceSpec primaryDeviceSpec = new DeviceSpec(
+          accountAttributes.getName(),
+          "password",
+          "OWT",
+          accountAttributes.getCapabilities(),
+          new DeviceIdentityInfo(
+              accountAttributes.getRegistrationId(),
+              KeysHelper.signedECPreKey(1, aciKeyPair),
+              KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+          Optional.ofNullable(e164).map(_ -> new DeviceIdentityInfo(
+              accountAttributes.getPhoneNumberIdentityRegistrationId()
+                  .orElseThrow(() -> new AssertionError("Missing PNI registration ID")),
+              KeysHelper.signedECPreKey(2, pniKeyPair),
+              KeysHelper.signedKEMPreKey(4, pniKeyPair))),
+          accountAttributes.getFetchesMessages(),
+          Optional.empty(),
+          Optional.empty());
+
+      if (e164 != null) {
+        return accountsManager.create(e164,
+            accountAttributes,
+            new ArrayList<>(),
+            new IdentityKey(aciKeyPair.getPublicKey()),
+            new IdentityKey(pniKeyPair.getPublicKey()),
+            primaryDeviceSpec,
+            null);
+      } else {
+        try {
+          return accountsManager.create(accountAttributes,
+              new ArrayList<>(),
+              new IdentityKey(aciKeyPair.getPublicKey()),
+              generateReceiptCredentialPresentation(),
+              primaryDeviceSpec,
+              null);
+        } catch (ReceiptAlreadyRedeemedException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+
+    private static ReceiptCredentialPresentation generateReceiptCredentialPresentation() {
+      try {
+        return ReceiptCredentialTestUtil.receiptPresentation();
+      } catch (final InvalidInputException | VerificationFailedException e) {
+        throw new AssertionError("Failed to generate receipt credential presentation", e);
+      }
+    }
   }
 }

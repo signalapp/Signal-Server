@@ -231,7 +231,9 @@ class AccountsManagerChangeNumberIntegrationTest {
     final KEMSignedPreKey rotatedKemSignedPreKey = KeysHelper.signedKEMPreKey(2L, rotatedPniIdentityKeyPair);
     final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, rotatedPniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of(),
         null);
-    final Account account = AccountsHelper.createAccount(accountsManager, originalNumber, accountAttributes);
+    final Account account = new AccountsHelper.AccountBuilder(accountsManager)
+        .e164(originalNumber)
+        .accountAttributes(accountAttributes).build();
 
     keysManager.storeEcSignedPreKeys(account.getIdentifier(IdentityType.ACI),
         Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, rotatedPniIdentityKeyPair)).join();
