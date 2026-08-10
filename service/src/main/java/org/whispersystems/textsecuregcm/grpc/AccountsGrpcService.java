@@ -316,7 +316,13 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   @Override
   public SetDiscoverableByPhoneNumberResponse setDiscoverableByPhoneNumber(final SetDiscoverableByPhoneNumberRequest request) {
     accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
-        account -> account.setDiscoverableByPhoneNumber(request.getDiscoverableByPhoneNumber()));
+        account -> {
+          if (account.getNumberOptional().isEmpty()) {
+            throw GrpcExceptions.invalidArguments("account does not have a phone number");
+          }
+
+          account.setDiscoverableByPhoneNumber(request.getDiscoverableByPhoneNumber());
+        });
 
     return SetDiscoverableByPhoneNumberResponse.getDefaultInstance();
   }

@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -161,33 +162,43 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         changeNumberManager);
   }
 
-  @Test
-  void getAuthenticatedAccountIdentity() {
-    final UUID phoneNumberIdentifier = UUID.randomUUID();
-    final String e164 = PhoneNumberUtil.getInstance().format(
-        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
-
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void getAuthenticatedAccountIdentity(final boolean hasPhoneNumber) {
     final byte[] usernameHash = TestRandomUtil.nextBytes(32);
     final UUID usernameLinkHandle = UUID.randomUUID();
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
-    when(account.getNumberOptional()).thenReturn(Optional.of(e164));
     when(account.getUsernameHash()).thenReturn(Optional.of(usernameHash));
     when(account.getUsernameLinkHandle()).thenReturn(usernameLinkHandle);
+
+    final AccountIdentifiers.Builder expectedIdentifiersBuilder = AccountIdentifiers.newBuilder()
+        .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(AUTHENTICATED_ACI)))
+        .setUsernameHash(ByteString.copyFrom(usernameHash))
+        .setUsernameLinkHandle(UUIDUtil.toByteString(usernameLinkHandle));
+
+    if (hasPhoneNumber) {
+      final UUID phoneNumberIdentifier = UUID.randomUUID();
+      final String e164 = PhoneNumberUtil.getInstance().format(
+          PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+      expectedIdentifiersBuilder
+          .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new PniServiceIdentifier(phoneNumberIdentifier)))
+          .setE164(e164);
+
+      when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
+      when(account.getNumberOptional()).thenReturn(Optional.of(e164));
+    } else {
+      when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+      when(account.getNumberOptional()).thenReturn(Optional.empty());
+    }
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
     final GetAccountIdentityResponse expectedResponse = GetAccountIdentityResponse.newBuilder()
-        .setAccountIdentifiers(AccountIdentifiers.newBuilder()
-            .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(AUTHENTICATED_ACI)))
-            .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new PniServiceIdentifier(phoneNumberIdentifier)))
-            .setE164(e164)
-            .setUsernameHash(ByteString.copyFrom(usernameHash))
-            .setUsernameLinkHandle(UUIDUtil.toByteString(usernameLinkHandle))
-            .build())
+        .setAccountIdentifiers(expectedIdentifiersBuilder.build())
         .build();
 
     assertEquals(expectedResponse, authenticatedServiceStub().getAccountIdentity(GetAccountIdentityRequest.newBuilder().build()));
@@ -703,12 +714,35 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
+    when(account.getNumberOptional())
+        .thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
+            PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
+
     assertDoesNotThrow(() ->
         authenticatedServiceStub().setDiscoverableByPhoneNumber(SetDiscoverableByPhoneNumberRequest.newBuilder()
             .setDiscoverableByPhoneNumber(discoverableByPhoneNumber)
             .build()));
 
     verify(account).setDiscoverableByPhoneNumber(discoverableByPhoneNumber);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void setDiscoverableByPhoneNumberNoPhoneNumber(final boolean discoverableByPhoneNumber) {
+    final Account account = mock(Account.class);
+
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    when(account.getNumberOptional())
+        .thenReturn(Optional.empty());
+
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
+        authenticatedServiceStub().setDiscoverableByPhoneNumber(SetDiscoverableByPhoneNumberRequest.newBuilder()
+            .setDiscoverableByPhoneNumber(discoverableByPhoneNumber)
+            .build()));
+
+    verify(account, never()).setDiscoverableByPhoneNumber(anyBoolean());
   }
 
   @Test
