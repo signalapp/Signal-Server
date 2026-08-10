@@ -146,7 +146,7 @@ public class Util {
           alternateE164 = "+22901" + nationalSignificantNumber;
         }
 
-        return List.of(number, alternateE164);
+        return number.equals(alternateE164) ? List.of(number) : List.of(number, alternateE164);
       }
 
       return List.of(number);
