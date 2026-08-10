@@ -28,6 +28,7 @@ class UtilTest {
   private static final String NEW_FORMAT_BENIN_E164_STRING = PhoneNumberUtil.getInstance()
       .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
   private static final String OLD_FORMAT_BENIN_E164_STRING = NEW_FORMAT_BENIN_E164_STRING.replaceFirst("01", "");
+  private static final String TEN_DIGIT_NATIONAL_SIGNIFICANT_BENIN_E164 = "+2291234567890";
 
   @ParameterizedTest
   @MethodSource
@@ -42,7 +43,8 @@ class UtilTest {
     return List.of(
         Arguments.of(usE164, List.of(usE164)),
         Arguments.of(NEW_FORMAT_BENIN_E164_STRING, List.of(NEW_FORMAT_BENIN_E164_STRING, OLD_FORMAT_BENIN_E164_STRING)),
-        Arguments.of(OLD_FORMAT_BENIN_E164_STRING, List.of(OLD_FORMAT_BENIN_E164_STRING, NEW_FORMAT_BENIN_E164_STRING))
+        Arguments.of(OLD_FORMAT_BENIN_E164_STRING, List.of(OLD_FORMAT_BENIN_E164_STRING, NEW_FORMAT_BENIN_E164_STRING)),
+        Arguments.of(TEN_DIGIT_NATIONAL_SIGNIFICANT_BENIN_E164, List.of(TEN_DIGIT_NATIONAL_SIGNIFICANT_BENIN_E164))
     );
   }
 
