@@ -269,7 +269,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @ParameterizedTest
   @ValueSource(bytes = { Device.PRIMARY_ID, Device.PRIMARY_ID + 1 })
   void clearRegistrationLock(final byte deviceId) {
-    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
+    getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
     final Account account = mock(Account.class);
 
