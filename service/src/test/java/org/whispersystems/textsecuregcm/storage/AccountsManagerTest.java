@@ -198,6 +198,11 @@ class AccountsManagerTest {
       return task.get();
     }).when(accountLockManager).withLock(anySet(), any(), any());
 
+    doAnswer(invocation -> {
+      final ThrowingSupplier<?, ?> task = invocation.getArgument(1);
+      return task.get();
+    }).when(accountLockManager).withSingleAccountLock(any(Account.class), any(), any());
+
     final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
         mock(PhoneNumberRecoveryPasswordsManager.class);
 
@@ -678,7 +683,7 @@ class AccountsManagerTest {
 
     assertTrue(account.getDevice(linkedDevice.getId()).isPresent());
 
-    account = accountsManager.removeDevice(account.getIdentifier(IdentityType.ACI), linkedDevice.getId());
+    account = accountsManager.removeDevice(account.getAccountIdentifier(), linkedDevice.getId());
 
     assertFalse(account.getDevice(linkedDevice.getId()).isPresent());
     verify(messagesManager, times(2)).clear(account.getAccountIdentifier(), linkedDevice.getId());
@@ -698,7 +703,7 @@ class AccountsManagerTest {
     when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     assertThrows(IllegalArgumentException.class,
-        () -> accountsManager.removeDevice(account.getIdentifier(IdentityType.ACI), Device.PRIMARY_ID));
+        () -> accountsManager.removeDevice(account.getAccountIdentifier(), Device.PRIMARY_ID));
 
     assertDoesNotThrow(account::getPrimaryDevice);
     verify(messagesManager, never()).clear(any(), anyByte());

@@ -710,11 +710,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     }
 
     // Always fetch a fresh, non-cached copy of the account before making modifications
-    final UUID phoneNumberIdentifier = accounts.getByAccountIdentifier(accountIdentifier)
-        .map(account -> account.getIdentifier(IdentityType.PNI))
+    final Account account = accounts.getByAccountIdentifier(accountIdentifier)
         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
 
-    return accountLockManager.withLock(Set.of(phoneNumberIdentifier),
+    return accountLockManager.withSingleAccountLock(account,
         () -> removeDevice(accountIdentifier, deviceId, MAX_UPDATE_ATTEMPTS),
         accountLockExecutor);
   }
@@ -732,7 +731,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(
         keysManager.buildWriteItemsForRemovedDevice(
-            account.getIdentifier(IdentityType.ACI),
+            account.getAccountIdentifier(),
             account.getPhoneNumberIdentifierOptional(),
             deviceId));
     try {
@@ -1058,9 +1057,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final Account account = accounts.getByAccountIdentifier(accountIdentifier)
         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
 
-    return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()), () -> {
+    return accountLockManager.withSingleAccountLock(account, () -> {
       final Account maybeUpdatedAccount = update(accountIdentifier, a -> {
-        if (!a.getCurrentProfileVersion().orElse(new byte[0]).equals(expectedCurrentVersion)) {
+        if (!Arrays.equals(a.getCurrentProfileVersion().orElse(new byte[0]), expectedCurrentVersion)) {
           return false;
         }
 
@@ -1071,7 +1070,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         return true;
       });
 
-      if (!maybeUpdatedAccount.getCurrentProfileVersion().map(v -> v.equals(newVersion)).orElse(false)) {
+      if (!maybeUpdatedAccount.getCurrentProfileVersion().map(v -> Arrays.equals(v, newVersion)).orElse(false)) {
         throw new WriteConflictException();
       }
 
