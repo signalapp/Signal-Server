@@ -30,7 +30,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -40,10 +39,10 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 
 class AccountAuthenticatorTest {
 
-  private final long               today        = 1590451200000L;
-  private final long               yesterday    = today - 86_400_000L;
-  private final long               oldTime      = yesterday - 86_400_000L;
-  private final long               currentTime  = today + 68_000_000L;
+  private final long today = 1590451200000L;
+  private final long yesterday = today - 86_400_000L;
+  private final long oldTime = yesterday - 86_400_000L;
+  private final long currentTime = today + 68_000_000L;
 
   private AccountsManager          accountsManager;
   private AccountAuthenticator accountAuthenticator;
@@ -87,8 +86,8 @@ class AccountAuthenticatorTest {
     accountAuthenticator.updateLastSeen(acct1, device1);
     accountAuthenticator.updateLastSeen(acct2, device2);
 
-    verify(accountsManager, never()).updateDeviceLastSeen(eq(acct1.getIdentifier(IdentityType.ACI)), any(), anyLong());
-    verify(accountsManager).updateDeviceLastSeen(eq(acct2.getIdentifier(IdentityType.ACI)), eq(device2), anyLong());
+    verify(accountsManager, never()).updateDeviceLastSeen(eq(acct1.getAccountIdentifier()), any(), anyLong());
+    verify(accountsManager).updateDeviceLastSeen(eq(acct2.getAccountIdentifier()), eq(device2), anyLong());
 
     assertThat(device1.getLastSeen()).isEqualTo(yesterday);
     assertThat(device2.getLastSeen()).isEqualTo(today);
@@ -104,8 +103,8 @@ class AccountAuthenticatorTest {
     accountAuthenticator.updateLastSeen(acct1, device1);
     accountAuthenticator.updateLastSeen(acct2, device2);
 
-    verify(accountsManager, never()).updateDeviceLastSeen(eq(acct1.getIdentifier(IdentityType.ACI)), any(), anyLong());
-    verify(accountsManager, never()).updateDeviceLastSeen(eq(acct2.getIdentifier(IdentityType.ACI)), any(), anyLong());
+    verify(accountsManager, never()).updateDeviceLastSeen(eq(acct1.getAccountIdentifier()), any(), anyLong());
+    verify(accountsManager, never()).updateDeviceLastSeen(eq(acct2.getAccountIdentifier()), any(), anyLong());
 
     assertThat(device1.getLastSeen()).isEqualTo(yesterday);
     assertThat(device2.getLastSeen()).isEqualTo(yesterday);
@@ -121,8 +120,8 @@ class AccountAuthenticatorTest {
     accountAuthenticator.updateLastSeen(acct1, device1);
     accountAuthenticator.updateLastSeen(acct2, device2);
 
-    verify(accountsManager).updateDeviceLastSeen(eq(acct1.getIdentifier(IdentityType.ACI)), eq(device1), anyLong());
-    verify(accountsManager).updateDeviceLastSeen(eq(acct2.getIdentifier(IdentityType.ACI)), eq(device2), anyLong());
+    verify(accountsManager).updateDeviceLastSeen(eq(acct1.getAccountIdentifier()), eq(device1), anyLong());
+    verify(accountsManager).updateDeviceLastSeen(eq(acct2.getAccountIdentifier()), eq(device2), anyLong());
 
     assertThat(device1.getLastSeen()).isEqualTo(today);
     assertThat(device2.getLastSeen()).isEqualTo(today);
@@ -136,7 +135,7 @@ class AccountAuthenticatorTest {
 
     accountAuthenticator.updateLastSeen(oldAccount, device);
 
-    verify(accountsManager).updateDeviceLastSeen(eq(oldAccount.getIdentifier(IdentityType.ACI)), eq(device), anyLong());
+    verify(accountsManager).updateDeviceLastSeen(eq(oldAccount.getAccountIdentifier()), eq(device), anyLong());
 
     assertThat(device.getLastSeen()).isEqualTo(today);
   }
@@ -154,7 +153,6 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getAccountIdentifier()).thenReturn(uuid);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.getPrimaryDevice()).thenReturn(device);
     when(device.getId()).thenReturn(deviceId);
@@ -182,7 +180,6 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getAccountIdentifier()).thenReturn(uuid);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.getPrimaryDevice()).thenReturn(device);
     when(device.getId()).thenReturn(deviceId);
@@ -211,7 +208,6 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getAccountIdentifier()).thenReturn(uuid);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(authenticatedDevice));
     when(account.getPrimaryDevice()).thenReturn(authenticatedDevice);
     when(authenticatedDevice.getId()).thenReturn(deviceId);
@@ -251,7 +247,6 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getAccountIdentifier()).thenReturn(uuid);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.getPrimaryDevice()).thenReturn(device);
     when(device.getId()).thenReturn(deviceId);
@@ -278,7 +273,6 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getAccountIdentifier()).thenReturn(uuid);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.getPrimaryDevice()).thenReturn(device);
     when(device.getId()).thenReturn(deviceId);

@@ -19,7 +19,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -101,7 +100,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
       if (deviceSaltedTokenHash.verify(basicCredentials.getPassword())) {
         succeeded = true;
         final Account authenticatedAccount = updateLastSeen(account.get(), device.get());
-        return Optional.of(new AuthenticatedDevice(authenticatedAccount.getIdentifier(IdentityType.ACI),
+        return Optional.of(new AuthenticatedDevice(authenticatedAccount.getAccountIdentifier(),
             device.get().getId(),
             Instant.ofEpochMilli(authenticatedAccount.getPrimaryDevice().getLastSeen())));
       } else {
@@ -142,7 +141,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
       Metrics.summary(DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME, IS_PRIMARY_DEVICE_TAG, String.valueOf(device.isPrimary()))
           .record(Duration.ofMillis(todayInMillisWithOffset - device.getLastSeen()).toDays());
 
-      return accountsManager.updateDeviceLastSeen(account.getIdentifier(IdentityType.ACI), device, Util.todayInMillis(clock));
+      return accountsManager.updateDeviceLastSeen(account.getAccountIdentifier(), device, Util.todayInMillis(clock));
     }
 
     return account;
