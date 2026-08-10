@@ -97,7 +97,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
     when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
 
     final CompletableFuture<Optional<TransferArchiveResult>> displacedFuture =
         accountsManager.waitForTransferArchive(account, device, Duration.ofSeconds(5));
@@ -126,7 +126,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
     when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
 
     accountsManager.recordTransferArchiveUpload(account, deviceId, registrationId, transferArchive).join();
 
@@ -148,7 +148,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
     when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
 
     accountsManager.recordTransferArchiveUpload(account, deviceId,
         registrationId, transferArchiveError).join();
@@ -165,7 +165,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
     when(device.getRegistrationId(IdentityType.ACI)).thenReturn(123);
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
 
     assertEquals(Optional.empty(),
         accountsManager.waitForTransferArchive(account, device, Duration.ofMillis(1)).join());

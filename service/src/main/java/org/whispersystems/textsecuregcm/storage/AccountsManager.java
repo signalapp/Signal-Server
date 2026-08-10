@@ -1524,8 +1524,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   public CompletableFuture<Optional<TransferArchiveResult>> waitForTransferArchive(final Account account, final Device device, final Duration timeout) {
-    final DeviceIdentifier deviceIdentifier = new DeviceIdentifier(account.getIdentifier(IdentityType.ACI), device.getId(), device.getRegistrationId(IdentityType.ACI));
-    final String registrationIdTransferArchiveKey = getRegistrationIdTransferArchiveKey(account.getIdentifier(IdentityType.ACI), device.getId(), device.getRegistrationId(IdentityType.ACI));
+    final DeviceIdentifier deviceIdentifier = new DeviceIdentifier(account.getAccountIdentifier(), device.getId(), device.getRegistrationId(IdentityType.ACI));
+    final String registrationIdTransferArchiveKey = getRegistrationIdTransferArchiveKey(account.getAccountIdentifier(), device.getId(), device.getRegistrationId(IdentityType.ACI));
 
     return waitForPubSubKey(waitForTransferArchiveFuturesByDeviceIdentifier,
         deviceIdentifier,
@@ -1541,7 +1541,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     try {
       final String transferArchiveJson = SystemMapper.jsonMapper().writeValueAsString(transferArchiveResult);
 
-      final String key = getRegistrationIdTransferArchiveKey(account.getIdentifier(IdentityType.ACI), destinationDeviceId, registrationId);
+      final String key = getRegistrationIdTransferArchiveKey(account.getAccountIdentifier(), destinationDeviceId, registrationId);
 
       return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
           .executeCompletionStage(retryExecutor, () -> pubSubRedisClient.withConnection(connection -> connection.async()
