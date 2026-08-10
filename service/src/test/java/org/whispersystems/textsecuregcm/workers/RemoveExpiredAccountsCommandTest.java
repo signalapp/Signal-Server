@@ -23,7 +23,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import reactor.core.publisher.Flux;
@@ -70,11 +69,11 @@ class RemoveExpiredAccountsCommandTest {
     final UUID expiredAccountIdentifier = UUID.randomUUID();
 
     final Account activeAccount = mock(Account.class);
-    when(activeAccount.getIdentifier(IdentityType.ACI)).thenReturn(activeAccountIdentifier);
+    when(activeAccount.getAccountIdentifier()).thenReturn(activeAccountIdentifier);
     when(activeAccount.getLastSeen()).thenReturn(clock.instant().toEpochMilli());
 
     final Account expiredAccount = mock(Account.class);
-    when(expiredAccount.getIdentifier(IdentityType.ACI)).thenReturn(expiredAccountIdentifier);
+    when(expiredAccount.getAccountIdentifier()).thenReturn(expiredAccountIdentifier);
     when(expiredAccount.getLastSeen())
         .thenReturn(clock.instant().minus(RemoveExpiredAccountsCommand.MAX_IDLE_DURATION).minusMillis(1).toEpochMilli());
 
