@@ -1349,10 +1349,10 @@ class AccountsTest {
     assertPhoneNumberIdentifierConstraintExists(targetPni, firstAccountInstance.getAccountIdentifier());
   }
 
-  @Test
-  void testSwitchUsernameHashes() throws UsernameHashNotAvailableException {
-    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
-    createAccount(account);
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testSwitchUsernameHashes(final boolean numberless) throws UsernameHashNotAvailableException {
+    final Account account = createAccount(numberless);
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
 
@@ -1362,10 +1362,12 @@ class AccountsTest {
 
     {
       final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_1).join();
-      verifyStoredState(account.getNumber(), account.getAccountIdentifier(), account.getPhoneNumberIdentifier(), USERNAME_HASH_1, maybeAccount.orElseThrow(), account);
+      assertThat(maybeAccount.orElseThrow().getUsernameHash()).hasValue(USERNAME_HASH_1);
+      verifyAccountEquals(maybeAccount.orElseThrow(), account);
 
       final Optional<Account> maybeAccount2 = accounts.getByUsernameLinkHandle(oldHandle).join();
-      verifyStoredState(account.getNumber(), account.getAccountIdentifier(), account.getPhoneNumberIdentifier(), USERNAME_HASH_1, maybeAccount2.orElseThrow(), account);
+      assertThat(maybeAccount2.orElseThrow().getUsernameHash()).hasValue(USERNAME_HASH_1);
+      verifyAccountEquals(maybeAccount2.orElseThrow(), account);
     }
 
     accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1));
@@ -1386,11 +1388,11 @@ class AccountsTest {
       final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_2).join();
 
       assertThat(maybeAccount).isPresent();
-      verifyStoredState(account.getNumber(), account.getAccountIdentifier(), account.getPhoneNumberIdentifier(),
-          USERNAME_HASH_2, maybeAccount.orElseThrow(), account);
+      assertThat(maybeAccount.orElseThrow().getUsernameHash()).hasValue(USERNAME_HASH_2);
+      verifyAccountEquals(maybeAccount.orElseThrow(), account);
       final Optional<Account> maybeAccount2 = accounts.getByUsernameLinkHandle(newHandle).join();
-      verifyStoredState(account.getNumber(), account.getAccountIdentifier(), account.getPhoneNumberIdentifier(),
-          USERNAME_HASH_2, maybeAccount2.orElseThrow(), account);
+      assertThat(maybeAccount2.orElseThrow().getUsernameHash()).hasValue(USERNAME_HASH_2);
+      verifyAccountEquals(maybeAccount2.orElseThrow(), account);
     }
   }
 
@@ -1540,10 +1542,10 @@ class AccountsTest {
     assertThat(account.getUsernameHash()).isEmpty();
   }
 
-  @Test
-  void testClearUsername() throws UsernameHashNotAvailableException {
-    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
-    createAccount(account);
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testClearUsername(final boolean numberless) throws UsernameHashNotAvailableException {
+    final Account account = createAccount(numberless);
 
     accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
     accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
@@ -1639,12 +1641,11 @@ class AccountsTest {
     );
   }
 
-  @Test
-  void testReservedUsernameHash() throws UsernameHashNotAvailableException {
-    final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
-    createAccount(account1);
-    final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
-    createAccount(account2);
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testReservedUsernameHash(final boolean numberless) throws UsernameHashNotAvailableException {
+    final Account account1 = createAccount(numberless);
+    final Account account2 = createAccount(numberless);
 
     accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(1));
     assertArrayEquals(USERNAME_HASH_1, account1.getReservedUsernameHash().orElseThrow());
@@ -1835,10 +1836,10 @@ class AccountsTest {
     }
   }
 
-  @Test
-  void testHoldUsername() throws UsernameHashNotAvailableException {
-    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
-    createAccount(account);
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testHoldUsername(final boolean numberless) throws UsernameHashNotAvailableException {
+    final Account account = createAccount(numberless);
 
     accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
     accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
@@ -1991,12 +1992,19 @@ class AccountsTest {
   }
 
 
-  @Test
-  public void testIgnoredFieldsNotAddedToDataAttribute() throws Exception {
-    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  public void testIgnoredFieldsNotAddedToDataAttribute(final boolean numberless) throws Exception {
+    final Account account = numberless
+        ? generateNumberlessAccount(UUID.randomUUID())
+        : generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     account.setUsernameHash(TestRandomUtil.nextBytes(32));
     account.setUsernameLinkDetails(UUID.randomUUID(), TestRandomUtil.nextBytes(32));
-    createAccount(account);
+    if (numberless) {
+      createNumberlessAccount(account, receiptPresentation(), TestRandomUtil.nextBytes(16));
+    } else {
+      createAccount(account);
+    }
     final Map<String, AttributeValue> accountRecord = DYNAMO_DB_EXTENSION.getDynamoDbClient()
         .getItem(GetItemRequest.builder()
             .tableName(Tables.ACCOUNTS.tableName())
@@ -2009,12 +2017,12 @@ class AccountsTest {
         .forEach(field -> assertFalse(dataMap.containsKey(field)));
   }
 
-  @Test
-  void testGetByUsernameHashAsync() throws UsernameHashNotAvailableException {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testGetByUsernameHashAsync(final boolean numberless) throws UsernameHashNotAvailableException {
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
 
-    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
-    createAccount(account);
+    final Account account = createAccount(numberless);
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
 
@@ -2277,6 +2285,23 @@ class AccountsTest {
     }
   }
 
+  /// Generate a random account and create it
+  private Account createAccount(final boolean numberless) {
+    try {
+      final Account account;
+      if (numberless) {
+        account = generateNumberlessAccount(UUID.randomUUID());
+        createNumberlessAccount(account, receiptPresentation(), TestRandomUtil.nextBytes(16));
+      } else {
+        account = nextRandomAccount();
+        createAccount(account);
+      }
+      return account;
+    } catch (InvalidInputException | VerificationFailedException e) {
+      throw new AssertionError(e);
+    }
+  }
+
   private static Account nextRandomAccount() {
     final String nextNumber = "+1800%07d".formatted(ACCOUNT_COUNTER.getAndIncrement());
     return generateAccount(nextNumber, UUID.randomUUID(), UUID.randomUUID());
@@ -2408,6 +2433,16 @@ class AccountsTest {
     } else {
       throw new AssertionError("No data");
     }
+  }
+
+  private void verifyAccountEquals(Account result, Account expecting) {
+    verifyStoredState(
+        expecting.getNumberOptional().orElse(null),
+        expecting.getAccountIdentifier(),
+        expecting.getPhoneNumberIdentifierOptional().orElse(null),
+        expecting.getUsernameHash().orElse(null),
+        result,
+        expecting);
   }
 
   private void verifyStoredState(String number, UUID uuid, UUID pni, byte[] usernameHash, Account result, Account expecting) {

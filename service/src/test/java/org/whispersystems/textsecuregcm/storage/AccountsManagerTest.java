@@ -1262,9 +1262,10 @@ class AccountsManagerTest {
     assertThrows(AssertionError.class, () -> accountsManager.update(uuid, a -> a.setNumber(targetNumber, UUID.randomUUID())));
   }
 
-  @Test
-  void testReserveUsernameHash() throws UsernameHashNotAvailableException {
-    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testReserveUsernameHash(boolean hasNumber) throws UsernameHashNotAvailableException {
+    final Account account = AccountsHelper.generateTestAccount(hasNumber ? "+18005551234" : null, new ArrayList<>());
     when(accounts.getByAccountIdentifier(account.getAccountIdentifier())).thenReturn(Optional.of(account));
 
     final List<byte[]> usernameHashes = List.of(TestRandomUtil.nextBytes(32), TestRandomUtil.nextBytes(32));
@@ -1316,9 +1317,10 @@ class AccountsManagerTest {
         accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1, USERNAME_HASH_2)));
   }
 
-  @Test
-  void testConfirmReservedUsernameHash() throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
-    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testConfirmReservedUsernameHash(final boolean hasNumber) throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+    final Account account = AccountsHelper.generateTestAccount(hasNumber ? "+18005551234" : null, new ArrayList<>());
     addRetrievableAccount(account);
 
     setReservationHash(account, USERNAME_HASH_1);
@@ -1386,9 +1388,10 @@ class AccountsManagerTest {
     verify(accounts, never()).confirmUsernameHash(any(), any(), any());
   }
 
-  @Test
-  void testClearUsernameHash() {
-    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testClearUsernameHash(final boolean hasNumber) {
+    final Account account = AccountsHelper.generateTestAccount(hasNumber ? "+18005551234" : null, new ArrayList<>());
     addRetrievableAccount(account);
 
     account.setUsernameHash(USERNAME_HASH_1);
@@ -1396,9 +1399,10 @@ class AccountsManagerTest {
     verify(accounts).clearUsernameHash(eq(account));
   }
 
-  @Test
-  void testSetUsernameViaUpdate() {
-    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testSetUsernameViaUpdate(final boolean hasNumber) {
+    final Account account = AccountsHelper.generateTestAccount(hasNumber ? "+18005551234" : null, new ArrayList<>());
     addRetrievableAccount(account);
 
     assertThrows(AssertionError.class, () ->
