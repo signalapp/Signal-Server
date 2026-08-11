@@ -1113,7 +1113,7 @@ class AccountsTest {
   @Test
   void testDeleteNumberless() throws InvalidInputException, VerificationFailedException {
     final Account deletedAccount = generateNumberlessAccount(UUID.randomUUID());
-    createNumberlessAccount(deletedAccount, receiptPresentation());
+    createNumberlessAccount(deletedAccount, receiptPresentation(), TestRandomUtil.nextBytes(16));
 
     assertThat(accounts.getByAccountIdentifier(deletedAccount.getAccountIdentifier())).isPresent();
     accounts.delete(deletedAccount.getAccountIdentifier(), Collections.emptyList());
