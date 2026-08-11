@@ -66,7 +66,6 @@ import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -127,16 +126,13 @@ class AccountControllerV2Test {
 
             final Account updatedAccount = mock(Account.class);
             when(updatedAccount.getAccountIdentifier()).thenReturn(uuid);
-            when(updatedAccount.getNumber()).thenReturn(number);
             when(updatedAccount.getNumberOptional()).thenReturn(Optional.of(number));
-            when(updatedAccount.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
-            if (number.equals(account.getNumber())) {
-              when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
+            when(updatedAccount.getPhoneNumberIdentityKey()).thenReturn(Optional.of(pniIdentityKey));
+            if (Optional.of(number).equals(account.getNumberOptional())) {
               when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(AuthHelper.VALID_PNI));
             } else {
               final UUID pni = UUID.randomUUID();
 
-              when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
               when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(pni));
             }
             when(updatedAccount.getDevices()).thenReturn(devices);
@@ -383,10 +379,11 @@ class AccountControllerV2Test {
     /**
      * Valid request JSON with the give session ID and recovery password
      */
+    @SuppressWarnings("SameParameterValue")
     private static String requestJson(final String sessionId,
         final byte[] recoveryPassword,
         final String newNumber,
-        final Integer pniRegistrationId) {
+        final int pniRegistrationId) {
 
       final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR);
       final KEMSignedPreKey pniLastResortPreKey = KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR);
@@ -415,6 +412,7 @@ class AccountControllerV2Test {
     /**
      * Valid request JSON with the give session ID
      */
+    @SuppressWarnings("SameParameterValue")
     private static String requestJson(final String sessionId, final String newNumber) {
       return requestJson(sessionId, new byte[0], newNumber, 123);
     }
@@ -459,26 +457,41 @@ class AccountControllerV2Test {
     void setup() {
       AccountsHelper.setupMockUpdate(accountsManager);
       when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+      when(accountsManager.getByAccountIdentifier(AuthHelper.NUMBERLESS_UUID)).thenReturn(Optional.of(AuthHelper.NUMBERLESS_ACCOUNT));
     }
 
     @Test
     void testSetPhoneNumberDiscoverability() {
-      Response response = resources.getJerseyTest()
+      try (final Response response = resources.getJerseyTest()
           .target("/v2/accounts/phone_number_discoverability")
           .request()
           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-          .put(Entity.json(new PhoneNumberDiscoverabilityRequest(true)));
+          .put(Entity.json(new PhoneNumberDiscoverabilityRequest(true)))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
 
       ArgumentCaptor<Boolean> discoverabilityCapture = ArgumentCaptor.forClass(Boolean.class);
       verify(AuthHelper.VALID_ACCOUNT).setDiscoverableByPhoneNumber(discoverabilityCapture.capture());
       assertThat(discoverabilityCapture.getValue()).isTrue();
+      }
+    }
+
+    @Test
+    void testSetPhoneNumberDiscoverabilityNoPhoneNumber() {
+      try (final Response response = resources.getJerseyTest()
+          .target("/v2/accounts/phone_number_discoverability")
+          .request()
+          .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD))
+          .put(Entity.json(new PhoneNumberDiscoverabilityRequest(true)))) {
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(AuthHelper.NUMBERLESS_ACCOUNT, never()).setDiscoverableByPhoneNumber(anyBoolean());
+      }
     }
 
     @Test
     void testSetNullPhoneNumberDiscoverability() {
-      Response response = resources.getJerseyTest()
+      try (final Response response = resources.getJerseyTest()
           .target("/v2/accounts/phone_number_discoverability")
           .request()
           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
@@ -487,10 +500,11 @@ class AccountControllerV2Test {
                   {
                     "discoverableByPhoneNumber": null
                   }
-                  """));
+                  """))) {
 
-      assertThat(response.getStatus()).isEqualTo(422);
-      verify(AuthHelper.VALID_ACCOUNT, never()).setDiscoverableByPhoneNumber(anyBoolean());
+        assertThat(response.getStatus()).isEqualTo(422);
+        verify(AuthHelper.VALID_ACCOUNT, never()).setDiscoverableByPhoneNumber(anyBoolean());
+      }
     }
 
     @ParameterizedTest

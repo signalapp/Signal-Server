@@ -155,8 +155,13 @@ public class AccountControllerV2 {
       @Auth AuthenticatedDevice auth,
       @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability) {
 
-    accountsManager.update(auth.accountIdentifier(), a -> a.setDiscoverableByPhoneNumber(
-        phoneNumberDiscoverability.discoverableByPhoneNumber()));
+    accountsManager.update(auth.accountIdentifier(), account -> {
+      if (account.getNumberOptional().isEmpty()) {
+        throw new BadRequestException();
+      }
+
+      account.setDiscoverableByPhoneNumber(phoneNumberDiscoverability.discoverableByPhoneNumber());
+    });
   }
 
   @GET
