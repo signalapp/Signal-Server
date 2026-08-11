@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.dropwizard.auth.AuthValueFactoryProvider;
@@ -191,6 +192,24 @@ class DeviceCheckControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
     verify(appleDeviceCheckManager, times(1))
         .registerAttestation(any(), eq(keyId), eq(attestation));
+  }
+
+  @Test
+  public void registerKeyNonPrimary() {
+    final byte[] keyId = TestRandomUtil.nextBytes(16);
+    final byte[] attestation = TestRandomUtil.nextBytes(32);
+    final Response response = resources.getJerseyTest()
+        .target("v1/devicecheck/attest")
+        .queryParam("keyId", Base64.getUrlEncoder().encodeToString(keyId))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(
+            AuthHelper.VALID_UUID_3,
+            AuthHelper.VALID_DEVICE_3_LINKED_ID,
+            AuthHelper.VALID_PASSWORD_3_LINKED))
+        .put(Entity.entity(attestation, MediaType.APPLICATION_OCTET_STREAM));
+
+    assertThat(response.getStatus()).isEqualTo(403);
+    verifyNoInteractions(appleDeviceCheckManager);
   }
 
   @Test

@@ -30,8 +30,11 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import javax.annotation.Nullable;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
@@ -56,7 +59,9 @@ public class AppleDeviceCheckManager {
 
   // How many distinct device keys we're willing to accept for a single Account
   @VisibleForTesting
-  static final int MAX_DEVICE_KEYS = 100;
+  static final int MAX_DEVICE_KEYS = 200;
+
+  private static final String KEY_COUNT_DISTRIBUTION_NAME = MetricsUtil.name(AppleDeviceCheckManager.class, "keyCount");
 
   private final AppleDeviceChecks appleDeviceChecks;
   private final FaultTolerantRedisClusterClient redisClient;
@@ -108,6 +113,10 @@ public class AppleDeviceCheckManager {
       // We already have the key, so no need to continue
       return;
     }
+
+    DistributionSummary.builder(KEY_COUNT_DISTRIBUTION_NAME)
+        .register(Metrics.globalRegistry)
+        .record(existingKeys.size());
 
     if (existingKeys.size() >= MAX_DEVICE_KEYS) {
       // This is best-effort, since we don't check the number of keys transactionally. We just don't want to allow
