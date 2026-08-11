@@ -55,7 +55,6 @@ import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameLinkHandle;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -208,7 +207,7 @@ public class AccountController {
       throw new ForbiddenException();
     }
 
-    accounts.updateDevice(account.getIdentifier(IdentityType.ACI), targetDeviceId, d -> d.setName(deviceName.deviceName()));
+    accounts.updateDevice(account.getAccountIdentifier(), targetDeviceId, d -> d.setName(deviceName.deviceName()));
   }
 
   @PUT
@@ -229,7 +228,7 @@ public class AccountController {
                 List.of(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, recoveryPassword))))
             .orElseGet(Collections::emptyList);
 
-    final Account updatedAccount = accounts.update(auth.accountIdentifier(), a -> {
+    accounts.update(auth.accountIdentifier(), a -> {
       a.getDevice(auth.deviceId()).ifPresent(d -> {
         d.setFetchesMessages(attributes.getFetchesMessages());
         d.setName(attributes.getName());
@@ -243,6 +242,11 @@ public class AccountController {
       a.setRegistrationLockFromAttributes(attributes);
       a.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
       a.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
+
+      if (attributes.isDiscoverableByPhoneNumber() && a.getNumberOptional().isEmpty()) {
+        throw new BadRequestException("account does not have a phone number");
+      }
+
       a.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
 
       attributes.recoveryPassword().ifPresent(a::setAccountRecoveryPassword);
@@ -430,7 +434,7 @@ public class AccountController {
     } else {
       usernameLinkHandle = UUID.randomUUID();
     }
-    updateUsernameLink(account.getIdentifier(IdentityType.ACI), usernameLinkHandle, encryptedUsername.usernameLinkEncryptedValue());
+    updateUsernameLink(account.getAccountIdentifier(), usernameLinkHandle, encryptedUsername.usernameLinkEncryptedValue());
     return new UsernameLinkHandle(usernameLinkHandle);
   }
 

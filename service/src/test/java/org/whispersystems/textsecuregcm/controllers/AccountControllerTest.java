@@ -197,12 +197,12 @@ class AccountControllerTest {
             Optional.of(registrationLockCredentials.salt()), Instant.ofEpochMilli(System.currentTimeMillis())));
     when(senderRegLockAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderRegLockAccount.getAccountIdentifier()).thenReturn(SENDER_REG_LOCK_UUID);
-    when(senderRegLockAccount.getNumber()).thenReturn(SENDER_REG_LOCK);
+    when(senderRegLockAccount.getNumberOptional()).thenReturn(Optional.of(SENDER_REG_LOCK));
 
     when(senderTransfer.getRegistrationLock()).thenReturn(
         new StoredRegistrationLock(Optional.empty(), Optional.empty(), Instant.ofEpochMilli(System.currentTimeMillis())));
     when(senderTransfer.getAccountIdentifier()).thenReturn(SENDER_TRANSFER_UUID);
-    when(senderTransfer.getNumber()).thenReturn(SENDER_TRANSFER);
+    when(senderTransfer.getNumberOptional()).thenReturn(Optional.of(SENDER_TRANSFER));
 
     when(accountsManager.getByE164(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.getByE164(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));
@@ -375,6 +375,27 @@ class AccountControllerTest {
 
       assertThat(identityResponse.entitlements().backup().backupLevel()).isEqualTo(100);
       assertThat(identityResponse.entitlements().backup().expiration()).isEqualTo(truncatedExpiration);
+
+      assertThat(identityResponse.number()).hasValue(AuthHelper.VALID_NUMBER);
+      assertThat(identityResponse.pni()).hasValue(AuthHelper.VALID_PNI);
+    }
+  }
+
+  @Test
+  void testWhoAmINoPhoneNumber() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/whoami")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD))
+        .get()) {
+
+      assertThat(response.getStatus()).isEqualTo(200);
+      final AccountIdentityResponse identityResponse = response.readEntity(AccountIdentityResponse.class);
+
+      assertThat(identityResponse.uuid()).isEqualTo(AuthHelper.NUMBERLESS_UUID);
+
+      assertThat(identityResponse.number()).isEmpty();
+      assertThat(identityResponse.pni()).isEmpty();
     }
   }
 
@@ -641,7 +662,7 @@ class AccountControllerTest {
       assertThat(response.getStatus()).isEqualTo(200);
 
       final UsernameHashResponse respEntity = response.readEntity(UsernameHashResponse.class);
-      assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
+      assertArrayEquals(USERNAME_HASH_1, respEntity.usernameHash());
       assertEquals(respEntity.usernameLinkHandle(), uuid);
       verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
     }
@@ -678,7 +699,7 @@ class AccountControllerTest {
       assertThat(response.getStatus()).isEqualTo(200);
 
       final UsernameHashResponse respEntity = response.readEntity(UsernameHashResponse.class);
-      assertArrayEquals(respEntity.usernameHash(), USERNAME_HASH_1);
+      assertArrayEquals(USERNAME_HASH_1, respEntity.usernameHash());
       assertNull(respEntity.usernameLinkHandle());
       verify(usernameZkProofVerifier).verifyProof(ZK_PROOF, USERNAME_HASH_1);
     }
@@ -821,7 +842,6 @@ class AccountControllerTest {
     );
   }
 
-
   @Test
   void testSetAccountAttributesNoDiscoverabilityChange() {
     try (final Response response = resources.getJerseyTest()
@@ -832,6 +852,19 @@ class AccountControllerTest {
             .setUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
+    }
+  }
+
+  @Test
+  void testSetAccountAttributesDiscoverableWithNoNumber() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/attributes/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD))
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null, null)
+            .setUnidentifiedAccessKey(new byte[16])))) {
+
+      assertThat(response.getStatus()).isEqualTo(400);
     }
   }
 
