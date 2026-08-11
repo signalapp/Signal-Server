@@ -200,6 +200,7 @@ class RegistrationControllerTest {
     );
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   @ParameterizedTest
   @MethodSource
   void invalidRegistrationId(Optional<Integer> registrationId, Optional<Integer> pniRegistrationId, int statusCode) {
@@ -211,7 +212,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final String json = requestJson("sessionId", new byte[0], true, registrationId.orElse(0), pniRegistrationId.orElse(null));
@@ -318,7 +319,7 @@ class RegistrationControllerTest {
       final Account createdAccount = mock(Account.class);
       when(createdAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-      when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+      when(accountsManager.create(any(), any(), any(), any(), any(), any()))
           .thenReturn(createdAccount);
 
       expectedStatus = 200;
@@ -377,7 +378,7 @@ class RegistrationControllerTest {
       "true, true, true, 200"
   })
   void deviceTransferAvailable(final boolean existingAccount, final boolean transferSupported,
-      final boolean skipDeviceTransfer, final int expectedStatus) throws Exception {
+      final boolean skipDeviceTransfer, final int expectedStatus) {
 
     final Optional<Account> maybeAccount;
     if (existingAccount) {
@@ -393,7 +394,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -408,11 +409,11 @@ class RegistrationControllerTest {
   // this is functionally the same as deviceTransferAvailable(existingAccount=false)
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void registrationSuccess(final boolean useSessionVerification) throws Exception {
+  void registrationSuccess(final boolean useSessionVerification) {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -658,7 +659,7 @@ class RegistrationControllerTest {
   void atomicAccountCreationSuccess(final RegistrationRequest registrationRequest,
       final IdentityKey expectedAciIdentityKey,
       final IdentityKey expectedPniIdentityKey,
-      final DeviceSpec expectedDeviceSpec) throws InterruptedException {
+      final DeviceSpec expectedDeviceSpec) {
 
     final UUID accountIdentifier = UUID.randomUUID();
     final UUID phoneNumberIdentifier = UUID.randomUUID();
@@ -666,11 +667,11 @@ class RegistrationControllerTest {
 
     final Account account = MockUtils.buildMock(Account.class, a -> {
       when(a.getAccountIdentifier()).thenReturn(accountIdentifier);
-      when(a.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
+      when(a.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
       when(a.getPrimaryDevice()).thenReturn(device);
     });
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -687,7 +688,6 @@ class RegistrationControllerTest {
     verify(accountsManager).create(
         eq(NUMBER),
         argThat(attributes -> accountAttributesEqual(attributes, registrationRequest.accountAttributes())),
-        eq(Collections.emptyList()),
         eq(expectedAciIdentityKey),
         eq(expectedPniIdentityKey),
         eq(expectedDeviceSpec),
@@ -696,7 +696,7 @@ class RegistrationControllerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void reregistrationFlag(final boolean accountExists) throws InterruptedException {
+  void reregistrationFlag(final boolean accountExists) {
     final Account existingAccount = mock(Account.class);
     when(existingAccount.getNumberOptional()).thenReturn(Optional.of(NUMBER));
     when(accountsManager.getByE164(any())).thenReturn(accountExists ? Optional.of(existingAccount) : Optional.empty());
@@ -704,7 +704,7 @@ class RegistrationControllerTest {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -720,11 +720,11 @@ class RegistrationControllerTest {
   }
 
   @Test
-  void registrationMissingSpqrCapability() throws Exception {
+  void registrationMissingSpqrCapability() {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -775,7 +775,7 @@ class RegistrationControllerTest {
     final Account account = MockUtils.buildMock(Account.class,
         a -> when(a.getAccountIdentifier()).thenReturn(accountIdentifier));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any())).thenReturn(account);
+    when(accountsManager.create(any(), any(), any(), any(), any())).thenReturn(account);
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
@@ -794,7 +794,6 @@ class RegistrationControllerTest {
 
     verify(accountsManager).create(
         argThat(attributes -> accountAttributesEqual(attributes, accountAttributes)),
-        eq(Collections.emptyList()),
         eq(aciIdentityKey),
         argThat(presentation ->
             Arrays.equals(presentation.serialize(), receiptCredentialPresentation.serialize())),
@@ -861,7 +860,7 @@ class RegistrationControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void registerAccountBadReceipt(final byte[] receiptCredentialPresentation) throws Exception {
+  void registerAccountBadReceipt(final byte[] receiptCredentialPresentation) {
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
@@ -1108,7 +1107,7 @@ class RegistrationControllerTest {
             Optional.empty(),
             Optional.empty()));
 
-    when(accountsManager.create(any(), any(), any(), any(), any(), any()))
+    when(accountsManager.create(any(), any(), any(), any(), any()))
         .thenThrow(new ReceiptAlreadyRedeemedException());
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -1122,14 +1121,13 @@ class RegistrationControllerTest {
   }
 
   @Test
-  void registerAccountWithNumberMissingPniKeys() throws Exception {
+  void registerAccountWithNumberMissingPniKeys() {
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
 
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
-    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(1, pniIdentityKeyPair);
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
     final byte[] deviceName = "test".getBytes(StandardCharsets.UTF_8);
@@ -1359,6 +1357,7 @@ class RegistrationControllerTest {
   /**
    * Valid request JSON with the given session ID
    */
+  @SuppressWarnings("SameParameterValue")
   private static String requestJson(final String sessionId) {
     return requestJson(sessionId, new byte[0], false, 1, 2);
   }

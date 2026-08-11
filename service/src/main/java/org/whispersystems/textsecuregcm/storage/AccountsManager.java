@@ -296,7 +296,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   /// Create an account without a phone number.
   ///
   /// @param accountAttributes the account-level attributes to set on the account
-  /// @param accountBadges the badges to set on the account
   /// @param aciIdentityKey the ACI identity key to associate with the account
   /// @param receiptCredentialPresentation the receipt credential presentation of proof of payment for a Signal Login
   /// @param primaryDeviceSpec the attributes to set on the account's primary device
@@ -304,7 +303,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   ///
   /// @return the created account
   public Account create(final AccountAttributes accountAttributes,
-      final List<AccountBadge> accountBadges,
       final IdentityKey aciIdentityKey,
       final ReceiptCredentialPresentation receiptCredentialPresentation,
       final DeviceSpec primaryDeviceSpec,
@@ -324,7 +322,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final Timer.Sample sample = Timer.start();
 
     try {
-      return create(Optional.empty(), Optional.empty(), Optional.of(receiptCredentialPresentation), Optional.of(authCredentialSalt), accountAttributes, accountBadges, aciIdentityKey, Optional.empty(), primaryDeviceSpec, userAgent);
+      return create(Optional.empty(), Optional.empty(), Optional.of(receiptCredentialPresentation), Optional.of(authCredentialSalt), accountAttributes, aciIdentityKey, Optional.empty(), primaryDeviceSpec, userAgent);
     } catch (final RuntimeException e) {
       logger.error("Unexpected exception while creating account", e);
       throw e;
@@ -337,7 +335,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   ///
   /// @param number the e164-formatted phone number to set on the account
   /// @param accountAttributes the account-level attributes to set on the account
-  /// @param accountBadges the badges to set on the account
   /// @param aciIdentityKey the ACI identity key to associate with the account
   /// @param pniIdentityKey the PNI identity key to associate with the account
   /// @param primaryDeviceSpec the attributes to set on the account's primary device
@@ -346,7 +343,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   /// @return the created account
   public Account create(final String number,
       final AccountAttributes accountAttributes,
-      final List<AccountBadge> accountBadges,
       final IdentityKey aciIdentityKey,
       final IdentityKey pniIdentityKey,
       final DeviceSpec primaryDeviceSpec,
@@ -357,7 +353,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return Metrics.timer(CREATE_TIMER_NAME, HAS_NUMBER_TAG_NAME, "true").record(() -> {
       try {
         return accountLockManager.withLock(Set.of(pni),
-            () -> create(Optional.of(number), Optional.of(pni), Optional.empty(), Optional.empty(), accountAttributes, accountBadges, aciIdentityKey, Optional.of(pniIdentityKey), primaryDeviceSpec, userAgent), accountLockExecutor);
+            () -> create(Optional.of(number), Optional.of(pni), Optional.empty(), Optional.empty(), accountAttributes, aciIdentityKey, Optional.of(pniIdentityKey), primaryDeviceSpec, userAgent), accountLockExecutor);
       } catch (final ReceiptAlreadyRedeemedException e) {
         throw new AssertionError("ReceiptAlreadyRedeemedException must never be thrown for accounts with numbers");
       } catch (final RuntimeException e) {
@@ -373,7 +369,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final Optional<ReceiptCredentialPresentation> maybeReceiptCredentialPresentation,
       final Optional<byte[]> maybeAuthCredentialSalt,
       final AccountAttributes accountAttributes,
-      final List<AccountBadge> accountBadges,
       final IdentityKey aciIdentityKey,
       final Optional<IdentityKey> maybePniIdentityKey,
       final DeviceSpec primaryDeviceSpec,
@@ -401,7 +396,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
     account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
-    account.setBadges(clock, accountBadges);
 
     accountAttributes.recoveryPassword().ifPresent(account::setAccountRecoveryPassword);
 

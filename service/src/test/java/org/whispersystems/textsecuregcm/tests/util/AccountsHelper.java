@@ -15,7 +15,6 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -340,7 +339,6 @@ public class AccountsHelper {
       if (e164 != null) {
         return accountsManager.create(e164,
             accountAttributes,
-            new ArrayList<>(),
             new IdentityKey(aciKeyPair.getPublicKey()),
             new IdentityKey(pniKeyPair.getPublicKey()),
             primaryDeviceSpec,
@@ -348,7 +346,6 @@ public class AccountsHelper {
       } else {
         try {
           return accountsManager.create(accountAttributes,
-              new ArrayList<>(),
               new IdentityKey(aciKeyPair.getPublicKey()),
               generateReceiptCredentialPresentation(),
               primaryDeviceSpec,

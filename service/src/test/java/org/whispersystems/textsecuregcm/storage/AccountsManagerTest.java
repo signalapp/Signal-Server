@@ -1494,7 +1494,6 @@ class AccountsManagerTest {
     final ECKeyPair aciKeyPair = ECKeyPair.generate();
 
     return accountsManager.create(accountAttributes,
-        new ArrayList<>(),
         new IdentityKey(aciKeyPair.getPublicKey()),
         mock(ReceiptCredentialPresentation.class),
         new DeviceSpec(
@@ -1516,7 +1515,6 @@ class AccountsManagerTest {
 
     return accountsManager.create(e164,
         accountAttributes,
-        new ArrayList<>(),
         new IdentityKey(aciKeyPair.getPublicKey()),
         new IdentityKey(pniKeyPair.getPublicKey()),
         new DeviceSpec(
@@ -1682,7 +1680,6 @@ class AccountsManagerTest {
   void createAccountWithoutNumberOrRecoveryPassword() {
     assertThrows(IllegalArgumentException.class,
         () -> accountsManager.create(new AccountAttributes(),
-            Collections.emptyList(),
             new IdentityKey(ECKeyPair.generate().getPublicKey()),
             ReceiptCredentialTestUtil.receiptPresentation(),
             mock(DeviceSpec.class),

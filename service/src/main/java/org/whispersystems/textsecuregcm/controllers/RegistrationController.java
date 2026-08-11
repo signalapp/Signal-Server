@@ -39,7 +39,6 @@ import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
@@ -255,7 +254,6 @@ public class RegistrationController {
 
     final Account account = accounts.create(number,
         registrationRequest.accountAttributes(),
-        existingAccount.map(Account::getBadges).orElseGet(ArrayList::new),
         registrationRequest.aciIdentityKey(),
         registrationRequest.pniIdentityKey(),
         new DeviceSpec(
@@ -341,7 +339,6 @@ public class RegistrationController {
     try {
       final Account account = accounts.create(
           registrationRequest.accountAttributes(),
-          Collections.emptyList(),
           registrationRequest.aciIdentityKey(),
           receiptCredentialPresentation,
           new DeviceSpec(

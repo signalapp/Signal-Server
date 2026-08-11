@@ -69,7 +69,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       Tables.PAGED_PQ_KEYS,
       Tables.REDEEMED_RECEIPTS,
       Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
-      Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
+      Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS,
+      Tables.PHONE_NUMBER_RECOVERY_PASSWORDS);
 
   private Accounts accounts;
 
@@ -110,6 +111,13 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString()))
           .thenAnswer((Answer<CompletableFuture<UUID>>) _ -> CompletableFuture.completedFuture(UUID.randomUUID()));
 
+      final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
+          new PhoneNumberRecoveryPasswordsManager(new PhoneNumberRecoveryPasswords(
+              Tables.PHONE_NUMBER_RECOVERY_PASSWORDS.tableName(),
+              Duration.ofDays(1),
+              DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+              Clock.systemUTC()));
+
       accountsManager = new AccountsManager(
           accounts,
           phoneNumberIdentifiers,
@@ -123,7 +131,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(SecureStorageClient.class),
           mock(SecureValueRecoveryClient.class),
           mock(DisconnectionRequestManager.class),
-          mock(PhoneNumberRecoveryPasswordsManager.class),
+          phoneNumberRecoveryPasswordsManager,
           mock(Executor.class),
           mock(ScheduledExecutorService.class),
           mock(ScheduledExecutorService.class),

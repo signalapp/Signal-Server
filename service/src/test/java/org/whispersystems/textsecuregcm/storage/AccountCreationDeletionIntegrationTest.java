@@ -212,11 +212,6 @@ public class AccountCreationDeletionIntegrationTest {
         deviceCapabilities,
         recoveryPassword);
 
-    final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
-        RandomStringUtils.secure().nextAlphabetic(8),
-        CLOCK.instant().plus(Duration.ofDays(7)),
-        true)));
-
     final ECKeyPair aciKeyPair = ECKeyPair.generate();
     final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
@@ -236,7 +231,6 @@ public class AccountCreationDeletionIntegrationTest {
 
     final Account account = accountsManager.create(number,
         accountAttributes,
-        badges,
         new IdentityKey(aciKeyPair.getPublicKey()),
         new IdentityKey(pniKeyPair.getPublicKey()),
         new DeviceSpec(
@@ -261,7 +255,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         discoverableByPhoneNumber,
         deviceCapabilities,
-        badges,
+        Collections.emptyList(),
         maybeApnRegistrationId,
         maybeGcmRegistrationId,
         Optional.of(registrationLockSecret),
@@ -297,11 +291,6 @@ public class AccountCreationDeletionIntegrationTest {
         deviceCapabilities,
         TestRandomUtil.nextBytes(16));
 
-    final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
-        RandomStringUtils.secure().nextAlphabetic(8),
-        CLOCK.instant().plus(Duration.ofDays(7)),
-        true)));
-
     final ECKeyPair aciKeyPair = ECKeyPair.generate();
 
     final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciKeyPair);
@@ -317,7 +306,6 @@ public class AccountCreationDeletionIntegrationTest {
         : Optional.empty();
 
     final Account account = accountsManager.create(accountAttributes,
-        badges,
         new IdentityKey(aciKeyPair.getPublicKey()),
         receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), 1),
         new DeviceSpec(
@@ -342,7 +330,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         false,
         deviceCapabilities,
-        badges,
+        Collections.emptyList(),
         maybeApnRegistrationId,
         maybeGcmRegistrationId,
         Optional.empty(),
@@ -386,6 +374,11 @@ public class AccountCreationDeletionIntegrationTest {
     final byte[] originalRecoveryPassword = TestRandomUtil.nextBytes(16);
     final byte[] updatedRecoveryPassword = TestRandomUtil.nextBytes(17);
 
+    final List<AccountBadge> existingAccountBadges = new ArrayList<>(List.of(new AccountBadge(
+        RandomStringUtils.secure().nextAlphabetic(8),
+        CLOCK.instant().plus(Duration.ofDays(7)),
+        true)));
+
     final UUID existingAccountUuid;
     {
       final ECKeyPair aciKeyPair = ECKeyPair.generate();
@@ -399,7 +392,6 @@ public class AccountCreationDeletionIntegrationTest {
       final Account existingAccount = accountsManager.create(number,
           new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false, Set.of(),
               originalRecoveryPassword),
-          Collections.emptyList(),
           new IdentityKey(aciKeyPair.getPublicKey()),
           new IdentityKey(pniKeyPair.getPublicKey()),
           new DeviceSpec(null,
@@ -412,6 +404,8 @@ public class AccountCreationDeletionIntegrationTest {
               Optional.empty(),
               Optional.empty()),
           null);
+
+      accountsManager.update(existingAccount, a -> a.setBadges(CLOCK, existingAccountBadges));
 
       existingAccountUuid = existingAccount.getAccountIdentifier();
     }
@@ -434,11 +428,6 @@ public class AccountCreationDeletionIntegrationTest {
         deviceCapabilities,
         updatedRecoveryPassword);
 
-    final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
-        RandomStringUtils.secure().nextAlphabetic(8),
-        CLOCK.instant().plus(Duration.ofDays(7)),
-        true)));
-
     final ECKeyPair aciKeyPair = ECKeyPair.generate();
     final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
@@ -458,7 +447,6 @@ public class AccountCreationDeletionIntegrationTest {
 
     final Account reregisteredAccount = accountsManager.create(number,
         accountAttributes,
-        badges,
         new IdentityKey(aciKeyPair.getPublicKey()),
         new IdentityKey(pniKeyPair.getPublicKey()),
         new DeviceSpec(deviceName,
@@ -482,7 +470,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         discoverableByPhoneNumber,
         deviceCapabilities,
-        badges,
+        existingAccountBadges,
         maybeApnRegistrationId,
         maybeGcmRegistrationId,
         Optional.of(registrationLockSecret),
@@ -527,11 +515,6 @@ public class AccountCreationDeletionIntegrationTest {
 
     accountAttributes.setRecoveryPassword(TestRandomUtil.nextBytes(16));
 
-    final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
-        RandomStringUtils.secure().nextAlphabetic(8),
-        CLOCK.instant().plus(Duration.ofDays(7)),
-        true)));
-
     final ECKeyPair aciKeyPair = ECKeyPair.generate();
     final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
@@ -544,7 +527,6 @@ public class AccountCreationDeletionIntegrationTest {
     if (hasE164) {
       account = accountsManager.create(number,
           accountAttributes,
-          badges,
           new IdentityKey(aciKeyPair.getPublicKey()),
           new IdentityKey(pniKeyPair.getPublicKey()),
           new DeviceSpec(
@@ -562,7 +544,6 @@ public class AccountCreationDeletionIntegrationTest {
           accountAttributes.recoveryPassword().orElseThrow()));
     } else {
       account = accountsManager.create(accountAttributes,
-          badges,
           new IdentityKey(aciKeyPair.getPublicKey()),
           receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), 1),
           new DeviceSpec(
@@ -613,7 +594,6 @@ public class AccountCreationDeletionIntegrationTest {
       final Account existingAccount = accountsManager.create(
           new AccountAttributes(true, 1, null, "name".getBytes(StandardCharsets.UTF_8), null, false, Set.of(), null)
               .setRecoveryPassword(recoveryPassword),
-          Collections.emptyList(),
           aciIdentityKey,
           receiptPresentation(receiptSerial, CLOCK.instant().plus(Duration.ofDays(30)), 1),
           new DeviceSpec(null,
@@ -644,11 +624,6 @@ public class AccountCreationDeletionIntegrationTest {
         false,
         deviceCapabilities, null).setRecoveryPassword(recoveryPassword);
 
-    final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
-        RandomStringUtils.secure().nextAlphabetic(8),
-        CLOCK.instant().plus(Duration.ofDays(7)),
-        true)));
-
     final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(5, aciKeyPair);
     final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(7, aciKeyPair);
 
@@ -662,7 +637,6 @@ public class AccountCreationDeletionIntegrationTest {
         : Optional.empty();
 
     final Account retriedAccount = accountsManager.create(accountAttributes,
-        badges,
         aciIdentityKey,
         receiptPresentation(receiptSerial,  CLOCK.instant().plus(Duration.ofDays(30)), 1),
         new DeviceSpec(deviceName,
@@ -686,7 +660,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         false,
         deviceCapabilities,
-        badges,
+        Collections.emptyList(),
         maybeApnRegistrationId,
         maybeGcmRegistrationId,
         Optional.empty(),
@@ -717,7 +691,6 @@ public class AccountCreationDeletionIntegrationTest {
 
     final Account existingAccount = accountsManager.create(
         new AccountAttributes(true, 1, null, "name".getBytes(StandardCharsets.UTF_8), null, false, Set.of(), recoveryPassword),
-        Collections.emptyList(),
         aciIdentityKey,
         receiptPresentation(receiptSerial, CLOCK.instant().plus(Duration.ofDays(30)), 1),
         new DeviceSpec(null,
@@ -736,7 +709,6 @@ public class AccountCreationDeletionIntegrationTest {
     assertThrows(ReceiptAlreadyRedeemedException.class, () -> accountsManager.create(
         // Using a different account recovery password should throw an exception
         new AccountAttributes(true, 1, null, "name".getBytes(StandardCharsets.UTF_8), null, false, Set.of(), TestRandomUtil.nextBytes(16)),
-        Collections.emptyList(),
         aciIdentityKey,
         receiptPresentation(receiptSerial, CLOCK.instant().plus(Duration.ofDays(30)), 1),
         new DeviceSpec(null,

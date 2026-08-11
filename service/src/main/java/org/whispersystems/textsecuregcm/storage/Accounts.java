@@ -400,6 +400,9 @@ public class Accounts {
       // Carry over the existing backup voucher to the new account
       accountToCreate.setBackupVoucher(existingAccount.getBackupVoucher());
 
+      // Carry over any existing badges to the new account
+      accountToCreate.setBadges(clock, existingAccount.getBadges());
+
       // Carry over the existing ZK credential key to the new account
       accountToCreate.setZkCredentialKey(existingAccount.getZkCredentialKey().orElse(null));
       accountToCreate.setZkCredentialKeyRotationId(existingAccount.getZkCredentialKeyRotationId());
