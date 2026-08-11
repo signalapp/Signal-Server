@@ -311,6 +311,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final DeviceSpec primaryDeviceSpec,
       @Nullable final String userAgent) throws ReceiptAlreadyRedeemedException {
 
+    accountAttributes.recoveryPassword().filter(b -> b.length > 0)
+        .orElseThrow(
+            () -> new IllegalArgumentException("recovery password is required for accounts without phone numbers"));
+
     // This salt is required for generating PNI-based auth credentials (e.g. group credentials) for accounts without a number
     final byte[] authCredentialSalt = new byte[AUTH_CREDENTIAL_SALT_SIZE];
     SECURE_RANDOM.nextBytes(authCredentialSalt);

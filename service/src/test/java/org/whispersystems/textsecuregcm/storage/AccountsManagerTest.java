@@ -1658,6 +1658,17 @@ class AccountsManagerTest {
     verify(phoneNumberIdentifiers).getPhoneNumberIdentifier(targetNumber);
   }
 
+  @Test
+  void createAccountWithoutNumberOrRecoveryPassword() {
+    assertThrows(IllegalArgumentException.class,
+        () -> accountsManager.create(new AccountAttributes(),
+            Collections.emptyList(),
+            new IdentityKey(ECKeyPair.generate().getPublicKey()),
+            ReceiptCredentialTestUtil.receiptPresentation(),
+            mock(DeviceSpec.class),
+            null));
+  }
+
   static Collection<Arguments> updateCurrentProfileVersion() {
 
     final byte[] empty = new byte[0];
