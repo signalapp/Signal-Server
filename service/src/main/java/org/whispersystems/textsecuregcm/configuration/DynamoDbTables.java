@@ -69,7 +69,7 @@ public class DynamoDbTables {
   private final Table profilesV2;
   private final Table pushChallenge;
   private final Table pushNotificationExperimentSamples;
-  private final TableWithExpiration redeemedReceipts;
+  private final Table redeemedReceipts;
   private final TableWithExpiration registrationRecovery;
   private final Table remoteConfig;
   private final Table reportMessage;
@@ -100,7 +100,7 @@ public class DynamoDbTables {
       @JsonProperty("profilesV2") final Table profilesV2,
       @JsonProperty("pushChallenge") final Table pushChallenge,
       @JsonProperty("pushNotificationExperimentSamples") final Table pushNotificationExperimentSamples,
-      @JsonProperty("redeemedReceipts") final TableWithExpiration redeemedReceipts,
+      @JsonProperty("redeemedReceipts") final Table redeemedReceipts,
       @JsonProperty("registrationRecovery") final TableWithExpiration registrationRecovery,
       @JsonProperty("remoteConfig") final Table remoteConfig,
       @JsonProperty("reportMessage") final Table reportMessage,
@@ -273,7 +273,7 @@ public class DynamoDbTables {
 
   @NotNull
   @Valid
-  public TableWithExpiration getRedeemedReceipts() {
+  public Table getRedeemedReceipts() {
     return redeemedReceipts;
   }
 

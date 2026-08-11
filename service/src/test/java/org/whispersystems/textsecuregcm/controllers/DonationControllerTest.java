@@ -138,7 +138,7 @@ class DonationControllerTest {
     when(receiptCredentialPresentation.getReceiptLevel()).thenReturn(receiptLevel);
     final long receiptExpiration = nowEpochSeconds + 86400 * 30;
     when(receiptCredentialPresentation.getReceiptExpirationTime()).thenReturn(receiptExpiration);
-    when(redeemedReceiptsManager.put(same(receiptSerial), eq(receiptExpiration), eq(receiptLevel), eq(AuthHelper.VALID_UUID))).thenReturn(true);
+    when(redeemedReceiptsManager.put(same(receiptSerial), eq(Instant.ofEpochSecond(receiptExpiration)), eq(receiptLevel), eq(AuthHelper.VALID_UUID))).thenReturn(true);
     when(accountsManager.getByAccountIdentifier(eq(AuthHelper.VALID_UUID)))
         .thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
@@ -163,7 +163,7 @@ class DonationControllerTest {
     when(receiptCredentialPresentation.getReceiptLevel()).thenReturn(receiptLevel);
     final long receiptExpiration = nowEpochSeconds + 86400 * 30;
     when(receiptCredentialPresentation.getReceiptExpirationTime()).thenReturn(receiptExpiration);
-    when(redeemedReceiptsManager.put(same(receiptSerial), eq(receiptExpiration), eq(receiptLevel), eq(AuthHelper.VALID_UUID))).thenReturn(false);
+    when(redeemedReceiptsManager.put(same(receiptSerial), eq(Instant.ofEpochSecond(receiptExpiration)), eq(receiptLevel), eq(AuthHelper.VALID_UUID))).thenReturn(false);
     when(accountsManager.getByAccountIdentifier(eq(AuthHelper.VALID_UUID)))
         .thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 

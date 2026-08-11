@@ -144,7 +144,6 @@ dynamoDbTables:
     tableName: Example_PushNotificationExperimentSamples
   redeemedReceipts:
     tableName: redeemed_receipts_test
-    expiration: P30D # Duration of time until rows expire
   registrationRecovery:
     tableName: registration_recovery_passwords_test
     expiration: P300D # Duration of time until rows expire

@@ -84,7 +84,7 @@ class DonationsGrpcServiceTest extends SimpleBaseGrpcTest<DonationsGrpcService, 
 
   private final TestClock clock = TestClock.pinned(Instant.ofEpochSecond(100));
 
-  private static final long EXPIRATION_TIME_EPOCH_SECONDS = 200;
+  private static final Instant EXPIRATION_TIME = Instant.ofEpochSecond(200);
 
   @Override
   protected DonationsGrpcService createServiceBeforeEachTest() {
@@ -98,7 +98,7 @@ class DonationsGrpcServiceTest extends SimpleBaseGrpcTest<DonationsGrpcService, 
     }
     when(receiptCredentialPresentation.getReceiptLevel()).thenReturn(ReceiptLevel.ONE_TIME_DONATION.getValue());
     when(badgesConfiguration.getReceiptLevels()).thenReturn(Map.of(ReceiptLevel.ONE_TIME_DONATION, "testBadge"));
-    when(receiptCredentialPresentation.getReceiptExpirationTime()).thenReturn(EXPIRATION_TIME_EPOCH_SECONDS);
+    when(receiptCredentialPresentation.getReceiptExpirationTime()).thenReturn(EXPIRATION_TIME.getEpochSecond());
     when(receiptCredentialPresentation.getReceiptSerial()).thenReturn(receiptSerial);
 
     donationPermitsManager = new DonationPermitsManager(mock(DonationPermits.class), donationsPermitSecretParams,
@@ -123,7 +123,7 @@ class DonationsGrpcServiceTest extends SimpleBaseGrpcTest<DonationsGrpcService, 
   void redeemReceipt(
       @CartesianTest.Values(booleans = {true, false}) final boolean isVisible,
       @CartesianTest.Values(booleans = {true, false}) final boolean isPrimary) {
-    when(redeemedReceiptsManager.put(receiptSerial, EXPIRATION_TIME_EPOCH_SECONDS, 1, AUTHENTICATED_ACI)).thenReturn(
+    when(redeemedReceiptsManager.put(receiptSerial, EXPIRATION_TIME, 1, AUTHENTICATED_ACI)).thenReturn(
         true);
 
     final RedeemReceiptResponse response = authenticatedServiceStub().redeemReceipt(RedeemReceiptRequest.newBuilder()
@@ -135,7 +135,7 @@ class DonationsGrpcServiceTest extends SimpleBaseGrpcTest<DonationsGrpcService, 
     assertEquals(RedeemReceiptResponse.ResponseCase.SUCCESS, response.getResponseCase());
 
     verify(account).addBadge(clock,
-        new AccountBadge("testBadge", Instant.ofEpochSecond(EXPIRATION_TIME_EPOCH_SECONDS), isVisible));
+        new AccountBadge("testBadge", EXPIRATION_TIME, isVisible));
     if (isPrimary) {
       verify(account).makeBadgePrimaryIfExists(clock, "testBadge");
     } else {
@@ -145,7 +145,7 @@ class DonationsGrpcServiceTest extends SimpleBaseGrpcTest<DonationsGrpcService, 
 
   @Test
   void alreadyRedeemed() {
-    when(redeemedReceiptsManager.put(receiptSerial, EXPIRATION_TIME_EPOCH_SECONDS, 1, AUTHENTICATED_ACI)).thenReturn(
+    when(redeemedReceiptsManager.put(receiptSerial, EXPIRATION_TIME, 1, AUTHENTICATED_ACI)).thenReturn(
         false);
 
     final RedeemReceiptResponse response = authenticatedServiceStub().redeemReceipt(RedeemReceiptRequest.newBuilder()

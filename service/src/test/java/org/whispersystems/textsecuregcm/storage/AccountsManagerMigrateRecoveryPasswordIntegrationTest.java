@@ -85,7 +85,7 @@ public class AccountsManagerMigrateRecoveryPasswordIntegrationTest {
           DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
           new RedeemedReceiptsManager(Clock.systemUTC(), DynamoDbExtensionSchema.Tables.REDEEMED_RECEIPTS.tableName(),
-              DYNAMO_DB_EXTENSION.getDynamoDbClient(), Duration.ofDays(30)),
+              DYNAMO_DB_EXTENSION.getDynamoDbClient()),
           DynamoDbExtensionSchema.Tables.ACCOUNTS.tableName(),
           DynamoDbExtensionSchema.Tables.NUMBERS.tableName(),
           DynamoDbExtensionSchema.Tables.PNI_ASSIGNMENTS.tableName(),

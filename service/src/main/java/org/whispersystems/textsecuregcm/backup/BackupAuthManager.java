@@ -266,7 +266,7 @@ public class BackupAuthManager {
     }
 
     boolean receiptAllowed = redeemedReceiptsManager
-        .put(receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, account.getAccountIdentifier());
+        .put(receiptSerial, receiptExpiration, receiptLevel, account.getAccountIdentifier());
     if (!receiptAllowed) {
       throw new BackupBadReceiptException("receipt serial is already redeemed");
     }

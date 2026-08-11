@@ -147,7 +147,7 @@ class AccountsTest {
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         new RedeemedReceiptsManager(clock, Tables.REDEEMED_RECEIPTS.tableName(),
-            DYNAMO_DB_EXTENSION.getDynamoDbClient(), Duration.ofDays(30)),
+            DYNAMO_DB_EXTENSION.getDynamoDbClient()),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -880,7 +880,7 @@ class AccountsTest {
         dynamoDbClient,
         mock(DynamoDbAsyncClient.class),
         new RedeemedReceiptsManager(clock, Tables.REDEEMED_RECEIPTS.tableName(),
-            dynamoDbClient, Duration.ofDays(30)),
+            dynamoDbClient),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -986,7 +986,7 @@ class AccountsTest {
         dynamoDbClient,
         mock(DynamoDbAsyncClient.class),
         new RedeemedReceiptsManager(clock, Tables.REDEEMED_RECEIPTS.tableName(),
-            dynamoDbClient, Duration.ofDays(30)),
+            dynamoDbClient),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -1444,7 +1444,7 @@ class AccountsTest {
         dynamoDbClient,
         mock(DynamoDbAsyncClient.class),
         new RedeemedReceiptsManager(clock, Tables.REDEEMED_RECEIPTS.tableName(),
-            dynamoDbClient, Duration.ofDays(30)),
+            dynamoDbClient),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -1492,7 +1492,7 @@ class AccountsTest {
         dynamoDbClient,
         mock(DynamoDbAsyncClient.class),
         new RedeemedReceiptsManager(clock, Tables.REDEEMED_RECEIPTS.tableName(),
-            dynamoDbClient, Duration.ofDays(30)),
+            dynamoDbClient),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -1598,7 +1598,7 @@ class AccountsTest {
         dynamoDbClient,
         mock(DynamoDbAsyncClient.class),
         new RedeemedReceiptsManager(clock, Tables.REDEEMED_RECEIPTS.tableName(),
-            dynamoDbClient, Duration.ofDays(30)),
+            dynamoDbClient),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -2378,9 +2378,9 @@ class AccountsTest {
             .build()
     );
     assertThat(receiptConstraintResponse.hasItem()).isTrue();
-    assertThat(AttributeValues.getUUID(receiptConstraintResponse.item(), RedeemedReceiptsManager.KEY_ACCOUNT_UUID, null)).isEqualTo(accountId);
-    assertThat(AttributeValues.getLong(receiptConstraintResponse.item(), RedeemedReceiptsManager.KEY_RECEIPT_LEVEL, -1)).isEqualTo(receiptCredentialPresentation.getReceiptLevel());
-    assertThat(AttributeValues.getLong(receiptConstraintResponse.item(), RedeemedReceiptsManager.KEY_RECEIPT_EXPIRATION, -1)).isEqualTo(receiptCredentialPresentation.getReceiptExpirationTime());
+    assertThat(AttributeValues.getUUID(receiptConstraintResponse.item(), RedeemedReceiptsManager.ATTR_ACCOUNT_UUID, null)).isEqualTo(accountId);
+    assertThat(AttributeValues.getLong(receiptConstraintResponse.item(), RedeemedReceiptsManager.ATTR_RECEIPT_LEVEL, -1)).isEqualTo(receiptCredentialPresentation.getReceiptLevel());
+    assertThat(AttributeValues.getLong(receiptConstraintResponse.item(), RedeemedReceiptsManager.ATTR_RECEIPT_EXPIRATION, -1)).isEqualTo(receiptCredentialPresentation.getReceiptExpirationTime());
   }
 
   private Map<String, AttributeValue> readAccount(final UUID uuid) {

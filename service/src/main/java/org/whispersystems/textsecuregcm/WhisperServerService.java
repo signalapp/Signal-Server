@@ -545,8 +545,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     RedeemedReceiptsManager redeemedReceiptsManager = new RedeemedReceiptsManager(clock,
         config.getDynamoDbTables().getRedeemedReceipts().getTableName(),
-        dynamoDbClient,
-        config.getDynamoDbTables().getRedeemedReceipts().getExpiration());
+        dynamoDbClient);
 
     Accounts accounts = new Accounts(
         clock,

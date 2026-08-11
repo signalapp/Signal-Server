@@ -263,8 +263,7 @@ public record CommandDependencies(
 
     RedeemedReceiptsManager redeemedReceiptsManager = new RedeemedReceiptsManager(clock,
         configuration.getDynamoDbTables().getRedeemedReceipts().getTableName(),
-        dynamoDbClient,
-        configuration.getDynamoDbTables().getRedeemedReceipts().getExpiration());
+        dynamoDbClient);
 
     Accounts accounts = new Accounts(
         clock,

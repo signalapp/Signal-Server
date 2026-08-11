@@ -84,7 +84,7 @@ public class DonationsGrpcService extends SimpleDonationsGrpc.DonationsImplBase 
         throw GrpcExceptions.unavailable("server does not recognize the requested receipt level");
       }
       final boolean receiptMatched = redeemedReceiptsManager.put(
-          receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, authenticatedDevice.accountIdentifier());
+          receiptSerial, receiptExpiration, receiptLevel, authenticatedDevice.accountIdentifier());
       if (!receiptMatched) {
         return RedeemReceiptResponse.newBuilder()
             .setAlreadyRedeemed(FailedPrecondition.newBuilder()

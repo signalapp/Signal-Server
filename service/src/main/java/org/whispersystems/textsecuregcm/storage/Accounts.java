@@ -334,7 +334,7 @@ public class Accounts {
 
         if (conditionalCheckFailed(receiptSerialConstraintCancellationReason)) {
           final UUID existingAccountUuid = UUIDUtil.fromByteBuffer(receiptSerialConstraintCancellationReason.item()
-              .get(RedeemedReceiptsManager.KEY_ACCOUNT_UUID).b().asByteBuffer());
+              .get(RedeemedReceiptsManager.ATTR_ACCOUNT_UUID).b().asByteBuffer());
           final Account existingAccount = getByAccountIdentifier(existingAccountUuid)
               // The account was already deleted, and we don't allow re-registering with the same receipt
               .orElseThrow(ReceiptAlreadyRedeemedException::new);

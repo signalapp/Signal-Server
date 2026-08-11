@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
+import com.google.common.annotations.VisibleForTesting;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -27,26 +28,26 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 public class RedeemedReceiptsManager {
 
   public static final String KEY_SERIAL = "S";
-  public static final String KEY_TTL = "E";
-  public static final String KEY_RECEIPT_EXPIRATION = "G";
-  public static final String KEY_RECEIPT_LEVEL = "L";
-  public static final String KEY_ACCOUNT_UUID = "U";
-  public static final String KEY_REDEMPTION_TIME = "R";
+  public static final String ATTR_TTL = "E";
+  public static final String ATTR_RECEIPT_EXPIRATION = "G";
+  public static final String ATTR_RECEIPT_LEVEL = "L";
+  public static final String ATTR_ACCOUNT_UUID = "U";
+  public static final String ATTR_REDEMPTION_TIME = "R";
 
   private final Clock clock;
   private final String table;
   private final DynamoDbClient client;
-  private final Duration expirationTime;
+
+  @VisibleForTesting
+  static final Duration TTL_PADDING = Duration.ofDays(30);
 
   public RedeemedReceiptsManager(
       @Nonnull final Clock clock,
       @Nonnull final String table,
-      @Nonnull final DynamoDbClient client,
-      @Nonnull final Duration expirationTime) {
+      @Nonnull final DynamoDbClient client) {
     this.clock = Objects.requireNonNull(clock);
     this.table = Objects.requireNonNull(table);
     this.client = Objects.requireNonNull(client);
-    this.expirationTime = Objects.requireNonNull(expirationTime);
   }
 
   /**
@@ -56,7 +57,7 @@ public class RedeemedReceiptsManager {
    */
   public boolean put(
       @Nonnull final ReceiptSerial receiptSerial,
-      final long receiptExpiration,
+      final Instant receiptExpiration,
       final long receiptLevel,
       @Nonnull final UUID accountUuid) {
 
@@ -65,7 +66,6 @@ public class RedeemedReceiptsManager {
     Objects.requireNonNull(accountUuid);
 
     final Instant now = clock.instant();
-    final Instant rowExpiration = now.plus(expirationTime);
     final AttributeValue serialAttributeValue = AttributeValues.b(receiptSerial.serialize());
 
     final UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
@@ -78,14 +78,14 @@ public class RedeemedReceiptsManager {
             + "#account_uuid = if_not_exists(#account_uuid, :account_uuid), "
             + "#redemption_time = if_not_exists(#redemption_time, :redemption_time)")
         .expressionAttributeNames(Map.of(
-            "#ttl", KEY_TTL,
-            "#receipt_expiration", KEY_RECEIPT_EXPIRATION,
-            "#receipt_level", KEY_RECEIPT_LEVEL,
-            "#account_uuid", KEY_ACCOUNT_UUID,
-            "#redemption_time", KEY_REDEMPTION_TIME))
+            "#ttl", ATTR_TTL,
+            "#receipt_expiration", ATTR_RECEIPT_EXPIRATION,
+            "#receipt_level", ATTR_RECEIPT_LEVEL,
+            "#account_uuid", ATTR_ACCOUNT_UUID,
+            "#redemption_time", ATTR_REDEMPTION_TIME))
         .expressionAttributeValues(Map.of(
-            ":ttl", AttributeValues.n(rowExpiration.getEpochSecond()),
-            ":receipt_expiration", AttributeValues.n(receiptExpiration),
+            ":ttl", rowTtl(receiptExpiration),
+            ":receipt_expiration", AttributeValues.n(receiptExpiration.getEpochSecond()),
             ":receipt_level", AttributeValues.n(receiptLevel),
             ":account_uuid", AttributeValues.b(accountUuid),
             ":redemption_time", AttributeValues.n(now.getEpochSecond())))
@@ -93,10 +93,10 @@ public class RedeemedReceiptsManager {
     final UpdateItemResponse updateItemResponse = client.updateItem(updateItemRequest);
 
       final Map<String, AttributeValue> attributes = updateItemResponse.attributes();
-      final long ddbReceiptExpiration = Long.parseLong(attributes.get(KEY_RECEIPT_EXPIRATION).n());
-      final long ddbReceiptLevel = Long.parseLong(attributes.get(KEY_RECEIPT_LEVEL).n());
-      final UUID ddbAccountUuid = UUIDUtil.fromByteBuffer(attributes.get(KEY_ACCOUNT_UUID).b().asByteBuffer());
-      return ddbReceiptExpiration == receiptExpiration && ddbReceiptLevel == receiptLevel &&
+      final long ddbReceiptExpiration = Long.parseLong(attributes.get(ATTR_RECEIPT_EXPIRATION).n());
+      final long ddbReceiptLevel = Long.parseLong(attributes.get(ATTR_RECEIPT_LEVEL).n());
+      final UUID ddbAccountUuid = UUIDUtil.fromByteBuffer(attributes.get(ATTR_ACCOUNT_UUID).b().asByteBuffer());
+      return ddbReceiptExpiration == receiptExpiration.getEpochSecond() && ddbReceiptLevel == receiptLevel &&
           Objects.equals(ddbAccountUuid, accountUuid);
   }
 
@@ -119,18 +119,16 @@ public class RedeemedReceiptsManager {
             .tableName(table)
             .item(Map.of(
                 KEY_SERIAL, AttributeValues.b(receiptSerial.serialize()),
-                // NOTE: this differs from the expiration for other receipt types (see RedeemedReceiptsManager#put) which
-                // sets the expiration to now + a static expiration time. The TTL handling needs to be unified in the future.
-                KEY_TTL, AttributeValues.n(receiptExpiration.getEpochSecond()),
-                KEY_RECEIPT_EXPIRATION, AttributeValues.n(receiptExpiration.getEpochSecond()),
-                KEY_RECEIPT_LEVEL, AttributeValues.n(receiptLevel),
-                KEY_ACCOUNT_UUID, AttributeValues.b(accountUuid),
-                KEY_REDEMPTION_TIME, AttributeValues.n(clock.instant().getEpochSecond())))
+                ATTR_TTL, rowTtl(receiptExpiration),
+                ATTR_RECEIPT_EXPIRATION, AttributeValues.n(receiptExpiration.getEpochSecond()),
+                ATTR_RECEIPT_LEVEL, AttributeValues.n(receiptLevel),
+                ATTR_ACCOUNT_UUID, AttributeValues.b(accountUuid),
+                ATTR_REDEMPTION_TIME, AttributeValues.n(clock.instant().getEpochSecond())))
             .conditionExpression("attribute_not_exists(#serial) OR (#account_uuid = :account_uuid AND #receipt_level = :receipt_level)")
             .expressionAttributeNames(Map.of(
                 "#serial", KEY_SERIAL,
-                "#account_uuid", KEY_ACCOUNT_UUID,
-                "#receipt_level", KEY_RECEIPT_LEVEL))
+                "#account_uuid", ATTR_ACCOUNT_UUID,
+                "#receipt_level", ATTR_RECEIPT_LEVEL))
             .expressionAttributeValues(Map.of(
                 ":account_uuid", AttributeValues.b(accountUuid),
                 ":receipt_level", AttributeValues.n(receiptLevel)
@@ -138,5 +136,9 @@ public class RedeemedReceiptsManager {
             .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
             .build())
         .build();
+  }
+
+  private static AttributeValue rowTtl(final Instant receiptExpiration) {
+    return AttributeValues.n(receiptExpiration.plus(TTL_PADDING).getEpochSecond());
   }
 }
