@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -510,7 +511,10 @@ class AccountControllerV2Test {
     @ParameterizedTest
     @ArgumentsSource(AccountsTestHelper.AccountsDataReportArgumentProvider.class)
     void testGetAccountDataReport(final Account account, final String expectedTextAfterHeader) throws Exception {
-      when(AuthHelper.ACCOUNTS_MANAGER.getByAccountIdentifier(account.getAccountIdentifier())).thenReturn(Optional.of(account));
+      // Use doReturn when mocking a stub from another class
+      doReturn(Optional.of(account))
+          .when(AuthHelper.ACCOUNTS_MANAGER)
+          .getByAccountIdentifier(account.getAccountIdentifier());
       when(accountsManager.getByAccountIdentifier(account.getAccountIdentifier())).thenReturn(Optional.of(account));
 
       final Response response = resources.getJerseyTest()
