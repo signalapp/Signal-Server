@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -200,6 +201,13 @@ class AccountsTest {
 
     assertPhoneNumberConstraintExists("+14151112222", account.getAccountIdentifier());
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getAccountIdentifier());
+  }
+
+  @Test
+  void testStoreNumberlessAccount() {
+    // Numberless account creation is not supported yet in the Accounts layer
+    final Account account = generateNumberlessAccount(UUID.randomUUID());
+    assertThrows(IllegalArgumentException.class, () -> createAccount(account));
   }
 
   @Test
@@ -459,7 +467,8 @@ class AccountsTest {
     accounts.confirmUsernameHash(existingAccount, usernameHash, encryptedUsername);
     final UUID usernameLinkHandle = existingAccount.getUsernameLinkHandle();
 
-    verifyStoredState(e164, existingAccount.getAccountIdentifier(), existingAccount.getPhoneNumberIdentifier(), usernameHash, existingAccount, true);
+    assertTrue(existingAccount.getPhoneNumberIdentifierOptional().isPresent());
+    verifyStoredState(e164, existingAccount.getAccountIdentifier(), existingAccount.getPhoneNumberIdentifierOptional().get(), usernameHash, existingAccount, true);
 
     assertPhoneNumberConstraintExists(e164, existingUuid);
     assertPhoneNumberIdentifierConstraintExists(existingPni, existingUuid);
@@ -507,6 +516,64 @@ class AccountsTest {
     assertThatThrownBy(() -> createAccount(invalidAccount));
   }
 
+  @Test
+  @Disabled("reclaiming numberless accounts is not supported yet")
+  void testReclaimNumberlessAccount() throws Exception {
+    final UUID existingUuid = UUID.randomUUID();
+    final Account numberlessExistingAccount = generateNumberlessAccount(existingUuid);
+
+    // Backup vouchers should be carried over across re-registration
+    final Account.BackupVoucher bv = new Account.BackupVoucher(1, Instant.now().plus(Duration.ofDays(1)));
+    numberlessExistingAccount.setBackupVoucher(bv);
+    // ZK credential keys should be carried over across re-registration
+    numberlessExistingAccount.setZkCredentialKey(ZkCredentialKeyPair.generate().getPublicKey());
+
+    createAccount(numberlessExistingAccount);
+
+    final byte[] usernameHash = TestRandomUtil.nextBytes(32);
+    final byte[] encryptedUsername = TestRandomUtil.nextBytes(16);
+
+    // Set up the existing account to have a username hash
+    accounts.confirmUsernameHash(numberlessExistingAccount, usernameHash, encryptedUsername);
+    final UUID usernameLinkHandle = numberlessExistingAccount.getUsernameLinkHandle();
+
+    assertTrue(numberlessExistingAccount.getPhoneNumberIdentifierOptional().isEmpty());
+    verifyStoredState(null, numberlessExistingAccount.getAccountIdentifier(), null, usernameHash, numberlessExistingAccount, true);
+
+    assertDoesNotThrow(() -> accounts.update(numberlessExistingAccount));
+
+    final Account secondAccount = generateNumberlessAccount(existingUuid);
+
+    // TODO: may need to update when we add support for reclaiming numberless accounts
+    reclaimAccount(secondAccount);
+
+    // usernameHash should be unset
+    verifyStoredState(null, existingUuid, null, null, secondAccount, true);
+
+    // username should become 'reclaimable'
+    Map<String, AttributeValue> item = readAccount(existingUuid);
+    Account result = Accounts.fromItem(item);
+    assertThat(AttributeValues.getUUID(item, Accounts.ATTR_USERNAME_LINK_UUID, null))
+        .isEqualTo(usernameLinkHandle)
+        .isEqualTo(result.getUsernameLinkHandle());
+    assertThat(result.getUsernameHash()).isEmpty();
+    assertThat(result.getEncryptedUsername()).isEmpty();
+    assertArrayEquals(result.getReservedUsernameHash().orElseThrow(), usernameHash);
+
+    assertThat(result.getBackupVoucher()).isEqualTo(bv);
+
+    // should keep the same usernameLink, now encryptedUsername should be set
+    accounts.confirmUsernameHash(result, usernameHash, encryptedUsername);
+    item = readAccount(existingUuid);
+    result = Accounts.fromItem(item);
+    assertThat(AttributeValues.getUUID(item, Accounts.ATTR_USERNAME_LINK_UUID, null))
+        .isEqualTo(usernameLinkHandle)
+        .isEqualTo(result.getUsernameLinkHandle());
+    assertArrayEquals(encryptedUsername, result.getEncryptedUsername().orElseThrow());
+    assertArrayEquals(usernameHash, result.getUsernameHash().orElseThrow());
+    assertThat(result.getReservedUsernameHash()).isEmpty();
+  }
+
   @ParameterizedTest
   @MethodSource
   void testReclaimAccountEquivalentPhoneNumbers(final String firstNumber, final String secondNumber) throws IOException {
@@ -516,7 +583,8 @@ class AccountsTest {
 
     createAccount(existingAccount);
 
-    verifyStoredState(firstNumber, existingAccount.getAccountIdentifier(), existingAccount.getPhoneNumberIdentifier(), null, existingAccount, true);
+    assertTrue(existingAccount.getPhoneNumberIdentifierOptional().isPresent());
+    verifyStoredState(firstNumber, existingAccount.getAccountIdentifier(), existingAccount.getPhoneNumberIdentifierOptional().get(), null, existingAccount, true);
 
     assertPhoneNumberConstraintExists(firstNumber, existingUuid);
     assertPhoneNumberIdentifierConstraintExists(pni, existingUuid);
@@ -532,9 +600,10 @@ class AccountsTest {
     Map<String, AttributeValue> item = readAccount(existingUuid);
     final Account account = SystemMapper.jsonMapper().readValue(item.get(Accounts.ATTR_ACCOUNT_DATA).b().asByteArray(), Account.class);
 
+    assertTrue(account.getNumberOptional().isPresent());
     assertThat(AttributeValues.getString(item, Accounts.ATTR_ACCOUNT_E164, null))
         .isEqualTo(secondNumber)
-        .isEqualTo(account.getNumber());
+        .isEqualTo(account.getNumberOptional().get());
     assertPhoneNumberConstraintDoesNotExist(firstNumber);
     assertPhoneNumberConstraintExists(secondNumber, existingUuid);
     assertPhoneNumberIdentifierConstraintExists(pni, existingUuid);
@@ -560,7 +629,8 @@ class AccountsTest {
 
     createAccount(existingAccount);
 
-    verifyStoredState(beninPhoneNumber, existingAccount.getAccountIdentifier(), existingAccount.getPhoneNumberIdentifier(), null, existingAccount, true);
+    assertTrue(existingAccount.getPhoneNumberIdentifierOptional().isPresent());
+    verifyStoredState(beninPhoneNumber, existingAccount.getAccountIdentifier(), existingAccount.getPhoneNumberIdentifierOptional().get(), null, existingAccount, true);
 
     assertPhoneNumberConstraintExists(beninPhoneNumber, existingUuid);
     assertPhoneNumberIdentifierConstraintExists(pni, existingUuid);
@@ -595,7 +665,8 @@ class AccountsTest {
 
     createAccount(existingAccount);
 
-    verifyStoredState(beninPhoneNumber, existingAccount.getAccountIdentifier(), existingAccount.getPhoneNumberIdentifier(), null, existingAccount, true);
+    assertTrue(existingAccount.getPhoneNumberIdentifierOptional().isPresent());
+    verifyStoredState(beninPhoneNumber, existingAccount.getAccountIdentifier(), existingAccount.getPhoneNumberIdentifierOptional().get(), null, existingAccount, true);
 
     assertPhoneNumberConstraintExists(beninPhoneNumber, existingUuid);
     assertPhoneNumberIdentifierConstraintExists(existingPni, existingUuid);
@@ -2014,6 +2085,10 @@ class AccountsTest {
     return generateAccount(nextNumber, UUID.randomUUID(), UUID.randomUUID());
   }
 
+  private static Account generateNumberlessAccount(final UUID uuid) {
+    return generateAccount(null, uuid, null);
+  }
+
   private static Account generateAccount(String number, UUID uuid, final UUID pni) {
     Device device = generateDevice(DEVICE_ID_1);
     return generateAccount(number, uuid, pni, List.of(device));
@@ -2122,8 +2197,8 @@ class AccountsTest {
   }
 
   private void verifyStoredState(String number, UUID uuid, UUID pni, byte[] usernameHash, Account result, Account expecting) {
-    assertThat(result.getNumber()).isEqualTo(number);
-    assertThat(result.getPhoneNumberIdentifier()).isEqualTo(pni);
+    assertThat(result.getNumberOptional()).isEqualTo(Optional.ofNullable(number));
+    assertThat(result.getPhoneNumberIdentifierOptional()).isEqualTo(Optional.ofNullable(pni));
     assertThat(result.getLastSeen()).isEqualTo(expecting.getLastSeen());
     assertThat(result.getAccountIdentifier()).isEqualTo(uuid);
     assertThat(result.getVersion()).isEqualTo(expecting.getVersion());
@@ -2139,6 +2214,7 @@ class AccountsTest {
       assertThat(resultDevice.getUserAgent()).isEqualTo(expectingDevice.getUserAgent());
       assertThat(resultDevice.getName()).isEqualTo(expectingDevice.getName());
       assertThat(resultDevice.getCreated()).isEqualTo(expectingDevice.getCreated());
+      assertThat(resultDevice.getPhoneNumberIdentityRegistrationId()).isEqualTo(expectingDevice.getPhoneNumberIdentityRegistrationId());
     }
   }
 }

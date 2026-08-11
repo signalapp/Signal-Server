@@ -61,6 +61,7 @@ import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
+import org.whispersystems.textsecuregcm.storage.DeviceIdentityInfo;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -132,6 +133,10 @@ public class RegistrationController {
     final String number = authorizationHeader.getUsername();
     final String password = authorizationHeader.getPassword();
 
+    if (registrationRequest.accountAttributes().getPhoneNumberIdentityRegistrationId().isEmpty()) {
+      throw new WebApplicationException("PNI registration ID must be provided", 422);
+    }
+
     if (!registrationRequest.isEverySignedKeyValid(userAgent)) {
       throw new WebApplicationException("Invalid signature", 422);
     }
@@ -202,15 +207,18 @@ public class RegistrationController {
             password,
             signalAgent,
             registrationRequest.accountAttributes().getCapabilities(),
-            registrationRequest.accountAttributes().getRegistrationId(),
-            registrationRequest.accountAttributes().getPhoneNumberIdentityRegistrationId(),
+            new DeviceIdentityInfo(
+                registrationRequest.accountAttributes().getRegistrationId(),
+                registrationRequest.deviceActivationRequest().aciSignedPreKey(),
+                registrationRequest.deviceActivationRequest().aciPqLastResortPreKey()),
+            Optional.of(new DeviceIdentityInfo(
+                registrationRequest.accountAttributes().getPhoneNumberIdentityRegistrationId().get(),
+                // We've already validated the presence of PNI keys by this point
+                registrationRequest.deviceActivationRequest().pniSignedPreKey().get(),
+                registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().get())),
             registrationRequest.accountAttributes().getFetchesMessages(),
             registrationRequest.deviceActivationRequest().apnToken(),
-            registrationRequest.deviceActivationRequest().gcmToken(),
-            registrationRequest.deviceActivationRequest().aciSignedPreKey(),
-            registrationRequest.deviceActivationRequest().pniSignedPreKey(),
-            registrationRequest.deviceActivationRequest().aciPqLastResortPreKey(),
-            registrationRequest.deviceActivationRequest().pniPqLastResortPreKey()),
+            registrationRequest.deviceActivationRequest().gcmToken()),
         userAgent);
 
     if (verificationType == PhoneVerificationRequest.VerificationType.SESSION) {

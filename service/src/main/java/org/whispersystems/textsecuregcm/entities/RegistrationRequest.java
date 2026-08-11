@@ -75,14 +75,14 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
 
   public boolean isEverySignedKeyValid(@Nullable final String userAgent) {
     if (deviceActivationRequest().aciSignedPreKey() == null ||
-        deviceActivationRequest().pniSignedPreKey() == null ||
+        deviceActivationRequest().pniSignedPreKey().isEmpty() ||
         deviceActivationRequest().aciPqLastResortPreKey() == null ||
-        deviceActivationRequest().pniPqLastResortPreKey() == null) {
+        deviceActivationRequest().pniPqLastResortPreKey().isEmpty()) {
       return false;
     }
 
     return PreKeySignatureValidator.validatePreKeySignatures(aciIdentityKey(), List.of(deviceActivationRequest().aciSignedPreKey(), deviceActivationRequest().aciPqLastResortPreKey()), userAgent, "register")
-        && PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey(), List.of(deviceActivationRequest().pniSignedPreKey(), deviceActivationRequest().pniPqLastResortPreKey()), userAgent, "register");
+        && PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey(), List.of(deviceActivationRequest().pniSignedPreKey().get(), deviceActivationRequest().pniPqLastResortPreKey().get()), userAgent, "register");
   }
 
   @VisibleForTesting

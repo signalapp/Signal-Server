@@ -151,16 +151,12 @@ class AccountsManagerConcurrentModificationIntegrationTest {
                   "password",
                   null,
                   Set.of(),
-                  1,
-                  2,
+                  new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+                  Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
                   true,
                   Optional.empty(),
-                  Optional.empty(),
-                  KeysHelper.signedECPreKey(1, aciKeyPair),
-                  KeysHelper.signedECPreKey(2, pniKeyPair),
-                  KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                  KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-              null).getIdentifier(IdentityType.ACI),
+                  Optional.empty()),
+              null).getAccountIdentifier(),
           a -> {
             a.setUnidentifiedAccessKey(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
             a.removeDevice(Device.PRIMARY_ID);

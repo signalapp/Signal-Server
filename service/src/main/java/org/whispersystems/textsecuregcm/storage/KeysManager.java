@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,32 +62,49 @@ public class KeysManager {
     return pqLastResortKeys.buildTransactWriteItemForInsertion(identifier, deviceId, lastResortSignedPreKey);
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public List<TransactWriteItem> buildWriteItemsForNewDevice(final UUID accountIdentifier,
-      final UUID phoneNumberIdentifier,
+      final Optional<UUID> maybePhoneNumberIdentifier,
       final byte deviceId,
       final ECSignedPreKey aciSignedPreKey,
-      final ECSignedPreKey pniSignedPreKey,
+      final Optional<ECSignedPreKey> maybePniSignedPreKey,
       final KEMSignedPreKey aciPqLastResortPreKey,
-      final KEMSignedPreKey pniLastResortPreKey) {
+      final Optional<KEMSignedPreKey> maybePniPqLastResortPreKey) {
+    final List<TransactWriteItem> writeItems = new ArrayList<>(buildWriteItemsForNewDevice(accountIdentifier, deviceId, aciSignedPreKey, aciPqLastResortPreKey));
 
+    maybePhoneNumberIdentifier.ifPresent(pni ->
+        writeItems.addAll(buildWriteItemsForNewDevice(pni, deviceId,
+            maybePniSignedPreKey.orElseThrow(() -> new AssertionError("PNI signed pre key must be provided if PNI is present")),
+            maybePniPqLastResortPreKey.orElseThrow(() -> new AssertionError("PNI PQ last resort pre key must be provided if PNI is present")))
+        ));
+    return writeItems;
+  }
+
+  private List<TransactWriteItem> buildWriteItemsForNewDevice(final UUID identifier,
+      final byte deviceId,
+      final ECSignedPreKey signedPreKey,
+      final KEMSignedPreKey lastResortPreKey) {
     return List.of(
-        ecSignedPreKeys.buildTransactWriteItemForInsertion(accountIdentifier, deviceId, aciSignedPreKey),
-        ecSignedPreKeys.buildTransactWriteItemForInsertion(phoneNumberIdentifier, deviceId, pniSignedPreKey),
-        pqLastResortKeys.buildTransactWriteItemForInsertion(accountIdentifier, deviceId, aciPqLastResortPreKey),
-        pqLastResortKeys.buildTransactWriteItemForInsertion(phoneNumberIdentifier, deviceId, pniLastResortPreKey)
+        ecSignedPreKeys.buildTransactWriteItemForInsertion(identifier, deviceId, signedPreKey),
+        pqLastResortKeys.buildTransactWriteItemForInsertion(identifier, deviceId, lastResortPreKey)
     );
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public List<TransactWriteItem> buildWriteItemsForRemovedDevice(final UUID accountIdentifier,
-      final UUID phoneNumberIdentifier,
+      final Optional<UUID> maybePhoneNumberIdentifier,
       final byte deviceId) {
-
-    return List.of(
+    final List<TransactWriteItem> writeItems = new ArrayList<>(List.of(
         ecSignedPreKeys.buildTransactWriteItemForDeletion(accountIdentifier, deviceId),
+        pqLastResortKeys.buildTransactWriteItemForDeletion(accountIdentifier, deviceId)
+    ));
+
+    maybePhoneNumberIdentifier.ifPresent(phoneNumberIdentifier -> writeItems.addAll(List.of(
         ecSignedPreKeys.buildTransactWriteItemForDeletion(phoneNumberIdentifier, deviceId),
-        pqLastResortKeys.buildTransactWriteItemForDeletion(accountIdentifier, deviceId),
-        pqLastResortKeys.buildTransactWriteItemForDeletion(phoneNumberIdentifier, deviceId)
+        pqLastResortKeys.buildTransactWriteItemForDeletion(phoneNumberIdentifier, deviceId)))
     );
+
+    return writeItems;
   }
 
   public CompletableFuture<Void> storeEcSignedPreKeys(final UUID identifier, final byte deviceId,

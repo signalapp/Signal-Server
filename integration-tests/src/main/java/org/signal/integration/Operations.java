@@ -101,9 +101,9 @@ public final class Operations {
         new IdentityKey(aciIdentityKeyPair.getPublicKey()),
         new IdentityKey(pniIdentityKeyPair.getPublicKey()),
         new DeviceActivationRequest(generateSignedECPreKey(1, aciIdentityKeyPair),
-            generateSignedECPreKey(2, pniIdentityKeyPair),
+            Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
             generateSignedKEMPreKey(3, aciIdentityKeyPair),
-            generateSignedKEMPreKey(4, pniIdentityKeyPair),
+            Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
             Optional.empty(),
             Optional.empty()));
 

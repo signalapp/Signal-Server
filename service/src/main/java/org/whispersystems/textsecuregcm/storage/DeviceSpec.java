@@ -8,9 +8,7 @@ import java.util.Set;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
-import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
-import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.util.EncryptDeviceCreationTimestampUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -19,15 +17,11 @@ public record DeviceSpec(
     String password,
     String signalAgent,
     Set<DeviceCapability> capabilities,
-    int aciRegistrationId,
-    int pniRegistrationId,
+    DeviceIdentityInfo aciInfo,
+    Optional<DeviceIdentityInfo> pniInfo,
     boolean fetchesMessages,
     Optional<ApnRegistrationId> apnRegistrationId,
-    Optional<GcmRegistrationId> gcmRegistrationId,
-    ECSignedPreKey aciSignedPreKey,
-    ECSignedPreKey pniSignedPreKey,
-    KEMSignedPreKey aciPqLastResortPreKey,
-    KEMSignedPreKey pniPqLastResortPreKey) {
+    Optional<GcmRegistrationId> gcmRegistrationId) {
   
   public Device toDevice(final byte deviceId, final Clock clock, final IdentityKey aciIdentityKey) {
     final long created = clock.millis();
@@ -36,13 +30,13 @@ public record DeviceSpec(
     device.setId(deviceId);
     device.setAuthTokenHash(SaltedTokenHash.generateFor(password()));
     device.setFetchesMessages(fetchesMessages());
-    device.setRegistrationId(aciRegistrationId());
-    device.setPhoneNumberIdentityRegistrationId(pniRegistrationId());
+    device.setRegistrationId(aciInfo.registrationId());
+    pniInfo().ifPresent(pniInfo -> device.setPhoneNumberIdentityRegistrationId(pniInfo.registrationId()));
     device.setName(deviceNameCiphertext());
     device.setCapabilities(capabilities());
     device.setCreated(created);
     device.setCreatedAtCiphertext(
-        EncryptDeviceCreationTimestampUtil.encrypt(created, aciIdentityKey, deviceId, aciRegistrationId()));
+        EncryptDeviceCreationTimestampUtil.encrypt(created, aciIdentityKey, deviceId, aciInfo.registrationId()));
     device.setLastSeen(Util.todayInMillis());
     device.setUserAgent(signalAgent());
 
@@ -64,26 +58,21 @@ public record DeviceSpec(
 
     final DeviceSpec that = (DeviceSpec) o;
 
-    return aciRegistrationId == that.aciRegistrationId
-        && pniRegistrationId == that.pniRegistrationId
+    return Objects.equals(aciInfo, that.aciInfo)
+        && Objects.equals(pniInfo, that.pniInfo)
         && fetchesMessages == that.fetchesMessages
         && Arrays.equals(deviceNameCiphertext, that.deviceNameCiphertext)
         && Objects.equals(password, that.password)
         && Objects.equals(signalAgent, that.signalAgent)
         && Objects.equals(capabilities, that.capabilities)
         && Objects.equals(apnRegistrationId, that.apnRegistrationId)
-        && Objects.equals(gcmRegistrationId, that.gcmRegistrationId)
-        && Objects.equals(aciSignedPreKey, that.aciSignedPreKey)
-        && Objects.equals(pniSignedPreKey, that.pniSignedPreKey)
-        && Objects.equals(aciPqLastResortPreKey, that.aciPqLastResortPreKey)
-        && Objects.equals(pniPqLastResortPreKey, that.pniPqLastResortPreKey);
+        && Objects.equals(gcmRegistrationId, that.gcmRegistrationId);
   }
 
   @Override
   public int hashCode() {
-    int result = Objects.hash(password, signalAgent, capabilities, aciRegistrationId, pniRegistrationId,
-        fetchesMessages, apnRegistrationId, gcmRegistrationId, aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey,
-        pniPqLastResortPreKey);
+    int result = Objects.hash(password, signalAgent, capabilities, aciInfo, pniInfo,
+        fetchesMessages, apnRegistrationId, gcmRegistrationId);
     result = 31 * result + Arrays.hashCode(deviceNameCiphertext);
     return result;
   }

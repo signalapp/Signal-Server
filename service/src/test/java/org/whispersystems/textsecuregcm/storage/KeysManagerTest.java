@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -16,7 +17,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -59,6 +62,38 @@ class KeysManagerTest {
         pagedSingleUseKEMPreKeyStore,
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName()),
         new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void buildWriteItemsForNewDevicePniPresentMissingPniPreKey(
+      final Optional<ECSignedPreKey> pniSignedPreKey,
+      final Optional<KEMSignedPreKey> pniPqLastResortPreKey) {
+    final ECKeyPair aciKeyPair = ECKeyPair.generate();
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciKeyPair);
+
+    assertThrows(AssertionError.class, () -> keysManager.buildWriteItemsForNewDevice(
+        UUID.randomUUID(),
+        Optional.of(UUID.randomUUID()),
+        Device.PRIMARY_ID,
+        aciSignedPreKey,
+        pniSignedPreKey,
+        aciPqLastResortPreKey,
+        pniPqLastResortPreKey));
+  }
+
+  private static List<Arguments> buildWriteItemsForNewDevicePniPresentMissingPniPreKey() {
+    final ECKeyPair pniKeyPair = ECKeyPair.generate();
+
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniKeyPair);
+    final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
+
+    return List.of(
+        Arguments.argumentSet("Missing PNI signed pre key", Optional.empty(), Optional.of(pniPqLastResortPreKey)),
+        Arguments.argumentSet("Missing PNI PQ last resort pre key", Optional.of(pniSignedPreKey), Optional.empty()),
+        Arguments.argumentSet("Missing both PNI pre keys", Optional.empty(), Optional.empty())
+    );
   }
 
   @Test

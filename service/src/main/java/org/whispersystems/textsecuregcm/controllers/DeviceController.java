@@ -42,6 +42,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -72,6 +73,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
+import org.whispersystems.textsecuregcm.storage.DeviceIdentityInfo;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.LinkDeviceTokenAlreadyUsedException;
 import org.whispersystems.textsecuregcm.storage.PersistentTimer;
@@ -240,6 +242,12 @@ public class DeviceController {
     final DeviceActivationRequest deviceActivationRequest = linkDeviceRequest.deviceActivationRequest();
     final DeviceAttributes deviceAttributes = linkDeviceRequest.deviceAttributes();
 
+    if (deviceAttributes.phoneNumberIdentityRegistrationId() == null ||
+        deviceActivationRequest.pniSignedPreKey().isEmpty() ||
+        deviceActivationRequest.pniPqLastResortPreKey().isEmpty()) {
+      throw new WebApplicationException("PNI-associated info must all be provided", 422);
+    }
+
     rateLimiters.getVerifyDeviceLimiter().validate(account.getAccountIdentifier());
 
     final boolean allKeysValid =
@@ -248,7 +256,7 @@ public class DeviceController {
             userAgent,
             "link-device")
             && PreKeySignatureValidator.validatePreKeySignatures(account.getIdentityKey(IdentityType.PNI),
-            List.of(deviceActivationRequest.pniSignedPreKey(), deviceActivationRequest.pniPqLastResortPreKey()),
+            List.of(deviceActivationRequest.pniSignedPreKey().get(), deviceActivationRequest.pniPqLastResortPreKey().get()),
             userAgent,
             "link-device");
 
@@ -284,15 +292,17 @@ public class DeviceController {
               authorizationHeader.getPassword(),
               signalAgent,
               capabilities,
-              deviceAttributes.registrationId(),
-              deviceAttributes.phoneNumberIdentityRegistrationId(),
+              new DeviceIdentityInfo(
+                  deviceAttributes.registrationId(),
+                  deviceActivationRequest.aciSignedPreKey(),
+                  deviceActivationRequest.aciPqLastResortPreKey()),
+              Optional.of(new DeviceIdentityInfo(
+                  deviceAttributes.phoneNumberIdentityRegistrationId(),
+                  deviceActivationRequest.pniSignedPreKey().get(),
+                  deviceActivationRequest.pniPqLastResortPreKey().get())),
               deviceAttributes.fetchesMessages(),
               deviceActivationRequest.apnToken(),
-              deviceActivationRequest.gcmToken(),
-              deviceActivationRequest.aciSignedPreKey(),
-              deviceActivationRequest.pniSignedPreKey(),
-              deviceActivationRequest.aciPqLastResortPreKey(),
-              deviceActivationRequest.pniPqLastResortPreKey()),
+              deviceActivationRequest.gcmToken()),
           linkDeviceRequest.verificationCode());
 
       return new LinkDeviceResponse(

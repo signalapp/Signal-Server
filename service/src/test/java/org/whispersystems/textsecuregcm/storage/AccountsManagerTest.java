@@ -680,7 +680,7 @@ class AccountsManagerTest {
     assertFalse(account.getDevice(linkedDevice.getId()).isPresent());
     verify(messagesManager, times(2)).clear(account.getAccountIdentifier(), linkedDevice.getId());
     verify(keysManager, times(2)).deleteSingleUsePreKeys(account.getAccountIdentifier(), linkedDevice.getId());
-    verify(keysManager).buildWriteItemsForRemovedDevice(account.getAccountIdentifier(), account.getPhoneNumberIdentifier(), linkedDevice.getId());
+    verify(keysManager).buildWriteItemsForRemovedDevice(account.getAccountIdentifier(), account.getPhoneNumberIdentifierOptional(), linkedDevice.getId());
     verify(disconnectionRequestManager).requestDisconnection(account.getAccountIdentifier(), List.of(linkedDevice.getId()));
   }
 
@@ -703,24 +703,44 @@ class AccountsManagerTest {
     verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
   }
 
-  @Test
-  void testCreateFreshAccount() throws InterruptedException, AccountAlreadyExistsException {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testCreateFreshAccount(final boolean hasE164) throws AccountAlreadyExistsException {
     when(accounts.create(any(), any())).thenReturn(true);
 
-    final String e164 = "+18005550123";
-    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
+    final Optional<String> maybeE164 = hasE164 ? Optional.of("+18005550123") : Optional.empty();
+    final Integer pniRegistrationId = hasE164 ? 2 : null;
+    final AccountAttributes attributes = new AccountAttributes(false, 1, pniRegistrationId, null, null, hasE164, null);
 
-    final Account createdAccount = createAccount(e164, attributes);
+    final Account createdAccount = maybeE164
+        .map(e164 -> createAccount(e164, attributes))
+        .orElseGet(() -> createAccount(attributes));
 
-    verify(accounts).create(argThat(account -> e164.equals(account.getNumber())), any());
+    // Check existence (or lack thereof) of phone number, phone number identifier, phone number identity key,
+    // and phone number identity registration ID
+    final Device primaryDevice = createdAccount.getDevices().stream().findFirst().orElseThrow();
+    assertEquals(maybeE164, createdAccount.getNumberOptional());
+    maybeE164.ifPresentOrElse(
+        number -> {
+          assertTrue(phoneNumberIdentifiersByE164.containsKey(number));
+          assertTrue(createdAccount.getPhoneNumberIdentityKey().isPresent());
+          assertEquals(pniRegistrationId, primaryDevice.getPhoneNumberIdentityRegistrationId().orElseThrow());
+        },
+        () -> {
+          assertTrue(phoneNumberIdentifiersByE164.isEmpty());
+          assertTrue(createdAccount.getPhoneNumberIdentityKey().isEmpty());
+          assertTrue(primaryDevice.getPhoneNumberIdentityRegistrationId().isEmpty());
+        });
+
+    verify(accounts).create(argThat(account -> maybeE164.equals(account.getNumberOptional())), any());
     verify(keysManager).buildWriteItemsForNewDevice(
         eq(createdAccount.getAccountIdentifier()),
-        eq(createdAccount.getPhoneNumberIdentifier()),
+        eq(createdAccount.getPhoneNumberIdentifierOptional()),
         eq(Device.PRIMARY_ID),
         notNull(),
+        maybeE164.isPresent() ? notNull() : eq(Optional.empty()),
         notNull(),
-        notNull(),
-        notNull());
+        maybeE164.isPresent() ? notNull() : eq(Optional.empty()));
 
     verify(changeNumberWaitingPeriodManager).handleAccountCreated(eq(createdAccount.getAccountIdentifier()), any(Instant.class));
 
@@ -729,17 +749,14 @@ class AccountsManagerTest {
   }
 
   @ParameterizedTest
-  @CsvSource({
-      "+18005550123, +18005550123",
-      // the canonical form of numbers may change over time, so an existing account might have not-identical e164 that
-      // maps to the same PNI, and the number used by the caller must be present on the re-registered account
-      "+2290123456789, +22923456789"
-  })
-  void testReregisterAccount(final String e164, final String existingAccountE164)
-      throws InterruptedException, AccountAlreadyExistsException {
+  @MethodSource
+  void testReregisterAccount(
+      final Optional<String> maybeE164,
+      final Optional<String> maybeExistingAccountE164)
+      throws AccountAlreadyExistsException {
     final UUID existingUuid = UUID.randomUUID();
-
-    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
+    final Integer pniRegistrationId = maybeE164.isPresent() ? 2 : null;
+    final AccountAttributes attributes = new AccountAttributes(false, 1, pniRegistrationId, null, null, maybeE164.isPresent(), null);
 
     when(accounts.create(any(), any()))
         .thenAnswer(invocation -> {
@@ -747,10 +764,8 @@ class AccountsManagerTest {
 
           final Account existingAccount = mock(Account.class);
           when(existingAccount.getAccountIdentifier()).thenReturn(existingUuid);
-          when(existingAccount.getIdentifier(IdentityType.ACI)).thenReturn(existingUuid);
-          when(existingAccount.getNumber()).thenReturn(existingAccountE164);
-          when(existingAccount.getPhoneNumberIdentifier()).thenReturn(requestedAccount.getIdentifier(IdentityType.PNI));
-          when(existingAccount.getIdentifier(IdentityType.PNI)).thenReturn(requestedAccount.getIdentifier(IdentityType.PNI));
+          when(existingAccount.getNumberOptional()).thenReturn(maybeExistingAccountE164);
+          when(existingAccount.getPhoneNumberIdentifierOptional()).thenReturn(requestedAccount.getPhoneNumberIdentifierOptional());
           when(existingAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
 
           throw new AccountAlreadyExistsException(existingAccount);
@@ -758,30 +773,55 @@ class AccountsManagerTest {
 
     when(accounts.reclaimAccount(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final Account reregisteredAccount = createAccount(e164, attributes);
+    final Account reregisteredAccount = maybeE164
+        .map(number -> createAccount(number, attributes))
+        .orElseGet(() -> createAccount(attributes));
 
-    assertTrue(phoneNumberIdentifiersByE164.containsKey(e164));
-    assertEquals(e164, reregisteredAccount.getNumber());
+    // Check existence (or lack thereof) of phone number, phone number identifier, phone number identity key,
+    // and phone number identity registration ID
+    final Device primaryDevice = reregisteredAccount.getDevices().stream().findFirst().orElseThrow();
+
+    assertEquals(maybeE164, reregisteredAccount.getNumberOptional());
+    maybeE164.ifPresentOrElse(
+        number -> {
+          assertTrue(phoneNumberIdentifiersByE164.containsKey(number));
+          assertTrue(reregisteredAccount.getPhoneNumberIdentityKey().isPresent());
+          assertEquals(pniRegistrationId, primaryDevice.getPhoneNumberIdentityRegistrationId().orElseThrow());
+        },
+        () -> {
+          assertTrue(phoneNumberIdentifiersByE164.isEmpty());
+          assertTrue(reregisteredAccount.getPhoneNumberIdentityKey().isEmpty());
+          assertTrue(primaryDevice.getPhoneNumberIdentityRegistrationId().isEmpty());
+        });
 
     verify(accounts)
-        .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getAccountIdentifier())), any());
+        .create(argThat(account -> existingUuid.equals(account.getAccountIdentifier())), any());
 
     verify(keysManager).buildWriteItemsForNewDevice(
         eq(reregisteredAccount.getAccountIdentifier()),
-        eq(reregisteredAccount.getPhoneNumberIdentifier()),
+        eq(reregisteredAccount.getPhoneNumberIdentifierOptional()),
         eq(Device.PRIMARY_ID),
         notNull(),
+        maybeE164.isPresent() ? notNull() : eq(Optional.empty()),
         notNull(),
-        notNull(),
-        notNull());
+        maybeE164.isPresent() ? notNull() : eq(Optional.empty()));
 
     verify(keysManager, times(2)).deleteSingleUsePreKeys(existingUuid);
-    verify(keysManager, times(2)).deleteSingleUsePreKeys(phoneNumberIdentifiersByE164.get(e164));
+    maybeE164.ifPresent(number -> verify(keysManager, times(2)).deleteSingleUsePreKeys(phoneNumberIdentifiersByE164.get(number)));
     verify(messagesManager, times(2)).clear(existingUuid);
     verify(profilesManager, times(2)).deleteAll(existingUuid, false);
     verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
-        account.getIdentifier(IdentityType.ACI).equals(existingUuid) && account != reregisteredAccount));
+        account.getAccountIdentifier().equals(existingUuid) && account != reregisteredAccount));
     verify(changeNumberWaitingPeriodManager).handleAccountCreated(eq(existingUuid), any(Instant.class));
+  }
+
+  private static List<Arguments> testReregisterAccount() {
+    return List.of(
+        Arguments.argumentSet("Re-register with the same phone number", Optional.of("+18005550123"), Optional.of("+18005550123")),
+        // the canonical form of numbers may change over time, so an existing account might have not-identical e164 that
+        // maps to the same PNI, and the number used by the caller must be present on the re-registered account
+        Arguments.argumentSet("Re-register with a phone number in the same equivalence class", Optional.of("+2290123456789"), Optional.of("+22923456789")),
+        Arguments.argumentSet("Re-register a numberless account", Optional.empty(), Optional.empty()));
   }
 
   @Test
@@ -797,11 +837,11 @@ class AccountsManagerTest {
     final Account account = createAccount(e164, attributes);
 
     verify(accounts).create(
-        argThat(a -> e164.equals(a.getNumber()) && recentlyDeletedUuid.equals(a.getAccountIdentifier())),
+        argThat(a -> e164.equals(a.getNumberOptional().get()) && recentlyDeletedUuid.equals(a.getAccountIdentifier())),
         any());
 
-    verify(keysManager).buildWriteItemsForNewDevice(eq(account.getIdentifier(IdentityType.ACI)),
-        eq(account.getIdentifier(IdentityType.PNI)),
+    verify(keysManager).buildWriteItemsForNewDevice(eq(account.getAccountIdentifier()),
+        eq(account.getPhoneNumberIdentifierOptional()),
         eq(Device.PRIMARY_ID),
         any(),
         any(),
@@ -871,15 +911,11 @@ class AccountsManagerTest {
             password,
             signalAgent,
             deviceCapabilities,
-            aciRegistrationId,
-            pniRegistrationId,
+            new DeviceIdentityInfo(aciRegistrationId, aciSignedPreKey, aciPqLastResortPreKey),
+            Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)),
             true,
             Optional.empty(),
-            Optional.empty(),
-            aciSignedPreKey,
-            pniSignedPreKey,
-            aciPqLastResortPreKey,
-            pniPqLastResortPreKey),
+            Optional.empty()),
             accountsManager.generateLinkDeviceToken(aci));
 
     verify(keysManager).deleteSingleUsePreKeys(aci, nextDeviceId);
@@ -888,12 +924,12 @@ class AccountsManagerTest {
 
     verify(keysManager).buildWriteItemsForNewDevice(
         aci,
-        pni,
+        Optional.of(pni),
         nextDeviceId,
         aciSignedPreKey,
-        pniSignedPreKey,
+        Optional.of(pniSignedPreKey),
         aciPqLastResortPreKey,
-        pniPqLastResortPreKey);
+        Optional.of(pniPqLastResortPreKey));
 
     final Device device = updatedAccountAndDevice.second();
 
@@ -1029,7 +1065,7 @@ class AccountsManagerTest {
     verify(keysManager).deleteSingleUsePreKeys(originalPni);
     verify(keysManager, atLeastOnce()).deleteSingleUsePreKeys(targetPni);
     verify(keysManager).deleteSingleUsePreKeys(newPni);
-    verify(keysManager).buildWriteItemsForRemovedDevice(existingAccountUuid, targetPni, Device.PRIMARY_ID);
+    verify(keysManager).buildWriteItemsForRemovedDevice(existingAccountUuid, Optional.of(targetPni), Device.PRIMARY_ID);
     verify(keysManager).buildWriteItemForEcSignedPreKey(newPni, Device.PRIMARY_ID, ecSignedPreKey);
     verify(keysManager).buildWriteItemForLastResortKey(newPni, Device.PRIMARY_ID, kemLastResoryPreKey);
     verifyNoMoreInteractions(keysManager);
@@ -1329,7 +1365,26 @@ class AccountsManagerTest {
     return device;
   }
 
-  private Account createAccount(final String e164, final AccountAttributes accountAttributes) throws InterruptedException {
+  private Account createAccount(final AccountAttributes accountAttributes) {
+    final ECKeyPair aciKeyPair = ECKeyPair.generate();
+
+    return accountsManager.create(accountAttributes,
+        new ArrayList<>(),
+        new IdentityKey(aciKeyPair.getPublicKey()),
+        new DeviceSpec(
+            accountAttributes.getName(),
+            "password",
+            null,
+            accountAttributes.getCapabilities(),
+            new DeviceIdentityInfo(accountAttributes.getRegistrationId(), KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+            Optional.empty(),
+            accountAttributes.getFetchesMessages(),
+            Optional.empty(),
+            Optional.empty()),
+        null);
+  }
+
+  private Account createAccount(final String e164, final AccountAttributes accountAttributes) {
     final ECKeyPair aciKeyPair = ECKeyPair.generate();
     final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
@@ -1343,15 +1398,13 @@ class AccountsManagerTest {
             "password",
             null,
             accountAttributes.getCapabilities(),
-            accountAttributes.getRegistrationId(),
-            accountAttributes.getPhoneNumberIdentityRegistrationId(),
+            new DeviceIdentityInfo(accountAttributes.getRegistrationId(), KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+            Optional.of(new DeviceIdentityInfo(accountAttributes.getPhoneNumberIdentityRegistrationId().orElseThrow(() -> new AssertionError("PNI registration ID must be provided for an account with a phone number")),
+                KeysHelper.signedECPreKey(2, pniKeyPair),
+                KeysHelper.signedKEMPreKey(4, pniKeyPair))),
             accountAttributes.getFetchesMessages(),
             Optional.empty(),
-            Optional.empty(),
-            KeysHelper.signedECPreKey(1, aciKeyPair),
-            KeysHelper.signedECPreKey(2, pniKeyPair),
-            KeysHelper.signedKEMPreKey(3, aciKeyPair),
-            KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+            Optional.empty()),
         null);
   }
 

@@ -187,15 +187,11 @@ public class AddRemoveDeviceIntegrationTest {
                     "password",
                     "OWT",
                     Set.of(),
-                    1,
-                    2,
+                    new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+                    Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
                     true,
                     Optional.empty(),
-                    Optional.empty(),
-                    KeysHelper.signedECPreKey(1, aciKeyPair),
-                    KeysHelper.signedECPreKey(2, pniKeyPair),
-                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    Optional.empty()),
                 accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)));
 
     assertEquals(2, updatedAccountAndDevice.first().getDevices().size());
@@ -237,15 +233,11 @@ public class AddRemoveDeviceIntegrationTest {
                     "password",
                     "OWT",
                     Set.of(),
-                    1,
-                    2,
+                    new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+                    Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
                     true,
                     Optional.empty(),
-                    Optional.empty(),
-                    KeysHelper.signedECPreKey(1, aciKeyPair),
-                    KeysHelper.signedECPreKey(2, pniKeyPair),
-                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    Optional.empty()),
                 linkDeviceToken);
 
     assertEquals(2,
@@ -258,15 +250,11 @@ public class AddRemoveDeviceIntegrationTest {
                     "password",
                     "OWT",
                     Set.of(),
-                    1,
-                    2,
+                    new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+                    Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
                     true,
                     Optional.empty(),
-                    Optional.empty(),
-                    KeysHelper.signedECPreKey(1, aciKeyPair),
-                    KeysHelper.signedECPreKey(2, pniKeyPair),
-                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    Optional.empty()),
                 linkDeviceToken));
 
     assertEquals(2,
@@ -292,15 +280,11 @@ public class AddRemoveDeviceIntegrationTest {
                     "password",
                     "OWT",
                     Set.of(),
-                    1,
-                    2,
+                    new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+                    Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
                     true,
                     Optional.empty(),
-                    Optional.empty(),
-                    KeysHelper.signedECPreKey(1, aciKeyPair),
-                    KeysHelper.signedECPreKey(2, pniKeyPair),
-                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    Optional.empty()),
                 accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)));
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
@@ -343,15 +327,11 @@ public class AddRemoveDeviceIntegrationTest {
                     "password",
                     "OWT",
                     Set.of(),
-                    1,
-                    2,
+                    new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+                    Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
                     true,
                     Optional.empty(),
-                    Optional.empty(),
-                    KeysHelper.signedECPreKey(1, aciKeyPair),
-                    KeysHelper.signedECPreKey(2, pniKeyPair),
-                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    Optional.empty()),
                 accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)));
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
@@ -413,15 +393,11 @@ public class AddRemoveDeviceIntegrationTest {
                     "password",
                     "OWT",
                     Set.of(),
-                    1,
-                    2,
+                    new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+                    Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
                     true,
                     Optional.empty(),
-                    Optional.empty(),
-                    KeysHelper.signedECPreKey(1, aciKeyPair),
-                    KeysHelper.signedECPreKey(2, pniKeyPair),
-                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    Optional.empty()),
                 linkDeviceToken);
 
     final Optional<DeviceInfo> maybeDeviceInfo = activeFuture.join();
@@ -454,15 +430,11 @@ public class AddRemoveDeviceIntegrationTest {
                     "password",
                     "OWT",
                     Set.of(),
-                    1,
-                    2,
+                    new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+                    Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
                     true,
                     Optional.empty(),
-                    Optional.empty(),
-                    KeysHelper.signedECPreKey(1, aciKeyPair),
-                    KeysHelper.signedECPreKey(2, pniKeyPair),
-                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    Optional.empty()),
                 linkDeviceToken);
 
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getAccountIdentifier(), account.getPrimaryDevice()))
@@ -523,15 +495,11 @@ public class AddRemoveDeviceIntegrationTest {
             "password",
             "OWT",
             Set.of(),
-            1,
-            2,
+            new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+            Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
             true,
             Optional.empty(),
-            Optional.empty(),
-            KeysHelper.signedECPreKey(1, aciKeyPair),
-            KeysHelper.signedECPreKey(2, pniKeyPair),
-            KeysHelper.signedKEMPreKey(3, aciKeyPair),
-            KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+            Optional.empty()),
         linkDeviceToken);
 
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getAccountIdentifier(), account.getPrimaryDevice()))
@@ -566,15 +534,11 @@ public class AddRemoveDeviceIntegrationTest {
             "password",
             "OWT",
             Set.of(),
-            1,
-            2,
+            new DeviceIdentityInfo(1, KeysHelper.signedECPreKey(1, aciKeyPair), KeysHelper.signedKEMPreKey(3, aciKeyPair)),
+            Optional.of(new DeviceIdentityInfo(2, KeysHelper.signedECPreKey(2, pniKeyPair), KeysHelper.signedKEMPreKey(4, pniKeyPair))),
             true,
             Optional.empty(),
-            Optional.empty(),
-            KeysHelper.signedECPreKey(1, aciKeyPair),
-            KeysHelper.signedECPreKey(2, pniKeyPair),
-            KeysHelper.signedKEMPreKey(3, aciKeyPair),
-            KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+            Optional.empty()),
         linkDeviceToken);
 
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getAccountIdentifier(), account.getPrimaryDevice()))

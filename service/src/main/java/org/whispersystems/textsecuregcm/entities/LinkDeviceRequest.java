@@ -33,9 +33,9 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
   public LinkDeviceRequest(@JsonProperty("verificationCode") String verificationCode,
                            @JsonProperty("accountAttributes") DeviceAttributes deviceAttributes,
                            @JsonProperty("aciSignedPreKey") @NotNull @Valid ECSignedPreKey aciSignedPreKey,
-                           @JsonProperty("pniSignedPreKey") @NotNull @Valid ECSignedPreKey pniSignedPreKey,
+                           @JsonProperty("pniSignedPreKey") Optional<@Valid ECSignedPreKey> pniSignedPreKey,
                            @JsonProperty("aciPqLastResortPreKey") @NotNull @Valid KEMSignedPreKey aciPqLastResortPreKey,
-                           @JsonProperty("pniPqLastResortPreKey") @NotNull @Valid KEMSignedPreKey pniPqLastResortPreKey,
+                           @JsonProperty("pniPqLastResortPreKey") Optional<@Valid KEMSignedPreKey> pniPqLastResortPreKey,
                            @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
                            @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
 

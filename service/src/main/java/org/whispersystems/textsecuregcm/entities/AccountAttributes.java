@@ -52,7 +52,7 @@ public class AccountAttributes {
   public AccountAttributes(
       final boolean fetchesMessages,
       final int registrationId,
-      final int phoneNumberIdentifierRegistrationId,
+      final Integer phoneNumberIdentifierRegistrationId,
       final byte[] name,
       final String registrationLock,
       final boolean discoverableByPhoneNumber,
@@ -71,8 +71,8 @@ public class AccountAttributes {
     return deviceAttributes.registrationId();
   }
 
-  public int getPhoneNumberIdentityRegistrationId() {
-    return deviceAttributes.phoneNumberIdentityRegistrationId();
+  public Optional<Integer> getPhoneNumberIdentityRegistrationId() {
+    return Optional.ofNullable(deviceAttributes.phoneNumberIdentityRegistrationId());
   }
 
   public byte[] getName() {

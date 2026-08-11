@@ -83,6 +83,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
+import org.whispersystems.textsecuregcm.storage.DeviceIdentityInfo;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -168,7 +169,7 @@ class RegistrationControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void invalidRegistrationId(Optional<Integer> registrationId, Optional<Integer> pniRegistrationId, int statusCode) throws InterruptedException, JsonProcessingException {
+  void invalidRegistrationId(Optional<Integer> registrationId, Optional<Integer> pniRegistrationId, int statusCode) {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")
         .request()
@@ -180,7 +181,7 @@ class RegistrationControllerTest {
     when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(account);
 
-    final String json = requestJson("sessionId", new byte[0], true, registrationId.orElse(0), pniRegistrationId.orElse(0));
+    final String json = requestJson("sessionId", new byte[0], true, registrationId.orElse(0), pniRegistrationId.orElse(null));
 
     try (Response response = request.post(Entity.json(json))) {
       assertEquals(statusCode, response.getStatus());
@@ -450,9 +451,9 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 pniIdentityKey,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.of(new ApnRegistrationId("apns-token")),
                     Optional.empty()))),
 
@@ -464,9 +465,9 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 pniIdentityKey,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.empty(),
                     Optional.of(new GcmRegistrationId("gcm-token"))))),
 
@@ -478,9 +479,9 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 pniIdentityKey,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.of(new ApnRegistrationId("apns-token")),
                     Optional.of(new GcmRegistrationId("gcm-token")))))
     );
@@ -533,7 +534,7 @@ class RegistrationControllerTest {
                 new DeviceActivationRequest(aciSignedPreKey,
                     null,
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.empty(),
                     Optional.empty()))),
 
@@ -545,9 +546,9 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 pniIdentityKey,
                 new DeviceActivationRequest(null,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.empty(),
                     Optional.empty()))),
 
@@ -559,7 +560,7 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 pniIdentityKey,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
                     null,
                     Optional.empty(),
@@ -573,9 +574,9 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 pniIdentityKey,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     null,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.empty(),
                     Optional.empty()))),
 
@@ -587,9 +588,9 @@ class RegistrationControllerTest {
                 null,
                 pniIdentityKey,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.empty(),
                     Optional.empty()))),
 
@@ -601,9 +602,9 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 null,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.empty(),
                     Optional.empty())))
     );
@@ -752,9 +753,9 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 pniIdentityKey,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.empty(),
                     Optional.empty())),
             aciIdentityKey,
@@ -764,15 +765,12 @@ class RegistrationControllerTest {
                 PASSWORD,
                 null,
                 deviceCapabilities,
-                registrationId,
-                pniRegistrationId,
+                new DeviceIdentityInfo(registrationId, aciSignedPreKey, aciPqLastResortPreKey),
+                Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)),
                 true,
                 Optional.empty(),
-                Optional.empty(),
-                aciSignedPreKey,
-                pniSignedPreKey,
-                aciPqLastResortPreKey,
-                pniPqLastResortPreKey)),
+                Optional.empty()
+            )),
 
         Arguments.argumentSet("Has APNs tokens",
             new RegistrationRequest("session-id",
@@ -782,9 +780,9 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 pniIdentityKey,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.of(new ApnRegistrationId(apnsToken)),
                     Optional.empty())),
             aciIdentityKey,
@@ -794,15 +792,11 @@ class RegistrationControllerTest {
                 PASSWORD,
                 null,
                 deviceCapabilities,
-                registrationId,
-                pniRegistrationId,
+                new DeviceIdentityInfo(registrationId, aciSignedPreKey, aciPqLastResortPreKey),
+                Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)),
                 false,
                 Optional.of(new ApnRegistrationId(apnsToken)),
-                Optional.empty(),
-                aciSignedPreKey,
-                pniSignedPreKey,
-                aciPqLastResortPreKey,
-                pniPqLastResortPreKey)),
+                Optional.empty())),
 
         Arguments.argumentSet("Has GCM token",
             new RegistrationRequest("session-id",
@@ -812,9 +806,9 @@ class RegistrationControllerTest {
                 aciIdentityKey,
                 pniIdentityKey,
                 new DeviceActivationRequest(aciSignedPreKey,
-                    pniSignedPreKey,
+                    Optional.of(pniSignedPreKey),
                     aciPqLastResortPreKey,
-                    pniPqLastResortPreKey,
+                    Optional.of(pniPqLastResortPreKey),
                     Optional.empty(),
                     Optional.of(new GcmRegistrationId(gcmToken)))),
             aciIdentityKey,
@@ -824,15 +818,11 @@ class RegistrationControllerTest {
                 PASSWORD,
                 null,
                 deviceCapabilities,
-                registrationId,
-                pniRegistrationId,
+                new DeviceIdentityInfo(registrationId, aciSignedPreKey, aciPqLastResortPreKey),
+                Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)),
                 false,
                 Optional.empty(),
-                Optional.of(new GcmRegistrationId(gcmToken)),
-                aciSignedPreKey,
-                pniSignedPreKey,
-                aciPqLastResortPreKey,
-                pniPqLastResortPreKey))
+                Optional.of(new GcmRegistrationId(gcmToken))))
     );
   }
 
@@ -841,7 +831,7 @@ class RegistrationControllerTest {
       final byte[] recoveryPassword,
       final boolean skipDeviceTransfer,
       final int registrationId,
-      int pniRegistrationId,
+      final Integer pniRegistrationId,
       Set<DeviceCapability> deviceCapabilities) {
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
@@ -863,9 +853,9 @@ class RegistrationControllerTest {
         pniIdentityKey,
         new DeviceActivationRequest(
             KeysHelper.signedECPreKey(1, aciIdentityKeyPair),
-            KeysHelper.signedECPreKey(2, pniIdentityKeyPair),
+            Optional.of(KeysHelper.signedECPreKey(2, pniIdentityKeyPair)),
             KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair),
-            KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair),
+            Optional.of(KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair)),
             Optional.empty(),
             Optional.empty()));
   }
@@ -885,7 +875,7 @@ class RegistrationControllerTest {
       final byte[] recoveryPassword,
       final boolean skipDeviceTransfer,
       final int registrationId,
-      final int pniRegistrationId) {
+      final Integer pniRegistrationId) {
       return requestToJson(request(sessionId, recoveryPassword, skipDeviceTransfer, registrationId, pniRegistrationId, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES));
   }
 

@@ -24,7 +24,9 @@ public record DeviceAttributes(
 
     int registrationId,
 
-    @JsonProperty("pniRegistrationId") int phoneNumberIdentityRegistrationId,
+    @JsonProperty("pniRegistrationId")
+    @Nullable
+    Integer phoneNumberIdentityRegistrationId,
 
     @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
 
@@ -41,6 +43,7 @@ public record DeviceAttributes(
   @AssertTrue
   @Schema(hidden = true)
   public boolean isEachRegistrationIdValid() {
-    return validRegistrationId(registrationId) && validRegistrationId(phoneNumberIdentityRegistrationId);
+    return validRegistrationId(registrationId) &&
+        (phoneNumberIdentityRegistrationId == null || validRegistrationId(phoneNumberIdentityRegistrationId));
   }
 }
