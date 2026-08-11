@@ -39,7 +39,7 @@ public class RegistrationRecoveryTest {
 
   @RegisterExtension
   private static final DynamoDbExtension DYNAMO_DB_EXTENSION =
-      new DynamoDbExtension(Tables.REGISTRATION_RECOVERY_PASSWORDS);
+      new DynamoDbExtension(Tables.PHONE_NUMBER_RECOVERY_PASSWORDS);
 
   private PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords;
 
@@ -49,7 +49,7 @@ public class RegistrationRecoveryTest {
   public void before() throws Exception {
     CLOCK.setTimeMillis(Clock.systemUTC().millis());
     phoneNumberRecoveryPasswords = new PhoneNumberRecoveryPasswords(
-        Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
+        Tables.PHONE_NUMBER_RECOVERY_PASSWORDS.tableName(),
         EXPIRATION,
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         CLOCK
@@ -139,7 +139,7 @@ public class RegistrationRecoveryTest {
 
   private static long fetchTimestamp(final UUID phoneNumberIdentifier) {
     final GetItemResponse getItemResponse = DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
-            .tableName(Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName())
+            .tableName(Tables.PHONE_NUMBER_RECOVERY_PASSWORDS.tableName())
             .key(Map.of(PhoneNumberRecoveryPasswords.KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
             .build());
 

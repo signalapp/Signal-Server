@@ -75,7 +75,8 @@ class AccountsManagerUsernameIntegrationTest {
       Tables.PAGED_PQ_KEYS,
       Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
       Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS,
-      Tables.REDEEMED_RECEIPTS);
+      Tables.REDEEMED_RECEIPTS,
+      Tables.PHONE_NUMBER_RECOVERY_PASSWORDS);
 
   @RegisterExtension
   static RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -131,6 +132,13 @@ class AccountsManagerUsernameIntegrationTest {
     final DisconnectionRequestManager disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
 
+    final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
+        new PhoneNumberRecoveryPasswordsManager(new PhoneNumberRecoveryPasswords(
+            Tables.PHONE_NUMBER_RECOVERY_PASSWORDS.tableName(),
+            Duration.ofDays(1),
+            DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+            Clock.systemUTC()));
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -144,7 +152,7 @@ class AccountsManagerUsernameIntegrationTest {
         mock(SecureStorageClient.class),
         mock(SecureValueRecoveryClient.class),
         disconnectionRequestManager,
-        mock(PhoneNumberRecoveryPasswordsManager.class),
+        phoneNumberRecoveryPasswordsManager,
         Executors.newSingleThreadExecutor(),
         Executors.newSingleThreadScheduledExecutor(),
         Executors.newSingleThreadScheduledExecutor(),

@@ -62,7 +62,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       Tables.PAGED_PQ_KEYS,
       Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
       Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS,
-      Tables.REGISTRATION_RECOVERY_PASSWORDS,
+      Tables.PHONE_NUMBER_RECOVERY_PASSWORDS,
       Tables.REDEEMED_RECEIPTS);
 
   @RegisterExtension
@@ -129,7 +129,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
 
       final PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords =
-          new PhoneNumberRecoveryPasswords(DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
+          new PhoneNumberRecoveryPasswords(DynamoDbExtensionSchema.Tables.PHONE_NUMBER_RECOVERY_PASSWORDS.tableName(),
               Duration.ofDays(1),
               DYNAMO_DB_EXTENSION.getDynamoDbClient(),
               Clock.systemUTC());

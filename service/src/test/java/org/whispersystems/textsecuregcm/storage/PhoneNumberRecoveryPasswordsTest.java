@@ -24,7 +24,7 @@ class PhoneNumberRecoveryPasswordsTest {
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
-      DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS
+      DynamoDbExtensionSchema.Tables.PHONE_NUMBER_RECOVERY_PASSWORDS
   );
 
   private PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords;
@@ -32,7 +32,7 @@ class PhoneNumberRecoveryPasswordsTest {
   @BeforeEach
   void setUp() {
     phoneNumberRecoveryPasswords = new PhoneNumberRecoveryPasswords(
-        DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
+        DynamoDbExtensionSchema.Tables.PHONE_NUMBER_RECOVERY_PASSWORDS.tableName(),
         Duration.ofDays(1),
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         Clock.systemUTC());

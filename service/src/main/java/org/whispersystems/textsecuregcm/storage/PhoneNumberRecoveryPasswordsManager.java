@@ -10,6 +10,7 @@ import static java.util.Objects.requireNonNull;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
+import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
@@ -31,6 +32,7 @@ public class PhoneNumberRecoveryPasswordsManager {
     return saltedTokenHash.verify(bytesToString(password));
   }
 
+  @VisibleForTesting
   public boolean store(final UUID phoneNumberIdentifier, final byte[] password) {
     final String token = bytesToString(password);
     final SaltedTokenHash tokenHash = SaltedTokenHash.generateFor(token);

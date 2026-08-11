@@ -45,7 +45,6 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.InvalidInputException;
-import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
@@ -54,14 +53,12 @@ import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
-import org.whispersystems.textsecuregcm.util.ValidBase64URLString;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 
 public class AccountCreationDeletionIntegrationTest {
@@ -79,7 +76,7 @@ public class AccountCreationDeletionIntegrationTest {
       DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS,
-      DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS,
+      DynamoDbExtensionSchema.Tables.PHONE_NUMBER_RECOVERY_PASSWORDS,
       DynamoDbExtensionSchema.Tables.REDEEMED_RECEIPTS);
 
   @RegisterExtension
@@ -89,8 +86,6 @@ public class AccountCreationDeletionIntegrationTest {
   static final S3LocalStackExtension S3_EXTENSION = new S3LocalStackExtension("testbucket");
 
   private static final Clock CLOCK = Clock.fixed(Instant.now(), ZoneId.systemDefault());
-
-  private static final ServerSecretParams RECEIPT_PARAMS = ServerSecretParams.generate();
 
   private ScheduledExecutorService executor;
 
@@ -150,7 +145,7 @@ public class AccountCreationDeletionIntegrationTest {
     when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
 
     final PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords =
-        new PhoneNumberRecoveryPasswords(DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
+        new PhoneNumberRecoveryPasswords(DynamoDbExtensionSchema.Tables.PHONE_NUMBER_RECOVERY_PASSWORDS.tableName(),
             Duration.ofDays(1),
             DYNAMO_DB_EXTENSION.getDynamoDbClient(),
             CLOCK);
@@ -192,7 +187,7 @@ public class AccountCreationDeletionIntegrationTest {
   @CartesianTest
   @CartesianTest.MethodFactory("createAccount")
   void createAccount(final DeliveryChannels deliveryChannels,
-      final boolean discoverableByPhoneNumber) throws InterruptedException {
+      final boolean discoverableByPhoneNumber) {
 
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
@@ -204,6 +199,7 @@ public class AccountCreationDeletionIntegrationTest {
     final int pniRegistrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
     final byte[] deviceName = RandomStringUtils.secure().nextAlphabetic(16).getBytes(StandardCharsets.UTF_8);
     final String registrationLockSecret = RandomStringUtils.secure().nextAlphanumeric(16);
+    final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
 
     final Set<DeviceCapability> deviceCapabilities = Set.of();
 
@@ -213,7 +209,8 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         registrationLockSecret,
         discoverableByPhoneNumber,
-        deviceCapabilities, null);
+        deviceCapabilities,
+        recoveryPassword);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
         RandomStringUtils.secure().nextAlphabetic(8),
@@ -277,6 +274,7 @@ public class AccountCreationDeletionIntegrationTest {
     assertEquals(Optional.of(pniSignedPreKey), keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join());
     assertEquals(Optional.of(aciPqLastResortPreKey), keysManager.getLastResort(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
     assertEquals(Optional.of(pniPqLastResortPreKey), keysManager.getLastResort(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join());
+    assertTrue(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(), recoveryPassword));
   }
 
   @ParameterizedTest
@@ -379,11 +377,14 @@ public class AccountCreationDeletionIntegrationTest {
   @CartesianTest
   @CartesianTest.MethodFactory("createAccount")
   void reregisterAccount(final DeliveryChannels deliveryChannels,
-      final boolean discoverableByPhoneNumber) throws InterruptedException {
+      final boolean discoverableByPhoneNumber) {
 
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final byte[] originalRecoveryPassword = TestRandomUtil.nextBytes(16);
+    final byte[] updatedRecoveryPassword = TestRandomUtil.nextBytes(17);
 
     final UUID existingAccountUuid;
     {
@@ -397,7 +398,7 @@ public class AccountCreationDeletionIntegrationTest {
 
       final Account existingAccount = accountsManager.create(number,
           new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false, Set.of(),
-              null),
+              originalRecoveryPassword),
           Collections.emptyList(),
           new IdentityKey(aciKeyPair.getPublicKey()),
           new IdentityKey(pniKeyPair.getPublicKey()),
@@ -430,7 +431,8 @@ public class AccountCreationDeletionIntegrationTest {
         deviceName,
         registrationLockSecret,
         discoverableByPhoneNumber,
-        deviceCapabilities, null);
+        deviceCapabilities,
+        updatedRecoveryPassword);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
         RandomStringUtils.secure().nextAlphabetic(8),
@@ -493,6 +495,9 @@ public class AccountCreationDeletionIntegrationTest {
 
     verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
         account.getAccountIdentifier().equals(existingAccountUuid) && account != reregisteredAccount));
+
+    assertTrue(phoneNumberRecoveryPasswordsManager.verify(reregisteredAccount.getPhoneNumberIdentifierOptional().orElseThrow(), updatedRecoveryPassword));
+    assertFalse(phoneNumberRecoveryPasswordsManager.verify(reregisteredAccount.getPhoneNumberIdentifierOptional().orElseThrow(), originalRecoveryPassword));
   }
 
   @ParameterizedTest
@@ -573,10 +578,10 @@ public class AccountCreationDeletionIntegrationTest {
           null);
     }
 
-    final UUID aci = account.getIdentifier(IdentityType.ACI);
+    final UUID aci = account.getAccountIdentifier();
 
     assertTrue(accountsManager.getByAccountIdentifier(aci).isPresent());
-    accountsManager.delete(account.getIdentifier(IdentityType.ACI), AccountsManager.DeletionReason.ADMIN_DELETED);
+    accountsManager.delete(account.getAccountIdentifier(), AccountsManager.DeletionReason.ADMIN_DELETED);
 
     assertFalse(accountsManager.getByAccountIdentifier(aci).isPresent());
     assertFalse(keysManager.getEcSignedPreKey(account.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
@@ -589,7 +594,7 @@ public class AccountCreationDeletionIntegrationTest {
     }
 
     verify(disconnectionRequestManager).requestDisconnection(argThat(disconnectedAccount ->
-        disconnectedAccount.getIdentifier(IdentityType.ACI).equals(account.getIdentifier(IdentityType.ACI))));
+        disconnectedAccount.getAccountIdentifier().equals(account.getAccountIdentifier())));
   }
 
   @Test

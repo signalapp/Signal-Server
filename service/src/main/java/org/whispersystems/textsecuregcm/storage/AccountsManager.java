@@ -57,7 +57,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -379,7 +378,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final Optional<IdentityKey> maybePniIdentityKey,
       final DeviceSpec primaryDeviceSpec,
       @Nullable final String userAgent) throws ReceiptAlreadyRedeemedException {
+
     assert maybeNumber.isPresent() ^ maybeReceiptCredentialPresentation.isPresent();
+
     final Account account = new Account();
     final Optional<UUID> maybeRecentlyDeletedAccountIdentifier =
         maybePni.flatMap(accounts::findRecentlyDeletedAccountIdentifier);
@@ -419,19 +420,26 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     String previousPushTokenType = null;
 
     try {
-      final List<TransactWriteItem> newDeviceWriteItems = keysManager.buildWriteItemsForNewDevice(account.getAccountIdentifier(),
+      final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(account.getAccountIdentifier(),
           account.getPhoneNumberIdentifierOptional(),
           Device.PRIMARY_ID,
           primaryDeviceSpec.aciInfo().signedPreKey(),
           primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::signedPreKey),
           primaryDeviceSpec.aciInfo().pqLastResortPreKey(),
-          primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::pqLastResortPreKey));
+          primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::pqLastResortPreKey)));
+
+      maybePni.ifPresent(phoneNumberIdentifier ->
+          accountAttributes.recoveryPassword().ifPresent(phoneNumberRecoveryPassword ->
+              additionalWriteItems.add(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, phoneNumberRecoveryPassword))));
+
       if (maybeNumber.isPresent()) {
-        accounts.create(account, newDeviceWriteItems);
+        accounts.create(account, additionalWriteItems);
       } else {
         assert accountAttributes.recoveryPassword().isPresent();
-        accounts.create(account, maybeReceiptCredentialPresentation.get(), accountAttributes.recoveryPassword().get(),
-            newDeviceWriteItems);
+        accounts.create(account,
+            maybeReceiptCredentialPresentation.get(),
+            accountAttributes.recoveryPassword().get(),
+            additionalWriteItems);
       }
     } catch (final AccountAlreadyExistsException e) {
       accountCreationType = "re-registration";
@@ -447,23 +455,27 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final UUID aci = e.getExistingAccount().getAccountIdentifier();
       account.setAccountIdentifier(aci);
 
-      final List<TransactWriteItem> additionalWriteItems = Stream.concat(
-              keysManager.buildWriteItemsForNewDevice(account.getAccountIdentifier(),
-                  account.getPhoneNumberIdentifierOptional(),
-                  Device.PRIMARY_ID,
-                  primaryDeviceSpec.aciInfo().signedPreKey(),
-                  primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::signedPreKey),
-                  primaryDeviceSpec.aciInfo().pqLastResortPreKey(),
-                  primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::pqLastResortPreKey)).stream(),
-              e.getExistingAccount().getDevices()
-                  .stream()
-                  .map(Device::getId)
-                  // No need to clear the keys for the primary device since we'll just overwrite them in the same
-                  // transaction anyhow
-                  .filter(existingDeviceId -> existingDeviceId != Device.PRIMARY_ID)
-                  .flatMap(existingDeviceId ->
-                      keysManager.buildWriteItemsForRemovedDevice(aci, account.getPhoneNumberIdentifierOptional(), existingDeviceId).stream()))
-          .toList();
+      final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(account.getAccountIdentifier(),
+          account.getPhoneNumberIdentifierOptional(),
+          Device.PRIMARY_ID,
+          primaryDeviceSpec.aciInfo().signedPreKey(),
+          primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::signedPreKey),
+          primaryDeviceSpec.aciInfo().pqLastResortPreKey(),
+          primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::pqLastResortPreKey)));
+
+      e.getExistingAccount().getDevices()
+          .stream()
+          .map(Device::getId)
+          // No need to clear the keys for the primary device since we'll just overwrite them in the same
+          // transaction anyhow
+          .filter(existingDeviceId -> existingDeviceId != Device.PRIMARY_ID)
+          .map(existingDeviceId ->
+              keysManager.buildWriteItemsForRemovedDevice(aci, account.getPhoneNumberIdentifierOptional(), existingDeviceId))
+          .forEach(additionalWriteItems::addAll);
+
+      maybePni.ifPresent(phoneNumberIdentifier ->
+          accountAttributes.recoveryPassword().ifPresent(phoneNumberRecoveryPassword ->
+              additionalWriteItems.add(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, phoneNumberRecoveryPassword))));
 
       CompletableFuture.allOf(
               keysManager.deleteSingleUsePreKeys(aci),
@@ -490,11 +502,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     redisSet(account);
 
-    final boolean phoneNumberRecoveryPasswordCreated = accountAttributes.recoveryPassword().map(phoneNumberRecoveryPassword ->
-            account.getPhoneNumberIdentifierOptional().map(pni -> phoneNumberRecoveryPasswordsManager.store(pni, phoneNumberRecoveryPassword))
-                .orElse(false))
-        .orElse(false);
-
     changeNumberWaitingPeriodManager.handleAccountCreated(account.getAccountIdentifier(), clock.instant());
 
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
@@ -507,9 +514,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     if (StringUtils.isNotBlank(previousPushTokenType)) {
       tags = tags.and(Tag.of("previousPushTokenType", previousPushTokenType));
-    }
-    if (accountAttributes.recoveryPassword().isPresent() && account.getPhoneNumberIdentifierOptional().isPresent()) {
-      tags = tags.and(Tag.of("recoveryPasswordOutcome", phoneNumberRecoveryPasswordCreated ? "created" : "updated"));
     }
     Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
     return account;

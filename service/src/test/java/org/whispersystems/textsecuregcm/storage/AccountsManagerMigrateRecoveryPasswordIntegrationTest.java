@@ -51,7 +51,7 @@ public class AccountsManagerMigrateRecoveryPasswordIntegrationTest {
       DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS,
-      DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS);
+      DynamoDbExtensionSchema.Tables.PHONE_NUMBER_RECOVERY_PASSWORDS);
 
   @RegisterExtension
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -116,7 +116,7 @@ public class AccountsManagerMigrateRecoveryPasswordIntegrationTest {
       when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
 
       final PhoneNumberRecoveryPasswords phoneNumberRecoveryPasswords =
-          new PhoneNumberRecoveryPasswords(DynamoDbExtensionSchema.Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
+          new PhoneNumberRecoveryPasswords(DynamoDbExtensionSchema.Tables.PHONE_NUMBER_RECOVERY_PASSWORDS.tableName(),
               Duration.ofDays(1),
               DYNAMO_DB_EXTENSION.getDynamoDbClient(),
               Clock.systemUTC());

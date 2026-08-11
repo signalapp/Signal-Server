@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -60,7 +61,8 @@ public class AddRemoveDeviceIntegrationTest {
       DynamoDbExtensionSchema.Tables.EC_KEYS,
       DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
-      DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
+      DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS,
+      DynamoDbExtensionSchema.Tables.PHONE_NUMBER_RECOVERY_PASSWORDS);
 
   @RegisterExtension
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -131,7 +133,11 @@ public class AddRemoveDeviceIntegrationTest {
     when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));
 
     final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
-        mock(PhoneNumberRecoveryPasswordsManager.class);
+        new PhoneNumberRecoveryPasswordsManager(new PhoneNumberRecoveryPasswords(
+            DynamoDbExtensionSchema.Tables.PHONE_NUMBER_RECOVERY_PASSWORDS.tableName(),
+            Duration.ofDays(1),
+            DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+            Clock.systemUTC()));
 
     PUBSUB_SERVER_EXTENSION.getRedisClient().useConnection(connection -> {
       connection.sync().flushall();
@@ -151,7 +157,7 @@ public class AddRemoveDeviceIntegrationTest {
         secureStorageClient,
         svr2Client,
         mock(DisconnectionRequestManager.class),
-        mock(PhoneNumberRecoveryPasswordsManager.class),
+        phoneNumberRecoveryPasswordsManager,
         accountLockExecutor,
         scheduledExecutorService,
         scheduledExecutorService,

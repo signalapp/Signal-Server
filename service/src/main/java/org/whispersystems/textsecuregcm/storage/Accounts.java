@@ -216,6 +216,7 @@ public class Accounts {
 
   boolean create(final Account account, final List<TransactWriteItem> additionalWriteItems)
       throws AccountAlreadyExistsException {
+
     if (account.getNumberOptional().isEmpty() || account.getPhoneNumberIdentifierOptional().isEmpty()) {
       throw new IllegalArgumentException("Phone number and phone number identifier must be set");
     }
@@ -297,8 +298,10 @@ public class Accounts {
     return true;
   }
 
-  boolean create(final Account account, final ReceiptCredentialPresentation receiptCredentialPresentation, final
-      byte[] accountRecoveryPasswordInRequest, final List<TransactWriteItem> additionalWriteItems)
+  boolean create(final Account account,
+      final ReceiptCredentialPresentation receiptCredentialPresentation,
+      final byte[] accountRecoveryPasswordInRequest,
+      final List<TransactWriteItem> additionalWriteItems)
       throws AccountAlreadyExistsException, ReceiptAlreadyRedeemedException {
 
     final Timer.Sample sample = Timer.start();
