@@ -54,7 +54,6 @@ public class AccountsHelper {
 
   public static Account generateTestAccount(@Nullable String number, UUID uuid, final @Nullable UUID phoneNumberIdentifier, List<Device> devices, byte[] unidentifiedAccessKey) {
     return generateTestAccount(number, uuid, phoneNumberIdentifier, devices, unidentifiedAccessKey, TestRandomUtil.nextBytes(16));
-
   }
 
   public static Account generateTestAccount(@Nullable String number, UUID uuid, final @Nullable UUID phoneNumberIdentifier, List<Device> devices, byte[] unidentifiedAccessKey, final byte[] accountRecoveryPassword) {

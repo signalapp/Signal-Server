@@ -114,6 +114,13 @@ class AccountTest {
 
     account.setDiscoverableByPhoneNumber(true);
     assertTrue(account.isDiscoverableByPhoneNumber());
+
+    final Account numberlessAccount = AccountsHelper.generateTestAccount(null, UUID.randomUUID(), null, List.of(recentPrimaryDevice), null);
+    assertFalse(numberlessAccount.isDiscoverableByPhoneNumber());
+
+    numberlessAccount.setDiscoverableByPhoneNumber(true);
+    assertFalse(numberlessAccount.isDiscoverableByPhoneNumber(),
+        "Accounts without phone numbers should never be discoverable by phone number");
   }
 
   @Test
@@ -126,15 +133,16 @@ class AccountTest {
         "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.TRANSFER));
   }
 
+  @Test
   void stale() {
     final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), Collections.emptyList(),
         new byte[0]);
 
-    assertDoesNotThrow(account::getNumber);
+    assertDoesNotThrow(account::getNumberOptional);
 
     account.markStale();
 
-    assertThrows(AssertionError.class, account::getNumber);
+    assertThrows(AssertionError.class, account::getNumberOptional);
     assertDoesNotThrow(account::getAccountIdentifier);
   }
 
