@@ -772,10 +772,13 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final Account account = accounts.getByAccountIdentifier(accountIdentifier)
         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
 
+    final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifierOptional()
+        .orElseThrow(() -> new IllegalArgumentException("Cannot change phone number for accounts without phone numbers"));
+
     final UUID targetPhoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber).join();
 
     try {
-      return accountLockManager.withLock(new HashSet<>(List.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier)),
+      return accountLockManager.withLock(new HashSet<>(List.of(originalPhoneNumberIdentifier, targetPhoneNumberIdentifier)),
           () -> changeNumber(account, targetNumber, targetPhoneNumberIdentifier, pniIdentityKey, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds), accountLockExecutor);
     } catch (final RuntimeException e) {
       logger.error("Unexpected exception when changing phone number", e);
@@ -791,9 +794,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
       final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
 
-    validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
+    final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifierOptional()
+        .orElseThrow(() -> new IllegalArgumentException("Cannot change phone number for accounts without phone numbers"));
 
-    final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
+    validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
     redisDelete(account);
 
@@ -815,7 +819,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final Optional<UUID> maybeDisplacedUuid;
 
     if (maybeExistingAccount.isPresent()) {
-      if (maybeExistingAccount.get().getIdentifier(IdentityType.ACI).equals(account.getIdentifier(IdentityType.ACI))) {
+      if (maybeExistingAccount.get().getAccountIdentifier().equals(account.getAccountIdentifier())) {
         maybeDisplacedUuid = Optional.empty();
       } else {
         delete(maybeExistingAccount.get());
