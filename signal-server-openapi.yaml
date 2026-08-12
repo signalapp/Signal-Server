@@ -1797,8 +1797,7 @@ paths:
           description: The given account was not found or the given verification code
             was incorrect
         "409":
-          description: The new device is missing a capability supported by all other
-            devices on the account
+          description: The new device is missing a capability required for the account
         "411":
           description: The given account already has its maximum number of linked
             devices
@@ -3099,9 +3098,14 @@ paths:
       parameters:
       - name: Authorization
         in: header
+        description: |
+          The basic auth header. For accounts with a phone number, the username must be the e164-formatted number that is being registered.
+          For accounts without a phone number, the username is ignored on a fresh registration (it must be present, however, so an arbitrary
+          string is acceptable). For account recovery (re-registration) by ACI, it must be set to the ACI of the account being recovered.
+          In all cases, the password is the password to be used for primary device authentication.
         required: true
         schema:
-          $ref: "#/components/schemas/BasicAuthorizationHeader"
+          type: string
       - name: X-Signal-Agent
         in: header
         schema:
@@ -3123,6 +3127,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AccountCreationResponse"
+        "400":
+          description: Invalid session ID or receipt credential presentation
         "401":
           description: The session identified in the request is not verified
         "403":
@@ -4170,6 +4176,7 @@ components:
         pniRegistrationId:
           type: integer
           format: int32
+          nullable: true
         name:
           type: string
           format: byte
@@ -4187,6 +4194,7 @@ components:
             - SPARSE_POST_QUANTUM_RATCHET
             - PROFILES_V2
             - USERNAME_CHANGE_SYNC_MESSAGE
+            - OPTIONAL_PHONE_NUMBER
         registrationLock:
           type: string
         unidentifiedAccessKey:
@@ -4214,6 +4222,7 @@ components:
         pniRegistrationId:
           type: integer
           format: int32
+          nullable: true
         name:
           maxLength: 225
           minLength: 0
@@ -4233,6 +4242,7 @@ components:
             - SPARSE_POST_QUANTUM_RATCHET
             - PROFILES_V2
             - USERNAME_CHANGE_SYNC_MESSAGE
+            - OPTIONAL_PHONE_NUMBER
     ApnRegistrationId:
       required:
       - apnRegistrationId
@@ -4319,6 +4329,12 @@ components:
           description: whether any of this account's devices support storage
         entitlements:
           $ref: "#/components/schemas/Entitlements"
+        authCredentialSalt:
+          type: string
+          description: salt to generate PNI auth credentials for accounts without
+            a phone number; null if this account does not have a phone number
+          format: byte
+          nullable: true
     BackupEntitlement:
       type: object
       properties:
@@ -4502,7 +4518,7 @@ components:
           description: |
             The signature of the serialized `publicKey` with the account (or phone-number identity)'s identity key, base64-encoded.
       description: |
-        A signed EC pre-key to be associated with this account's PNI.
+        If the account has a phone number, a signed EC pre-key to be associated with this account's PNI.
     IdentityKey:
       type: object
       properties:
@@ -4512,6 +4528,8 @@ components:
           type: string
       description: |
         The PNI-associated identity key for the account, encoded as a base64 string.
+        Must be provided for an account with a phone number.
+      nullable: true
     IncomingMessage:
       required:
       - content
@@ -4552,7 +4570,7 @@ components:
           description: |
             The signature of the serialized `publicKey` with the account (or phone-number identity)'s identity key, base64-encoded.
       description: |
-        A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI.
+        If the account has a phone number, a signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI.
     AccountAndDevicesDataReport:
       type: object
       properties:
@@ -5144,8 +5162,6 @@ components:
       required:
       - aciPqLastResortPreKey
       - aciSignedPreKey
-      - pniPqLastResortPreKey
-      - pniSignedPreKey
       type: object
       properties:
         aciSignedPreKey:
@@ -5165,8 +5181,6 @@ components:
       - accountAttributes
       - aciPqLastResortPreKey
       - aciSignedPreKey
-      - pniPqLastResortPreKey
-      - pniSignedPreKey
       - verificationCode
       type: object
       properties:
@@ -5830,12 +5844,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        expiration:
-          type: string
-          format: date-time
         spendId:
           type: string
           format: byte
+        expiration:
+          type: string
+          format: date-time
         internalContentsForJNI:
           type: string
           format: byte
@@ -6307,6 +6321,12 @@ components:
           description: whether any of this account's devices support storage
         entitlements:
           $ref: "#/components/schemas/Entitlements"
+        authCredentialSalt:
+          type: string
+          description: salt to generate PNI auth credentials for accounts without
+            a phone number; null if this account does not have a phone number
+          format: byte
+          nullable: true
         reregistration:
           type: boolean
           description: "If true, there was an existing account registered for this\
@@ -6317,9 +6337,6 @@ components:
       - aciIdentityKey
       - aciPqLastResortPreKey
       - aciSignedPreKey
-      - pniIdentityKey
-      - pniPqLastResortPreKey
-      - pniSignedPreKey
       - skipDeviceTransfer
       type: object
       properties:
@@ -6327,14 +6344,26 @@ components:
           type: string
           description: |
             The ID of an existing verification session as it appears in a verification session
-            metadata object. Must be provided if `recoveryPassword` is not provided; must not be
-            provided if `recoveryPassword` is provided.
+            metadata object. Must be provided if `recoveryPassword` and `receiptCredentialPresentation`
+            are not provided; must not be provided if `recoveryPassword` or `receiptCredentialPresentation`
+            is provided.
+          nullable: true
         recoveryPassword:
           type: string
           description: |
-            A base64-encoded registration recovery password. Must be provided if `sessionId` is
-            not provided; must not be provided if `sessionId` is provided
+            A base64-encoded registration recovery password. Must be provided if `sessionId` and
+            `receiptCredentialPresentation` are not provided; must not be provided if `sessionId`
+            or `receiptCredentialPresentation` is provided.
           format: byte
+          nullable: true
+        receiptCredentialPresentation:
+          type: string
+          description: |
+            A base64-encoded receipt credential presentation that allows for redeeming a Signal Login.
+            Must be provided if `sessionId` and `recoveryPassword` are not provided;
+            must not be provided if `sessionId` or `recoveryPassword` is provided.
+          format: byte
+          nullable: true
         accountAttributes:
           $ref: "#/components/schemas/AccountAttributes"
         skipDeviceTransfer:
