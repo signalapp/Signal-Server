@@ -123,6 +123,7 @@ public record CommandDependencies(
     SubscriptionManager subscriptionManager,
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
     DynamoDbAsyncClient dynamoDbAsyncClient,
+    DynamoDbClient dynamoDbClient,
     PhoneNumberIdentifiers phoneNumberIdentifiers,
     DynamoDbRecoveryManager dynamoDbRecoveryManager) {
 
@@ -455,6 +456,7 @@ public record CommandDependencies(
         subscriptionManager,
         dynamicConfigurationManager,
         dynamoDbAsyncClient,
+        dynamoDbClient,
         phoneNumberIdentifiers,
         dynamoDbRecoveryManager
     );

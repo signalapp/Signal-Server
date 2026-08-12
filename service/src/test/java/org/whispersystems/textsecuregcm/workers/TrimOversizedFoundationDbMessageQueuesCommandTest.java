@@ -40,7 +40,7 @@ public class TrimOversizedFoundationDbMessageQueuesCommandTest {
         final boolean dryRun) {
 
       super();
-      this.commandDependencies = new CommandDependencies(null, null, null, null, messagesManager, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+      this.commandDependencies = new CommandDependencies(null, null, null, null, messagesManager, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
       this.dryRun = dryRun;
     }
 
