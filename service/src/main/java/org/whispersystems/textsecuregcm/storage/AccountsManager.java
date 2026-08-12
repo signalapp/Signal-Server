@@ -732,6 +732,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     CompletableFuture.allOf(
             keysManager.deleteSingleUsePreKeys(account.getAccountIdentifier(), deviceId),
+            account.getPhoneNumberIdentifierOptional()
+                .map(pni -> keysManager.deleteSingleUsePreKeys(pni, deviceId))
+                .orElse(CompletableFuture.completedFuture(null)),
             messagesManager.clear(account.getAccountIdentifier(), deviceId))
         .join();
 
@@ -750,6 +753,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       // Ensure any messages/single-use pre-keys that came in while we were working are also removed
       CompletableFuture.allOf(
               keysManager.deleteSingleUsePreKeys(account.getAccountIdentifier(), deviceId),
+              account.getPhoneNumberIdentifierOptional()
+                  .map(pni -> keysManager.deleteSingleUsePreKeys(pni, deviceId))
+                  .orElse(CompletableFuture.completedFuture(null)),
               messagesManager.clear(account.getAccountIdentifier(), deviceId))
           .join();
 

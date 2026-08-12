@@ -701,7 +701,7 @@ class AccountsManagerTest {
     account = accountsManager.update(uuid, a -> a.setIdentityKey(identityKey));
 
     assertEquals(1, account.getVersion());
-    assertEquals(identityKey, account.getIdentityKey(IdentityType.ACI));
+    assertEquals(identityKey, account.getAccountIdentityKey());
 
     verify(accounts, times(2)).getByAccountIdentifier(uuid);
     verify(accounts, times(2)).update(any());
@@ -738,15 +738,22 @@ class AccountsManagerTest {
     verify(unknownDeviceUpdater, never()).accept(any(Device.class));
   }
 
-  @Test
-  void testRemoveDevice() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testRemoveDevice(final boolean numberless) {
     final Device primaryDevice = new Device();
     primaryDevice.setId(Device.PRIMARY_ID);
 
     final Device linkedDevice = new Device();
     linkedDevice.setId((byte) (Device.PRIMARY_ID + 1));
 
-    Account account = AccountsHelper.generateTestAccount("+14152222222", List.of(primaryDevice, linkedDevice));
+   Account account = AccountsHelper.generateTestAccount(
+        numberless ? null : "+14152222222",
+        UUID.randomUUID(),
+        numberless ? null : UUID.randomUUID(),
+        List.of(primaryDevice, linkedDevice),
+        new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]
+    );
 
     when(accounts.getByAccountIdentifier(account.getAccountIdentifier())).thenReturn(Optional.of(account));
     when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
@@ -756,11 +763,20 @@ class AccountsManagerTest {
 
     account = accountsManager.removeDevice(account.getAccountIdentifier(), linkedDevice.getId());
 
+    final UUID aci = account.getAccountIdentifier();
     assertFalse(account.getDevice(linkedDevice.getId()).isPresent());
-    verify(messagesManager, times(2)).clear(account.getAccountIdentifier(), linkedDevice.getId());
-    verify(keysManager, times(2)).deleteSingleUsePreKeys(account.getAccountIdentifier(), linkedDevice.getId());
-    verify(keysManager).buildWriteItemsForRemovedDevice(account.getAccountIdentifier(), account.getPhoneNumberIdentifierOptional(), linkedDevice.getId());
-    verify(disconnectionRequestManager).requestDisconnection(account.getAccountIdentifier(), List.of(linkedDevice.getId()));
+    verify(messagesManager, times(2)).clear(aci, linkedDevice.getId());
+    verify(keysManager, times(2)).deleteSingleUsePreKeys(aci, linkedDevice.getId());
+
+    if (numberless) {
+      verify(keysManager, never()).deleteSingleUsePreKeys(argThat(id -> !id.equals(aci)), anyByte());
+    } else {
+      //noinspection OptionalGetWithoutIsPresent
+      verify(keysManager, times(2)).deleteSingleUsePreKeys(eq(account.getPhoneNumberIdentifierOptional().get()), eq(linkedDevice.getId()));
+    }
+
+    verify(keysManager).buildWriteItemsForRemovedDevice(aci, account.getPhoneNumberIdentifierOptional(), linkedDevice.getId());
+    verify(disconnectionRequestManager).requestDisconnection(aci, List.of(linkedDevice.getId()));
   }
 
   @Test
@@ -1058,7 +1074,7 @@ class AccountsManagerTest {
     final Device device = generateTestDevice(initialLastSeen);
     account.addDevice(device);
 
-    accountsManager.updateDeviceLastSeen(account.getIdentifier(IdentityType.ACI), device, updatedLastSeen);
+    accountsManager.updateDeviceLastSeen(account.getAccountIdentifier(), device, updatedLastSeen);
 
     assertEquals(expectUpdate ? updatedLastSeen : initialLastSeen, device.getLastSeen());
     verify(accounts, expectUpdate ? times(1) : never()).update(account);
