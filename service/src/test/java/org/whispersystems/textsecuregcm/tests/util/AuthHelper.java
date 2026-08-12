@@ -10,6 +10,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -34,6 +35,7 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.mockito.quality.Strictness;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -100,28 +102,28 @@ public class AuthHelper {
   public static final ECKeyPair VALID_PNI_IDENTITY_KEY_PAIR = ECKeyPair.generate();
   public static final IdentityKey VALID_PNI_IDENTITY = new IdentityKey(VALID_PNI_IDENTITY_KEY_PAIR.getPublicKey());
 
-  public static AccountsManager ACCOUNTS_MANAGER       = mock(AccountsManager.class);
-  public static Account         VALID_ACCOUNT          = mock(Account.class        );
-  public static Account         VALID_ACCOUNT_TWO      = mock(Account.class        );
-  public static Account         UNDISCOVERABLE_ACCOUNT = mock(Account.class        );
-  public static Account         VALID_ACCOUNT_3        = mock(Account.class        );
-  public static Account         NUMBERLESS_ACCOUNT     = mock(Account.class        );
+  public static AccountsManager ACCOUNTS_MANAGER = lenientMock(AccountsManager.class);
+  public static Account VALID_ACCOUNT = lenientMock(Account.class);
+  public static Account VALID_ACCOUNT_TWO = lenientMock(Account.class);
+  public static Account UNDISCOVERABLE_ACCOUNT = lenientMock(Account.class);
+  public static Account VALID_ACCOUNT_3 = lenientMock(Account.class);
+  public static Account NUMBERLESS_ACCOUNT = lenientMock(Account.class);
 
-  public static Device VALID_DEVICE           = mock(Device.class);
-  public static Device VALID_DEVICE_TWO       = mock(Device.class);
-  public static Device UNDISCOVERABLE_DEVICE  = mock(Device.class);
-  public static Device VALID_DEVICE_3_PRIMARY = mock(Device.class);
-  public static Device VALID_DEVICE_3_LINKED  = mock(Device.class);
-  public static Device NUMBERLESS_DEVICE      = mock(Device.class);
+  public static Device VALID_DEVICE = lenientMock(Device.class);
+  public static Device VALID_DEVICE_TWO = lenientMock(Device.class);
+  public static Device UNDISCOVERABLE_DEVICE = lenientMock(Device.class);
+  public static Device VALID_DEVICE_3_PRIMARY = lenientMock(Device.class);
+  public static Device VALID_DEVICE_3_LINKED = lenientMock(Device.class);
+  public static Device NUMBERLESS_DEVICE = lenientMock(Device.class);
 
   public static final byte VALID_DEVICE_3_LINKED_ID = Device.PRIMARY_ID + 1;
 
-  private static SaltedTokenHash VALID_CREDENTIALS           = mock(SaltedTokenHash.class);
-  private static SaltedTokenHash VALID_CREDENTIALS_TWO       = mock(SaltedTokenHash.class);
-  private static SaltedTokenHash VALID_CREDENTIALS_3_PRIMARY = mock(SaltedTokenHash.class);
-  private static SaltedTokenHash VALID_CREDENTIALS_3_LINKED  = mock(SaltedTokenHash.class);
-  private static SaltedTokenHash UNDISCOVERABLE_CREDENTIALS  = mock(SaltedTokenHash.class);
-  private static SaltedTokenHash NUMBERLESS_CREDENTIALS      = mock(SaltedTokenHash.class);
+  private static SaltedTokenHash VALID_CREDENTIALS = lenientMock(SaltedTokenHash.class);
+  private static SaltedTokenHash VALID_CREDENTIALS_TWO = lenientMock(SaltedTokenHash.class);
+  private static SaltedTokenHash VALID_CREDENTIALS_3_PRIMARY = lenientMock(SaltedTokenHash.class);
+  private static SaltedTokenHash VALID_CREDENTIALS_3_LINKED = lenientMock(SaltedTokenHash.class);
+  private static SaltedTokenHash UNDISCOVERABLE_CREDENTIALS = lenientMock(SaltedTokenHash.class);
+  private static SaltedTokenHash NUMBERLESS_CREDENTIALS = lenientMock(SaltedTokenHash.class);
 
   private static final Collection<TestAccount> EXTENSION_TEST_ACCOUNTS = new HashSet<>();
 
@@ -294,12 +296,12 @@ public class AuthHelper {
   }
 
   public static final class TestAccount {
-    public final String                    number;
-    public final UUID                      uuid;
-    public final String                    password;
-    public final Account                   account                   = mock(Account.class);
-    public final Device                    device                    = mock(Device.class);
-    public final SaltedTokenHash saltedTokenHash = mock(SaltedTokenHash.class);
+    public final String number;
+    public final UUID uuid;
+    public final String password;
+    public final Account account = lenientMock(Account.class);
+    public final Device device = lenientMock(Device.class);
+    public final SaltedTokenHash saltedTokenHash = lenientMock(SaltedTokenHash.class);
 
     public TestAccount(String number, UUID uuid, String password) {
       this.number = number;
@@ -397,5 +399,12 @@ public class AuthHelper {
 
   public static String validGroupSendTokenHeader(ServerSecretParams serverSecretParams, List<ServiceIdentifier> recipients, Instant expiration) throws Exception {
     return Base64.getEncoder().encodeToString(validGroupSendToken(serverSecretParams, recipients, expiration));
+  }
+
+  // because this class has static mocks, if it is first loaded via a test class with Strictness.STRICT (the default
+  // for MockitoExtension), all the static mocks will be strict, which can cause `PotentialStubbingProblem`s in other
+  // tests
+  private static <T> T lenientMock(Class<T> klass) {
+    return mock(klass, withSettings().strictness(Strictness.LENIENT));
   }
 }
