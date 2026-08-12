@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.subscriptions;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * A set of payment providers used for donations
@@ -55,5 +56,15 @@ public enum PaymentProvider {
       case GOOGLE_PLAY_BILLING -> org.signal.chat.purchase.PaymentProvider.PAYMENT_PROVIDER_GOOGLE_PLAY_BILLING;
       case APPLE_APP_STORE -> org.signal.chat.purchase.PaymentProvider.PAYMENT_PROVIDER_APPLE_APP_STORE;
     };
+  }
+
+  public static Optional<PaymentProvider> fromProto(org.signal.chat.purchase.PaymentProvider paymentProvider) {
+    return Optional.ofNullable(switch (paymentProvider) {
+      case PAYMENT_PROVIDER_STRIPE -> PaymentProvider.STRIPE;
+      case PAYMENT_PROVIDER_BRAINTREE -> PaymentProvider.BRAINTREE;
+      case PAYMENT_PROVIDER_GOOGLE_PLAY_BILLING -> PaymentProvider.GOOGLE_PLAY_BILLING;
+      case PAYMENT_PROVIDER_APPLE_APP_STORE -> PaymentProvider.APPLE_APP_STORE;
+      case PAYMENT_PROVIDER_UNKNOWN, UNRECOGNIZED -> null;
+    });
   }
 }

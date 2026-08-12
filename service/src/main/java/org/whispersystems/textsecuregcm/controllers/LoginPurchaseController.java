@@ -73,6 +73,13 @@ public class LoginPurchaseController {
 
           This endpoint must be called on an unauthenticated connection. Retries for the same purchaseIdentifier MUST
           use the same receiptCredentialRequest.
+
+         Callers must validate that the generated receipt credential has the
+         following properties:
+
+         - Level == 300 (The login level)
+         - ExpirationTime % 86400 == 0
+         - ExpirationTime == PurchaseTime + (5 * 366 * 86400) +/- (7 * 86400)
           """)
   @ApiResponse(responseCode = "200", description = "Successfully created receipt",
       content = @Content(schema = @Schema(implementation = CreateLoginReceiptCredentialResponse.class)))

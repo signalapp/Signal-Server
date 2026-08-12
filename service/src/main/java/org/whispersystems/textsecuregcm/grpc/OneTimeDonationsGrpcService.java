@@ -256,19 +256,14 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
   public CreateBoostReceiptCredentialsResponse createBoostReceiptCredentials(
       final CreateBoostReceiptCredentialsRequest request) throws IOException {
 
-    final PaymentProvider processor;
-    final Optional<PaymentDetails> maybePaymentDetails;
-    switch (request.getProcessor()) {
-      case PAYMENT_PROVIDER_STRIPE -> {
-        processor = PaymentProvider.STRIPE;
-        maybePaymentDetails = stripeManager.claimOneTimePurchase(request.getPaymentIntentId());
-      }
-      case PAYMENT_PROVIDER_BRAINTREE -> {
-        processor = PaymentProvider.BRAINTREE;
-        maybePaymentDetails = braintreeManager.claimOneTimePurchase(request.getPaymentIntentId());
-      }
+    final PaymentProvider processor = PaymentProvider.fromProto(request.getProcessor())
+        .orElseThrow(() -> GrpcExceptions.fieldViolation("processor", "Unsupported payment processor"));
+
+    final Optional<PaymentDetails> maybePaymentDetails = switch (processor) {
+      case STRIPE -> stripeManager.claimOneTimePurchase(request.getPaymentIntentId());
+      case BRAINTREE -> braintreeManager.claimOneTimePurchase(request.getPaymentIntentId());
       default -> throw GrpcExceptions.fieldViolation("processor", "Unsupported payment processor");
-    }
+    };
 
     if (maybePaymentDetails.isEmpty()) {
       return CreateBoostReceiptCredentialsResponse.newBuilder()

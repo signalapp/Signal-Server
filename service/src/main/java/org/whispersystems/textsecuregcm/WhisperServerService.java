@@ -175,6 +175,7 @@ import org.whispersystems.textsecuregcm.grpc.GrpcAllowListInterceptor;
 import org.whispersystems.textsecuregcm.grpc.KeyTransparencyGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
+import org.whispersystems.textsecuregcm.grpc.LoginPurchaseGrpcService;
 import org.whispersystems.textsecuregcm.grpc.MessageDispatcher;
 import org.whispersystems.textsecuregcm.grpc.MessagesAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.MessagesGrpcService;
@@ -1143,6 +1144,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new CallQualitySurveyGrpcService(callQualitySurveyManager, rateLimiters),
             new KeysAnonymousGrpcService(accountsManager, keysManager, groupZkSecretParams, Clock.systemUTC()),
             new KeyTransparencyGrpcService(rateLimiters, keyTransparencyServiceClient),
+            new LoginPurchaseGrpcService(loginPurchaseManager, dynamicConfigurationManager),
             new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, profileCdnPolicyGenerator, chatGenericZkSecretParams, groupZkSecretParams, rateLimiters, clock),
             new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
             new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
