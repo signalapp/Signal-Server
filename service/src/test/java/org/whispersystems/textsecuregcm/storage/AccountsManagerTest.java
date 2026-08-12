@@ -681,11 +681,14 @@ class AccountsManagerTest {
     verifyNoMoreInteractions(accounts);
   }
 
-  @Test
-  void testUpdate_optimisticLockingFailure() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testUpdate_optimisticLockingFailure(final boolean numberless) {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
-    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    Account account = numberless
+        ? AccountsHelper.generateTestAccountNoPhoneNumber(new ArrayList<>())
+        : AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     addRetrievableAccount(account);
 
     when(clusterCommands.get(eq("Account3::" + uuid))).thenReturn(null);
