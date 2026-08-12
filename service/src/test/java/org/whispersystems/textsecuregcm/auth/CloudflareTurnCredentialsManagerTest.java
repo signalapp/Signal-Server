@@ -24,6 +24,7 @@ import java.net.InetAddress;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,7 +41,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
 @ExtendWith(MockitoExtension.class)
 public class CloudflareTurnCredentialsManagerTest {
@@ -128,7 +128,7 @@ public class CloudflareTurnCredentialsManagerTest {
         .thenReturn(new SucceededFuture<>(GlobalEventExecutor.INSTANCE,
             List.of(InetAddress.getByName("127.0.0.1"), InetAddress.getByName("::1"))));
 
-    TurnToken token = cloudflareTurnCredentialsManager.retrieveFromCloudflare(AuthHelper.VALID_UUID);
+    final TurnToken token = cloudflareTurnCredentialsManager.retrieveFromCloudflare(UUID.randomUUID());
 
     wireMock.verify(postRequestedFor(urlEqualTo(GET_CREDENTIALS_PATH))
         .withHeader("Content-Type", equalTo("application/json"))
