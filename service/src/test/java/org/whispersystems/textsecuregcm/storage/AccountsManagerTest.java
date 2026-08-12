@@ -1645,27 +1645,31 @@ class AccountsManagerTest {
   @ParameterizedTest
   @MethodSource
   void updateCurrentProfileVersion(final byte[] currentVersion, final byte[] expectedVersion, final byte[] newVersion, final boolean expectException) throws Exception {
-    final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-    final UUID accountIdentifier = account.getIdentifier(IdentityType.ACI);
-    addRetrievableAccount(account);
+    final Account accountWithNumber = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(accountWithNumber);
 
-    account.setCurrentProfileVersion(currentVersion);
+    final Account accountWithoutNumber = AccountsHelper.generateTestAccountNoPhoneNumber(new ArrayList<>());
+    addRetrievableAccount(accountWithoutNumber);
 
-    final AccountBadge badge = new AccountBadge("test", CLOCK.instant().plusSeconds(60), true);
+    for (final Account account : List.of(accountWithNumber, accountWithoutNumber)) {
+      account.setCurrentProfileVersion(currentVersion);
 
-    assertTrue(account.getBadges().isEmpty());
+      final AccountBadge badge = new AccountBadge("test", CLOCK.instant().plusSeconds(60), true);
 
-    if (expectException) {
-      assertThrows(WriteConflictException.class, () -> accountsManager.updateCurrentProfileVersion(accountIdentifier, newVersion, expectedVersion, _ -> {}));
-    } else {
-      final Account updatedAccount = accountsManager.updateCurrentProfileVersion(accountIdentifier, newVersion,
-          expectedVersion, a -> {
+      assertTrue(account.getBadges().isEmpty());
+
+      if (expectException) {
+        assertThrows(WriteConflictException.class, () -> accountsManager.updateCurrentProfileVersion(account.getAccountIdentifier(), newVersion, expectedVersion, _ -> {}));
+      } else {
+        final Account updatedAccount = accountsManager.updateCurrentProfileVersion(account.getAccountIdentifier(), newVersion,
+            expectedVersion, a -> {
 
               a.setBadges(CLOCK, new ArrayList<>(List.of(badge)));
-          });
+            });
 
-      assertArrayEquals(newVersion, updatedAccount.getCurrentProfileVersion().orElseThrow());
-      assertEquals(List.of(badge), updatedAccount.getBadges());
+        assertArrayEquals(newVersion, updatedAccount.getCurrentProfileVersion().orElseThrow());
+        assertEquals(List.of(badge), updatedAccount.getBadges());
+      }
     }
   }
 
