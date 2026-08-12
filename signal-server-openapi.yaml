@@ -2443,12 +2443,19 @@ paths:
       tags:
       - LoginPurchase
       summary: Create a receipt credential for a completed one-time login purchase
-      description: |
-        Verify a completed one-time purchase with the payment provider and issue a receipt credential that can be
-        redeemed for a login.
+      description: |2
+         Verify a completed one-time purchase with the payment provider and issue a receipt credential that can be
+         redeemed for a login.
 
-        This endpoint must be called on an unauthenticated connection. Retries for the same purchaseIdentifier MUST
-        use the same receiptCredentialRequest.
+         This endpoint must be called on an unauthenticated connection. Retries for the same purchaseIdentifier MUST
+         use the same receiptCredentialRequest.
+
+        Callers must validate that the generated receipt credential has the
+        following properties:
+
+        - Level == 300 (The login level)
+        - ExpirationTime % 86400 == 0
+        - ExpirationTime == PurchaseTime + (5 * 366 * 86400) +/- (7 * 86400)
       operationId: createLoginReceiptCredential
       requestBody:
         content:
@@ -5844,12 +5851,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        spendId:
-          type: string
-          format: byte
         expiration:
           type: string
           format: date-time
+        spendId:
+          type: string
+          format: byte
         internalContentsForJNI:
           type: string
           format: byte
