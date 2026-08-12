@@ -1452,11 +1452,12 @@ class AccountsManagerTest {
 
   }
 
-  @Test
-  void testJsonRoundTripSerialization() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testJsonRoundTripSerialization(final boolean numberless) throws Exception {
     String originalJson;
-    try (InputStream inputStream = getClass().getResourceAsStream(
-        "AccountsManagerTest-testJsonRoundTripSerialization.json")) {
+    final String jsonFileName = String.format("AccountsManagerTest-testJsonRoundTripSerialization%s.json", numberless ? "Numberless" : "");
+    try (InputStream inputStream = getClass().getResourceAsStream(jsonFileName)) {
       Objects.requireNonNull(inputStream);
       originalJson = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
@@ -1468,10 +1469,10 @@ class AccountsManagerTest {
     final Account parsedAccount = AccountsManager.parseAccountJson(serialized, originalAccount.getAccountIdentifier()).orElseThrow();
 
     assertEquals(originalAccount.getAccountIdentifier(), parsedAccount.getAccountIdentifier());
-    assertEquals(originalAccount.getPhoneNumberIdentifier(), parsedAccount.getPhoneNumberIdentifier());
-    assertEquals(originalAccount.getIdentityKey(IdentityType.ACI), parsedAccount.getIdentityKey(IdentityType.ACI));
-    assertEquals(originalAccount.getIdentityKey(IdentityType.PNI), parsedAccount.getIdentityKey(IdentityType.PNI));
-    assertEquals(originalAccount.getNumber(), parsedAccount.getNumber());
+    assertEquals(originalAccount.getPhoneNumberIdentifierOptional(), parsedAccount.getPhoneNumberIdentifierOptional());
+    assertEquals(originalAccount.getAccountIdentifier(), parsedAccount.getAccountIdentifier());
+    assertEquals(originalAccount.getPhoneNumberIdentifierOptional(), parsedAccount.getPhoneNumberIdentifierOptional());
+    assertEquals(originalAccount.getNumberOptional(), parsedAccount.getNumberOptional());
     assertArrayEquals(originalAccount.getUnidentifiedAccessKey().orElseThrow(),
         parsedAccount.getUnidentifiedAccessKey().orElseThrow());
     assertEquals(originalAccount.isDiscoverableByPhoneNumber(), parsedAccount.isDiscoverableByPhoneNumber());
@@ -1483,8 +1484,8 @@ class AccountsManagerTest {
     final Device parsedDevice = parsedAccount.getPrimaryDevice();
 
     assertEquals(originalDevice.getId(), parsedDevice.getId());
-    assertEquals(originalDevice.getRegistrationId(IdentityType.ACI), parsedDevice.getRegistrationId(IdentityType.ACI));
-    assertEquals(originalDevice.getRegistrationId(IdentityType.PNI), parsedDevice.getRegistrationId(IdentityType.PNI));
+    assertEquals(originalDevice.getAccountRegistrationId(), parsedDevice.getAccountRegistrationId());
+    assertEquals(originalDevice.getPhoneNumberIdentityRegistrationId(), parsedDevice.getPhoneNumberIdentityRegistrationId());
     assertEquals(originalDevice.getCapabilities(), parsedDevice.getCapabilities());
     assertEquals(originalDevice.getFetchesMessages(), parsedDevice.getFetchesMessages());
   }
