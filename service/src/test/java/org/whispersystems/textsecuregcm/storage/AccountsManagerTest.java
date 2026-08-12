@@ -1669,6 +1669,22 @@ class AccountsManagerTest {
     }
   }
 
+  static Collection<Arguments> updateCurrentProfileVersion() {
+
+    final byte[] empty = new byte[0];
+    final byte[] version1 = TestRandomUtil.nextBytes(16);
+    final byte[] version2 = Arrays.copyOf(version1, version1.length);
+    version2[0] = (byte) (version2[0] + 1);
+
+    return List.of(
+        Arguments.argumentSet("no current version - matches", empty, empty, version1, false),
+        Arguments.argumentSet("no current version - conflict", empty, version1, version1, true),
+        Arguments.argumentSet("current version - empty conflict", version1, empty, version2, true),
+        Arguments.argumentSet("current version - matches", version1, version1, version2, false)
+    );
+  }
+
+
   @Test
   void getAccountsForChangeNumber() {
     final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
@@ -1696,21 +1712,6 @@ class AccountsManagerTest {
             ReceiptCredentialTestUtil.receiptPresentation(),
             mock(DeviceSpec.class),
             null));
-  }
-
-  static Collection<Arguments> updateCurrentProfileVersion() {
-
-    final byte[] empty = new byte[0];
-    final byte[] version1 = TestRandomUtil.nextBytes(16);
-    final byte[] version2 = Arrays.copyOf(version1, version1.length);
-    version2[0] = (byte) (version2[0] + 1);
-
-    return List.of(
-        Arguments.argumentSet("no current version - matches", empty, empty, version1, false),
-        Arguments.argumentSet("no current version - conflict", empty, version1, version1, true),
-        Arguments.argumentSet("current version - empty conflict", version1, empty, version2, true),
-        Arguments.argumentSet("current version - matches", version1, version1, version2, false)
-    );
   }
 
   private void addRetrievableAccount(final Account account) {
