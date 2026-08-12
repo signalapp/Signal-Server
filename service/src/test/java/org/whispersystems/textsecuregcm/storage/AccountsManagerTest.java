@@ -708,10 +708,13 @@ class AccountsManagerTest {
     verifyNoMoreInteractions(accounts);
   }
 
-  @Test
-  void testUpdateDevice() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testUpdateDevice(final boolean numberless) {
     final UUID uuid = UUID.randomUUID();
-    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    Account account = numberless
+        ? AccountsHelper.generateTestAccount(null, uuid, null, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH])
+        : AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     addRetrievableAccount(account);
 
     assertTrue(account.getDevices().isEmpty());
@@ -726,7 +729,7 @@ class AccountsManagerTest {
     @SuppressWarnings("unchecked") Consumer<Device> deviceUpdater = mock(Consumer.class);
     @SuppressWarnings("unchecked") Consumer<Device> unknownDeviceUpdater = mock(Consumer.class);
 
-    account = accountsManager.updateDevice(uuid, deviceId, deviceUpdater);
+    accountsManager.updateDevice(uuid, deviceId, deviceUpdater);
     account = accountsManager.updateDevice(uuid, deviceId, d -> d.setName("deviceName".getBytes(StandardCharsets.UTF_8)));
 
     assertArrayEquals("deviceName".getBytes(StandardCharsets.UTF_8), account.getDevice(deviceId).orElseThrow().getName());
