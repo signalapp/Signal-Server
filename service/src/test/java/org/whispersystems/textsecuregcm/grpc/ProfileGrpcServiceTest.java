@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,6 +42,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -57,6 +59,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
+import org.signal.chat.profile.AccountInfo;
 import org.signal.chat.profile.GetAvatarCredentialsRequest;
 import org.signal.chat.profile.GetAvatarCredentialsResponse;
 import org.signal.chat.profile.GetProfileRequest;
@@ -64,12 +67,13 @@ import org.signal.chat.profile.GetProfileResponse;
 import org.signal.chat.profile.LegacyProfileResult;
 import org.signal.chat.profile.ProfileGrpc;
 import org.signal.chat.profile.ProfileResult;
-import org.signal.chat.profile.AccountInfo;
 import org.signal.chat.profile.SetProfileRequest;
 import org.signal.chat.profile.SetProfileResponse;
 import org.signal.chat.profile.SetProfileResult;
 import org.signal.chat.profile.SetProfileV1Request;
 import org.signal.chat.profile.SetProfileV1Request.AvatarChange;
+import org.signal.chat.profile.SetV1AvatarRequest;
+import org.signal.chat.profile.SetV1AvatarResponse;
 import org.signal.chat.profile.test.PlaintextProfileData;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
@@ -194,8 +198,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AUTHENTICATED_ACI))).thenReturn(Optional.of(account));
-
-    when(profilesManager.getV1(any(), any())).thenReturn(Optional.of(profile));
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
@@ -374,6 +376,23 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final SetProfileResponse response = authenticatedServiceStub().setProfile(request);
 
     assertTrue(response.hasProfilesV2CapabilityRequired());
+  }
+
+  @Test
+  void setProfileUnauthenticated() {
+
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.empty());
+
+    final SetProfileRequest request = SetProfileRequest.newBuilder()
+        .setVersion(ByteString.copyFrom(VERSION))
+        .setData(ByteString.copyFrom(VALID_DATA))
+        .setExpectedCurrentDataHash(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
+        .setV1Request(V1_REQUEST)
+        .build();
+
+    final StatusRuntimeException statusRuntimeException = assertStatusException(Status.UNAUTHENTICATED,
+        () -> authenticatedServiceStub().setProfile(request));
+    assertEquals("invalid credentials", statusRuntimeException.getStatus().getDescription());
   }
 
   @ParameterizedTest
@@ -862,7 +881,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     final StatusRuntimeException statusRuntimeException = assertStatusException(Status.UNAUTHENTICATED,
         () -> authenticatedServiceStub().getAvatarCredentials(GetAvatarCredentialsRequest.getDefaultInstance()));
-    assertEquals("account not found", statusRuntimeException.getStatus().getDescription());
+    assertEquals("invalid credentials", statusRuntimeException.getStatus().getDescription());
   }
 
   @Test
@@ -900,6 +919,70 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
                 .build()));
 
     assertEquals("invalid credential request", statusRuntimeException.getStatus().getDescription());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void setV1Avatar(boolean hasAvatar) {
+    final String version = HexFormat.of().formatHex(TestRandomUtil.nextBytes(32));
+
+    final VersionedProfileV1 profile = new VersionedProfileV1(version,
+        TestRandomUtil.nextBytes(81),
+        hasAvatar ? "profiles/old-avatar" : null,
+        null,
+        TestRandomUtil.nextBytes(156),
+        null,
+        TestRandomUtil.nextBytes(582),
+        TestRandomUtil.nextBytes(32)
+    );
+
+    when(profilesManager.getV1(AUTHENTICATED_ACI, profile.version()))
+        .thenReturn(Optional.of(profile));
+
+    final SetV1AvatarResponse response = authenticatedServiceStub().setV1Avatar(
+        SetV1AvatarRequest.newBuilder()
+            .setVersion(version)
+            .build());
+
+    verify(profilesManager).setV1Avatar(eq(AUTHENTICATED_ACI), eq(version), anyString(), aryEq(profile.commitment()));
+
+    assertTrue(response.hasForm());
+    assertTrue(response.getForm().getKey().startsWith("profiles/"));
+  }
+
+  @Test
+  void setV1AvatarNewVersion() throws Exception {
+    final ProfileKey profileKey = new ProfileKey(new byte[32]);
+    final byte[] commitment = profileKey.getCommitment(new ServiceId.Aci(AUTHENTICATED_ACI)).serialize();
+    final String version = profileKey.getProfileKeyVersion(new ServiceId.Aci(AUTHENTICATED_ACI)).serialize();
+
+    when(profilesManager.getV1(eq(AUTHENTICATED_ACI), anyString()))
+        .thenReturn(Optional.empty());
+
+    final SetV1AvatarResponse response = authenticatedServiceStub().setV1Avatar(
+        SetV1AvatarRequest.newBuilder()
+            .setVersion(version)
+            .setCommitment(ByteString.copyFrom(commitment))
+            .build());
+
+    verify(profilesManager).setV1Avatar(eq(AUTHENTICATED_ACI), eq(version), anyString(), aryEq(commitment));
+
+    assertTrue(response.hasForm());
+    assertTrue(response.getForm().getKey().startsWith("profiles/"));
+  }
+
+  @Test
+  void setV1AvatarNewVersionMissingCommitment() {
+    when(profilesManager.getV1(eq(AUTHENTICATED_ACI), anyString()))
+        .thenReturn(Optional.empty());
+
+    final StatusRuntimeException statusRuntimeException = assertStatusInvalidArgument(
+        () -> authenticatedServiceStub().setV1Avatar(
+            SetV1AvatarRequest.newBuilder().setVersion(HexFormat.of().formatHex(TestRandomUtil.nextBytes(32)))
+                .build()));
+
+    assertNotNull(statusRuntimeException.getStatus().getDescription());
+    assertTrue(statusRuntimeException.getStatus().getDescription().toLowerCase(Locale.ROOT).contains("commitment"));
   }
 
   @ParameterizedTest

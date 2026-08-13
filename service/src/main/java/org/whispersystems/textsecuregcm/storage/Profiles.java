@@ -29,9 +29,11 @@ import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.Update;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 public class Profiles {
 
@@ -281,5 +283,29 @@ public class Profiles {
         .doOnSuccess(ignored -> sample.stop(Metrics.timer(DELETE_PROFILES_TIMER_NAME, "outcome", "success")))
         .doOnError(ignored -> sample.stop(Metrics.timer(DELETE_PROFILES_TIMER_NAME, "outcome", "error")))
         .toFuture();
+  }
+
+  /**
+   * Upserts the avatar for a v1 profile
+   */
+  public VersionedProfileV1 setAvatar(UUID accountIdentifier, String version, String avatar, byte[] commitment) {
+    final UpdateItemResponse response = SET_PROFILES_TIMER.record(() ->
+      dynamoDbClient.updateItem(UpdateItemRequest.builder()
+          .tableName(tableName)
+          .key(buildPrimaryKey(accountIdentifier, version))
+          .updateExpression("SET #avatar = :avatar, #commitment = if_not_exists(#commitment, :commitment)")
+          .expressionAttributeNames(Map.of(
+              "#avatar", ATTR_AVATAR,
+              "#commitment", ATTR_COMMITMENT
+          ))
+          .expressionAttributeValues(Map.of(
+              ":avatar", AttributeValues.s(avatar),
+              ":commitment", AttributeValues.b(commitment)
+          ))
+          .returnValues(ReturnValue.ALL_NEW)
+          .build())
+    );
+
+    return fromItem(response.attributes());
   }
 }

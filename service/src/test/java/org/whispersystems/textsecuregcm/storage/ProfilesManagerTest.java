@@ -556,6 +556,33 @@ public class ProfilesManagerTest {
     verifyNoInteractions(s3Client);
   }
 
+  @Test
+  void setV1Avatar() {
+    final UUID uuid = UUID.randomUUID();
+    final String version = HexFormat.of().formatHex(TestRandomUtil.nextBytes(32));
+    final String avatar = "avatar";
+    final byte[] commitment = TestRandomUtil.nextBytes(97);
+
+    final VersionedProfileV1 profile = mock(VersionedProfileV1.class);
+    when(profile.version()).thenReturn(version);
+    when(profile.commitment()).thenReturn(commitment);
+    when(profile.avatar()).thenReturn(avatar);
+
+    when(profilesV1.setAvatar(any(UUID.class), anyString(), anyString(), any(byte[].class)))
+        .thenReturn(profile);
+
+    profilesManager.setV1Avatar(uuid, version, avatar, commitment);
+
+    verify(commands).del(aryEq(ProfilesManager.getCacheKeyV1(uuid)));
+    verify(profilesV1).setAvatar(uuid, version, avatar, commitment);
+    verify(setLuaScript).executeBinary(
+        argThat(keys ->
+            Arrays.equals(keys.get(0), ProfilesManager.getCacheKeyV1(uuid))),
+        argThat(args ->
+            Arrays.equals(args.get(0), version.getBytes())));
+    verifyNoMoreInteractions(setLuaScript);
+  }
+
   @Nested
   class Redis {
 

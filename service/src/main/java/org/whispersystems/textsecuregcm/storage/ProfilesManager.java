@@ -338,4 +338,14 @@ public class ProfilesManager {
       }
     });
   }
+
+  public void setV1Avatar(UUID accountIdentifier, String version, String avatar, byte[] commitment) {
+    ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
+        .executeRunnable(() -> cacheCluster.withBinaryCluster(
+            connection -> connection.sync().del(getCacheKeyV1(accountIdentifier))));
+
+    final VersionedProfileV1 versionedProfileV1 = profilesV1.setAvatar(accountIdentifier, version, avatar, commitment);
+
+    redisSet(accountIdentifier, null, versionedProfileV1);
+  }
 }

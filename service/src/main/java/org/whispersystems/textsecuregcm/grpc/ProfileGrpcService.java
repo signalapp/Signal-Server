@@ -31,6 +31,8 @@ import org.signal.chat.profile.SetProfileRequest;
 import org.signal.chat.profile.SetProfileResponse;
 import org.signal.chat.profile.SetProfileResult;
 import org.signal.chat.profile.SetProfileV1Request.AvatarChange;
+import org.signal.chat.profile.SetV1AvatarRequest;
+import org.signal.chat.profile.SetV1AvatarResponse;
 import org.signal.chat.profile.SimpleProfileGrpc;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -107,7 +109,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
-        .orElseThrow(() -> GrpcExceptions.invalidArguments("Account not found"));
+        .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
     if (!account.hasCapability(DeviceCapability.PROFILES_V2)) {
       return SetProfileResponse.newBuilder()
@@ -224,7 +226,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
-        .orElseThrow(() -> GrpcExceptions.invalidCredentials("account not found"));
+        .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
     if (account.getZkCredentialKey().isEmpty()) {
       return GetAvatarCredentialsResponse.newBuilder()
@@ -273,6 +275,35 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
                 .getProfileV1(account, profilesManager, profileBadgeConverter, version)
                 .map(v1Result -> GetProfileResponse.newBuilder().setLegacyProfile(v1Result).build())))
         .orElseGet(() -> GetProfileResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build());
+  }
+
+  @Override
+  public SetV1AvatarResponse setV1Avatar(final SetV1AvatarRequest request) {
+
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
+
+    final String version = request.getVersion();
+    final Optional<VersionedProfileV1> maybeV1Profile = profilesManager.getV1(authenticatedDevice.accountIdentifier(),
+        version);
+
+    if (maybeV1Profile.isEmpty() && request.getCommitment().isEmpty()) {
+      throw GrpcExceptions.fieldViolation("commitment", "Commitment is required for new profile versions");
+    }
+
+    maybeV1Profile.map(VersionedProfileV1::avatar).filter(a -> a.startsWith("profiles/"))
+        .ifPresent(profilesManager::deleteAvatar);
+
+    final byte[] commitment = maybeV1Profile.map(VersionedProfileV1::commitment).orElseGet(request.getCommitment()::toByteArray);
+
+    final String updateAvatarObjectName = ProfileHelper.generateAvatarObjectName();
+
+    profilesManager.setV1Avatar(authenticatedDevice.accountIdentifier(), version, updateAvatarObjectName, commitment);
+
+    return SetV1AvatarResponse.newBuilder()
+        .setForm(ProfileGrpcHelper.generateAvatarUploadForm(updateAvatarObjectName,
+            ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES,
+            policyGenerator, clock))
+        .build();
   }
 
   private Optional<Account> validateRateLimitAndGetAccount(final UUID requesterUuid,

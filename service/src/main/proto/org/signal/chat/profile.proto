@@ -31,6 +31,17 @@ service Profile {
   //
   // Note: `Accounts.SetZkCredentialKey` is a pre-requisite for this RPC
   rpc GetAvatarCredentials(GetAvatarCredentialsRequest) returns (GetAvatarCredentialsResponse) {}
+
+  // Returns credentials used by clients to upload a v1 avatar, deleting any current avatar.
+  //
+  // This RPC streamlines avatar changes during the v1 -> v2 transition by minimizing uploads:
+  // 1. SetV1Avatar
+  // 2. Upload to CDN
+  // 3. SetProfile with v1 `AVATAR_CHANGE_UNCHANGED` and the v1 avatar in the v2 profile body
+  //
+  // Clients that do this will be required to upload current avatars using `ProfilesAnonymous.GetAvatarUploadFormRequest`
+  // once v1 Profile APIs are no longer supported.
+  rpc SetV1Avatar(SetV1AvatarRequest) returns (SetV1AvatarResponse) {}
 }
 
 // Provides methods for working with profiles and profile-related data using "unidentified access"
@@ -88,6 +99,19 @@ message SetProfileV1Request {
 
   // The ciphertext of the phone-number sharing setting on the profile. 29-byte encrypted boolean.
   bytes phone_number_sharing = 6 [(require.exactlySize) = 29];
+}
+
+message SetV1AvatarRequest {
+  // The profile version. Required.
+  string version = 1 [(require.exactlySize) = 64];
+
+  // The profile key commitment. Required if this is a new profile version.
+  bytes commitment = 2 [(require.exactlySize) = 0, (require.exactlySize) = 97];
+}
+
+message SetV1AvatarResponse {
+  // the policy and credential used by clients to upload an avatar to the CDN
+  common.S3UploadForm form = 1;
 }
 
 message SetProfileRequest {
@@ -374,6 +398,7 @@ message GetAvatarUploadFormRequest {
 
 message GetAvatarUploadFormResponse {
   oneof response {
+    // the policy and credential used by clients to upload an avatar to the CDN
     common.S3UploadForm avatar_upload_form = 1;
 
     errors.FailedZkAuthentication invalid_credentials_presentation = 2 [(tag.reason) = "invalid_credentials_presentation"];

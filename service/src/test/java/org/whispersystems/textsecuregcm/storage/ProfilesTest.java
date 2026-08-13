@@ -6,7 +6,9 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import java.util.Map;
@@ -383,5 +385,42 @@ public class ProfilesTest {
             new VersionedProfileV1(version, null, null, null, null, null, null, commitment),
             Map.of(":commitment", AttributeValues.fromByteArray(commitment)))
     );
+  }
+
+  @Test
+  void setAvatarInsert() {
+    final String avatar = "avatar";
+    final String version = "version";
+    final byte[] commitment = TestRandomUtil.nextBytes(97);
+
+    final VersionedProfileV1 profile = profiles.setAvatar(UUID.randomUUID(), version, avatar,
+        commitment);
+
+    assertEquals(version, profile.version());
+    assertEquals(avatar, profile.avatar());
+    assertArrayEquals(commitment, profile.commitment());
+    assertNull(profile.name());
+  }
+
+  @Test
+  void setAvatarUpdate() {
+    final String version = "version";
+    final byte[] commitment = TestRandomUtil.nextBytes(97);
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final UUID uuid = UUID.randomUUID();
+    {
+      final VersionedProfileV1 initialProfile = new VersionedProfileV1(version, name, null, null, null, null, null,
+          commitment);
+
+      profiles.set(uuid, initialProfile);
+    }
+    final String avatar = "avatar";
+
+    final VersionedProfileV1 profile = profiles.setAvatar(uuid, version, avatar, commitment);
+
+    assertEquals(version, profile.version());
+    assertEquals(avatar, profile.avatar());
+    assertArrayEquals(commitment, profile.commitment());
+    assertArrayEquals(name, profile.name());
   }
 }
