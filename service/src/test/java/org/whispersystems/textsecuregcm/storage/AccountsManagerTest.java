@@ -1453,11 +1453,12 @@ class AccountsManagerTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testJsonRoundTripSerialization(final boolean numberless) throws Exception {
+  @ValueSource(strings = {
+      "AccountsManagerTest-testJsonRoundTripSerialization.json",
+      "AccountsManagerTest-testJsonRoundTripSerializationNumberless.json"})
+  void testJsonRoundTripSerialization(final String fileName) throws Exception {
     String originalJson;
-    final String jsonFileName = String.format("AccountsManagerTest-testJsonRoundTripSerialization%s.json", numberless ? "Numberless" : "");
-    try (InputStream inputStream = getClass().getResourceAsStream(jsonFileName)) {
+    try (InputStream inputStream = getClass().getResourceAsStream(fileName)) {
       Objects.requireNonNull(inputStream);
       originalJson = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
