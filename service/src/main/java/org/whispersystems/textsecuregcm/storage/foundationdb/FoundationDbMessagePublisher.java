@@ -236,7 +236,7 @@ class FoundationDbMessagePublisher {
             emitMessages();
           }
           case INTERNAL_TRIGGER -> {
-            if (emitter.requestedFromDownstream() > 0) {
+            if (getOutstandingDemand() > 0) {
               setState(State.FETCHING_MESSAGES, event);
               emitMessages();
             }
