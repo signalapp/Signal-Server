@@ -181,17 +181,10 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
         .fromString(subscription.getAcknowledgementState())
         .orElse(AcknowledgementState.UNSPECIFIED);
 
-    final boolean requiresAck = switch (acknowledgementState) {
-      case ACKNOWLEDGED -> false;
-      case PENDING -> true;
-      case UNSPECIFIED -> throw new UncheckedIOException(
-          new IOException("Invalid acknowledgement state " + subscription.getAcknowledgementState()));
-    };
-
     final SubscriptionPurchaseLineItem purchase = getLineItem(subscription);
     final ReceiptLevel level = productIdToLevel(purchase.getProductId());
 
-    return new ValidatedToken(level.getValue(), purchase.getProductId(), purchaseToken, requiresAck);
+    return new ValidatedToken(level.getValue(), purchase.getProductId(), purchaseToken, requiresAcknowledgement(subscription));
   }
 
 
@@ -284,20 +277,6 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
   public ReceiptItem getReceiptItem(String purchaseToken)
       throws RateLimitExceededException, SubscriptionNotFoundException, SubscriptionPaymentRequiredException {
     final SubscriptionPurchaseV2 subscription = lookupSubscription(purchaseToken);
-    final AcknowledgementState acknowledgementState = AcknowledgementState
-        .fromString(subscription.getAcknowledgementState())
-        .orElse(AcknowledgementState.UNSPECIFIED);
-    if (acknowledgementState != AcknowledgementState.ACKNOWLEDGED) {
-      final SubscriptionPurchaseLineItem purchase = getLineItem(subscription);
-      // We should only ever generate receipts for a stored and acknowledged token.
-      logger.error("Tried to fetch receipt for purchase token that was never acknowledged. orderId: {} latestSuccessfulOrderId: {}, acknowledgementState: {}, canceledStateContext: {}, state: {} ",
-          subscription.getLatestOrderId(),
-          purchase.getLatestSuccessfulOrderId(),
-          subscription.getAcknowledgementState(),
-          subscription.getCanceledStateContext(),
-          subscription.getSubscriptionState());
-      throw new IllegalStateException("Tried to fetch receipt for purchaseToken that was never acknowledged");
-    }
 
     Metrics.counter(GET_RECEIPT_COUNTER_NAME, subscriptionTags(subscription)).increment();
 
@@ -310,6 +289,21 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
       // subscription is in a grace period, the expiration time will be dynamically extended, see
       // https://developer.android.com/google/play/billing/lifecycle/subscriptions#grace-period
       throw new SubscriptionPaymentRequiredException();
+    }
+
+    if (requiresAcknowledgement(subscription)) {
+      // We only generate receipts for previously stored tokens. Usually, we acknowledge tokens after storing them.
+      // However, it's possible that a client sent us a token, and we successfully stored it, but then failed to
+      // acknowledge it. If the client later attempts to create a receipt from that token, we can be confident that
+      // they are going to use their entitlement, so we can go ahead and acknowledge it
+      logger.info("Tried to fetch receipt for purchase token that was never acknowledged. Acknowledging. orderId: {} latestSuccessfulOrderId: {}, acknowledgementState: {}, canceledStateContext: {}, state: {} ",
+          subscription.getLatestOrderId(),
+          purchase.getLatestSuccessfulOrderId(),
+          subscription.getAcknowledgementState(),
+          subscription.getCanceledStateContext(),
+          subscription.getSubscriptionState());
+      executeTokenOperation(pub -> pub.purchases().subscriptions()
+          .acknowledge(packageName, purchase.getProductId(), purchaseToken, new SubscriptionPurchasesAcknowledgeRequest()));
     }
 
     return new ReceiptItem(
@@ -448,6 +442,17 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
       logger.warn("{} line items found for purchase {}, expected 1", lineItems.size(), subscription.getLatestOrderId());
     }
     return lineItems.getFirst();
+  }
+
+  private static boolean requiresAcknowledgement(final SubscriptionPurchaseV2 subscription) {
+    return switch (AcknowledgementState
+        .fromString(subscription.getAcknowledgementState())
+        .orElse(AcknowledgementState.UNSPECIFIED)) {
+      case ACKNOWLEDGED -> false;
+      case PENDING -> true;
+      case UNSPECIFIED -> throw new UncheckedIOException(
+          new IOException("Invalid acknowledgement state " + subscription.getAcknowledgementState()));
+    };
   }
 
   private Tags subscriptionTags(final SubscriptionPurchaseV2 subscription) {

@@ -128,7 +128,7 @@ class GooglePlayBillingManagerTest {
 
     assertThat(result.getLevel()).isEqualTo(201);
     assertThatNoException().isThrownBy(result::acknowledgePurchase);
-    verify(acknowledge, times(1)).execute();
+    verify(acknowledge).execute();
   }
 
   @ParameterizedTest
@@ -203,15 +203,16 @@ class GooglePlayBillingManagerTest {
   }
 
   @Test
-  public void getReceiptUnacknowledged() throws IOException {
+  public void getReceiptUnacknowledged()
+      throws IOException, SubscriptionPaymentRequiredException, SubscriptionNotFoundException, RateLimitExceededException {
     when(subscriptionsv2Get.execute()).thenReturn(new SubscriptionPurchaseV2()
         .setAcknowledgementState(GooglePlayBillingManager.AcknowledgementState.PENDING.apiString())
         .setSubscriptionState(GooglePlayBillingManager.SubscriptionState.ACTIVE.apiString())
         .setLineItems(List.of(new SubscriptionPurchaseLineItem()
             .setExpiryTime(Instant.now().plus(Duration.ofDays(1)).toString())
             .setProductId(SUBSCRIPTION_PRODUCT_ID))));
-    assertThatExceptionOfType(IllegalStateException.class).isThrownBy(() ->
-        googlePlayBillingManager.getReceiptItem(PURCHASE_TOKEN));
+    googlePlayBillingManager.getReceiptItem(PURCHASE_TOKEN);
+    verify(acknowledge).execute();
   }
 
   @Test
