@@ -37,6 +37,6 @@ public record AccountIdentityResponse(
     @Schema(description = "entitlements for this account and their current expirations")
     Entitlements entitlements,
 
-    @Schema(description = "salt to generate PNI auth credentials for accounts without a phone number; null if this account does not have a phone number")
+    @Schema(description = "salt to generate PNI auth credentials for accounts without a phone number; null if this account has a phone number")
     @Nullable byte[] authCredentialSalt) {
 }
