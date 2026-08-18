@@ -13,12 +13,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.signal.integration.config.Config;
+import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriods;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -35,6 +37,8 @@ public class IntegrationTools {
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
 
   private final ChangeNumberWaitingPeriods changeNumberWaitingPeriods;
+
+  private final RedeemedReceiptsManager redeemedReceiptsManager;
 
   public static IntegrationTools create(final Config config) {
     final AwsCredentialsProvider credentialsProvider = DefaultCredentialsProvider.builder().build();
@@ -55,7 +59,8 @@ public class IntegrationTools {
         new PhoneNumberRecoveryPasswordsManager(phoneNumberRecoveryPasswords),
         new VerificationSessionManager(verificationSessions),
         new PhoneNumberIdentifiers(dynamoDbAsyncClient, config.dynamoDbTables().phoneNumberIdentifiers()),
-        new ChangeNumberWaitingPeriods(config.dynamoDbTables().changeNumberWaitingPeriods(), dynamoDbClient)
+        new ChangeNumberWaitingPeriods(config.dynamoDbTables().changeNumberWaitingPeriods(), dynamoDbClient),
+        new RedeemedReceiptsManager(Clock.systemUTC(), config.dynamoDbTables().redeemedReceipts(), dynamoDbClient)
     );
   }
 
@@ -63,11 +68,13 @@ public class IntegrationTools {
       final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
       final VerificationSessionManager verificationSessionManager,
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
-      final ChangeNumberWaitingPeriods changeNumberWaitingPeriods) {
+      final ChangeNumberWaitingPeriods changeNumberWaitingPeriods,
+      final RedeemedReceiptsManager redeemedReceiptsManager) {
     this.phoneNumberRecoveryPasswordsManager = phoneNumberRecoveryPasswordsManager;
     this.verificationSessionManager = verificationSessionManager;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.changeNumberWaitingPeriods = changeNumberWaitingPeriods;
+    this.redeemedReceiptsManager = redeemedReceiptsManager;
   }
 
   public void populateRecoveryPassword(final String phoneNumber, final byte[] password) {
@@ -86,5 +93,9 @@ public class IntegrationTools {
 
   public void clearChangeNumberWaitingPeriod(TestUser user) {
     changeNumberWaitingPeriods.delete(user.aciUuid());
+  }
+
+  public void deleteRedeemedReceipt(final ReceiptSerial receiptSerial) {
+    redeemedReceiptsManager.deleteReceipt(receiptSerial);
   }
 }

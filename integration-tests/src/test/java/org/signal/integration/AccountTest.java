@@ -21,6 +21,8 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.signal.libsignal.usernames.Username;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
@@ -32,6 +34,22 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device;
 
 public class AccountTest {
+
+  @Test
+  public void testCreateNumberlessAccount()
+      throws VerificationFailedException, InvalidInputException {
+    final Operations.Receipt receipt = Operations.getPrescribedReceipt();
+    final TestUser user = Operations.registerNumberlessUser(receipt.credential());
+    try {
+      final Pair<Integer, AccountIdentityResponse> execute = Operations.apiGet("/v1/accounts/whoami")
+          .authorized(user)
+          .execute(AccountIdentityResponse.class);
+      assertEquals(HttpStatus.SC_OK, execute.getLeft());
+    } finally {
+      Operations.deleteReceipt(receipt.serial());
+      Operations.deleteUser(user);
+    }
+  }
 
   @Test
   public void testCreateAccount() {

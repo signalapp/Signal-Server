@@ -33,7 +33,8 @@ public class TestUser {
 
   private final int registrationId;
 
-  private final int pniRegistrationId;
+  @Nullable
+  private final Integer pniRegistrationId;
 
   private final IdentityKeyPair aciIdentityKey;
 
@@ -56,6 +57,22 @@ public class TestUser {
   @Nullable
   private UUID pniUuid;
 
+  public static TestUser createNumberless(final String accountPassword, final byte[] accountRecoveryPassword) {
+    final IdentityKeyPair aciIdentityKey = IdentityKeyPair.generate();
+    final int registrationId = KeyHelper.generateRegistrationId(false);
+    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
+    new SecureRandom().nextBytes(unidentifiedAccessKey);
+
+    return new TestUser(
+        registrationId,
+        null,
+        aciIdentityKey,
+        null,
+        null,
+        unidentifiedAccessKey,
+        accountPassword,
+        accountRecoveryPassword);
+  }
 
   public static TestUser create(final String phoneNumber, final String accountPassword, final byte[] registrationPassword) {
     // ACI identity key pair
@@ -82,10 +99,10 @@ public class TestUser {
 
   public TestUser(
       final int registrationId,
-      final int pniRegistrationId,
+      @Nullable final Integer pniRegistrationId,
       final IdentityKeyPair aciIdentityKey,
-      final String phoneNumber,
-      final IdentityKeyPair pniIdentityKey,
+      @Nullable final String phoneNumber,
+      @Nullable final IdentityKeyPair pniIdentityKey,
       final byte[] unidentifiedAccessKey,
       final String accountPassword,
       final byte[] registrationPassword) {

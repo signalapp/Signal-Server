@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -137,5 +138,24 @@ class RedeemedReceiptsManagerTest {
         .build());
     assertThat(Long.parseLong(response.item().get(RedeemedReceiptsManager.ATTR_TTL).n())).isEqualTo(
         receiptExpiration.plus(RedeemedReceiptsManager.TTL_PADDING).getEpochSecond());
+  }
+
+  @Test
+  void testDelete() {
+    final Instant receiptExpiration = Instant.ofEpochSecond(42);
+    final long receiptLevel = 3;
+    final UUID uuid1 = UUID.randomUUID();
+    boolean put;
+
+    put = redeemedReceiptsManager.put(receiptSerial, receiptExpiration, receiptLevel, uuid1);
+    assertThat(put).isTrue();
+
+    redeemedReceiptsManager.deleteReceipt(receiptSerial);
+
+    final GetItemResponse response = DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
+        .tableName(Tables.REDEEMED_RECEIPTS.tableName())
+        .key(Map.of(RedeemedReceiptsManager.KEY_SERIAL, AttributeValues.b(receiptSerial.serialize())))
+        .build());
+    assertFalse(response.hasItem());
   }
 }

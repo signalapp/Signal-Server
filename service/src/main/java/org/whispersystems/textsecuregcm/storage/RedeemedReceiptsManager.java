@@ -18,6 +18,7 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
@@ -136,6 +137,18 @@ public class RedeemedReceiptsManager {
             .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
             .build())
         .build();
+  }
+
+  /// Deletes a receipt with the given receipt serial from the redeemed receipts table.
+  /// This method is only intended for use by integration tests.
+  ///
+  /// @param receiptSerial the receipt serial
+  @VisibleForTesting
+  public void deleteReceipt(final ReceiptSerial receiptSerial) {
+    client.deleteItem(DeleteItemRequest.builder()
+        .tableName(table)
+        .key(Map.of(KEY_SERIAL, AttributeValues.b(receiptSerial.serialize())))
+        .build());
   }
 
   private static AttributeValue rowTtl(final Instant receiptExpiration) {

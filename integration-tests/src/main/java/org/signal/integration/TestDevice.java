@@ -5,6 +5,7 @@
 
 package org.signal.integration;
 
+import jakarta.annotation.Nullable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.tuple.Pair;
@@ -22,10 +23,12 @@ public class TestDevice {
   public static TestDevice create(
       final byte deviceId,
       final IdentityKeyPair aciIdentityKeyPair,
-      final IdentityKeyPair pniIdentityKeyPair) {
+      @Nullable final IdentityKeyPair pniIdentityKeyPair) {
     final TestDevice device = new TestDevice(deviceId);
     device.addSignedPreKey(aciIdentityKeyPair);
-    device.addSignedPreKey(pniIdentityKeyPair);
+    if (pniIdentityKeyPair != null) {
+      device.addSignedPreKey(pniIdentityKeyPair);
+    }
     return device;
   }
 

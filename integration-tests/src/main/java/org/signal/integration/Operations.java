@@ -49,6 +49,13 @@ import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.protocol.kem.KEMKeyPair;
 import org.signal.libsignal.protocol.kem.KEMKeyType;
 import org.signal.libsignal.protocol.kem.KEMPublicKey;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ServerPublicParams;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.receipts.ClientZkReceiptOperations;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredential;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
+import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -81,6 +88,48 @@ public final class Operations {
 
   private Operations() {
     // utility class
+  }
+
+  public record Receipt(ReceiptSerial serial, ReceiptCredential credential) {}
+
+  public static Receipt getPrescribedReceipt() throws InvalidInputException {
+    return new Receipt(
+        new ReceiptSerial(Base64.getUrlDecoder().decode(CONFIG.prescribedReceiptSerial())),
+        new ReceiptCredential(Base64.getUrlDecoder().decode(CONFIG.prescribedReceiptCredential()))
+    );
+  }
+
+  public static TestUser registerNumberlessUser(final ReceiptCredential receiptCredential)
+      throws InvalidInputException, VerificationFailedException {
+    final String accountPassword = Base64.getEncoder().encodeToString(randomBytes(32));
+    final byte[] recoveryPassword = randomBytes(32);
+    final TestUser user = TestUser.createNumberless(accountPassword, recoveryPassword);
+
+    final ClientZkReceiptOperations clientOps = new ClientZkReceiptOperations(new ServerPublicParams(Base64.getDecoder().decode(CONFIG.serverZkPublicParams())));
+    final ReceiptCredentialPresentation receiptCredentialPresentation = clientOps.createReceiptCredentialPresentation(receiptCredential);
+
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
+        null,
+        receiptCredentialPresentation.serialize(),
+        user.accountAttributes(),
+        true,
+        new IdentityKey(aciIdentityKeyPair.getPublicKey()),
+        null,
+        new DeviceActivationRequest(generateSignedECPreKey(1, aciIdentityKeyPair),
+            Optional.empty(),
+            generateSignedKEMPreKey(3, aciIdentityKeyPair),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty()));
+
+    final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
+        // username must be present but can be set to anything for a numberless registration request
+        .authorized("test", accountPassword)
+        .executeExpectSuccess(AccountIdentityResponse.class);
+
+    user.setAciUuid(registrationResponse.uuid());
+    return user;
   }
 
   public static TestUser newRegisteredUser(final String number) {
@@ -144,6 +193,10 @@ public final class Operations {
 
   public static void clearChangeNumberWaitingPeriod(final TestUser user) {
     INTEGRATION_TOOLS.clearChangeNumberWaitingPeriod(user);
+  }
+
+  public static void deleteReceipt(final ReceiptSerial receiptSerial) {
+    INTEGRATION_TOOLS.deleteRedeemedReceipt(receiptSerial);
   }
 
   public static <T> T sendEmptyRequestAuthenticated(
