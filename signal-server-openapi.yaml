@@ -3106,10 +3106,12 @@ paths:
       - name: Authorization
         in: header
         description: |
-          The basic auth header. For accounts with a phone number, the username must be the e164-formatted number that is being registered.
-          For accounts without a phone number, the username is ignored on a fresh registration (it must be present, however, so an arbitrary
-          string is acceptable). For account recovery (re-registration) by ACI, it must be set to the ACI of the account being recovered.
-          In all cases, the password is the password to be used for primary device authentication.
+          The basic auth header. For accounts with a phone number, the username must be the e164-formatted number that
+          is being registered. For accounts without a phone number, the username is ignored on a fresh registration
+          (it must be present, however, so any string that can't be parsed as an e164-formatted phone number or UUID
+          is acceptable; "__no_number__" is recommended). For account recovery (re-registration) by ACI, it must be
+          set to the ACI of the account being recovered. In all cases, the password is the password to be used for
+          primary device authentication.
         required: true
         schema:
           type: string
@@ -4339,7 +4341,7 @@ components:
         authCredentialSalt:
           type: string
           description: salt to generate PNI auth credentials for accounts without
-            a phone number; null if this account does not have a phone number
+            a phone number; null if this account has a phone number
           format: byte
           nullable: true
     BackupEntitlement:
@@ -4535,7 +4537,10 @@ components:
           type: string
       description: |
         The PNI-associated identity key for the account, encoded as a base64 string.
-        Must be provided for an account with a phone number.
+        Must be provided for an account with a phone number or when recovering an account by
+        ID (even if the recovered account does not have a phone number, in which case
+        PNI-associated key material will be ignored). Must be absent when registering an
+        account without a phone number.
       nullable: true
     IncomingMessage:
       required:
@@ -5851,12 +5856,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        expiration:
-          type: string
-          format: date-time
         spendId:
           type: string
           format: byte
+        expiration:
+          type: string
+          format: date-time
         internalContentsForJNI:
           type: string
           format: byte
@@ -6331,7 +6336,7 @@ components:
         authCredentialSalt:
           type: string
           description: salt to generate PNI auth credentials for accounts without
-            a phone number; null if this account does not have a phone number
+            a phone number; null if this account has a phone number
           format: byte
           nullable: true
         reregistration:
@@ -6360,7 +6365,8 @@ components:
           description: |
             A base64-encoded registration recovery password. Must be provided if `sessionId` and
             `receiptCredentialPresentation` are not provided; must not be provided if `sessionId`
-            or `receiptCredentialPresentation` is provided.
+            or `receiptCredentialPresentation` is provided. Registration recovery passwords must
+            be specified when reclaiming an account by account identifier.
           format: byte
           nullable: true
         receiptCredentialPresentation:
