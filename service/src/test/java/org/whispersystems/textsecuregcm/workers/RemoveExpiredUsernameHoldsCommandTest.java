@@ -81,7 +81,7 @@ class RemoveExpiredUsernameHoldsCommandTest {
     final UUID hasHoldsAccountIdentifier = UUID.randomUUID();
 
     final Account hasHolds = mock(Account.class);
-    when(hasHolds.getIdentifier(IdentityType.ACI)).thenReturn(hasHoldsAccountIdentifier);
+    when(hasHolds.getAccountIdentifier()).thenReturn(hasHoldsAccountIdentifier);
     final List<Account.UsernameHold> originalHolds = List.of(
         // expired
         new Account.UsernameHold(TestRandomUtil.nextBytes(32), Instant.EPOCH.getEpochSecond()),

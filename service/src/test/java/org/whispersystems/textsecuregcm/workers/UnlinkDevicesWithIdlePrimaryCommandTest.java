@@ -79,7 +79,7 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
 
     final Account accountWithIdlePrimaryAndNoLinkedDevice = mock(Account.class);
     {
-      when(accountWithIdlePrimaryAndNoLinkedDevice.getIdentifier(IdentityType.ACI)).thenReturn(UUID.randomUUID());
+      when(accountWithIdlePrimaryAndNoLinkedDevice.getAccountIdentifier()).thenReturn(UUID.randomUUID());
 
       final Device primaryDevice =
           generateMockDevice(Device.PRIMARY_ID, idleDeviceLastSeenDuration);
@@ -90,7 +90,7 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
 
     final Account accountWithActivePrimaryAndLinkedDevice = mock(Account.class);
     {
-      when(accountWithActivePrimaryAndLinkedDevice.getIdentifier(IdentityType.ACI)).thenReturn(UUID.randomUUID());
+      when(accountWithActivePrimaryAndLinkedDevice.getAccountIdentifier()).thenReturn(UUID.randomUUID());
 
       final Device primaryDevice =
           generateMockDevice(Device.PRIMARY_ID, activeDeviceLastSeenDuration);
@@ -105,7 +105,7 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
 
     final Account accountWithIdlePrimaryAndLinkedDevice = mock(Account.class);
     {
-      when(accountWithIdlePrimaryAndLinkedDevice.getIdentifier(IdentityType.ACI)).thenReturn(UUID.randomUUID());
+      when(accountWithIdlePrimaryAndLinkedDevice.getAccountIdentifier()).thenReturn(UUID.randomUUID());
 
       final Device primaryDevice =
           generateMockDevice(Device.PRIMARY_ID, idleDeviceLastSeenDuration);
@@ -124,7 +124,7 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
         accountWithIdlePrimaryAndLinkedDevice));
 
     if (!isDryRun) {
-      verify(accountsManager).removeDevice(accountWithIdlePrimaryAndLinkedDevice.getIdentifier(IdentityType.ACI), linkedDeviceId);
+      verify(accountsManager).removeDevice(accountWithIdlePrimaryAndLinkedDevice.getAccountIdentifier(), linkedDeviceId);
     }
 
     verifyNoMoreInteractions(accountsManager);

@@ -34,7 +34,7 @@ public class CertificateGenerator {
   }
 
   public byte[] createFor(final Account account, final byte deviceId, boolean includeE164) {
-    if (includeE164 && account.getNumberOptional().isEmpty()) {
+    if (includeE164 && account.getNumber().isEmpty()) {
       throw new IllegalArgumentException();
     }
 
@@ -45,7 +45,7 @@ public class CertificateGenerator {
         .setSenderUuid(UUIDUtil.toByteString(account.getAccountIdentifier()));
 
     if (includeE164) {
-      builder.setSenderE164(account.getNumberOptional().get());
+      builder.setSenderE164(account.getNumber().get());
     }
 
     if (embedSigner) {

@@ -77,8 +77,8 @@ class RegistrationLockVerificationManagerTest {
     account = mock(Account.class);
     final UUID accountIdentifier = UUID.randomUUID();
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(account.getNumberOptional()).thenReturn(Optional.of("+18005551212"));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(UUID.randomUUID()));
+    when(account.getNumber()).thenReturn(Optional.of("+18005551212"));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(UUID.randomUUID()));
     when(account.getDevices()).thenReturn(List.of(device));
 
     AccountsHelper.setupMockGet(accountsManager, account);
@@ -107,7 +107,7 @@ class RegistrationLockVerificationManagerTest {
         yield new Pair<>(RegistrationLockFailureException.class, e -> {
           if (e instanceof RegistrationLockFailureException) {
             if (!verificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
-              verify(phoneNumberRecoveryPasswordsManager).buildTransactWriteItemForRemovePassword(account.getPhoneNumberIdentifierOptional().orElseThrow());
+              verify(phoneNumberRecoveryPasswordsManager).buildTransactWriteItemForRemovePassword(account.getPhoneNumberIdentifier().orElseThrow());
             } else {
               verify(phoneNumberRecoveryPasswordsManager, never()).remove(any());
             }
@@ -192,7 +192,7 @@ class RegistrationLockVerificationManagerTest {
 
   @Test
   void testAccountWithNoPhoneNumber() {
-    when(account.getNumberOptional()).thenReturn(Optional.empty());
+    when(account.getNumber()).thenReturn(Optional.empty());
     assertThrows(IllegalArgumentException.class,
         () -> registrationLockVerificationManager.verifyRegistrationLock(account, null, null,
             RegistrationLockVerificationManager.Flow.REGISTRATION, PhoneVerificationRequest.VerificationType.SESSION));

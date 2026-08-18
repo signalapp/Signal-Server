@@ -127,7 +127,7 @@ class StartPushNotificationExperimentCommandTest {
     when(device.getId()).thenReturn(DEVICE_ID);
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTIFIER);
+    when(account.getAccountIdentifier()).thenReturn(ACCOUNT_IDENTIFIER);
     when(account.getDevices()).thenReturn(List.of(device));
 
     assertDoesNotThrow(() -> startPushNotificationExperimentCommand.crawlAccounts(Flux.just(account)));
@@ -150,7 +150,7 @@ class StartPushNotificationExperimentCommandTest {
     when(device.getId()).thenReturn(DEVICE_ID);
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTIFIER);
+    when(account.getAccountIdentifier()).thenReturn(ACCOUNT_IDENTIFIER);
     when(account.getDevices()).thenReturn(List.of(device));
 
     when(pushNotificationExperimentSamples.recordInitialState(any(), anyByte(), any(), anyBoolean(), any()))
@@ -169,7 +169,7 @@ class StartPushNotificationExperimentCommandTest {
     when(device.getId()).thenReturn(DEVICE_ID);
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTIFIER);
+    when(account.getAccountIdentifier()).thenReturn(ACCOUNT_IDENTIFIER);
     when(account.getDevices()).thenReturn(List.of(device));
 
     when(pushNotificationExperimentSamples.recordInitialState(any(), anyByte(), any(), anyBoolean(), any()))
@@ -198,7 +198,7 @@ class StartPushNotificationExperimentCommandTest {
     when(device.getId()).thenReturn(DEVICE_ID);
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTIFIER);
+    when(account.getAccountIdentifier()).thenReturn(ACCOUNT_IDENTIFIER);
     when(account.getDevices()).thenReturn(List.of(device));
 
     when(experiment.applyExperimentTreatment(account, device))

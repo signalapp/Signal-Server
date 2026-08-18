@@ -666,7 +666,7 @@ public class VerificationController {
 
     accountsManager.getByE164(registrationServiceSession.number())
         .filter(existingAccount ->
-            experimentEnrollmentManager.isEnrolled(existingAccount.getIdentifier(IdentityType.ACI), VERIFICATION_CODE_PUSH_NOTIFICATION_EXPERIMENT_NAME))
+            experimentEnrollmentManager.isEnrolled(existingAccount.getAccountIdentifier(), VERIFICATION_CODE_PUSH_NOTIFICATION_EXPERIMENT_NAME))
         .ifPresent(existingAccount -> {
           try {
             pushNotificationManager.sendVerificationCodeRequestedNotifications(existingAccount, clock.instant());

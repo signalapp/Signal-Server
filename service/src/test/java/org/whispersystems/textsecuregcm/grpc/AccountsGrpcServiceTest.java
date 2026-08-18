@@ -187,11 +187,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
           .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new PniServiceIdentifier(phoneNumberIdentifier)))
           .setE164(e164);
 
-      when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
-      when(account.getNumberOptional()).thenReturn(Optional.of(e164));
+      when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(phoneNumberIdentifier));
+      when(account.getNumber()).thenReturn(Optional.of(e164));
     } else {
-      when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
-      when(account.getNumberOptional()).thenReturn(Optional.empty());
+      when(account.getPhoneNumberIdentifier()).thenReturn(Optional.empty());
+      when(account.getNumber()).thenReturn(Optional.empty());
     }
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
@@ -714,7 +714,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
-    when(account.getNumberOptional())
+    when(account.getNumber())
         .thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
             PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
 
@@ -734,7 +734,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
-    when(account.getNumberOptional())
+    when(account.getNumber())
         .thenReturn(Optional.empty());
 
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
@@ -751,7 +751,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(phoneNumberIdentifier));
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
@@ -887,8 +887,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final Account updatedAccount = mock(Account.class);
     when(updatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(updatedAccount.getNumberOptional()).thenReturn(Optional.of(newNumber));
-    when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(updatedPni));
+    when(updatedAccount.getNumber()).thenReturn(Optional.of(newNumber));
+    when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(updatedPni));
     when(updatedAccount.getUsernameHash()).thenReturn(Optional.empty());
 
     when(changeNumberManager.changeNumber(eq(AUTHENTICATED_ACI), any(), any(), any(), eq(newNumber),

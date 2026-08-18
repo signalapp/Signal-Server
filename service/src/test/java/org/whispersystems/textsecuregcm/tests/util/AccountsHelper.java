@@ -22,7 +22,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import org.junit.platform.commons.util.StringUtils;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -33,7 +32,6 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceAttributes;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -189,9 +187,9 @@ public class AccountsHelper {
   }
 
   public static void setupMockGet(final AccountsManager mockAccountsManager, final Account account) {
-    if (account.getAccountIdentifier() != null || account.getIdentifier(IdentityType.ACI) != null) {
+    if (account.getAccountIdentifier() != null || account.getAccountIdentifier() != null) {
       final UUID accountIdentifier =
-          Objects.requireNonNullElseGet(account.getIdentifier(IdentityType.ACI), account::getAccountIdentifier);
+          Objects.requireNonNullElseGet(account.getAccountIdentifier(), account::getAccountIdentifier);
 
       when(mockAccountsManager.getByAccountIdentifier(accountIdentifier))
           .thenReturn(Optional.of(account));
@@ -206,10 +204,7 @@ public class AccountsHelper {
           .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     }
 
-    if (account.getPhoneNumberIdentifier() != null || account.getIdentifier(IdentityType.PNI) != null) {
-      final UUID phoneNumberIdentifier =
-          Objects.requireNonNullElseGet(account.getIdentifier(IdentityType.PNI), account::getPhoneNumberIdentifier);
-
+    account.getPhoneNumberIdentifier().ifPresent(phoneNumberIdentifier -> {
       when(mockAccountsManager.getByPhoneNumberIdentifier(phoneNumberIdentifier))
           .thenReturn(Optional.of(account));
 
@@ -221,11 +216,11 @@ public class AccountsHelper {
 
       when(mockAccountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(phoneNumberIdentifier)))
           .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
-    }
+    });
 
-    if (StringUtils.isNotBlank(account.getNumber())) {
-      when(mockAccountsManager.getByE164(account.getNumber())).thenReturn(Optional.of(account));
-    }
+    account.getNumber().ifPresent(number -> {
+      when(mockAccountsManager.getByE164(number)).thenReturn(Optional.of(account));
+    });
 
     account.getUsernameHash().ifPresent(usernameHash -> when(mockAccountsManager.getByUsernameHash(usernameHash))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account))));
@@ -249,12 +244,9 @@ public class AccountsHelper {
       for (Stubbing stubbing : mockingDetails.getStubbings()) {
         switch (stubbing.getInvocation().getMethod().getName()) {
           case "getAccountIdentifier" -> when(updatedAccount.getAccountIdentifier()).thenAnswer(stubbing);
-          case "getPhoneNumberIdentifierOptional" -> when(updatedAccount.getPhoneNumberIdentifierOptional()).thenAnswer(stubbing);
           case "getPhoneNumberIdentifier" -> when(updatedAccount.getPhoneNumberIdentifier()).thenAnswer(stubbing);
-          case "getIdentifier" -> when(updatedAccount.getIdentifier(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
           case "isIdentifiedBy" -> when(updatedAccount.isIdentifiedBy(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
           case "getNumber" -> when(updatedAccount.getNumber()).thenAnswer(stubbing);
-          case "getNumberOptional" -> when(updatedAccount.getNumberOptional()).thenAnswer(stubbing);
           case "getUsername" -> when(updatedAccount.getUsernameHash()).thenAnswer(stubbing);
           case "getUsernameHash" -> when(updatedAccount.getUsernameHash()).thenAnswer(stubbing);
           case "getUsernameLinkHandle" -> when(updatedAccount.getUsernameLinkHandle()).thenAnswer(stubbing);
@@ -265,8 +257,6 @@ public class AccountsHelper {
           case "getNextDeviceId" -> when(updatedAccount.getNextDeviceId()).thenAnswer(stubbing);
           case "hasCapability" -> when(updatedAccount.hasCapability(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
           case "getRegistrationLock" -> when(updatedAccount.getRegistrationLock()).thenAnswer(stubbing);
-          case "getIdentityKey" ->
-              when(updatedAccount.getIdentityKey(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
           case "getBadges" -> when(updatedAccount.getBadges()).thenAnswer(stubbing);
           case "getBackupVoucher" -> when(updatedAccount.getBackupVoucher()).thenAnswer(stubbing);
           case "getLastSeen" -> when(updatedAccount.getLastSeen()).thenAnswer(stubbing);
@@ -281,7 +271,7 @@ public class AccountsHelper {
     } else {
       final ObjectMapper mapper = SystemMapper.jsonMapper();
       updatedAccount = mapper.readValue(mapper.writeValueAsBytes(account), Account.class);
-      updatedAccount.setNumber(account.getNumber(), account.getPhoneNumberIdentifier());
+      updatedAccount.setNumber(account.getNumber().orElseThrow(), account.getPhoneNumberIdentifier().orElseThrow());
       account.markStale();
     }
 

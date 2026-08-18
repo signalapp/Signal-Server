@@ -87,7 +87,7 @@ public class RegistrationLockVerificationManager {
       final PhoneVerificationRequest.VerificationType phoneVerificationType
   ) throws RateLimitExceededException, RegistrationLockFailureException {
 
-    final String phoneNumber = account.getNumberOptional()
+    final String phoneNumber = account.getNumber()
         .orElseThrow(() -> new IllegalArgumentException("account does not have a phone number"));
 
     final Tags expiredTags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
@@ -149,7 +149,7 @@ public class RegistrationLockVerificationManager {
       // This allows users to re-register via registration recovery password
       // instead of always being forced to fall back to SMS verification.
       if (!phoneVerificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
-        additionalWriteItems = List.of(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForRemovePassword(account.getPhoneNumberIdentifierOptional()
+        additionalWriteItems = List.of(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForRemovePassword(account.getPhoneNumberIdentifier()
             .orElseThrow(() -> new AssertionError("Account with a phone number did not have a phone number identifier"))));
       } else {
         additionalWriteItems = Collections.emptyList();

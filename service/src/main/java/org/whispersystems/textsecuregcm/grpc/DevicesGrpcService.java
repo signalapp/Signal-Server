@@ -54,7 +54,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
               GetDevicesResponse.LinkedDevice.newBuilder()
                   .setId(device.getId())
                   .setLastSeen(device.getLastSeen())
-                  .setRegistrationId(device.getRegistrationId(IdentityType.ACI))
+                  .setRegistrationId(device.getAccountRegistrationId())
                   .setCreatedAtCiphertext(ByteString.copyFrom(device.getCreatedAtCiphertext()));
 
           if (device.getName() != null) {
@@ -104,7 +104,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
       return SetDeviceNameResponse.newBuilder().setTargetDeviceNotFound(NotFound.getDefaultInstance()).build();
     }
 
-    accountsManager.updateDevice(account.getIdentifier(IdentityType.ACI), deviceId, device -> device.setName(request.getName().toByteArray()));
+    accountsManager.updateDevice(account.getAccountIdentifier(), deviceId, device -> device.setName(request.getName().toByteArray()));
 
     return SetDeviceNameResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build();
   }
@@ -141,7 +141,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
     // Unlike FCM tokens, we need current "last updated" timestamps for APNs tokens and so update device records
     // unconditionally if it's an APNS request
     if (request.hasApnsTokenRequest() || !Objects.equals(device.getGcmId(), fcmToken)) {
-      accountsManager.updateDevice(account.getIdentifier(IdentityType.ACI), authenticatedDevice.deviceId(), d -> {
+      accountsManager.updateDevice(account.getAccountIdentifier(), authenticatedDevice.deviceId(), d -> {
         d.setApnId(apnsToken);
         d.setGcmId(fcmToken);
         d.setFetchesMessages(false);

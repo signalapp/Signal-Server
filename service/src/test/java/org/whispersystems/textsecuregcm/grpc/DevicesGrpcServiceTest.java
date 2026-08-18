@@ -67,7 +67,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   @Override
   protected DevicesGrpcService createServiceBeforeEachTest() {
     when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
+    when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(authenticatedAccount));
@@ -95,7 +95,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(primaryDevice.getCreated()).thenReturn(primaryDeviceCreated.toEpochMilli());
     when(primaryDevice.getLastSeen()).thenReturn(primaryDeviceLastSeen.toEpochMilli());
-    when(primaryDevice.getRegistrationId(IdentityType.ACI)).thenReturn(primaryRegistrationId);
+    when(primaryDevice.getAccountRegistrationId()).thenReturn(primaryRegistrationId);
     when(primaryDevice.getCreatedAtCiphertext()).thenReturn(primaryCreatedAtCiphertext);
 
     final String linkedDeviceName = "A linked device";
@@ -105,7 +105,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     when(linkedDevice.getCreated()).thenReturn(linkedDeviceCreated.toEpochMilli());
     when(linkedDevice.getLastSeen()).thenReturn(linkedDeviceLastSeen.toEpochMilli());
     when(linkedDevice.getName()).thenReturn(linkedDeviceName.getBytes(StandardCharsets.UTF_8));
-    when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(linkedRegistrationId);
+    when(linkedDevice.getAccountRegistrationId()).thenReturn(linkedRegistrationId);
     when(linkedDevice.getCreatedAtCiphertext()).thenReturn(linkedCreatedAtCiphertext);
 
     when(authenticatedAccount.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));

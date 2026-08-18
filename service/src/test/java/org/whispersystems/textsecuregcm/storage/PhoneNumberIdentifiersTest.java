@@ -216,8 +216,8 @@ class PhoneNumberIdentifiersTest {
     final UUID phoneNumberIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(newFormatBeninE164));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
+    when(account.getNumber()).thenReturn(Optional.of(newFormatBeninE164));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(phoneNumberIdentifier));
 
     phoneNumberIdentifiers.regeneratePhoneNumberIdentifierMappings(account).join();
 

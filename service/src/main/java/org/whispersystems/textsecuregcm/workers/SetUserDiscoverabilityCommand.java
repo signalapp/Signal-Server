@@ -62,7 +62,7 @@ public class SetUserDiscoverabilityCommand extends AbstractCommandWithDependenci
 
       maybeAccount.ifPresentOrElse(account -> {
             final boolean initiallyDiscoverable = account.isDiscoverableByPhoneNumber();
-            accountsManager.update(account.getIdentifier(IdentityType.ACI), a -> a.setDiscoverableByPhoneNumber(namespace.getBoolean("discoverable")));
+            accountsManager.update(account.getAccountIdentifier(), a -> a.setDiscoverableByPhoneNumber(namespace.getBoolean("discoverable")));
 
             System.out.format("Set discoverability flag for %s to %s (was previously %s)\n",
                 namespace.getString("user"),

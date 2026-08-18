@@ -72,7 +72,7 @@ public class TrimOversizedFoundationDbMessageQueuesCommandTest {
 
     final UUID uuid = UUID.randomUUID();
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
+    when(account.getAccountIdentifier()).thenReturn(uuid);
     when(account.getDevices()).thenReturn(List.of(device));
 
     when(messagesManager.trimQueue(any(), any(), anyLong(), anyLong(), anyLong(), anyBoolean())).thenReturn(Mono.empty());

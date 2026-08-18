@@ -117,7 +117,7 @@ public class ReportMessageManager {
       return rateLimitCluster.withCluster(
           connection ->
               Math.max(
-                  account.getPhoneNumberIdentifierOptional().map(pni -> connection.sync().pfcount(getReportedSenderPniKey(pni)).intValue()).orElse(0),
+                  account.getPhoneNumberIdentifier().map(pni -> connection.sync().pfcount(getReportedSenderPniKey(pni)).intValue()).orElse(0),
                   connection.sync().pfcount(getReportedSenderAciKey(account.getAccountIdentifier())).intValue()));
     } catch (final RedisException e) {
       return 0;

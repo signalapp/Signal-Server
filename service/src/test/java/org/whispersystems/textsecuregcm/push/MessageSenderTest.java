@@ -47,7 +47,6 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -112,12 +111,12 @@ class MessageSenderTest {
         .build();
 
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getAccountRegistrationId()).thenReturn(registrationId);
 
     if (hasPushToken) {
       when(device.getApnId()).thenReturn("apns-token");
@@ -169,12 +168,12 @@ class MessageSenderTest {
     final MessageProtos.Envelope message = MessageProtos.Envelope.newBuilder().build();
 
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getAccountRegistrationId()).thenReturn(registrationId);
     when(device.getApnId()).thenReturn("apns-token");
 
     final MismatchedDevicesException mismatchedDevicesException =
@@ -210,12 +209,12 @@ class MessageSenderTest {
     final MessageProtos.Envelope message = MessageProtos.Envelope.newBuilder().build();
 
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getAccountRegistrationId()).thenReturn(registrationId);
     when(device.getApnId()).thenReturn("apns-token");
 
     when(dynamicMessageDeliveryConfiguration.isReadOnly()).thenReturn(true);
@@ -246,12 +245,12 @@ class MessageSenderTest {
     final Device device = mock(Device.class);
 
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getAccountRegistrationId()).thenReturn(registrationId);
     when(device.getApnId()).thenReturn("apns-token");
 
     if (hasPushToken) {
@@ -307,12 +306,12 @@ class MessageSenderTest {
     final Device device = mock(Device.class);
 
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getAccountRegistrationId()).thenReturn(registrationId);
     when(device.getApnId()).thenReturn("apns-token");
 
     final SealedSenderMultiRecipientMessage multiRecipientMessage =
@@ -362,12 +361,12 @@ class MessageSenderTest {
     final Device device = mock(Device.class);
 
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
     when(account.getDevices()).thenReturn(List.of(device));
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getAccountRegistrationId()).thenReturn(registrationId);
     when(device.getApnId()).thenReturn("apns-token");
     when(device.getApnId()).thenReturn("apns-token");
 
@@ -425,11 +424,11 @@ class MessageSenderTest {
 
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(primaryDeviceId);
-    when(primaryDevice.getRegistrationId(IdentityType.ACI)).thenReturn(primaryDeviceRegistrationId);
+    when(primaryDevice.getAccountRegistrationId()).thenReturn(primaryDeviceRegistrationId);
 
     final Device linkedDevice = mock(Device.class);
     when(linkedDevice.getId()).thenReturn(linkedDeviceId);
-    when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(linkedDeviceRegistrationId);
+    when(linkedDevice.getAccountRegistrationId()).thenReturn(linkedDeviceRegistrationId);
 
     final Account destination = mock(Account.class);
     when(destination.isIdentifiedBy(any())).thenReturn(false);
@@ -594,13 +593,13 @@ class MessageSenderTest {
 
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(primaryDeviceId);
-    when(primaryDevice.getRegistrationId(IdentityType.ACI)).thenReturn(primaryDeviceAciRegistrationId);
-    when(primaryDevice.getRegistrationId(IdentityType.PNI)).thenReturn(primaryDevicePniRegistrationId);
+    when(primaryDevice.getAccountRegistrationId()).thenReturn(primaryDeviceAciRegistrationId);
+    when(primaryDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(Optional.of(primaryDevicePniRegistrationId));
 
     final Device linkedDevice = mock(Device.class);
     when(linkedDevice.getId()).thenReturn(linkedDeviceId);
-    when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(linkedDeviceAciRegistrationId);
-    when(linkedDevice.getRegistrationId(IdentityType.PNI)).thenReturn(linkedDevicePniRegistrationId);
+    when(linkedDevice.getAccountRegistrationId()).thenReturn(linkedDeviceAciRegistrationId);
+    when(linkedDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(Optional.of(linkedDevicePniRegistrationId));
 
     final Account account = mock(Account.class);
     when(account.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
@@ -687,7 +686,7 @@ class MessageSenderTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
 
     final Account nonSyncDestination = mock(Account.class);

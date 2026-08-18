@@ -159,7 +159,7 @@ public class KeysController {
 
           final UUID identifier = getIdentifier(account, identityType);
 
-          checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType), userAgent);
+          checkSignedPreKeySignatures(setKeysRequest, getIdentityKey(account, identityType), userAgent);
 
           final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
           final Tag primaryDeviceTag = Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(auth.deviceId() == Device.PRIMARY_ID));
@@ -279,7 +279,7 @@ public class KeysController {
                 final boolean digestsMatch;
 
                 if (maybeSignedPreKey.isPresent() && maybeLastResortKey.isPresent()) {
-                  final IdentityKey identityKey = account.getIdentityKey(checkKeysRequest.identityType());
+                  final IdentityKey identityKey = getIdentityKey(account, checkKeysRequest.identityType());
                   final ECSignedPreKey ecSignedPreKey = maybeSignedPreKey.get();
                   final KEMSignedPreKey lastResortKey = maybeLastResortKey.get();
 
@@ -384,7 +384,12 @@ public class KeysController {
             .fromCompletionStage(keysManager.takeDevicePreKeys(device.getId(), targetIdentifier, userAgent))
             .flatMap(Mono::justOrEmpty)
             .map(devicePreKeys -> new PreKeyResponseItem(
-                device.getId(), device.getRegistrationId(targetIdentifier.identityType()),
+                device.getId(),
+                switch (targetIdentifier.identityType()) {
+                  case ACI -> device.getAccountRegistrationId();
+                  case PNI -> device.getPhoneNumberIdentityRegistrationId()
+                      .orElseThrow(() -> new IllegalStateException("Device on account retrieved by PNI does not have a PNI registration ID"));
+                },
                 devicePreKeys.ecSignedPreKey(),
                 devicePreKeys.ecPreKey().orElse(null),
                 devicePreKeys.kemSignedPreKey())))
@@ -392,7 +397,11 @@ public class KeysController {
         .blockOptional()
         .orElseGet(Collections::emptyList);
 
-    final IdentityKey identityKey = target.getIdentityKey(targetIdentifier.identityType());
+    final IdentityKey identityKey = switch (targetIdentifier.identityType()) {
+      case ACI -> target.getAccountIdentityKey();
+      case PNI -> target.getPhoneNumberIdentityKey()
+          .orElseThrow(() -> new IllegalStateException("Account retrieved by PNI does not have a PNI identity key"));
+    };
 
     if (responseItems.isEmpty()) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
@@ -428,7 +437,10 @@ public class KeysController {
     final Optional<Byte> parsedTargetDeviceId = parseDeviceId(targetDeviceId);
     final Optional<Integer> targetRegistrationId = parsedTargetDeviceId
         .flatMap(targetAccount::getDevice)
-        .map(device -> device.getRegistrationId(targetIdentifier.identityType()));
+        .flatMap(device -> switch (targetIdentifier.identityType()) {
+          case ACI -> Optional.of(device.getAccountRegistrationId());
+          case PNI -> device.getPhoneNumberIdentityRegistrationId();
+        });
     return RateLimitKeys.preKeyLimiterKey(
         account.getAccountIdentifier(),
         authenticatedDevice.deviceId(),
@@ -438,12 +450,19 @@ public class KeysController {
 
   /// Get the identity of the requested `idenityType`, or throw a [BadRequestException] if `account` does not contain
   /// that type.
-  private UUID getIdentifier(final Account account, final IdentityType identityType) {
+  private static UUID getIdentifier(final Account account, final IdentityType identityType) {
     return switch (identityType) {
       case ACI -> account.getAccountIdentifier();
-      case PNI -> account.getPhoneNumberIdentifierOptional().orElseThrow(() ->
-          new BadRequestException("Cannot set PNI identity keys on an account without a number"));
+      case PNI -> account.getPhoneNumberIdentifier()
+          .orElseThrow(() -> new BadRequestException("Cannot set PNI identity keys on an account without a number"));
     };
   }
 
+  private static IdentityKey getIdentityKey(final Account account, final IdentityType identityType) {
+    return switch (identityType) {
+      case ACI -> account.getAccountIdentityKey();
+      case PNI -> account.getPhoneNumberIdentityKey()
+          .orElseThrow(() -> new BadRequestException("Account does not have a phone number"));
+    };
+  }
 }

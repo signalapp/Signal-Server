@@ -130,7 +130,7 @@ class NotifyIdleDevicesCommandTest {
 
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.getDevices()).thenReturn(List.of(eligibleDevice, ineligibleDevice));
 
     when(messagesManager.mayHavePersistedMessages(accountIdentifier, eligibleDevice))

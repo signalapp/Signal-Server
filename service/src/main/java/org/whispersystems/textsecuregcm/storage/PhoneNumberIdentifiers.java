@@ -245,10 +245,10 @@ public class PhoneNumberIdentifiers {
   }
 
   CompletableFuture<Void> regeneratePhoneNumberIdentifierMappings(final Account account) {
-    return account.getNumberOptional()
+    return account.getNumber()
             .map(phoneNumber -> setPni(phoneNumber,
                     Util.getAlternateForms(phoneNumber),
-                    account.getPhoneNumberIdentifierOptional()
+                    account.getPhoneNumberIdentifier()
                             .orElseThrow(() -> new AssertionError("Account has a phone number, but no PNI")))
                     .thenRun(Util.NOOP))
             .orElseGet(() -> CompletableFuture.completedFuture(null));

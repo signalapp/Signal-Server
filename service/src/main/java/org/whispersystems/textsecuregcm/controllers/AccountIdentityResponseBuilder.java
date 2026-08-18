@@ -48,8 +48,8 @@ public class AccountIdentityResponseBuilder {
         .orElse(null);
 
     return new AccountIdentityResponse(account.getAccountIdentifier(),
-        account.getNumberOptional(),
-        account.getPhoneNumberIdentifierOptional(),
+        account.getNumber(),
+        account.getPhoneNumberIdentifier(),
         account.getUsernameHash().filter(h -> h.length > 0).orElse(null),
         account.getUsernameLinkHandle(),
         storageCapable,

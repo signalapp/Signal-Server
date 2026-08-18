@@ -65,9 +65,9 @@ public class IdleWakeupEligibilityChecker {
     }
 
     if (isShortIdle(device, clock)) {
-      return messagesManager.mayHaveUrgentPersistedMessages(account.getIdentifier(IdentityType.ACI), device);
+      return messagesManager.mayHaveUrgentPersistedMessages(account.getAccountIdentifier(), device);
     } else if (isLongIdle(device, clock)) {
-      return messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device)
+      return messagesManager.mayHavePersistedMessages(account.getAccountIdentifier(), device)
           .thenApply(mayHavePersistedMessages -> !mayHavePersistedMessages);
     } else {
       return CompletableFuture.completedFuture(false);

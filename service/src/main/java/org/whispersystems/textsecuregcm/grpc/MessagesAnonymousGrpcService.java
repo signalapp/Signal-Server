@@ -143,7 +143,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
 
     final Account destination = maybeDestination.get();
 
-    rateLimiters.getStoriesLimiter().validate(destination.getIdentifier(IdentityType.ACI));
+    rateLimiters.getStoriesLimiter().validate(destination.getAccountIdentifier());
 
     return sendIndividualMessage(destination,
         destinationServiceIdentifier,

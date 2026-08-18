@@ -15,7 +15,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -115,12 +114,10 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
     authenticatedAccount = mock(Account.class);
     when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(authenticatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(AUTHENTICATED_PNI));
-    when(authenticatedAccount.getPhoneNumberIdentifier()).thenThrow(new UnsupportedOperationException());
-    when(authenticatedAccount.getIdentifier(any())).thenThrow(new UnsupportedOperationException());
+    when(authenticatedAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(AUTHENTICATED_PNI));
 
-    when(authenticatedAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ACI_IDENTITY_KEY_PAIR.getPublicKey()));
-    when(authenticatedAccount.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(PNI_IDENTITY_KEY_PAIR.getPublicKey()));
+    when(authenticatedAccount.getAccountIdentityKey()).thenReturn(new IdentityKey(ACI_IDENTITY_KEY_PAIR.getPublicKey()));
+    when(authenticatedAccount.getPhoneNumberIdentityKey()).thenReturn(Optional.of(new IdentityKey(PNI_IDENTITY_KEY_PAIR.getPublicKey())));
     when(authenticatedAccount.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.of(authenticatedDevice));
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(authenticatedAccount));
@@ -157,7 +154,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
   @Test
   void getPreKeyCountWithoutPhoneNumber() {
-    when(authenticatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+    when(authenticatedAccount.getPhoneNumberIdentifier()).thenReturn(Optional.empty());
 
     when(keysManager.getEcCount(AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID))
         .thenReturn(CompletableFuture.completedFuture(1));
@@ -180,7 +177,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
   @ParameterizedTest
   @MethodSource
   void setPreKeysWithoutPhoneNumber(final Function<KeysGrpc.KeysBlockingStub, Object> setPreKeysFunction) {
-    when(authenticatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+    when(authenticatedAccount.getPhoneNumberIdentifier()).thenReturn(Optional.empty());
 
     assertStatusException(Status.INVALID_ARGUMENT, () -> setPreKeysFunction.apply(authenticatedServiceStub()));
 
@@ -557,8 +554,18 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     };
 
     when(targetAccount.getAccountIdentifier()).thenReturn(UUID.randomUUID());
-    when(targetAccount.getIdentifier(identityType)).thenReturn(identifier);
-    when(targetAccount.getIdentityKey(identityType)).thenReturn(identityKey);
+
+    switch (identityType) {
+      case ACI -> {
+        when(targetAccount.getAccountIdentifier()).thenReturn(identifier);
+        when(targetAccount.getAccountIdentityKey()).thenReturn(identityKey);
+      }
+      case PNI -> {
+        when(targetAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(identifier));
+        when(targetAccount.getPhoneNumberIdentityKey()).thenReturn(Optional.of(identityKey));
+      }
+    }
+
     when(accountsManager.getByServiceIdentifier(serviceIdentifier))
         .thenReturn(Optional.of(targetAccount));
 
@@ -605,7 +612,11 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
       final Device device = mock(Device.class);
       when(device.getId()).thenReturn(entry.getKey());
-      when(device.getRegistrationId(any())).thenReturn(entry.getValue());
+
+      switch (identityType) {
+        case ACI -> when(device.getAccountRegistrationId()).thenReturn(entry.getValue());
+        case PNI -> when(device.getPhoneNumberIdentityRegistrationId()).thenReturn(Optional.of(entry.getValue()));
+      }
 
       devices.put(entry.getKey(), device);
       when(targetAccount.getDevice(entry.getKey())).thenReturn(Optional.of(device));
@@ -674,7 +685,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
     final Account targetAccount = mock(Account.class);
     when(targetAccount.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
+    when(targetAccount.getAccountIdentityKey()).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
     when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
 
@@ -701,11 +712,11 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
     if (!targetMissing) {
       final Device mockDevice = mock(Device.class);
-      when(mockDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+      when(mockDevice.getAccountRegistrationId()).thenReturn(registrationId);
 
       final Account targetAccount = mock(Account.class);
       when(targetAccount.getAccountIdentifier()).thenReturn(targetAccountId);
-      when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
+      when(targetAccount.getAccountIdentityKey()).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
       when(targetAccount.getDevice(targetDeviceId)).thenReturn(Optional.of(mockDevice));
       when(targetAccount.getDevices()).thenReturn(List.of(mockDevice));
       when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAccountId)))
@@ -754,8 +765,18 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     };
 
     when(targetAccount.getAccountIdentifier()).thenReturn(UUID.randomUUID());
-    when(targetAccount.getIdentifier(identityType)).thenReturn(identifier);
-    when(targetAccount.getIdentityKey(identityType)).thenReturn(identityKey);
+
+    switch (identityType) {
+      case ACI -> {
+        when(targetAccount.getAccountIdentifier()).thenReturn(identifier);
+        when(targetAccount.getAccountIdentityKey()).thenReturn(identityKey);
+      }
+      case PNI -> {
+        when(targetAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(identifier));
+        when(targetAccount.getPhoneNumberIdentityKey()).thenReturn(Optional.of(identityKey));
+      }
+    }
+
     when(accountsManager.getByServiceIdentifier(serviceIdentifier))
         .thenReturn(Optional.of(targetAccount));
 
@@ -770,7 +791,11 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId1);
-    when(device.getRegistrationId(any())).thenReturn(registrationId);
+
+    switch (identityType) {
+      case ACI -> when(device.getAccountRegistrationId()).thenReturn(registrationId);
+      case PNI -> when(device.getPhoneNumberIdentityRegistrationId()).thenReturn(Optional.of(registrationId));
+    }
 
     final Map<Byte, Device> devices = Map.of(deviceId1, device);
     when(targetAccount.getDevice(deviceId1)).thenReturn(Optional.of(device));

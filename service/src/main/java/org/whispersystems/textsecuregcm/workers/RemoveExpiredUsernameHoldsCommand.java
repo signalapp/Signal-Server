@@ -86,7 +86,7 @@ public class RemoveExpiredUsernameHoldsCommand extends AbstractSinglePassCrawlAc
           final int holdsToRemove = removeExpired(holds);
           final Mono<Void> purgeMono = isDryRun || holdsToRemove == 0
               ? Mono.empty()
-              : Mono.fromRunnable(() -> accountManager.update(account.getIdentifier(IdentityType.ACI), a -> a.setUsernameHolds(holds)))
+              : Mono.fromRunnable(() -> accountManager.update(account.getAccountIdentifier(), a -> a.setUsernameHolds(holds)))
                   .subscribeOn(Schedulers.boundedElastic())
                   .then();
           Metrics.counter(INSPECTED_ACCOUNTS_COUNTER_NAME,

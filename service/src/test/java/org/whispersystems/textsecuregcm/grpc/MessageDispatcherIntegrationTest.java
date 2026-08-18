@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,7 +45,6 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -119,8 +119,8 @@ class MessageDispatcherIntegrationTest {
     device = mock(Device.class);
     clientReleaseManager = mock(ClientReleaseManager.class);
 
-    when(account.getNumber()).thenReturn("+18005551234");
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(UUID.randomUUID());
+    when(account.getNumber()).thenReturn(Optional.of("+18005551234"));
+    when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
     redisMessageAvailabilityManager.start();
@@ -214,7 +214,7 @@ class MessageDispatcherIntegrationTest {
     final Exception thrown = assertThrows(Exception.class, () -> messageDispatcher
         .getMessages(true, null, account, device, acks.flux())
         .doOnNext(response -> {
-          assertTrue(redisMessageAvailabilityManager.isLocallyPresent(account.getIdentifier(IdentityType.ACI),
+          assertTrue(redisMessageAvailabilityManager.isLocallyPresent(account.getAccountIdentifier(),
               device.getId()));
           receivedMessages.add(response.getEnvelope());
           acks.error(new IOException("test exception"));
@@ -223,7 +223,7 @@ class MessageDispatcherIntegrationTest {
         .block());
     assertInstanceOf(IOException.class, thrown.getCause());
     assertTrue(expectedMessages.containsAll(receivedMessages));
-    assertFalse(redisMessageAvailabilityManager.isLocallyPresent(account.getIdentifier(IdentityType.ACI), device.getId()));
+    assertFalse(redisMessageAvailabilityManager.isLocallyPresent(account.getAccountIdentifier(), device.getId()));
   }
 
   private List<Envelope> fillRandomMessages(final int persistedMessageCount, final int cachedMessageCount) {
@@ -233,13 +233,13 @@ class MessageDispatcherIntegrationTest {
       final Envelope envelope = generateRandomMessage(UUID.randomUUID());
       expectedMessages.add(envelope);
     }
-    messagesDynamoDb.store(expectedMessages, account.getIdentifier(IdentityType.ACI), device);
+    messagesDynamoDb.store(expectedMessages, account.getAccountIdentifier(), device);
 
     for (int i = 0; i < cachedMessageCount; i++) {
       final UUID messageGuid = UUID.randomUUID();
       final Envelope envelope = generateRandomMessage(messageGuid);
 
-      messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
+      messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
       expectedMessages.add(envelope);
     }
     return expectedMessages;

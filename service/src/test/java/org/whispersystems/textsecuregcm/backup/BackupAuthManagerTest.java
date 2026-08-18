@@ -112,7 +112,7 @@ public class BackupAuthManagerTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(aci);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(aci);
+    when(account.getAccountIdentifier()).thenReturn(aci);
 
     AccountsHelper.setupMockGet(accountsManager, account);
     AccountsHelper.setupMockUpdate(accountsManager);

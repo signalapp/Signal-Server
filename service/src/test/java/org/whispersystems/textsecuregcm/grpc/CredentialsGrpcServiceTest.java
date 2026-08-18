@@ -150,8 +150,8 @@ public class CredentialsGrpcServiceTest
   @BeforeEach
   void setUp() {
     when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(authenticatedAccount.getNumberOptional()).thenReturn(Optional.of(PHONE_NUMBER));
-    when(authenticatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(AUTHENTICATED_PNI));
+    when(authenticatedAccount.getNumber()).thenReturn(Optional.of(PHONE_NUMBER));
+    when(authenticatedAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(AUTHENTICATED_PNI));
     when(authenticatedAccount.getAccountIdentityKey())
         .thenReturn(new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey()));
 
@@ -292,7 +292,7 @@ public class CredentialsGrpcServiceTest
 
   @Test
   void getDeliveryCertificateAccountHasNoNumber() throws InvalidProtocolBufferException, InvalidKeyException {
-    when(authenticatedAccount.getNumberOptional()).thenReturn(Optional.empty());
+    when(authenticatedAccount.getNumber()).thenReturn(Optional.empty());
 
     final GetDeliveryCertificateResponse response =
         authenticatedServiceStub().getDeliveryCertificate(GetDeliveryCertificateRequest.getDefaultInstance());
@@ -312,7 +312,7 @@ public class CredentialsGrpcServiceTest
     when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(account.getAccountIdentityKey())
         .thenReturn(new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey()));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(
+    when(account.getPhoneNumberIdentifier()).thenReturn(
         Optional.ofNullable(accountHasPhoneNumber ? AUTHENTICATED_PNI : null));
 
     final byte[] authCredentialSalt;

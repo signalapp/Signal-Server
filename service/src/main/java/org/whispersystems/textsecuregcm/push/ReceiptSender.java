@@ -57,7 +57,11 @@ public class ReceiptSender {
 
               final Map<Byte, Integer> registrationIdsByDeviceId = destinationAccount.getDevices().stream()
                   .collect(Collectors.toMap(Device::getId,
-                      device -> device.getRegistrationId(destinationIdentifier.identityType())));
+                      device -> switch (destinationIdentifier.identityType()) {
+                        case ACI -> device.getAccountRegistrationId();
+                        case PNI -> device.getPhoneNumberIdentityRegistrationId()
+                            .orElseThrow(() -> new IllegalStateException("Destination account identified by PNI has device without PNI registration ID"));
+                      }));
 
               try {
                 messageSender.sendMessages(destinationAccount,

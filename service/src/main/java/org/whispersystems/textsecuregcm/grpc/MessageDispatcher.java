@@ -130,7 +130,7 @@ public class MessageDispatcher {
       final Device device,
       final Flux<UUID> acknowledgedMessageGuids) {
 
-    final MessageStream messageStream = messagesManager.getMessages(account.getIdentifier(IdentityType.ACI), device);
+    final MessageStream messageStream = messagesManager.getMessages(account.getAccountIdentifier(), device);
     @Nullable final UserAgent userAgent = UserAgentUtil.maybeParseUserAgentString(userAgentString);
     final PendingAcknowledgementTracker pendingAcknowledgementTracker = new PendingAcknowledgementTracker(messageMetrics, userAgent);
 
@@ -213,7 +213,7 @@ public class MessageDispatcher {
 
   /// If the device potentially has more messages available, schedule a push notification.
   private void maybeSchedulePush(final Account account, final Device device) {
-    messagesManager.mayHaveMessages(account.getIdentifier(IdentityType.ACI), device)
+    messagesManager.mayHaveMessages(account.getAccountIdentifier(), device)
         .thenAccept(mayHaveMessages -> {
           if (mayHaveMessages) {
             pushNotificationScheduler.scheduleDelayedNotification(account, device,
@@ -240,7 +240,7 @@ public class MessageDispatcher {
   private void recordDeliveryAttempt(final Account account, final Device device, final String userAgent,
       final Signal<? extends MessageStreamEntry> firstEntry) {
     if (firstEntry.get() instanceof MessageStreamEntry.Envelope(final MessageProtos.Envelope message)) {
-      messageDeliveryLoopMonitor.recordDeliveryAttempt(account.getIdentifier(IdentityType.ACI),
+      messageDeliveryLoopMonitor.recordDeliveryAttempt(account.getAccountIdentifier(),
           device.getId(),
           UUIDUtil.fromByteString(message.getServerGuid()),
           userAgent,

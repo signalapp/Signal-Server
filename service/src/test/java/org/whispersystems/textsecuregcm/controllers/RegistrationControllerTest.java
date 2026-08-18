@@ -303,7 +303,7 @@ class RegistrationControllerTest {
 
     final Account account = mock(Account.class);
     when(accountsManager.getByE164(any())).thenReturn(Optional.of(account));
-    when(account.getNumberOptional()).thenReturn(Optional.of(NUMBER));
+    when(account.getNumber()).thenReturn(Optional.of(NUMBER));
     when(account.hasCapability(DeviceCapability.TRANSFER)).thenReturn(deviceTransferSupported);
 
     final int expectedStatus;
@@ -355,7 +355,7 @@ class RegistrationControllerTest {
 
     final Account account = mock(Account.class);
     when(accountsManager.getByE164(oldFormatBeninNumber)).thenReturn(Optional.of(account));
-    when(account.getNumberOptional()).thenReturn(Optional.of(oldFormatBeninNumber));
+    when(account.getNumber()).thenReturn(Optional.of(oldFormatBeninNumber));
     when(accountsManager.getByE164(newFormatBeninNumber)).thenReturn(Optional.empty());
 
     doThrow(new WebApplicationException(RegistrationLockError.MISMATCH.getExpectedStatus()))
@@ -386,7 +386,7 @@ class RegistrationControllerTest {
     if (existingAccount) {
       final Account account = mock(Account.class);
       when(account.hasCapability(DeviceCapability.TRANSFER)).thenReturn(transferSupported);
-      when(account.getNumberOptional()).thenReturn(Optional.of(NUMBER));
+      when(account.getNumber()).thenReturn(Optional.of(NUMBER));
       maybeAccount = Optional.of(account);
     } else {
       maybeAccount = Optional.empty();
@@ -660,7 +660,7 @@ class RegistrationControllerTest {
   @ValueSource(booleans = {true, false})
   void reregistrationFlag(final boolean accountExists) {
     final Account existingAccount = mock(Account.class);
-    when(existingAccount.getNumberOptional()).thenReturn(Optional.of(NUMBER));
+    when(existingAccount.getNumber()).thenReturn(Optional.of(NUMBER));
     when(accountsManager.getByE164(any())).thenReturn(accountExists ? Optional.of(existingAccount) : Optional.empty());
 
     final Account account = mock(Account.class);
@@ -1457,7 +1457,7 @@ class RegistrationControllerTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(phoneNumberIdentifier));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(phoneNumberIdentifier));
     when(account.getPrimaryDevice()).thenReturn(device);
 
     when(accountsManager.create(any(), any(), any(), any(), any(), any()))

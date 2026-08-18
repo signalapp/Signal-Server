@@ -54,7 +54,6 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.PriorityFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -103,8 +102,8 @@ class AuthenticatedConnectListenerIntegrationTest {
   void setUp() throws Exception {
     reset(messagesManager, disconnectionRequestManager, accountsManager, account, device);
     when(messagesManager.mayHaveMessages(any(), any())).thenReturn(CompletableFuture.completedFuture(false));
-    when(account.getNumber()).thenReturn(E164);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(ACCOUNT_UUID);
+    when(account.getNumber()).thenReturn(Optional.of(E164));
+    when(account.getAccountIdentifier()).thenReturn(ACCOUNT_UUID);
     when(account.getDevice(DEVICE_ID)).thenReturn(Optional.of(device));
     when(device.getId()).thenReturn(DEVICE_ID);
     when(accountsManager.getByAccountIdentifier(ACCOUNT_UUID)).thenReturn(Optional.of(account));

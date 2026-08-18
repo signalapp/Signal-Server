@@ -10,6 +10,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.concurrent.Flow;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.NotFound;
@@ -94,14 +95,17 @@ public class KeysAnonymousGrpcService extends SimpleKeysAnonymousGrpc.KeysAnonym
             request.getFingerprint().toByteArray()))
         .flatMap(serviceIdentifierAndFingerprint -> Mono.fromFuture(
                 () -> accountsManager.getByServiceIdentifierAsync(serviceIdentifierAndFingerprint.getT1()))
+            .map(maybeAccount -> maybeAccount.flatMap(
+                account -> switch (serviceIdentifierAndFingerprint.getT1().identityType()) {
+                  case ACI -> Optional.of(account.getAccountIdentityKey());
+                  case PNI -> account.getPhoneNumberIdentityKey();
+                }))
             .flatMap(Mono::justOrEmpty)
-            .filter(account -> !fingerprintMatches(account.getIdentityKey(serviceIdentifierAndFingerprint.getT1()
-                .identityType()), serviceIdentifierAndFingerprint.getT2()))
-            .map(account -> CheckIdentityKeyResponse.newBuilder()
+            .filter(identityKey -> !fingerprintMatches(identityKey, serviceIdentifierAndFingerprint.getT2()))
+            .map(identityKey -> CheckIdentityKeyResponse.newBuilder()
                 .setTargetIdentifier(
                     GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifierAndFingerprint.getT1()))
-                .setIdentityKey(ByteString.copyFrom(account.getIdentityKey(serviceIdentifierAndFingerprint.getT1()
-                    .identityType()).serialize()))
+                .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
                 .build())));
   }
 

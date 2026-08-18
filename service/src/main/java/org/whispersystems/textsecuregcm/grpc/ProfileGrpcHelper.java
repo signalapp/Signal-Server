@@ -110,7 +110,7 @@ public class ProfileGrpcHelper {
       final Account account) {
     final AccountInfo.Builder accountInfoBuilder = AccountInfo.newBuilder()
         .addAllBadgeIds(profileBadgeConverter.visibleBadgeIds(account.getBadges()))
-        .setIdentityKey(ByteString.copyFrom(account.getIdentityKey(IdentityType.ACI).serialize()))
+        .setIdentityKey(ByteString.copyFrom(account.getAccountIdentityKey().serialize()))
         .setUnrestrictedUnidentifiedAccess(account.isUnrestrictedUnidentifiedAccess());
 
     account.getUnidentifiedAccessKey()

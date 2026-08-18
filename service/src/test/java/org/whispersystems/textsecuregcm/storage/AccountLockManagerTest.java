@@ -80,7 +80,7 @@ class AccountLockManagerTest {
   void withLockPniAccount() throws Exception {
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(ACI);
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(FIRST_PNI));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(FIRST_PNI));
 
     accountLockManager.withSingleAccountLock(account, () -> null, executor);
     verify(lockClient, times(1)).acquireLock(
@@ -91,7 +91,7 @@ class AccountLockManagerTest {
   void withLockNoPniAccount() throws Exception {
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(ACI);
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.empty());
 
     accountLockManager.withSingleAccountLock(account, () -> null, executor);
     verify(lockClient, times(1)).acquireLock(

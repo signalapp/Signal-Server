@@ -14,14 +14,12 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
 import org.whispersystems.textsecuregcm.util.DeviceNameByteArrayAdapter;
@@ -222,25 +220,6 @@ public class Device {
 
   public boolean isPrimary() {
     return getId() == PRIMARY_ID;
-  }
-
-  /// Returns the registration ID for this device associated with the given identity type.
-  ///
-  /// @param identityType the type of identity for which to return the registration ID
-  ///
-  /// @return the registration ID for the given identity type for the device
-  ///
-  /// @throws NoSuchElementException if a PNI identity is requested for a device attached
-  ///     to an account without a phone number identity.
-  ///
-  /// @deprecated Please use [#getAccountRegistrationId()] or
-  /// [#getPhoneNumberIdentityRegistrationId()] instead.
-  @Deprecated
-  public int getRegistrationId(final IdentityType identityType) {
-    return switch (identityType) {
-      case ACI -> getAccountRegistrationId();
-      case PNI -> getPhoneNumberIdentityRegistrationId().orElseThrow(NoSuchElementException::new);
-    };
   }
 
   /// Returns the registration ID for this device associated with its account's account identity.

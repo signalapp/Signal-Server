@@ -29,7 +29,7 @@ class SchedulingUtilTest {
     final Account account = mock(Account.class);
 
     // The account has a phone number that can be resolved to a region with known timezones
-    when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
+    when(account.getNumber()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
 
     final ZoneId berlinZoneId = ZoneId.of("Europe/Berlin");
@@ -55,7 +55,7 @@ class SchedulingUtilTest {
     final Account account = mock(Account.class);
 
     // The account does not have a phone number that can be connected to a region/time zone
-    when(account.getNumberOptional()).thenReturn(Optional.ofNullable(number));
+    when(account.getNumber()).thenReturn(Optional.ofNullable(number));
 
     final ZonedDateTime beforeNotificationTime = ZonedDateTime.now(ZoneId.systemDefault()).with(LocalTime.of(13, 59));
     final LocalTime preferredNotificationTime = LocalTime.of(14, 0);
@@ -78,7 +78,7 @@ class SchedulingUtilTest {
     final Account account = mock(Account.class);
 
     // The account has a phone number that can be resolved to a region with known timezones
-    when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
+    when(account.getNumber()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
 
     final LocalDateTime afterNotificationTime = LocalDateTime.of(2025, 3, 29, 15, 0);

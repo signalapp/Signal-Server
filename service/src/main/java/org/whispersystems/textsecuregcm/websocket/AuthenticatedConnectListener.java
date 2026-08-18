@@ -138,11 +138,11 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         new WebSocketDisconnectionRequestListener(messageMetrics, context.getClient(), disableMessages);
 
     disconnectionRequestManager
-        .addListener(account.getIdentifier(IdentityType.ACI), device.getId(), disconnectionListener);
+        .addListener(account.getAccountIdentifier(), device.getId(), disconnectionListener);
 
     context.addWebsocketClosedListener((_, _, _) -> {
       disconnectionRequestManager
-          .removeListener(account.getIdentifier(IdentityType.ACI), device.getId(), disconnectionListener);
+          .removeListener(account.getAccountIdentifier(), device.getId(), disconnectionListener);
       maybeWebSocketConnection.ifPresent(WebSocketConnection::stop);
     });
 

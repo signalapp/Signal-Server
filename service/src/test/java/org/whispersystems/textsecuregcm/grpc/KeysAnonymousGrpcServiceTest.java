@@ -61,7 +61,6 @@ import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -107,8 +106,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-    when(targetAccount.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
-    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
+    when(targetAccount.getAccountIdentifier()).thenReturn(uuid);
+    when(targetAccount.getAccountIdentityKey()).thenReturn(identityKey);
     when(accountsManager.getByServiceIdentifier(identifier))
         .thenReturn(Optional.of(targetAccount));
 
@@ -156,8 +155,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-    when(targetAccount.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
-    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
+    when(targetAccount.getAccountIdentifier()).thenReturn(uuid);
+    when(targetAccount.getAccountIdentityKey()).thenReturn(identityKey);
     when(accountsManager.getByServiceIdentifier(identifier))
         .thenReturn(Optional.of(targetAccount));
 
@@ -211,8 +210,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
 
     when(targetAccount.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-    when(targetAccount.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
-    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
+    when(targetAccount.getAccountIdentifier()).thenReturn(uuid);
+    when(targetAccount.getAccountIdentityKey()).thenReturn(identityKey);
     when(accountsManager.getByServiceIdentifier(identifier))
         .thenReturn(Optional.of(targetAccount));
 
@@ -382,7 +381,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
 
     final Account targetAccount = mock(Account.class);
     when(targetAccount.getAccountIdentifier()).thenReturn(accountIdentifier);
-    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
+    when(targetAccount.getAccountIdentityKey()).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
     when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
@@ -425,15 +424,15 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
 
     // Complete futures asynchronously to catch potential async/context-propagation issues
     final Duration futureDelay = Duration.ofMillis(1);
-    when(mismatchedAciFingerprintAccount.getIdentityKey(IdentityType.ACI)).thenReturn(mismatchedAciFingerprintAccountIdentityKey);
+    when(mismatchedAciFingerprintAccount.getAccountIdentityKey()).thenReturn(mismatchedAciFingerprintAccountIdentityKey);
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(mismatchedAciFingerprintAccountIdentifier)))
         .thenReturn(delayedAccount(mismatchedAciFingerprintAccount));
 
-    when(matchingAciFingerprintAccount.getIdentityKey(IdentityType.ACI)).thenReturn(matchingAciFingerprintAccountIdentityKey);
+    when(matchingAciFingerprintAccount.getAccountIdentityKey()).thenReturn(matchingAciFingerprintAccountIdentityKey);
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(matchingAciFingerprintAccountIdentifier)))
         .thenReturn(delayedAccount(matchingAciFingerprintAccount));
 
-    when(mismatchedPniFingerprintAccount.getIdentityKey(IdentityType.PNI)).thenReturn(mismatchedPniFingerpringAccountIdentityKey);
+    when(mismatchedPniFingerprintAccount.getPhoneNumberIdentityKey()).thenReturn(Optional.of(mismatchedPniFingerpringAccountIdentityKey));
     when(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(mismatchedPniFingerprintAccountIdentifier)))
         .thenReturn(delayedAccount(mismatchedPniFingerprintAccount));
 

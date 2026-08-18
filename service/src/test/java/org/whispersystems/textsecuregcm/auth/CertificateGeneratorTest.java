@@ -62,7 +62,7 @@ class CertificateGeneratorTest {
 
     when(account.getAccountIdentityKey()).thenReturn(IDENTITY_KEY);
     when(account.getAccountIdentifier()).thenReturn(ACI);
-    when(account.getNumberOptional()).thenReturn(Optional.of(E164));
+    when(account.getNumber()).thenReturn(Optional.of(E164));
 
     final byte[] contents = certificateGenerator.createFor(account, deviceId, includeE164);
     final SenderCertificate fullCertificate = SenderCertificate.parseFrom(contents);
@@ -102,7 +102,7 @@ class CertificateGeneratorTest {
 
     when(account.getAccountIdentityKey()).thenReturn(IDENTITY_KEY);
     when(account.getAccountIdentifier()).thenReturn(ACI);
-    when(account.getNumberOptional()).thenReturn(Optional.empty());
+    when(account.getNumber()).thenReturn(Optional.empty());
 
     final Executable generateCertificate = () -> certificateGenerator.createFor(account, deviceId, includeE164);
 

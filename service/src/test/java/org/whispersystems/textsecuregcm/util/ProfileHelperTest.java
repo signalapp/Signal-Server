@@ -65,15 +65,15 @@ class ProfileHelperTest {
     final Account account = mock(Account.class);
 
     switch (phoneNumberType) {
-      case ALLOWED -> when(account.getNumberOptional())
+      case ALLOWED -> when(account.getNumber())
           .thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
               PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164)));
 
-      case FORBIDDEN -> when(account.getNumberOptional())
+      case FORBIDDEN -> when(account.getNumber())
           .thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
               PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
 
-      case NONE -> when(account.getNumberOptional()).thenReturn(Optional.empty());
+      case NONE -> when(account.getNumber()).thenReturn(Optional.empty());
     }
 
     final AsnInfoProvider asnInfoProvider = mock(AsnInfoProvider.class);

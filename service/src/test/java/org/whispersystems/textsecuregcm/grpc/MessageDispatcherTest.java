@@ -82,7 +82,7 @@ class MessageDispatcherTest {
   @BeforeEach
   void setUp() {
     account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(ACI);
+    when(account.getAccountIdentifier()).thenReturn(ACI);
     when(account.getAccountIdentifier()).thenReturn(ACI);
 
     device = mock(Device.class);

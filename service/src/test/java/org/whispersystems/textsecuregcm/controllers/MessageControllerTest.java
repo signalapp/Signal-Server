@@ -79,7 +79,6 @@ import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageRespon
 import org.whispersystems.textsecuregcm.entities.SpamReport;
 import org.whispersystems.textsecuregcm.entities.StaleDevicesResponse;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
@@ -723,8 +722,8 @@ class MessageControllerTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(senderAci);
-    when(account.getNumberOptional()).thenReturn(Optional.of(senderNumber));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(senderPni));
+    when(account.getNumber()).thenReturn(Optional.of(senderNumber));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(senderPni));
 
     when(accountsManager.getByE164(senderNumber)).thenReturn(Optional.of(account));
 
@@ -755,8 +754,8 @@ class MessageControllerTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(senderAci);
-    when(account.getNumberOptional()).thenReturn(Optional.of(senderNumber));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(senderPni));
+    when(account.getNumber()).thenReturn(Optional.of(senderNumber));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(senderPni));
 
     when(accountsManager.getByE164(senderNumber)).thenReturn(Optional.empty());
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(senderNumber)).thenReturn(CompletableFuture.completedFuture(senderPni));
@@ -787,8 +786,8 @@ class MessageControllerTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(senderAci);
-    when(account.getNumberOptional()).thenReturn(Optional.of(senderNumber));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(senderPni));
+    when(account.getNumber()).thenReturn(Optional.of(senderNumber));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(senderPni));
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
     when(phoneNumberIdentifiers.getPhoneNumber(senderPni)).thenReturn(CompletableFuture.completedFuture(List.of(senderNumber)));
@@ -820,8 +819,8 @@ class MessageControllerTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(senderAci);
-    when(account.getNumberOptional()).thenReturn(Optional.of(senderNumber));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(senderPni));
+    when(account.getNumber()).thenReturn(Optional.of(senderNumber));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(senderPni));
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
     when(accountsManager.findRecentlyDeletedPhoneNumberIdentifier(senderAci)).thenReturn(Optional.of(senderPni));
@@ -852,8 +851,8 @@ class MessageControllerTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(senderAci);
-    when(account.getNumberOptional()).thenReturn(Optional.of(senderNumber));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(senderPni));
+    when(account.getNumber()).thenReturn(Optional.of(senderNumber));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(senderPni));
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
     when(accountsManager.findRecentlyDeletedPhoneNumberIdentifier(senderAci)).thenReturn(Optional.of(senderPni));
@@ -917,8 +916,8 @@ class MessageControllerTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(senderAci);
-    when(account.getNumberOptional()).thenReturn(Optional.of(senderNumber));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(senderPni));
+    when(account.getNumber()).thenReturn(Optional.of(senderNumber));
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(senderPni));
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
     when(accountsManager.findRecentlyDeletedPhoneNumberIdentifier(senderAci)).thenReturn(Optional.of(senderPni));
@@ -1096,25 +1095,25 @@ class MessageControllerTest {
 
     final Device singleDeviceAccountPrimary = mock(Device.class);
     when(singleDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-    when(singleDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(singleDevicePrimaryRegistrationId);
+    when(singleDeviceAccountPrimary.getAccountRegistrationId()).thenReturn(singleDevicePrimaryRegistrationId);
 
     final Device multiDeviceAccountPrimary = mock(Device.class);
     when(multiDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-    when(multiDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(multiDevicePrimaryRegistrationId);
+    when(multiDeviceAccountPrimary.getAccountRegistrationId()).thenReturn(multiDevicePrimaryRegistrationId);
 
     final Device multiDeviceAccountLinked = mock(Device.class);
     when(multiDeviceAccountLinked.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
-    when(multiDeviceAccountLinked.getRegistrationId(IdentityType.ACI)).thenReturn(multiDeviceLinkedRegistrationId);
+    when(multiDeviceAccountLinked.getAccountRegistrationId()).thenReturn(multiDeviceLinkedRegistrationId);
 
     final Account singleDeviceAccount = mock(Account.class);
-    when(singleDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(singleDeviceAccountAci);
+    when(singleDeviceAccount.getAccountIdentifier()).thenReturn(singleDeviceAccountAci);
     when(singleDeviceAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(singleDeviceAccountUak));
     when(singleDeviceAccount.getDevices()).thenReturn(List.of(singleDeviceAccountPrimary));
     when(singleDeviceAccount.getDevice(anyByte())).thenReturn(Optional.empty());
     when(singleDeviceAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(singleDeviceAccountPrimary));
 
     final Account multiDeviceAccount = mock(Account.class);
-    when(multiDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(multiDeviceAccountAci);
+    when(multiDeviceAccount.getAccountIdentifier()).thenReturn(multiDeviceAccountAci);
     when(multiDeviceAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(multiDeviceAccountUak));
     when(multiDeviceAccount.getDevices()).thenReturn(List.of(multiDeviceAccountPrimary, multiDeviceAccountLinked));
     when(multiDeviceAccount.getDevice(anyByte())).thenReturn(Optional.empty());
@@ -1514,25 +1513,25 @@ class MessageControllerTest {
 
     final Device singleDeviceAccountPrimary = mock(Device.class);
     when(singleDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-    when(singleDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(singleDevicePrimaryRegistrationId);
+    when(singleDeviceAccountPrimary.getAccountRegistrationId()).thenReturn(singleDevicePrimaryRegistrationId);
 
     final Device multiDeviceAccountPrimary = mock(Device.class);
     when(multiDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-    when(multiDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(multiDevicePrimaryRegistrationId);
+    when(multiDeviceAccountPrimary.getAccountRegistrationId()).thenReturn(multiDevicePrimaryRegistrationId);
 
     final Device multiDeviceAccountLinked = mock(Device.class);
     when(multiDeviceAccountLinked.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
-    when(multiDeviceAccountLinked.getRegistrationId(IdentityType.ACI)).thenReturn(multiDeviceLinkedRegistrationId);
+    when(multiDeviceAccountLinked.getAccountRegistrationId()).thenReturn(multiDeviceLinkedRegistrationId);
 
     final Account singleDeviceAccount = mock(Account.class);
-    when(singleDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(singleDeviceAccountAci);
+    when(singleDeviceAccount.getAccountIdentifier()).thenReturn(singleDeviceAccountAci);
     when(singleDeviceAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(singleDeviceAccountUak));
     when(singleDeviceAccount.getDevices()).thenReturn(List.of(singleDeviceAccountPrimary));
     when(singleDeviceAccount.getDevice(anyByte())).thenReturn(Optional.empty());
     when(singleDeviceAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(singleDeviceAccountPrimary));
 
     final Account multiDeviceAccount = mock(Account.class);
-    when(multiDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(multiDeviceAccountAci);
+    when(multiDeviceAccount.getAccountIdentifier()).thenReturn(multiDeviceAccountAci);
     when(multiDeviceAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(multiDeviceAccountUak));
     when(multiDeviceAccount.getDevices()).thenReturn(List.of(multiDeviceAccountPrimary, multiDeviceAccountLinked));
     when(multiDeviceAccount.getDevice(anyByte())).thenReturn(Optional.empty());
@@ -1600,10 +1599,10 @@ class MessageControllerTest {
 
     final Device singleDeviceAccountPrimary = mock(Device.class);
     when(singleDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-    when(singleDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(singleDevicePrimaryRegistrationId);
+    when(singleDeviceAccountPrimary.getAccountRegistrationId()).thenReturn(singleDevicePrimaryRegistrationId);
 
     final Account singleDeviceAccount = mock(Account.class);
-    when(singleDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(singleDeviceAccountAci);
+    when(singleDeviceAccount.getAccountIdentifier()).thenReturn(singleDeviceAccountAci);
     when(singleDeviceAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(singleDeviceAccountUak));
     when(singleDeviceAccount.getDevices()).thenReturn(List.of(singleDeviceAccountPrimary));
     when(singleDeviceAccount.getDevice(anyByte())).thenReturn(Optional.empty());

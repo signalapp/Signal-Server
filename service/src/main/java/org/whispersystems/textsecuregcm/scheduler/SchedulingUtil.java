@@ -42,14 +42,14 @@ public class SchedulingUtil {
       final LocalTime preferredTime,
       final Clock clock) {
 
-    final ZonedDateTime candidateNotificationTime = account.getNumberOptional()
+    final ZonedDateTime candidateNotificationTime = account.getNumber()
         .flatMap(number -> getZoneId(number, clock))
         .map(zoneId -> {
           Metrics.counter(PARSED_TIMEZONE_COUNTER_NAME, HAS_TIMEZONE_TAG_NAME, String.valueOf(true)).increment();
           return ZonedDateTime.now(clock.withZone(zoneId)).with(preferredTime);
         })
         .orElseGet(() -> {
-          if (account.getNumberOptional().isPresent()) {
+          if (account.getNumber().isPresent()) {
             Metrics.counter(PARSED_TIMEZONE_COUNTER_NAME, HAS_TIMEZONE_TAG_NAME, String.valueOf(false)).increment();
           }
           return ZonedDateTime.now(ZoneId.systemDefault()).with(preferredTime);

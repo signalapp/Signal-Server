@@ -99,7 +99,7 @@ public class ClearExpiredFoundationDbMessagesCommand extends AbstractSinglePassC
         .buffer(batchSize)
         .map(batch -> batch.stream().collect(
             Collectors.toMap(
-                account -> new AciServiceIdentifier(account.getIdentifier(IdentityType.ACI)),
+                account -> new AciServiceIdentifier(account.getAccountIdentifier()),
                 account -> account.getDevices().stream().map(Device::getId).toList())))
         .doOnNext(
             dryRun ? _ -> {}

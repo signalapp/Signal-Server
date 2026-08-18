@@ -135,7 +135,7 @@ public class WebSocketConnection {
     this.experimentEnrollmentManager = experimentEnrollmentManager;
 
     this.messageStream =
-        messagesManager.getMessages(authenticatedAccount.getIdentifier(IdentityType.ACI), authenticatedDevice);
+        messagesManager.getMessages(authenticatedAccount.getAccountIdentifier(), authenticatedDevice);
 
     this.userAgent = UserAgentUtil.maybeParseUserAgentString(client.getUserAgent());
   }
@@ -161,7 +161,7 @@ public class WebSocketConnection {
         .doOnNext(entry -> {
           if (entry instanceof MessageStreamEntry.Envelope(final Envelope message)) {
             if (hasSentFirstMessage.compareAndSet(false, true)) {
-              messageDeliveryLoopMonitor.recordDeliveryAttempt(authenticatedAccount.getIdentifier(IdentityType.ACI),
+              messageDeliveryLoopMonitor.recordDeliveryAttempt(authenticatedAccount.getAccountIdentifier(),
                   authenticatedDevice.getId(),
                   UUIDUtil.fromByteString(message.getServerGuid()),
                   client.getUserAgent(),
@@ -208,7 +208,7 @@ public class WebSocketConnection {
 
     client.close(1000, "OK");
 
-    messagesManager.mayHaveMessages(authenticatedAccount.getIdentifier(IdentityType.ACI), authenticatedDevice)
+    messagesManager.mayHaveMessages(authenticatedAccount.getAccountIdentifier(), authenticatedDevice)
         .thenAccept(mayHaveMessages -> {
           if (mayHaveMessages) {
             pushNotificationScheduler.scheduleDelayedNotification(authenticatedAccount,

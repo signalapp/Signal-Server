@@ -92,7 +92,7 @@ class ClearExpiredFoundationDbMessagesCommandTest {
       when(linkedDevice.getId()).thenReturn(linkedDeviceId);
 
       final Account account = mock(Account.class);
-      when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+      when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
       when(account.getDevices()).thenReturn(i % 2 == 0 ? List.of(primaryDevice) : List.of(primaryDevice, linkedDevice));
 
       accounts.add(account);

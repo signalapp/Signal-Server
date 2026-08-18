@@ -197,12 +197,12 @@ class AccountControllerTest {
             Optional.of(registrationLockCredentials.salt()), Instant.ofEpochMilli(System.currentTimeMillis())));
     when(senderRegLockAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderRegLockAccount.getAccountIdentifier()).thenReturn(SENDER_REG_LOCK_UUID);
-    when(senderRegLockAccount.getNumberOptional()).thenReturn(Optional.of(SENDER_REG_LOCK));
+    when(senderRegLockAccount.getNumber()).thenReturn(Optional.of(SENDER_REG_LOCK));
 
     when(senderTransfer.getRegistrationLock()).thenReturn(
         new StoredRegistrationLock(Optional.empty(), Optional.empty(), Instant.ofEpochMilli(System.currentTimeMillis())));
     when(senderTransfer.getAccountIdentifier()).thenReturn(SENDER_TRANSFER_UUID);
-    when(senderTransfer.getNumberOptional()).thenReturn(Optional.of(SENDER_TRANSFER));
+    when(senderTransfer.getNumber()).thenReturn(Optional.of(SENDER_TRANSFER));
 
     when(accountsManager.getByE164(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.getByE164(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));

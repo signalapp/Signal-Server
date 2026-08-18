@@ -217,7 +217,7 @@ public class PushNotificationManager {
     // updating an uninstalled feedback timestamp though.
     accountsManager.getByAccountIdentifier(account.getAccountIdentifier()).ifPresent(rereadAccount ->
         rereadAccount.getDevice(device.getId()).ifPresent(rereadDevice ->
-            accountsManager.updateDevice(rereadAccount.getIdentifier(IdentityType.ACI), device.getId(), d -> {
+            accountsManager.updateDevice(rereadAccount.getAccountIdentifier(), device.getId(), d -> {
               // Don't clear the token if it's already changed
               if (originalToken.equals(getPushToken(d, tokenType))) {
                 switch (tokenType) {

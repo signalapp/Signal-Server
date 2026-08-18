@@ -98,7 +98,7 @@ public class CredentialsGrpcService extends SimpleCredentialsGrpc.CredentialsImp
         .setCertificateWithoutE164(ByteString.copyFrom(
             certificateGenerator.createFor(account, authenticatedDevice.deviceId(), false)));
 
-    if (account.getNumberOptional().isPresent()) {
+    if (account.getNumber().isPresent()) {
       responseBuilder.setCertificateWithE164(ByteString.copyFrom(
           certificateGenerator.createFor(account, authenticatedDevice.deviceId(), true)));
     }
@@ -123,7 +123,7 @@ public class CredentialsGrpcService extends SimpleCredentialsGrpc.CredentialsImp
             .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
     final ServiceId.Aci aci = new ServiceId.Aci(account.getAccountIdentifier());
-    final Optional<ServiceId.Pni> maybePni = account.getPhoneNumberIdentifierOptional().map(ServiceId.Pni::new);
+    final Optional<ServiceId.Pni> maybePni = account.getPhoneNumberIdentifier().map(ServiceId.Pni::new);
 
     final GetGroupCredentialsResponse.Builder responseBuilder = GetGroupCredentialsResponse.newBuilder();
 

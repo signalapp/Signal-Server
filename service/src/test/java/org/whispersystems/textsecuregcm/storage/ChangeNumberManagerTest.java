@@ -51,7 +51,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -120,11 +119,11 @@ public class ChangeNumberManagerTest {
 
       final Account updatedAccount = mock(Account.class);
       when(updatedAccount.getAccountIdentifier()).thenReturn(uuid);
-      when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(updatedPni));
+      when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(updatedPni));
       when(updatedAccount.isIdentifiedBy(any())).thenReturn(false);
       when(updatedAccount.isIdentifiedBy(new AciServiceIdentifier(uuid))).thenReturn(true);
       when(updatedAccount.isIdentifiedBy(new PniServiceIdentifier(updatedPni))).thenReturn(true);
-      when(updatedAccount.getNumberOptional()).thenReturn(Optional.of(number));
+      when(updatedAccount.getNumber()).thenReturn(Optional.of(number));
       when(updatedAccount.getDevices()).thenReturn(devices);
       when(updatedAccount.getDevice(anyByte())).thenReturn(Optional.empty());
       when(updatedAccount.getPrimaryDevice()).thenReturn(primaryDevice);
@@ -156,7 +155,7 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getNumber()).thenReturn(Optional.of(originalNumber));
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
@@ -187,14 +186,14 @@ public class ChangeNumberManagerTest {
 
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(primaryDeviceId);
-    when(primaryDevice.getRegistrationId(IdentityType.ACI)).thenReturn(primaryDeviceRegistrationId);
+    when(primaryDevice.getAccountRegistrationId()).thenReturn(primaryDeviceRegistrationId);
 
     final Device linkedDevice = mock(Device.class);
     when(linkedDevice.getId()).thenReturn(linkedDeviceId);
-    when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(linkedDeviceRegistrationId);
+    when(linkedDevice.getAccountRegistrationId()).thenReturn(linkedDeviceRegistrationId);
 
     final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getNumber()).thenReturn(Optional.of(originalNumber));
     when(account.getAccountIdentifier()).thenReturn(aci);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(aci))).thenReturn(true);
@@ -280,7 +279,7 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(targetNumber));
+    when(account.getNumber()).thenReturn(Optional.of(targetNumber));
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
@@ -319,7 +318,7 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getNumber()).thenReturn(Optional.of(originalNumber));
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
@@ -367,13 +366,13 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getNumber()).thenReturn(Optional.of(originalNumber));
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
 
     final Account existingAccount = mock(Account.class);
-    when(existingAccount.getNumberOptional()).thenReturn(Optional.of(targetNumber));
+    when(existingAccount.getNumber()).thenReturn(Optional.of(targetNumber));
 
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.of(existingAccount)));
@@ -414,7 +413,7 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.empty());
+    when(account.getNumber()).thenReturn(Optional.empty());
 
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
@@ -456,7 +455,7 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumberOptional()).thenReturn(Optional.of(originalNumber));
+    when(account.getNumber()).thenReturn(Optional.of(originalNumber));
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);

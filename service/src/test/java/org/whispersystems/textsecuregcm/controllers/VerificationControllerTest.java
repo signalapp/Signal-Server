@@ -1054,7 +1054,7 @@ class VerificationControllerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account existingAccount = mock(Account.class);
-    when(existingAccount.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(existingAccount.getAccountIdentifier()).thenReturn(accountIdentifier);
 
     when(accountsManager.getByE164(any()))
         .thenReturn(accountExistsWithNumber ? Optional.of(existingAccount) : Optional.empty());

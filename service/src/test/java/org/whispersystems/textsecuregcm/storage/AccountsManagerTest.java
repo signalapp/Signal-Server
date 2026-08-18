@@ -88,7 +88,6 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -322,11 +321,11 @@ class AccountsManagerTest {
     assertEquals(account.get().getAccountIdentifier(), uuid);
 
     if (hasNumber) {
-      assertEquals("+14152222222", account.get().getNumberOptional().orElseThrow());
-      assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifierOptional().orElseThrow());
+      assertEquals("+14152222222", account.get().getNumber().orElseThrow());
+      assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier().orElseThrow());
     } else {
-      assertTrue(account.get().getNumberOptional().isEmpty());
-      assertTrue(account.get().getPhoneNumberIdentifierOptional().isEmpty());
+      assertTrue(account.get().getNumber().isEmpty());
+      assertTrue(account.get().getPhoneNumberIdentifier().isEmpty());
     }
 
     verify(clusterCommands, times(1)).get(eq("Account3::" + uuid));
@@ -355,11 +354,11 @@ class AccountsManagerTest {
     assertEquals(account.get().getAccountIdentifier(), uuid);
 
     if (hasNumber) {
-      assertEquals( "+14152222222", account.get().getNumberOptional().orElseThrow());
-      assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifierOptional().orElseThrow());
+      assertEquals( "+14152222222", account.get().getNumber().orElseThrow());
+      assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier().orElseThrow());
     } else {
-      assertTrue(account.get().getNumberOptional().isEmpty());
-      assertTrue(account.get().getPhoneNumberIdentifierOptional().isEmpty());
+      assertTrue(account.get().getNumber().isEmpty());
+      assertTrue(account.get().getPhoneNumberIdentifier().isEmpty());
     }
 
     verify(asyncClusterCommands, times(1)).get(eq("Account3::" + uuid));
@@ -380,8 +379,8 @@ class AccountsManagerTest {
     Optional<Account> account = accountsManager.getByPhoneNumberIdentifier(pni);
 
     assertTrue(account.isPresent());
-    assertEquals("+14152222222", account.get().getNumberOptional().orElseThrow());
-    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifierOptional().orElseThrow());
+    assertEquals("+14152222222", account.get().getNumber().orElseThrow());
+    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier().orElseThrow());
 
     verify(clusterCommands).get(eq("AccountMap::" + pni));
     verify(clusterCommands).get(eq("Account3::" + uuid));
@@ -406,8 +405,8 @@ class AccountsManagerTest {
     Optional<Account> account = accountsManager.getByPhoneNumberIdentifierAsync(pni).join();
 
     assertTrue(account.isPresent());
-    assertEquals("+14152222222", account.get().getNumberOptional().orElseThrow());
-    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifierOptional().orElseThrow());
+    assertEquals("+14152222222", account.get().getNumber().orElseThrow());
+    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier().orElseThrow());
 
     verify(asyncClusterCommands).get(eq("AccountMap::" + pni));
     verify(asyncClusterCommands).get(eq("Account3::" + uuid));
@@ -780,10 +779,10 @@ class AccountsManagerTest {
       verify(keysManager, never()).deleteSingleUsePreKeys(argThat(id -> !id.equals(aci)), anyByte());
     } else {
       //noinspection OptionalGetWithoutIsPresent
-      verify(keysManager, times(2)).deleteSingleUsePreKeys(eq(account.getPhoneNumberIdentifierOptional().get()), eq(linkedDevice.getId()));
+      verify(keysManager, times(2)).deleteSingleUsePreKeys(eq(account.getPhoneNumberIdentifier().get()), eq(linkedDevice.getId()));
     }
 
-    verify(keysManager).buildWriteItemsForRemovedDevice(aci, account.getPhoneNumberIdentifierOptional(), linkedDevice.getId());
+    verify(keysManager).buildWriteItemsForRemovedDevice(aci, account.getPhoneNumberIdentifier(), linkedDevice.getId());
     verify(disconnectionRequestManager).requestDisconnection(aci, List.of(linkedDevice.getId()));
   }
 
@@ -824,7 +823,7 @@ class AccountsManagerTest {
     // Check existence (or lack thereof) of phone number, phone number identifier, phone number identity key,
     // phone number identity registration ID, and auth credential salt.
     final Device primaryDevice = createdAccount.getDevices().stream().findFirst().orElseThrow();
-    assertEquals(maybeE164, createdAccount.getNumberOptional());
+    assertEquals(maybeE164, createdAccount.getNumber());
     maybeE164.ifPresentOrElse(
         number -> {
           assertTrue(phoneNumberIdentifiersByE164.containsKey(number));
@@ -840,13 +839,13 @@ class AccountsManagerTest {
         });
 
     if (maybeE164.isPresent()) {
-      verify(accounts).create(argThat(account -> maybeE164.equals(account.getNumberOptional())), any());
+      verify(accounts).create(argThat(account -> maybeE164.equals(account.getNumber())), any());
     } else {
-      verify(accounts).create(argThat(account -> account.getNumberOptional().isEmpty()), any(), any(), any());
+      verify(accounts).create(argThat(account -> account.getNumber().isEmpty()), any(), any(), any());
     }
     verify(keysManager).buildWriteItemsForNewDevice(
         eq(createdAccount.getAccountIdentifier()),
-        eq(createdAccount.getPhoneNumberIdentifierOptional()),
+        eq(createdAccount.getPhoneNumberIdentifier()),
         eq(Device.PRIMARY_ID),
         notNull(),
         maybeE164.isPresent() ? notNull() : eq(Optional.empty()),
@@ -879,8 +878,8 @@ class AccountsManagerTest {
 
       final Account existingAccount = mock(Account.class);
       when(existingAccount.getAccountIdentifier()).thenReturn(existingUuid);
-      when(existingAccount.getNumberOptional()).thenReturn(maybeExistingAccountE164);
-      when(existingAccount.getPhoneNumberIdentifierOptional()).thenReturn(requestedAccount.getPhoneNumberIdentifierOptional());
+      when(existingAccount.getNumber()).thenReturn(maybeExistingAccountE164);
+      when(existingAccount.getPhoneNumberIdentifier()).thenReturn(requestedAccount.getPhoneNumberIdentifier());
       when(existingAccount.getPrimaryDevice()).thenReturn(existingPrimaryDevice);
       when(existingAccount.getAccountIdentityKey()).thenReturn(requestedAccount.getAccountIdentityKey());
       when(existingAccount.getAccountRecoveryPassword()).thenReturn(
@@ -905,7 +904,7 @@ class AccountsManagerTest {
     // and phone number identity registration ID
     final Device primaryDevice = reregisteredAccount.getDevices().stream().findFirst().orElseThrow();
 
-    assertEquals(maybeE164, reregisteredAccount.getNumberOptional());
+    assertEquals(maybeE164, reregisteredAccount.getNumber());
     maybeE164.ifPresentOrElse(
         number -> {
           assertTrue(phoneNumberIdentifiersByE164.containsKey(number));
@@ -928,7 +927,7 @@ class AccountsManagerTest {
 
     verify(keysManager).buildWriteItemsForNewDevice(
         eq(reregisteredAccount.getAccountIdentifier()),
-        eq(reregisteredAccount.getPhoneNumberIdentifierOptional()),
+        eq(reregisteredAccount.getPhoneNumberIdentifier()),
         eq(Device.PRIMARY_ID),
         notNull(),
         maybeE164.isPresent() ? notNull() : eq(Optional.empty()),
@@ -1016,8 +1015,8 @@ class AccountsManagerTest {
         null);
 
     assertEquals(existingAccount.getAccountIdentifier(), reclaimedAccount.getAccountIdentifier());
-    assertEquals(existingAccount.getNumberOptional(), reclaimedAccount.getNumberOptional());
-    assertEquals(existingAccount.getPhoneNumberIdentifierOptional(), reclaimedAccount.getPhoneNumberIdentifierOptional());
+    assertEquals(existingAccount.getNumber(), reclaimedAccount.getNumber());
+    assertEquals(existingAccount.getPhoneNumberIdentifier(), reclaimedAccount.getPhoneNumberIdentifier());
     assertEquals(aciIdentityKey, reclaimedAccount.getAccountIdentityKey());
     assertEquals(hasPhoneNumber ? Optional.of(pniIdentityKey) : Optional.empty(), reclaimedAccount.getPhoneNumberIdentityKey());
 
@@ -1037,7 +1036,7 @@ class AccountsManagerTest {
 
     verify(keysManager).buildWriteItemsForNewDevice(
         eq(reclaimedAccount.getAccountIdentifier()),
-        eq(reclaimedAccount.getPhoneNumberIdentifierOptional()),
+        eq(reclaimedAccount.getPhoneNumberIdentifier()),
         eq(Device.PRIMARY_ID),
         notNull(),
         hasPhoneNumber ? notNull() : eq(Optional.empty()),
@@ -1045,7 +1044,7 @@ class AccountsManagerTest {
         hasPhoneNumber ? notNull() : eq(Optional.empty()));
 
     verify(keysManager, times(2)).deleteSingleUsePreKeys(existingAccount.getAccountIdentifier());
-    existingAccount.getPhoneNumberIdentifierOptional().ifPresent(phoneNumberIdentifier ->
+    existingAccount.getPhoneNumberIdentifier().ifPresent(phoneNumberIdentifier ->
         verify(keysManager, times(2)).deleteSingleUsePreKeys(phoneNumberIdentifier));
     verify(messagesManager, times(2)).clear(existingAccount.getAccountIdentifier());
     verify(profilesManager, times(2)).deleteAll(existingAccount.getAccountIdentifier(), false);
@@ -1158,11 +1157,11 @@ class AccountsManagerTest {
     final Account account = createAccount(e164, attributes);
 
     verify(accounts).create(
-        argThat(a -> e164.equals(a.getNumberOptional().get()) && recentlyDeletedUuid.equals(a.getAccountIdentifier())),
+        argThat(a -> e164.equals(a.getNumber().get()) && recentlyDeletedUuid.equals(a.getAccountIdentifier())),
         any());
 
     verify(keysManager).buildWriteItemsForNewDevice(eq(account.getAccountIdentifier()),
-        eq(account.getPhoneNumberIdentifierOptional()),
+        eq(account.getPhoneNumberIdentifier()),
         eq(Device.PRIMARY_ID),
         any(),
         any(),
@@ -1205,7 +1204,7 @@ class AccountsManagerTest {
       ? AccountsHelper.generateTestAccount(phoneNumber, List.of(generateTestDevice(CLOCK.millis())))
       : AccountsHelper.generateTestAccountNoPhoneNumber(List.of(generateTestDevice(CLOCK.millis())));
     final UUID aci = account.getAccountIdentifier();
-    final Optional<UUID> maybePni = account.getPhoneNumberIdentifierOptional();
+    final Optional<UUID> maybePni = account.getPhoneNumberIdentifier();
     account.setIdentityKey(new IdentityKey(ECKeyPair.generate().getPublicKey()));
 
     final byte nextDeviceId = account.getNextDeviceId();
@@ -1320,7 +1319,7 @@ class AccountsManagerTest {
         Map.of(Device.PRIMARY_ID, kemLastResortPreKey),
         Map.of(Device.PRIMARY_ID, 1));
 
-    assertEquals(targetNumber, account.getNumber());
+    assertEquals(Optional.of(targetNumber), account.getNumber());
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
 
@@ -1343,17 +1342,17 @@ class AccountsManagerTest {
 
     addRetrievableAccount(account);
 
-    phoneNumberIdentifiersByE164.put(originalNumber, account.getPhoneNumberIdentifier());
-    phoneNumberIdentifiersByE164.put(newNumber, account.getPhoneNumberIdentifier());
-    account = accountsManager.changeNumber(account.getIdentifier(IdentityType.ACI),
+    phoneNumberIdentifiersByE164.put(originalNumber, account.getPhoneNumberIdentifier().orElseThrow());
+    phoneNumberIdentifiersByE164.put(newNumber, account.getPhoneNumberIdentifier().orElseThrow());
+    account = accountsManager.changeNumber(account.getAccountIdentifier(),
         newNumber,
         new IdentityKey(pniIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair)),
         Map.of(Device.PRIMARY_ID, 1));
 
-    assertEquals(newNumber, account.getNumber());
-    assertEquals(phoneNumberIdentifier, account.getIdentifier(IdentityType.PNI));
+    assertEquals(Optional.of(newNumber), account.getNumber());
+    assertEquals(Optional.of(phoneNumberIdentifier), account.getPhoneNumberIdentifier());
     verify(accounts, never()).delete(any(), any());
   }
 
@@ -1383,7 +1382,7 @@ class AccountsManagerTest {
         Map.of(Device.PRIMARY_ID, kemLastResoryPreKey),
         Map.of(Device.PRIMARY_ID, 1));
 
-    assertEquals(targetNumber, account.getNumber());
+    assertEquals(Optional.of(targetNumber), account.getNumber());
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
     final UUID newPni = phoneNumberIdentifiersByE164.get(targetNumber);
@@ -1428,7 +1427,7 @@ class AccountsManagerTest {
     final Account updatedAccount = accountsManager.changeNumber(
         uuid, targetNumber, new IdentityKey(ECKeyPair.generate().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds);
 
-    assertEquals(targetNumber, updatedAccount.getNumber());
+    assertEquals(Optional.of(targetNumber), updatedAccount.getNumber());
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
 
@@ -1492,7 +1491,7 @@ class AccountsManagerTest {
 
     final List<byte[]> usernameHashes = List.of(TestRandomUtil.nextBytes(32), TestRandomUtil.nextBytes(32));
 
-    final UsernameReservation result = accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), usernameHashes);
+    final UsernameReservation result = accountsManager.reserveUsernameHash(account.getAccountIdentifier(), usernameHashes);
     assertArrayEquals(usernameHashes.getFirst(), result.reservedUsernameHash());
     verify(accounts, times(1)).reserveUsernameHash(eq(account), any(), eq(Duration.ofMinutes(5)));
   }
@@ -1506,7 +1505,7 @@ class AccountsManagerTest {
 
     final List<byte[]> usernameHashes = List.of(TestRandomUtil.nextBytes(32), oldUsernameHash, TestRandomUtil.nextBytes(32));
 
-    final UsernameReservation result = accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), usernameHashes);
+    final UsernameReservation result = accountsManager.reserveUsernameHash(account.getAccountIdentifier(), usernameHashes);
     assertArrayEquals(oldUsernameHash, result.reservedUsernameHash());
     verify(accounts, never()).reserveUsernameHash(any(), any(), any());
   }
@@ -1522,7 +1521,7 @@ class AccountsManagerTest {
         .doNothing()
         .when(accounts).reserveUsernameHash(any(), any(), any());
 
-    final UsernameReservation result = accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), usernameHashes);
+    final UsernameReservation result = accountsManager.reserveUsernameHash(account.getAccountIdentifier(), usernameHashes);
     assertArrayEquals(usernameHashes.getFirst(), result.reservedUsernameHash());
     verify(accounts, times(2)).reserveUsernameHash(eq(account), any(), eq(Duration.ofMinutes(5)));
   }
@@ -1536,7 +1535,7 @@ class AccountsManagerTest {
         .when(accounts).reserveUsernameHash(any(), any(), any());
 
     assertThrows(UsernameHashNotAvailableException.class, () ->
-        accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1, USERNAME_HASH_2)));
+        accountsManager.reserveUsernameHash(account.getAccountIdentifier(), List.of(USERNAME_HASH_1, USERNAME_HASH_2)));
   }
 
   @ParameterizedTest
@@ -1547,7 +1546,7 @@ class AccountsManagerTest {
 
     setReservationHash(account, USERNAME_HASH_1);
 
-    accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    accountsManager.confirmReservedUsernameHash(account.getAccountIdentifier(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     verify(accounts).confirmUsernameHash(eq(account), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1));
   }
 
@@ -1561,7 +1560,7 @@ class AccountsManagerTest {
         .doNothing()
         .when(accounts).confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
-    accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    accountsManager.confirmReservedUsernameHash(account.getAccountIdentifier(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     verify(accounts, times(2)).confirmUsernameHash(eq(account), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1));
   }
 
@@ -1572,7 +1571,7 @@ class AccountsManagerTest {
 
     setReservationHash(account, USERNAME_HASH_1);
     assertThrows(UsernameReservationNotFoundException.class,
-        () -> accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_2, ENCRYPTED_USERNAME_2));
+        () -> accountsManager.confirmReservedUsernameHash(account.getAccountIdentifier(), USERNAME_HASH_2, ENCRYPTED_USERNAME_2));
   }
 
   @Test
@@ -1584,7 +1583,7 @@ class AccountsManagerTest {
     doThrow(new UsernameHashNotAvailableException())
         .when(accounts).confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertThrows(UsernameHashNotAvailableException.class,
-        () -> accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+        () -> accountsManager.confirmReservedUsernameHash(account.getAccountIdentifier(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertTrue(account.getUsernameHash().isEmpty());
   }
 
@@ -1595,7 +1594,7 @@ class AccountsManagerTest {
     account.setUsernameHash(USERNAME_HASH_1);
 
     // reserved username already set, should be treated as a replay
-    accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    accountsManager.confirmReservedUsernameHash(account.getAccountIdentifier(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     verify(accounts, never()).confirmUsernameHash(any(), any(), any());
   }
 
@@ -1606,7 +1605,7 @@ class AccountsManagerTest {
     addRetrievableAccount(account);
 
     assertThrows(UsernameReservationNotFoundException.class,
-        () -> accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+        () -> accountsManager.confirmReservedUsernameHash(account.getAccountIdentifier(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     verify(accounts, never()).confirmUsernameHash(any(), any(), any());
   }
 
@@ -1617,7 +1616,7 @@ class AccountsManagerTest {
     addRetrievableAccount(account);
 
     account.setUsernameHash(USERNAME_HASH_1);
-    accountsManager.clearUsernameHash(account.getIdentifier(IdentityType.ACI));
+    accountsManager.clearUsernameHash(account.getAccountIdentifier());
     verify(accounts).clearUsernameHash(eq(account));
   }
 
@@ -1628,7 +1627,7 @@ class AccountsManagerTest {
     addRetrievableAccount(account);
 
     assertThrows(AssertionError.class, () ->
-        accountsManager.update(account.getIdentifier(IdentityType.ACI), a -> a.setUsernameHash(USERNAME_HASH_1)));
+        accountsManager.update(account.getAccountIdentifier(), a -> a.setUsernameHash(USERNAME_HASH_1)));
   }
 
   @Test
@@ -1664,10 +1663,8 @@ class AccountsManagerTest {
     final Account parsedAccount = AccountsManager.parseAccountJson(serialized, originalAccount.getAccountIdentifier()).orElseThrow();
 
     assertEquals(originalAccount.getAccountIdentifier(), parsedAccount.getAccountIdentifier());
-    assertEquals(originalAccount.getPhoneNumberIdentifierOptional(), parsedAccount.getPhoneNumberIdentifierOptional());
-    assertEquals(originalAccount.getAccountIdentifier(), parsedAccount.getAccountIdentifier());
-    assertEquals(originalAccount.getPhoneNumberIdentifierOptional(), parsedAccount.getPhoneNumberIdentifierOptional());
-    assertEquals(originalAccount.getNumberOptional(), parsedAccount.getNumberOptional());
+    assertEquals(originalAccount.getPhoneNumberIdentifier(), parsedAccount.getPhoneNumberIdentifier());
+    assertEquals(originalAccount.getNumber(), parsedAccount.getNumber());
     assertArrayEquals(originalAccount.getUnidentifiedAccessKey().orElseThrow(),
         parsedAccount.getUnidentifiedAccessKey().orElseThrow());
     assertEquals(originalAccount.isDiscoverableByPhoneNumber(), parsedAccount.isDiscoverableByPhoneNumber());
@@ -1888,7 +1885,7 @@ class AccountsManagerTest {
   @Test
   void getAccountsForChangeNumber() {
     final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-    final UUID accountIdentifier = account.getIdentifier(IdentityType.ACI);
+    final UUID accountIdentifier = account.getAccountIdentifier();
     addRetrievableAccount(account);
 
     final String targetNumber = "+13102222222";
@@ -1915,10 +1912,10 @@ class AccountsManagerTest {
   }
 
   private void addRetrievableAccount(final Account account) {
-    when(accounts.getByAccountIdentifier(account.getIdentifier(IdentityType.ACI)))
+    when(accounts.getByAccountIdentifier(account.getAccountIdentifier()))
         .thenReturn(Optional.of(account));
 
-    when(accounts.getByAccountIdentifierAsync(account.getIdentifier(IdentityType.ACI)))
+    when(accounts.getByAccountIdentifierAsync(account.getAccountIdentifier()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
   }
 }

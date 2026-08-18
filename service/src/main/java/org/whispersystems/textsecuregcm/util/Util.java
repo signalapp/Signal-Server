@@ -87,7 +87,7 @@ public class Util {
   }
 
   public static String getCountryCode(final Account account) {
-    return account.getNumberOptional().map(Util::getCountryCode).orElse(COUNTRY_CODE_NOT_APPLICABLE);
+    return account.getNumber().map(Util::getCountryCode).orElse(COUNTRY_CODE_NOT_APPLICABLE);
   }
 
   public static String getCountryCode(final String number) {
@@ -99,7 +99,7 @@ public class Util {
   }
 
   public static String getRegion(final Account account) {
-    return account.getNumberOptional().map(Util::getRegion).orElse(REGION_NOT_APPLICABLE);
+    return account.getNumber().map(Util::getRegion).orElse(REGION_NOT_APPLICABLE);
   }
 
   public static String getRegion(final String number) {

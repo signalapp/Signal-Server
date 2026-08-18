@@ -249,7 +249,7 @@ public class MessagePersister implements Managed {
                     .filter(e -> !(e instanceof MessagePersistenceException)))
                 .onErrorResume(e -> {
                   logger.warn("Failed to persist queue {}::{} ({}); will schedule for retry",
-                      account.getIdentifier(IdentityType.ACI), device.getId(), node.getUri().getHost(), e);
+                      account.getAccountIdentifier(), device.getId(), node.getUri().getHost(), e);
 
                   return Mono.empty();
                 });
@@ -331,7 +331,7 @@ public class MessagePersister implements Managed {
   }
 
   private Mono<Void> trimQueue(final Account account, final Device device) {
-    final UUID aci = account.getIdentifier(IdentityType.ACI);
+    final UUID aci = account.getAccountIdentifier();
     final byte deviceId = device.getId();
 
     final double extraRoomRatio = this.dynamicConfigurationManager.getConfiguration()

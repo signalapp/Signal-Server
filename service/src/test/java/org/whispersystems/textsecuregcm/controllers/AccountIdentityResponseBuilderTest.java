@@ -76,18 +76,18 @@ class AccountIdentityResponseBuilderTest {
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
 
-    when(account.getNumberOptional()).thenReturn(hasPhoneNumber
+    when(account.getNumber()).thenReturn(hasPhoneNumber
         ? Optional.of(PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164))
         : Optional.empty());
 
-    when(account.getPhoneNumberIdentifierOptional())
+    when(account.getPhoneNumberIdentifier())
         .thenReturn(hasPhoneNumber ? Optional.of(UUID.randomUUID()) : Optional.empty());
 
     final AccountIdentityResponse accountIdentityResponse = new AccountIdentityResponseBuilder(account).build();
 
     assertThat(accountIdentityResponse.uuid()).isEqualTo(account.getAccountIdentifier());
-    assertThat(accountIdentityResponse.number()).isEqualTo(account.getNumberOptional());
-    assertThat(accountIdentityResponse.pni()).isEqualTo(account.getPhoneNumberIdentifierOptional());
+    assertThat(accountIdentityResponse.number()).isEqualTo(account.getNumber());
+    assertThat(accountIdentityResponse.pni()).isEqualTo(account.getPhoneNumberIdentifier());
   }
 }

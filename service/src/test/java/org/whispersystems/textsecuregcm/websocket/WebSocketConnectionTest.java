@@ -134,7 +134,7 @@ class WebSocketConnectionTest {
   void testSendMessages() {
 
     final UUID destinationAccountIdentifier = UUID.randomUUID();
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(destinationAccountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(destinationAccountIdentifier);
 
     final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
@@ -152,7 +152,7 @@ class WebSocketConnectionTest {
 
     when(messageStream.acknowledgeMessage(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
 
-    when(messagesManager.getMessages(account.getIdentifier(IdentityType.ACI), device))
+    when(messagesManager.getMessages(account.getAccountIdentifier(), device))
         .thenReturn(messageStream);
 
     when(messagesManager.mayHaveMessages(any(), any())).thenReturn(CompletableFuture.completedFuture(false));
@@ -201,7 +201,7 @@ class WebSocketConnectionTest {
   void testSendMessagesWithError() {
 
     final UUID destinationAccountIdentifier = UUID.randomUUID();
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(destinationAccountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(destinationAccountIdentifier);
 
     final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
@@ -221,7 +221,7 @@ class WebSocketConnectionTest {
 
     when(messageStream.acknowledgeMessage(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
 
-    when(messagesManager.getMessages(account.getIdentifier(IdentityType.ACI), device))
+    when(messagesManager.getMessages(account.getAccountIdentifier(), device))
         .thenReturn(messageStream);
 
     when(messagesManager.mayHaveMessages(any(), any())).thenReturn(CompletableFuture.completedFuture(false));
@@ -281,7 +281,7 @@ class WebSocketConnectionTest {
   void testQueueEmptySignalOrder() {
 
     final UUID destinationAccountIdentifier = UUID.randomUUID();
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(destinationAccountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(destinationAccountIdentifier);
 
     final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
@@ -299,7 +299,7 @@ class WebSocketConnectionTest {
 
     when(messageStream.acknowledgeMessage(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
 
-    when(messagesManager.getMessages(account.getIdentifier(IdentityType.ACI), device))
+    when(messagesManager.getMessages(account.getAccountIdentifier(), device))
         .thenReturn(messageStream);
 
     when(messagesManager.mayHaveMessages(any(), any())).thenReturn(CompletableFuture.completedFuture(false));
@@ -331,7 +331,7 @@ class WebSocketConnectionTest {
   void testConflictingConsumerSignalOrder() {
 
     final UUID destinationAccountIdentifier = UUID.randomUUID();
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(destinationAccountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(destinationAccountIdentifier);
 
     final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
@@ -346,7 +346,7 @@ class WebSocketConnectionTest {
 
     when(messageStream.acknowledgeMessage(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
 
-    when(messagesManager.getMessages(account.getIdentifier(IdentityType.ACI), device))
+    when(messagesManager.getMessages(account.getAccountIdentifier(), device))
         .thenReturn(messageStream);
 
     when(messagesManager.mayHaveMessages(any(), any())).thenReturn(CompletableFuture.completedFuture(false));
@@ -379,7 +379,7 @@ class WebSocketConnectionTest {
   void testSendMessagesEmptyQueue() {
     final UUID accountUuid = UUID.randomUUID();
 
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountUuid);
+    when(account.getAccountIdentifier()).thenReturn(accountUuid);
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
     final MessageStream messageStream = mock(MessageStream.class);
@@ -408,7 +408,7 @@ class WebSocketConnectionTest {
   void testSendMessagesConflictingConsumer() {
     final UUID accountUuid = UUID.randomUUID();
 
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountUuid);
+    when(account.getAccountIdentifier()).thenReturn(accountUuid);
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
     final MessageStream messageStream = mock(MessageStream.class);
@@ -435,7 +435,7 @@ class WebSocketConnectionTest {
     final UUID accountUuid = UUID.randomUUID();
 
     when(device.getId()).thenReturn((byte) 2);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountUuid);
+    when(account.getAccountIdentifier()).thenReturn(accountUuid);
 
     final MessageStream messageStream = mock(MessageStream.class);
 
@@ -466,7 +466,7 @@ class WebSocketConnectionTest {
     final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
 
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountUuid);
+    when(account.getAccountIdentifier()).thenReturn(accountUuid);
 
     final int totalMessages = 1000;
 
@@ -518,7 +518,7 @@ class WebSocketConnectionTest {
     final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
 
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountUuid);
+    when(account.getAccountIdentifier()).thenReturn(accountUuid);
 
     final AtomicBoolean canceled = new AtomicBoolean();
 
@@ -576,7 +576,7 @@ class WebSocketConnectionTest {
   void testSendDeliveryReceipt(final boolean deliveryReceiptFromPni) {
 
     final UUID destinationAccountIdentifier = UUID.randomUUID();
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(destinationAccountIdentifier);
+    when(account.getAccountIdentifier()).thenReturn(destinationAccountIdentifier);
 
     final byte deviceId = 2;
     when(device.getId()).thenReturn(deviceId);
@@ -597,7 +597,7 @@ class WebSocketConnectionTest {
 
     when(messageStream.acknowledgeMessage(any(), anyLong())).thenReturn(CompletableFuture.completedFuture(null));
 
-    when(messagesManager.getMessages(account.getIdentifier(IdentityType.ACI), device))
+    when(messagesManager.getMessages(account.getAccountIdentifier(), device))
         .thenReturn(messageStream);
 
     when(messagesManager.mayHaveMessages(any(), any())).thenReturn(CompletableFuture.completedFuture(false));

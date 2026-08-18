@@ -268,7 +268,7 @@ public class RegistrationController {
     }
 
     if (existingAccount.isPresent()) {
-      assert existingAccount.get().getNumberOptional().isPresent();
+      assert existingAccount.get().getNumber().isPresent();
       registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(),
           registrationRequest.accountAttributes().getRegistrationLock(),
           userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION, verificationType);
@@ -426,7 +426,7 @@ public class RegistrationController {
       throw new WebApplicationException(Response.status(409, "device transfer available").build());
     }
 
-    final Account reclaimedAccount = existingAccount.getNumberOptional().isPresent()
+    final Account reclaimedAccount = existingAccount.getNumber().isPresent()
         ? recoverAccountWithPhoneNumber(existingAccount, registrationRequest, password, userAgent, signalAgent)
         : recoverAccountWithoutPhoneNumber(existingAccount, registrationRequest, password, userAgent, signalAgent);
 

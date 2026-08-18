@@ -72,7 +72,6 @@ import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachmentError;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
@@ -137,13 +136,9 @@ class DeviceControllerTest {
     when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
 
     when(account.getNextDeviceId()).thenReturn(NEXT_DEVICE_ID);
-    when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
-    when(account.getNumberOptional()).thenReturn(Optional.of((AuthHelper.VALID_NUMBER)));
+    when(account.getNumber()).thenReturn(Optional.of((AuthHelper.VALID_NUMBER)));
     when(account.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(AuthHelper.VALID_PNI));
-    when(account.getIdentifier(IdentityType.PNI)).thenReturn(AuthHelper.VALID_PNI);
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(AuthHelper.VALID_PNI));
     when(account.getPrimaryDevice()).thenReturn(primaryDevice);
     when(account.getDevice(anyByte())).thenReturn(Optional.empty());
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(primaryDevice));
@@ -191,7 +186,7 @@ class DeviceControllerTest {
     when(refreshedDevice.getId()).thenReturn(deviceId);
     when(refreshedDevice.getName()).thenReturn(deviceName);
     when(refreshedDevice.getLastSeen()).thenReturn(deviceLastSeen);
-    when(refreshedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(refreshedDevice.getAccountRegistrationId()).thenReturn(registrationId);
     when(refreshedDevice.getCreatedAtCiphertext()).thenReturn(createdAtCiphertext);
 
     final Account refreshedAccount = mock(Account.class);
@@ -741,7 +736,7 @@ class DeviceControllerTest {
     when(account.getDevices()).thenReturn(List.of(existingDevice));
 
     when(account.getAccountIdentityKey()).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+    when(account.getPhoneNumberIdentifier()).thenReturn(Optional.empty());
 
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 

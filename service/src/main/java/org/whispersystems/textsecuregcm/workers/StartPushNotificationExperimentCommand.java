@@ -92,7 +92,7 @@ public class StartPushNotificationExperimentCommand<T> extends AbstractSinglePas
                 experiment.isDeviceEligible(accountAndDevice.getT1(), accountAndDevice.getT2()))
             .mapNotNull(eligible -> eligible ? accountAndDevice : null), maxConcurrency)
         .flatMap(accountAndDevice -> {
-          final UUID accountIdentifier = accountAndDevice.getT1().getIdentifier(IdentityType.ACI);
+          final UUID accountIdentifier = accountAndDevice.getT1().getAccountIdentifier();
           final byte deviceId = accountAndDevice.getT2().getId();
 
           final Mono<Boolean> recordInitialSampleMono = dryRun
@@ -131,7 +131,7 @@ public class StartPushNotificationExperimentCommand<T> extends AbstractSinglePas
           final Account account = accountAndDevice.getT1();
           final Device device = accountAndDevice.getT2();
           final boolean inExperimentGroup =
-              isInExperimentGroup(account.getIdentifier(IdentityType.ACI), device.getId(), experiment.getExperimentName());
+              isInExperimentGroup(account.getAccountIdentifier(), device.getId(), experiment.getExperimentName());
 
           final Mono<Void> applyTreatmentMono = dryRun
               ? Mono.empty()
@@ -141,7 +141,7 @@ public class StartPushNotificationExperimentCommand<T> extends AbstractSinglePas
                   .onErrorResume(throwable -> {
                     log.warn("Failed to apply {} treatment for {}:{} in experiment {}",
                         inExperimentGroup ? "experimental" : " control",
-                        account.getIdentifier(IdentityType.ACI),
+                        account.getAccountIdentifier(),
                         device.getId(),
                         experiment.getExperimentName(),
                         throwable);

@@ -101,12 +101,12 @@ public class ChangeNumberManager {
 
     final Account account = accountAndMaybeExistingAccount.first();
 
-    if (account.getNumberOptional().isEmpty()) {
+    if (account.getNumber().isEmpty()) {
       throw new IllegalArgumentException("account does not have a phone number");
     }
 
     // Only verify and check reglock if there's a data change to be made...
-    if (!account.getNumberOptional().get().equals(number)) {
+    if (!account.getNumber().get().equals(number)) {
 
       final Optional<Duration> waitingPeriodRemaining = changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(account.getAccountIdentifier());
       if (waitingPeriodRemaining.isPresent()) {
@@ -122,7 +122,7 @@ public class ChangeNumberManager {
       final Optional<Account> existingAccount = accountAndMaybeExistingAccount.second();
 
       if (existingAccount.isPresent()) {
-        assert existingAccount.get().getNumberOptional().isPresent();
+        assert existingAccount.get().getNumber().isPresent();
         registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(), registrationLock,
             userAgent, RegistrationLockVerificationManager.Flow.CHANGE_NUMBER, verificationType);
       }
@@ -170,7 +170,7 @@ public class ChangeNumberManager {
       try {
         // Now that we've actually updated the account, populate the "updated PNI" field on all envelopes
         messagesByDeviceId.replaceAll((_, envelope) ->
-            envelope.toBuilder().setUpdatedPni(UUIDUtil.toByteString(updatedAccount.getPhoneNumberIdentifierOptional()
+            envelope.toBuilder().setUpdatedPni(UUIDUtil.toByteString(updatedAccount.getPhoneNumberIdentifier()
                     .orElseThrow(() -> new AssertionError("Account does not have a PNI after changing number"))))
                 .build());
 

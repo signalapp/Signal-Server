@@ -317,7 +317,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   public SetDiscoverableByPhoneNumberResponse setDiscoverableByPhoneNumber(final SetDiscoverableByPhoneNumberRequest request) {
     accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
         account -> {
-          if (account.getNumberOptional().isEmpty()) {
+          if (account.getNumber().isEmpty()) {
             throw GrpcExceptions.invalidArguments("account does not have a phone number");
           }
 
@@ -332,7 +332,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final Account account = getAuthenticatedAccount();
     final byte[] recoveryPassword = request.getRegistrationRecoveryPassword().toByteArray();
 
-    final Collection<TransactWriteItem> additionalWriteItems = account.getPhoneNumberIdentifierOptional()
+    final Collection<TransactWriteItem> additionalWriteItems = account.getPhoneNumberIdentifier()
         .map(phoneNumberIdentifier ->
             List.of(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, recoveryPassword)))
         .orElseGet(Collections::emptyList);
@@ -505,7 +505,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final AccountDataReportResponse report = new AccountDataReportResponse(UUID.randomUUID(), clock.instant(),
         new AccountDataReportResponse.AccountAndDevicesDataReport(
             new AccountDataReportResponse.AccountDataReport(
-                account.getNumberOptional(),
+                account.getNumber(),
                 account.getBadges().stream().map(AccountDataReportResponse.BadgeDataReport::new).toList(),
                 account.isUnrestrictedUnidentifiedAccess(),
                 account.isDiscoverableByPhoneNumber()),
@@ -538,11 +538,11 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final AccountIdentifiers.Builder accountIdentifiersBuilder = AccountIdentifiers.newBuilder()
         .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(account.getAccountIdentifier())));
 
-    account.getPhoneNumberIdentifierOptional()
+    account.getPhoneNumberIdentifier()
         .map(phoneNumberIdentifier -> GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new PniServiceIdentifier(phoneNumberIdentifier)))
         .ifPresent(accountIdentifiersBuilder::addServiceIdentifiers);
 
-    account.getNumberOptional().ifPresent(accountIdentifiersBuilder::setE164);
+    account.getNumber().ifPresent(accountIdentifiersBuilder::setE164);
 
     account.getUsernameHash().ifPresent(usernameHash ->
         accountIdentifiersBuilder.setUsernameHash(ByteString.copyFrom(usernameHash)));

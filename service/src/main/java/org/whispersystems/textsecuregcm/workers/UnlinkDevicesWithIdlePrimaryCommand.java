@@ -93,7 +93,7 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
         .filter(account -> isPrimaryDeviceIdle(account, currentTime, idleDurationThreshold))
         .flatMap(accountWithIdlePrimaryDevice -> Flux.fromIterable(accountWithIdlePrimaryDevice.getDevices())
             .filter(device -> !device.isPrimary())
-            .map(linkedDevice -> Tuples.of(accountWithIdlePrimaryDevice.getIdentifier(IdentityType.ACI), linkedDevice.getId())))
+            .map(linkedDevice -> Tuples.of(accountWithIdlePrimaryDevice.getAccountIdentifier(), linkedDevice.getId())))
         .flatMap(accountAndLinkedDeviceId -> {
           final Mono<Account> unlinkDeviceMono = isDryRun
               ? Mono.empty()

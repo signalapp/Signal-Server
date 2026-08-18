@@ -193,10 +193,10 @@ class MessagesManagerTest {
     final Account singleDeviceAccount = mock(Account.class);
     final Account multiDeviceAccount = mock(Account.class);
 
-    when(singleDeviceAccount.getIdentifier(IdentityType.ACI))
+    when(singleDeviceAccount.getAccountIdentifier())
         .thenReturn(singleDeviceAccountAciServiceIdentifier.uuid());
 
-    when(multiDeviceAccount.getIdentifier(IdentityType.ACI))
+    when(multiDeviceAccount.getAccountIdentifier())
         .thenReturn(multiDeviceAccountAciServiceIdentifier.uuid());
 
     final byte[] multiRecipientMessageBytes = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(

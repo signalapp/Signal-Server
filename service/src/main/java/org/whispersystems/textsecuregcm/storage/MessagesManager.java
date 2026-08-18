@@ -241,7 +241,7 @@ public class MessagesManager {
                     final SealedSenderMultiRecipientMessage.Recipient recipient = serviceIdAndRecipient.getValue();
                     final byte[] devices = recipient.getDevices();
 
-                    return insertAsync(resolvedRecipients.get(recipient).getIdentifier(IdentityType.ACI),
+                    return insertAsync(resolvedRecipients.get(recipient).getAccountIdentifier(),
                         IntStream.range(0, devices.length).mapToObj(i -> devices[i])
                             .collect(Collectors.toMap(deviceId -> deviceId, _ -> prototypeMessage.toBuilder()
                                 .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(serviceIdAndRecipient.getValue())))

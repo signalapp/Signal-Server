@@ -97,7 +97,6 @@ import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialPro
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -215,10 +214,10 @@ class ProfileControllerTest {
 
     profileAccount = mock(Account.class);
 
-    when(profileAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_TWO_IDENTITY_KEY);
-    when(profileAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY);
+    when(profileAccount.getAccountIdentityKey()).thenReturn(ACCOUNT_TWO_IDENTITY_KEY);
+    when(profileAccount.getPhoneNumberIdentityKey()).thenReturn(Optional.of(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY));
     when(profileAccount.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID_TWO);
-    when(profileAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI_TWO);
+    when(profileAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(AuthHelper.VALID_PNI_TWO));
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
     when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
     when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
@@ -228,8 +227,8 @@ class ProfileControllerTest {
     capabilitiesAccount = mock(Account.class);
 
     when(capabilitiesAccount.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID);
-    when(capabilitiesAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTITY_KEY);
-    when(capabilitiesAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
+    when(capabilitiesAccount.getAccountIdentityKey()).thenReturn(ACCOUNT_IDENTITY_KEY);
+    when(capabilitiesAccount.getPhoneNumberIdentityKey()).thenReturn(Optional.of(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY));
 
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
 
@@ -1042,7 +1041,7 @@ class ProfileControllerTest {
   void testGetProfileWithExpiringProfileKeyCredentialVersionNotFound() throws VerificationFailedException {
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version("version")));
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
@@ -1254,7 +1253,7 @@ class ProfileControllerTest {
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getAccountIdentifier()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
     when(account.isIdentifiedBy(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(true);

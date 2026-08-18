@@ -81,7 +81,7 @@ public class IdleDeviceNotificationScheduler extends JobScheduler {
 
     try {
       return scheduleJob(runAt, SystemMapper.jsonMapper().writeValueAsBytes(
-          new JobDescriptor(account.getIdentifier(IdentityType.ACI), device.getId(), device.getLastSeen())));
+          new JobDescriptor(account.getAccountIdentifier(), device.getId(), device.getLastSeen())));
     } catch (final JsonProcessingException e) {
       // This should never happen when serializing an `AccountAndDeviceIdentifier`
       throw new AssertionError(e);

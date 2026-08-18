@@ -161,18 +161,18 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
         .thenReturn(new SpamCheckResult<>(Optional.empty(), Optional.empty()));
 
     when(authenticatedDevice.getId()).thenReturn(AUTHENTICATED_DEVICE_ID);
-    when(authenticatedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(AUTHENTICATED_REGISTRATION_ID);
+    when(authenticatedDevice.getAccountRegistrationId()).thenReturn(AUTHENTICATED_REGISTRATION_ID);
     when(authenticatedDevice.getLastSeen()).thenReturn(CLOCK.instant().toEpochMilli());
     when(authenticatedDevice.isPrimary()).thenReturn(true);
 
     when(linkedDevice.getId()).thenReturn(LINKED_DEVICE_ID);
-    when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(LINKED_DEVICE_REGISTRATION_ID);
+    when(linkedDevice.getAccountRegistrationId()).thenReturn(LINKED_DEVICE_REGISTRATION_ID);
 
     when(secondLinkedDevice.getId()).thenReturn(SECOND_LINKED_DEVICE_ID);
-    when(secondLinkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(SECOND_LINKED_DEVICE_REGISTRATION_ID);
+    when(secondLinkedDevice.getAccountRegistrationId()).thenReturn(SECOND_LINKED_DEVICE_REGISTRATION_ID);
 
     when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
+    when(authenticatedAccount.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(authenticatedAccount.getDevice(anyByte())).thenReturn(Optional.empty());
     when(authenticatedAccount.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.of(authenticatedDevice));
     when(authenticatedAccount.getDevice(LINKED_DEVICE_ID)).thenReturn(Optional.of(linkedDevice));

@@ -113,6 +113,6 @@ public class AccountLockManager {
   public <V, E extends Exception> V withSingleAccountLock(Account account,
       final ThrowingSupplier<V, E> task,
       final Executor lockAcquisitionExecutor) throws E {
-    return withLock(Set.of(account.getPhoneNumberIdentifierOptional().orElse(account.getAccountIdentifier())), task, lockAcquisitionExecutor);
+    return withLock(Set.of(account.getPhoneNumberIdentifier().orElse(account.getAccountIdentifier())), task, lockAcquisitionExecutor);
   }
 }

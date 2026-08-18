@@ -113,7 +113,7 @@ public class CertificateController {
     final List<GroupCredentials.CallLinkAuthCredential> callLinkAuthCredentials = new ArrayList<>();
 
     final ServiceId.Aci aci = new ServiceId.Aci(account.getAccountIdentifier());
-    final Optional<ServiceId.Pni> maybePni = account.getPhoneNumberIdentifierOptional().map(ServiceId.Pni::new);
+    final Optional<ServiceId.Pni> maybePni = account.getPhoneNumberIdentifier().map(ServiceId.Pni::new);
 
     for (Instant redemption : redemptionRange) {
       final AuthCredentialWithPniResponse authCredentialWithPni =

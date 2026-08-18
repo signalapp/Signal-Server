@@ -223,7 +223,7 @@ public class AccountController {
         .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
 
     final Collection<TransactWriteItem> additionalWriteItems =
-        account.getPhoneNumberIdentifierOptional()
+        account.getPhoneNumberIdentifier()
             .flatMap(phoneNumberIdentifier -> attributes.recoveryPassword().map(recoveryPassword ->
                 List.of(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, recoveryPassword))))
             .orElseGet(Collections::emptyList);
@@ -243,7 +243,7 @@ public class AccountController {
       a.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
       a.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
 
-      if (attributes.isDiscoverableByPhoneNumber() && a.getNumberOptional().isEmpty()) {
+      if (attributes.isDiscoverableByPhoneNumber() && a.getNumber().isEmpty()) {
         throw new BadRequestException("account does not have a phone number");
       }
 

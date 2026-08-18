@@ -36,7 +36,7 @@ class DirectoryControllerV2Test {
 
     final Account account = mock(Account.class);
     final UUID uuid = UUID.fromString("11111111-1111-1111-1111-111111111111");
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
+    when(account.getAccountIdentifier()).thenReturn(uuid);
 
     final ExternalServiceCredentials credentials = controller.getAuthToken(
         new AuthenticatedDevice(uuid, Device.PRIMARY_ID, Instant.now()));

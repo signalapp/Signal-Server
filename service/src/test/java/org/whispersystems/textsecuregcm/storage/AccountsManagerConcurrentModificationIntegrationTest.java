@@ -222,7 +222,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         () -> assertArrayEquals(currentProfileVersion, account.getCurrentProfileVersion().orElseThrow()),
         () -> assertEquals(identityKey, account.getAccountIdentityKey()),
         () -> assertArrayEquals(unidentifiedAccessKey, account.getUnidentifiedAccessKey().orElseThrow()),
-        () -> assertTrue(account.getPhoneNumberIdentifierOptional().isEmpty() || account.getRegistrationLock().verify(clientRegistrationLock)),
+        () -> assertTrue(account.getPhoneNumberIdentifier().isEmpty() || account.getRegistrationLock().verify(clientRegistrationLock)),
         () -> assertTrue(account.getAccountRecoveryPassword().orElseThrow().verify(accountRecoveryPassword)),
         () -> assertEquals(unrestrictedUnidentifiedAccess, account.isUnrestrictedUnidentifiedAccess())
     );

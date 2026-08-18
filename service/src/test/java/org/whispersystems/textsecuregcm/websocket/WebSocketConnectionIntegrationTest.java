@@ -50,7 +50,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -120,8 +119,8 @@ class WebSocketConnectionIntegrationTest {
     webSocketClient = mock(WebSocketClient.class);
     clientReleaseManager = mock(ClientReleaseManager.class);
 
-    when(account.getNumber()).thenReturn("+18005551234");
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(UUID.randomUUID());
+    when(account.getNumber()).thenReturn(Optional.of("+18005551234"));
+    when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
     redisMessageAvailabilityManager.start();
@@ -177,14 +176,14 @@ class WebSocketConnectionIntegrationTest {
           expectedMessages.add(envelope);
         }
 
-        messagesDynamoDb.store(persistedMessages, account.getIdentifier(IdentityType.ACI), device);
+        messagesDynamoDb.store(persistedMessages, account.getAccountIdentifier(), device);
       }
 
       for (int i = 0; i < cachedMessageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
 
-        messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
+        messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
         expectedMessages.add(envelope);
       }
 
@@ -255,14 +254,14 @@ class WebSocketConnectionIntegrationTest {
           expectedMessages.add(envelope);
         }
 
-        messagesDynamoDb.store(persistedMessages, account.getIdentifier(IdentityType.ACI), device);
+        messagesDynamoDb.store(persistedMessages, account.getAccountIdentifier(), device);
       }
 
       for (int i = 0; i < cachedMessageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
 
-        messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
+        messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
         expectedMessages.add(envelope);
       }
 
@@ -280,7 +279,7 @@ class WebSocketConnectionIntegrationTest {
                   final UUID messageGuid = UUID.randomUUID();
                   final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
 
-                  messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
+                  messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
                   expectedMessages.add(envelope);
                 }
               });
@@ -349,13 +348,13 @@ class WebSocketConnectionIntegrationTest {
           expectedMessages.add(envelope);
         }
 
-        messagesDynamoDb.store(persistedMessages, account.getIdentifier(IdentityType.ACI), device);
+        messagesDynamoDb.store(persistedMessages, account.getAccountIdentifier(), device);
       }
 
       for (int i = 0; i < cachedMessageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
-        messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
+        messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
 
         expectedMessages.add(envelope);
       }

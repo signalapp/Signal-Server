@@ -16,13 +16,13 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -49,10 +49,10 @@ public class IdleWakeupEligibilityCheckerTest {
       final boolean mayHaveUrgentMessages,
       final boolean expectEligible) {
 
-    when(messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device))
+    when(messagesManager.mayHavePersistedMessages(account.getAccountIdentifier(), device))
         .thenReturn(CompletableFuture.completedFuture(mayHaveMessages));
 
-    when(messagesManager.mayHaveUrgentPersistedMessages(account.getIdentifier(IdentityType.ACI), device))
+    when(messagesManager.mayHaveUrgentPersistedMessages(account.getAccountIdentifier(), device))
         .thenReturn(CompletableFuture.completedFuture(mayHaveUrgentMessages));
 
     assertEquals(expectEligible, idleChecker.isDeviceEligible(account, device).join());
@@ -62,9 +62,9 @@ public class IdleWakeupEligibilityCheckerTest {
     final List<Arguments> arguments = new ArrayList<>();
 
     final Account account = mock(Account.class);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(UUID.randomUUID());
-    when(account.getNumber()).thenReturn(PhoneNumberUtil.getInstance().format(
-        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164));
+    when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
+    when(account.getNumber()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
 
     {
       // Long-idle device with push token and messages

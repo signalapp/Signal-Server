@@ -32,7 +32,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -71,8 +70,7 @@ class PushNotificationSchedulerTest {
 
     account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(ACCOUNT_UUID);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(ACCOUNT_UUID);
-    when(account.getNumber()).thenReturn(ACCOUNT_NUMBER);
+    when(account.getNumber()).thenReturn(Optional.of(ACCOUNT_NUMBER));
     when(account.getDevice(DEVICE_ID)).thenReturn(Optional.of(device));
 
     final AccountsManager accountsManager = mock(AccountsManager.class);

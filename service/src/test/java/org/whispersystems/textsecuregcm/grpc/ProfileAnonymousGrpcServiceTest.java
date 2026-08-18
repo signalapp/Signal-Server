@@ -184,7 +184,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     when(account.getCurrentProfileVersion()).thenReturn(Optional.ofNullable(accountVersion));
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
-    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(account.getAccountIdentityKey()).thenReturn(identityKey);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.getBadges()).thenReturn(Collections.emptyList());
 
@@ -262,7 +262,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
-    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(account.getAccountIdentityKey()).thenReturn(identityKey);
     when(account.getBadges()).thenReturn(Collections.emptyList());
 
     when(profileBadgeConverter.visibleBadgeIds(anyList())).thenReturn(badgeIds);
@@ -318,7 +318,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
-    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(account.getAccountIdentityKey()).thenReturn(identityKey);
     when(account.getBadges()).thenReturn(Collections.emptyList());
 
     when(profileBadgeConverter.visibleBadgeIds(anyList())).thenReturn(badgeIds);

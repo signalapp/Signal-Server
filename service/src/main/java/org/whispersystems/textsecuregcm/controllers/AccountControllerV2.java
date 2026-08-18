@@ -156,7 +156,7 @@ public class AccountControllerV2 {
       @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability) {
 
     accountsManager.update(auth.accountIdentifier(), account -> {
-      if (account.getNumberOptional().isEmpty()) {
+      if (account.getNumber().isEmpty()) {
         throw new BadRequestException();
       }
 
@@ -179,7 +179,7 @@ public class AccountControllerV2 {
     return new AccountDataReportResponse(UUID.randomUUID(), Instant.now(),
         new AccountDataReportResponse.AccountAndDevicesDataReport(
             new AccountDataReportResponse.AccountDataReport(
-                account.getNumberOptional(),
+                account.getNumber(),
                 account.getBadges().stream().map(AccountDataReportResponse.BadgeDataReport::new).toList(),
                 account.isUnrestrictedUnidentifiedAccess(),
                 account.isDiscoverableByPhoneNumber()),

@@ -124,7 +124,7 @@ public class TrimOversizedFoundationDbMessageQueuesCommand extends AbstractSingl
     accounts
         .flatMapIterable(account ->
             account.getDevices().stream().map(
-                device -> new Pair<>(new AciServiceIdentifier(account.getIdentifier(IdentityType.ACI)), device)).toList())
+                device -> new Pair<>(new AciServiceIdentifier(account.getAccountIdentifier()), device)).toList())
         .doOnNext(_ -> Metrics.counter(QUEUES_INSPECTED_COUNTER_NAME, "dryRun", String.valueOf(dryRun)).increment())
         .flatMap(accountAndDevice ->
             messagesManager.trimQueue(accountAndDevice.first(), accountAndDevice.second(), maxQueueSizeBytes, targetQueueSizeBytes, rangeSplitChunkSizeBytes, dryRun),

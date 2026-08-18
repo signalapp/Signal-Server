@@ -1141,7 +1141,7 @@ class MessagesAnonymousGrpcServiceTest extends
       final Account destinationAccount = mock(Account.class);
       when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
       when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
-      when(destinationAccount.getIdentifier(IdentityType.ACI)).thenReturn(serviceIdentifier.uuid());
+      when(destinationAccount.getAccountIdentifier()).thenReturn(serviceIdentifier.uuid());
 
       when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(destinationAccount));
 

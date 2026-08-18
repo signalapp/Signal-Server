@@ -65,14 +65,14 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     final CompletableFuture<Integer> aciEcKeyCountFuture =
         keysManager.getEcCount(aci, authenticatedDevice.deviceId());
 
-    final CompletableFuture<Integer> pniEcKeyCountFuture = account.getPhoneNumberIdentifierOptional()
+    final CompletableFuture<Integer> pniEcKeyCountFuture = account.getPhoneNumberIdentifier()
         .map(pni -> keysManager.getEcCount(pni, authenticatedDevice.deviceId()))
         .orElseGet(() -> CompletableFuture.completedFuture(0));
 
     final CompletableFuture<Integer> aciKemKeyCountFuture =
         keysManager.getPqCount(aci, authenticatedDevice.deviceId());
 
-    final CompletableFuture<Integer> pniKemKeyCountFuture = account.getPhoneNumberIdentifierOptional()
+    final CompletableFuture<Integer> pniKemKeyCountFuture = account.getPhoneNumberIdentifier()
         .map(pni -> keysManager.getPqCount(pni, authenticatedDevice.deviceId()))
         .orElseGet(() -> CompletableFuture.completedFuture(0));
 
@@ -103,7 +103,10 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     final Optional<Integer> targetRegistrationId = maybeTargetAccount
         .filter(_ -> request.hasDeviceId())
         .flatMap(targetAccount -> targetAccount.getDevice(deviceId))
-        .map(device -> device.getRegistrationId(targetIdentifier.identityType()));
+        .flatMap(device -> switch (targetIdentifier.identityType()) {
+          case ACI -> Optional.of(device.getAccountRegistrationId());
+          case PNI -> device.getPhoneNumberIdentityRegistrationId();
+        });
 
     final String rateLimitKey = RateLimitKeys.preKeyLimiterKey(
         authenticatedDevice.accountIdentifier(),
@@ -158,10 +161,16 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
 
     final Account account = getAuthenticatedAccount(authenticatedAccountUuid);
 
+    final IdentityKey identityKey = switch (identityType) {
+      case ACI -> account.getAccountIdentityKey();
+      case PNI -> account.getPhoneNumberIdentityKey()
+          .orElseThrow(() -> new IllegalArgumentException("Account does not have a PNI identity key"));
+    };
+
     final UUID identifier = getIdentifier(account, identityType);
 
     final List<K> preKeys = requestPreKeys.stream()
-        .map(requestPreKey -> extractPreKeyFunction.apply(requestPreKey, account.getIdentityKey(identityType)))
+        .map(requestPreKey -> extractPreKeyFunction.apply(requestPreKey, identityKey))
         .toList();
 
     storeKeysFunction.apply(identifier, preKeys).join();
@@ -200,9 +209,13 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
       final BiFunction<UUID, K, CompletableFuture<Void>> storeKeyFunction) {
 
     final Account account = getAuthenticatedAccount(authenticatedAccountUuid);
+    final IdentityKey identityKey = switch (identityType) {
+      case ACI -> account.getAccountIdentityKey();
+      case PNI -> account.getPhoneNumberIdentityKey()
+          .orElseThrow(() -> new IllegalArgumentException("Account does not have a PNI identity key"));
+    };
 
     final UUID identifier = getIdentifier(account, identityType);
-    final IdentityKey identityKey = account.getIdentityKey(identityType);
     final K key = extractKeyFunction.apply(storeKeyRequest, identityKey);
 
     storeKeyFunction.apply(identifier, key).join();
@@ -218,7 +231,7 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
   private static UUID getIdentifier(Account account, IdentityType identityType) {
     return switch (identityType) {
       case ACI -> account.getAccountIdentifier();
-      case PNI -> account.getPhoneNumberIdentifierOptional()
+      case PNI -> account.getPhoneNumberIdentifier()
           .orElseThrow(() -> GrpcExceptions.invalidArguments("PNI identity type not allowed for an account without a phone number"));
     };
   }

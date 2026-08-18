@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
@@ -27,12 +26,10 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Stream;
-
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.mockito.quality.Strictness;
@@ -47,13 +44,12 @@ import org.signal.libsignal.zkgroup.groups.GroupSecretParams;
 import org.signal.libsignal.zkgroup.groups.UuidCiphertext;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendEndorsementsResponse;
-import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendEndorsementsResponse.ReceivedEndorsements;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -169,34 +165,18 @@ public class AuthHelper {
     when(UNDISCOVERABLE_ACCOUNT.getDevices()).thenReturn(List.of(UNDISCOVERABLE_DEVICE));
     when(VALID_ACCOUNT_3.getDevices()).thenReturn(List.of(VALID_DEVICE_3_PRIMARY, VALID_DEVICE_3_LINKED));
 
-    when(VALID_ACCOUNT.getNumber()).thenReturn(VALID_NUMBER);
-    when(VALID_ACCOUNT.getNumberOptional()).thenReturn(Optional.of(VALID_NUMBER));
+    when(VALID_ACCOUNT.getNumber()).thenReturn(Optional.of(VALID_NUMBER));
     when(VALID_ACCOUNT.getAccountIdentifier()).thenReturn(VALID_UUID);
-    when(VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(VALID_PNI);
-    when(VALID_ACCOUNT.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(VALID_PNI));
-    when(VALID_ACCOUNT.getIdentifier(IdentityType.ACI)).thenReturn(VALID_UUID);
-    when(VALID_ACCOUNT.getIdentifier(IdentityType.PNI)).thenReturn(VALID_PNI);
-    when(VALID_ACCOUNT_TWO.getNumber()).thenReturn(VALID_NUMBER_TWO);
-    when(VALID_ACCOUNT_TWO.getNumberOptional()).thenReturn(Optional.of(VALID_NUMBER_TWO));
+    when(VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(Optional.of(VALID_PNI));
+    when(VALID_ACCOUNT_TWO.getNumber()).thenReturn(Optional.of(VALID_NUMBER_TWO));
     when(VALID_ACCOUNT_TWO.getAccountIdentifier()).thenReturn(VALID_UUID_TWO);
-    when(VALID_ACCOUNT_TWO.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_TWO);
-    when(VALID_ACCOUNT_TWO.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(VALID_PNI_TWO));
-    when(VALID_ACCOUNT_TWO.getIdentifier(IdentityType.ACI)).thenReturn(VALID_UUID_TWO);
-    when(VALID_ACCOUNT_TWO.getIdentifier(IdentityType.PNI)).thenReturn(VALID_PNI_TWO);
-    when(UNDISCOVERABLE_ACCOUNT.getNumber()).thenReturn(UNDISCOVERABLE_NUMBER);
-    when(UNDISCOVERABLE_ACCOUNT.getNumberOptional()).thenReturn(Optional.of(UNDISCOVERABLE_NUMBER));
+    when(VALID_ACCOUNT_TWO.getPhoneNumberIdentifier()).thenReturn(Optional.of(VALID_PNI_TWO));
+    when(UNDISCOVERABLE_ACCOUNT.getNumber()).thenReturn(Optional.of(UNDISCOVERABLE_NUMBER));
     when(UNDISCOVERABLE_ACCOUNT.getAccountIdentifier()).thenReturn(UNDISCOVERABLE_UUID);
-    when(UNDISCOVERABLE_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(UNDISCOVERABLE_PNI);
-    when(UNDISCOVERABLE_ACCOUNT.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(UNDISCOVERABLE_PNI));
-    when(UNDISCOVERABLE_ACCOUNT.getIdentifier(IdentityType.ACI)).thenReturn(UNDISCOVERABLE_UUID);
-    when(UNDISCOVERABLE_ACCOUNT.getIdentifier(IdentityType.PNI)).thenReturn(UNDISCOVERABLE_PNI);
-    when(VALID_ACCOUNT_3.getNumber()).thenReturn(VALID_NUMBER_3);
-    when(VALID_ACCOUNT_3.getNumberOptional()).thenReturn(Optional.of(VALID_NUMBER_3));
+    when(UNDISCOVERABLE_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(Optional.of(UNDISCOVERABLE_PNI));
+    when(VALID_ACCOUNT_3.getNumber()).thenReturn(Optional.of(VALID_NUMBER_3));
     when(VALID_ACCOUNT_3.getAccountIdentifier()).thenReturn(VALID_UUID_3);
-    when(VALID_ACCOUNT_3.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_3);
-    when(VALID_ACCOUNT_3.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(VALID_PNI_3));
-    when(VALID_ACCOUNT_3.getIdentifier(IdentityType.ACI)).thenReturn(VALID_UUID_3);
-    when(VALID_ACCOUNT_3.getIdentifier(IdentityType.PNI)).thenReturn(VALID_PNI_3);
+    when(VALID_ACCOUNT_3.getPhoneNumberIdentifier()).thenReturn(Optional.of(VALID_PNI_3));
 
     when(VALID_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(true);
     when(VALID_ACCOUNT_TWO.isDiscoverableByPhoneNumber()).thenReturn(true);
@@ -211,9 +191,7 @@ public class AuthHelper {
     when(VALID_ACCOUNT_3.isIdentifiedBy(new AciServiceIdentifier(VALID_UUID_3))).thenReturn(true);
     when(VALID_ACCOUNT_3.isIdentifiedBy(new PniServiceIdentifier(VALID_PNI_3))).thenReturn(true);
 
-    when(VALID_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(VALID_IDENTITY);
     when(VALID_ACCOUNT.getAccountIdentityKey()).thenReturn(VALID_IDENTITY);
-    when(VALID_ACCOUNT.getIdentityKey(IdentityType.PNI)).thenReturn(VALID_PNI_IDENTITY);
     when(VALID_ACCOUNT.getPhoneNumberIdentityKey()).thenReturn(Optional.of(VALID_PNI_IDENTITY));
 
     when(NUMBERLESS_CREDENTIALS.verify(NUMBERLESS_PASSWORD)).thenReturn(true);
@@ -226,16 +204,11 @@ public class AuthHelper {
     when(NUMBERLESS_ACCOUNT.getAccountIdentifier()).thenReturn(NUMBERLESS_UUID);
     when(NUMBERLESS_ACCOUNT.isIdentifiedBy(new AciServiceIdentifier(NUMBERLESS_UUID))).thenReturn(true);
     when(NUMBERLESS_ACCOUNT.isDiscoverableByPhoneNumber()).thenReturn(false);
-    when(NUMBERLESS_ACCOUNT.getIdentityKey(IdentityType.ACI)).thenReturn(VALID_IDENTITY);
     when(NUMBERLESS_ACCOUNT.getAccountIdentityKey()).thenReturn(VALID_IDENTITY);
-    when(NUMBERLESS_ACCOUNT.getNumberOptional()).thenReturn(Optional.empty());
-    when(NUMBERLESS_ACCOUNT.getPhoneNumberIdentifierOptional()).thenReturn(Optional.empty());
+    when(NUMBERLESS_ACCOUNT.getNumber()).thenReturn(Optional.empty());
+    when(NUMBERLESS_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(Optional.empty());
     when(NUMBERLESS_ACCOUNT.getAuthCredentialSalt()).thenReturn(Optional.of(NUMBERLESS_AUTH_CREDENTIAL_SALT));
-    doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getNumber();
-    doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getPhoneNumberIdentifier();
-    doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getIdentityKey(IdentityType.PNI);
-    doThrow(new NoSuchElementException()).when(NUMBERLESS_ACCOUNT).getIdentifier(IdentityType.PNI);
-    when(NUMBERLESS_ACCOUNT.getIdentifier(IdentityType.ACI)).thenReturn(NUMBERLESS_UUID);
+    when(NUMBERLESS_ACCOUNT.getAccountIdentifier()).thenReturn(NUMBERLESS_UUID);
 
     reset(ACCOUNTS_MANAGER);
 
@@ -320,9 +293,9 @@ public class AuthHelper {
       when(device.getId()).thenReturn(Device.PRIMARY_ID);
       when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
       when(account.getPrimaryDevice()).thenReturn(device);
-      when(account.getNumber()).thenReturn(number);
+      when(account.getNumber()).thenReturn(Optional.of(number));
       when(account.getAccountIdentifier()).thenReturn(uuid);
-      when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
+      when(account.getAccountIdentifier()).thenReturn(uuid);
       when(accountsManager.getByE164(number)).thenReturn(Optional.of(account));
       when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     }

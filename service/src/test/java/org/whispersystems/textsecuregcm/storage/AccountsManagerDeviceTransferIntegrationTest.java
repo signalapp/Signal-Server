@@ -94,7 +94,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getAccountRegistrationId()).thenReturn(registrationId);
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
@@ -123,7 +123,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getAccountRegistrationId()).thenReturn(registrationId);
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
@@ -145,7 +145,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getAccountRegistrationId()).thenReturn(registrationId);
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
@@ -162,7 +162,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Device device = mock(Device.class);
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(123);
+    when(device.getAccountRegistrationId()).thenReturn(123);
 
     final Account account = mock(Account.class);
     when(account.getAccountIdentifier()).thenReturn(accountIdentifier);

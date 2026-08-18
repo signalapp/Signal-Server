@@ -165,7 +165,7 @@ public class AccountsManagerMigrateRecoveryPasswordIntegrationTest {
             .setDeviceAttributes(new DeviceAttributes(false, 1, 1, new byte[0], Collections.emptySet())))
         .build();
 
-    final UUID phoneNumberIdentifier = account.getPhoneNumberIdentifierOptional().orElseThrow();
+    final UUID phoneNumberIdentifier = account.getPhoneNumberIdentifier().orElseThrow();
     final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
 
     phoneNumberRecoveryPasswordsManager.store(phoneNumberIdentifier, recoveryPassword);

@@ -126,7 +126,7 @@ class MessagePersisterIntegrationTest {
 
     final UUID accountUuid = UUID.randomUUID();
 
-    when(account.getNumber()).thenReturn("+18005551234");
+    when(account.getNumber()).thenReturn(Optional.of("+18005551234"));
     when(account.getAccountIdentifier()).thenReturn(accountUuid);
     when(accountsManager.getByAccountIdentifier(accountUuid)).thenReturn(Optional.of(account));
     when(accountsManager.getByAccountIdentifierAsync(accountUuid)).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));

@@ -267,10 +267,10 @@ public class AccountCreationDeletionIntegrationTest {
         Optional.of(pniPqLastResortPreKey));
 
     assertEquals(Optional.of(aciSignedPreKey), keysManager.getEcSignedPreKey(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
-    assertEquals(Optional.of(pniSignedPreKey), keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join());
+    assertEquals(Optional.of(pniSignedPreKey), keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifier().orElseThrow(), Device.PRIMARY_ID).join());
     assertEquals(Optional.of(aciPqLastResortPreKey), keysManager.getLastResort(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
-    assertEquals(Optional.of(pniPqLastResortPreKey), keysManager.getLastResort(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join());
-    assertTrue(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(), recoveryPassword));
+    assertEquals(Optional.of(pniPqLastResortPreKey), keysManager.getLastResort(account.getPhoneNumberIdentifier().orElseThrow(), Device.PRIMARY_ID).join());
+    assertTrue(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifier().orElseThrow(), recoveryPassword));
   }
 
   @ParameterizedTest
@@ -344,8 +344,8 @@ public class AccountCreationDeletionIntegrationTest {
     assertEquals(Optional.of(aciSignedPreKey), keysManager.getEcSignedPreKey(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
     assertEquals(Optional.of(aciPqLastResortPreKey), keysManager.getLastResort(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
 
-    assertTrue(account.getNumberOptional().isEmpty());
-    assertTrue(account.getPhoneNumberIdentifierOptional().isEmpty());
+    assertTrue(account.getNumber().isEmpty());
+    assertTrue(account.getPhoneNumberIdentifier().isEmpty());
     assertTrue(account.getPhoneNumberIdentityKey().isEmpty());
   }
 
@@ -486,8 +486,8 @@ public class AccountCreationDeletionIntegrationTest {
     verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
         account.getAccountIdentifier().equals(existingAccountUuid) && account != reregisteredAccount));
 
-    assertTrue(phoneNumberRecoveryPasswordsManager.verify(reregisteredAccount.getPhoneNumberIdentifierOptional().orElseThrow(), updatedRecoveryPassword));
-    assertFalse(phoneNumberRecoveryPasswordsManager.verify(reregisteredAccount.getPhoneNumberIdentifierOptional().orElseThrow(), originalRecoveryPassword));
+    assertTrue(phoneNumberRecoveryPasswordsManager.verify(reregisteredAccount.getPhoneNumberIdentifier().orElseThrow(), updatedRecoveryPassword));
+    assertFalse(phoneNumberRecoveryPasswordsManager.verify(reregisteredAccount.getPhoneNumberIdentifier().orElseThrow(), originalRecoveryPassword));
   }
 
   @ParameterizedTest
@@ -589,8 +589,8 @@ public class AccountCreationDeletionIntegrationTest {
         null);
 
     assertEquals(existingAccount.getAccountIdentifier(), reclaimedAccount.getAccountIdentifier());
-    assertEquals(existingAccount.getNumberOptional(), reclaimedAccount.getNumberOptional());
-    assertEquals(existingAccount.getPhoneNumberIdentifierOptional(), reclaimedAccount.getPhoneNumberIdentifierOptional());
+    assertEquals(existingAccount.getNumber(), reclaimedAccount.getNumber());
+    assertEquals(existingAccount.getPhoneNumberIdentifier(), reclaimedAccount.getPhoneNumberIdentifier());
     assertEquals(aciIdentityKey, reclaimedAccount.getAccountIdentityKey());
     assertEquals(hasE164 ? Optional.of(pniIdentityKey) : Optional.empty(), reclaimedAccount.getPhoneNumberIdentityKey());
 
@@ -678,7 +678,7 @@ public class AccountCreationDeletionIntegrationTest {
               Optional.empty(),
               Optional.empty()),
           null);
-      assertTrue(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(),
+      assertTrue(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifier().orElseThrow(),
           accountAttributes.recoveryPassword().orElseThrow()));
     } else {
       account = accountsManager.create(accountAttributes,
@@ -706,9 +706,9 @@ public class AccountCreationDeletionIntegrationTest {
     assertFalse(keysManager.getEcSignedPreKey(account.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getAccountIdentifier(), Device.PRIMARY_ID).join().isPresent());
     if (hasE164) {
-      assertFalse(keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join().isPresent());
-      assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifierOptional().orElseThrow(), Device.PRIMARY_ID).join().isPresent());
-      assertFalse(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifierOptional().orElseThrow(),
+      assertFalse(keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifier().orElseThrow(), Device.PRIMARY_ID).join().isPresent());
+      assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier().orElseThrow(), Device.PRIMARY_ID).join().isPresent());
+      assertFalse(phoneNumberRecoveryPasswordsManager.verify(account.getPhoneNumberIdentifier().orElseThrow(),
           accountAttributes.recoveryPassword().orElseThrow()));
     }
 
@@ -809,8 +809,8 @@ public class AccountCreationDeletionIntegrationTest {
 
     assertEquals(existingAccountUuid, retriedAccount.getAccountIdentifier());
 
-    assertTrue(retriedAccount.getNumberOptional().isEmpty());
-    assertTrue(retriedAccount.getPhoneNumberIdentifierOptional().isEmpty());
+    assertTrue(retriedAccount.getNumber().isEmpty());
+    assertTrue(retriedAccount.getPhoneNumberIdentifier().isEmpty());
     assertTrue(retriedAccount.getPhoneNumberIdentityKey().isEmpty());
 
     verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
@@ -883,7 +883,7 @@ public class AccountCreationDeletionIntegrationTest {
 
     final Device primaryDevice = account.getPrimaryDevice();
 
-    assertEquals(number, account.getNumberOptional());
+    assertEquals(number, account.getNumber());
     assertEquals(signalAgent, primaryDevice.getUserAgent());
     assertEquals(deliveryChannels.fetchesMessages(), primaryDevice.getFetchesMessages());
     assertEquals(registrationId, primaryDevice.getAccountRegistrationId());
@@ -906,7 +906,7 @@ public class AccountCreationDeletionIntegrationTest {
     assertNotNull(primaryDevice.getCreatedAtCiphertext());
     assertEquals(Optional.of(aciSignedPreKey), keysManager.getEcSignedPreKey(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
     assertEquals(Optional.of(aciPqLastResortPreKey), keysManager.getLastResort(account.getAccountIdentifier(), Device.PRIMARY_ID).join());
-    account.getPhoneNumberIdentifierOptional().ifPresent(
+    account.getPhoneNumberIdentifier().ifPresent(
         pni -> {
           assertEquals(pniSignedPreKey, keysManager.getEcSignedPreKey(pni, Device.PRIMARY_ID).join());
           assertEquals(pniPqLastResortPreKey, keysManager.getLastResort(pni, Device.PRIMARY_ID).join());

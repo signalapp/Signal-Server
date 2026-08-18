@@ -42,13 +42,11 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.ObjectUtils;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesLinkedDevices;
@@ -64,7 +62,6 @@ import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachmentError;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
@@ -246,7 +243,7 @@ public class DeviceController {
 
     // Check the optional-phone-number capability before checking PNI keys, so we can give a better error code (since an
     // older device will improperly supply PNI keys for a PNI-less account)
-    if (account.getPhoneNumberIdentifierOptional().isEmpty() &&
+    if (account.getPhoneNumberIdentifier().isEmpty() &&
         !linkDeviceRequest.deviceAttributes().capabilities().contains(DeviceCapability.OPTIONAL_PHONE_NUMBER)) {
       throw new WebApplicationException("Missing required device capability", 409);
     }
@@ -318,7 +315,7 @@ public class DeviceController {
 
       return new LinkDeviceResponse(
           accountAndDevice.first().getAccountIdentifier(),
-          accountAndDevice.first().getPhoneNumberIdentifierOptional(),
+          accountAndDevice.first().getPhoneNumberIdentifier(),
           accountAndDevice.second().getId());
     } catch (final LinkDeviceTokenAlreadyUsedException e) {
       throw new ForbiddenException();

@@ -85,7 +85,7 @@ public class NotifyIdleDevicesCommand extends AbstractSinglePassCrawlAccountsCom
                 .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
                 .onErrorResume(throwable -> {
                   log.warn("Failed to check eligibility for {}:{}",
-                      accountAndDevice.getT1().getIdentifier(IdentityType.ACI),
+                      accountAndDevice.getT1().getAccountIdentifier(),
                       accountAndDevice.getT2().getId(),
                       throwable);
 
@@ -101,7 +101,7 @@ public class NotifyIdleDevicesCommand extends AbstractSinglePassCrawlAccountsCom
               : Mono.fromFuture(() -> idleDeviceNotificationScheduler.scheduleNotification(account, device, PREFERRED_NOTIFICATION_TIME))
                   .onErrorResume(throwable -> {
                     log.warn("Failed to schedule notification for {}:{}",
-                        account.getIdentifier(IdentityType.ACI),
+                        account.getAccountIdentifier(),
                         device.getId(),
                         throwable);
 

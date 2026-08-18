@@ -127,14 +127,14 @@ class AccountControllerV2Test {
 
             final Account updatedAccount = mock(Account.class);
             when(updatedAccount.getAccountIdentifier()).thenReturn(uuid);
-            when(updatedAccount.getNumberOptional()).thenReturn(Optional.of(number));
+            when(updatedAccount.getNumber()).thenReturn(Optional.of(number));
             when(updatedAccount.getPhoneNumberIdentityKey()).thenReturn(Optional.of(pniIdentityKey));
-            if (Optional.of(number).equals(account.getNumberOptional())) {
-              when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(AuthHelper.VALID_PNI));
+            if (Optional.of(number).equals(account.getNumber())) {
+              when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(AuthHelper.VALID_PNI));
             } else {
               final UUID pni = UUID.randomUUID();
 
-              when(updatedAccount.getPhoneNumberIdentifierOptional()).thenReturn(Optional.of(pni));
+              when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(pni));
             }
             when(updatedAccount.getDevices()).thenReturn(devices);
 
@@ -530,7 +530,7 @@ class AccountControllerV2Test {
       final AccountDataReportResponse structuredResponse = SystemMapper.jsonMapper()
           .readValue(stringResponse, AccountDataReportResponse.class);
 
-      assertEquals(account.getNumberOptional(), structuredResponse.data().account().phoneNumber());
+      assertEquals(account.getNumber(), structuredResponse.data().account().phoneNumber());
       assertEquals(account.isDiscoverableByPhoneNumber(),
           structuredResponse.data().account().findAccountByPhoneNumber());
       assertEquals(account.isUnrestrictedUnidentifiedAccess(),

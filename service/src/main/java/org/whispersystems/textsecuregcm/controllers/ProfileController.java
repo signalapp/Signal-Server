@@ -414,10 +414,16 @@ public class ProfileController {
     final Optional<Account> maybeAccount = accountsManager.getByServiceIdentifier(identifier);
 
     maybeAccount.ifPresent(account -> {
-      final IdentityKey identityKey = account.getIdentityKey(identifier.identityType());
-      if (identityKey == null) {
+      final Optional<IdentityKey> maybeIdentityKey = switch (identifier.identityType()) {
+        case ACI -> Optional.of(account.getAccountIdentityKey());
+        case PNI -> account.getPhoneNumberIdentityKey();
+      };
+
+      if (maybeIdentityKey.isEmpty()) {
         return;
       }
+
+      final IdentityKey identityKey = maybeIdentityKey.get();
 
       md.reset();
       byte[] digest = md.digest(identityKey.serialize());
@@ -503,7 +509,7 @@ public class ProfileController {
       final boolean isSelf,
       final ContainerRequestContext containerRequestContext) {
 
-    return new BaseProfileResponse(account.getIdentityKey(IdentityType.ACI),
+    return new BaseProfileResponse(account.getAccountIdentityKey(),
         account.getUnidentifiedAccessKey().map(UnidentifiedAccessChecksum::generateFor).orElse(null),
         account.isUnrestrictedUnidentifiedAccess(),
         getAccountCapabilities(account),
@@ -515,12 +521,14 @@ public class ProfileController {
   }
 
   private BaseProfileResponse buildBaseProfileResponseForPhoneNumberIdentity(final Account account) {
-    return new BaseProfileResponse(account.getIdentityKey(IdentityType.PNI),
+    return new BaseProfileResponse(account.getPhoneNumberIdentityKey()
+        .orElseThrow(() -> new IllegalStateException("Account retrieved by PNI does not have PNI identity key")),
         null,
         false,
         getAccountCapabilities(account),
         Collections.emptyList(),
-        new PniServiceIdentifier(account.getPhoneNumberIdentifier()));
+        new PniServiceIdentifier(account.getPhoneNumberIdentifier()
+            .orElseThrow(() -> new IllegalStateException("Account retrieved by PNI does not have PNI"))));
   }
 
   /**

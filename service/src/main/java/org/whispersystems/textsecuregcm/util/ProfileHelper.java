@@ -119,7 +119,7 @@ public class ProfileHelper {
     final DynamicPaymentsConfiguration paymentsConfiguration =
         dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration();
 
-    final boolean hasDisallowedRegion = account.getNumberOptional()
+    final boolean hasDisallowedRegion = account.getNumber()
         .map(phoneNumber -> paymentsConfiguration.disallowedPrefixes().stream().anyMatch(phoneNumber::startsWith))
         .orElseGet(() -> asnInfoProvider.lookup(ipAddress)
             .map(asnInfo -> paymentsConfiguration.disallowedAsnRegions().stream()

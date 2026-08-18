@@ -164,7 +164,7 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
    * @return a future that completes when the request has been broadcast
    */
   public CompletionStage<Void> requestDisconnection(final Account account) {
-    return requestDisconnection(account.getIdentifier(IdentityType.ACI),
+    return requestDisconnection(account.getAccountIdentifier(),
         account.getDevices().stream().map(Device::getId).toList());
   }
 

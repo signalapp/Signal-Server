@@ -185,7 +185,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
 
     when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
-    when(account.getNumberOptional()).thenReturn(Optional.of(phoneNumber));
+    when(account.getNumber()).thenReturn(Optional.of(phoneNumber));
     when(account.getBadges()).thenReturn(Collections.emptyList());
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
 
@@ -514,7 +514,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .build();
     final String disallowedCountryCode = String.format("+%d", disallowedPhoneNumber.getCountryCode());
     when(dynamicPaymentsConfiguration.disallowedPrefixes()).thenReturn(List.of(disallowedCountryCode));
-    when(account.getNumberOptional()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
+    when(account.getNumber()).thenReturn(Optional.of(PhoneNumberUtil.getInstance().format(
         disallowedPhoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164)));
     when(profilesManager.getV1(any(), anyString())).thenReturn(Optional.of(profile));
 
@@ -633,7 +633,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
     when(profilesManager.getV1(any(), any())).thenReturn(profile);
 
-    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(account.getAccountIdentityKey()).thenReturn(identityKey);
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.getBadges()).thenReturn(Collections.emptyList());
@@ -689,7 +689,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(account.getAccountIdentifier()).thenReturn(targetAci);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
-    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(account.getAccountIdentityKey()).thenReturn(identityKey);
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.getBadges()).thenReturn(Collections.emptyList());
@@ -743,7 +743,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAci))).thenReturn(Optional.of(account));
 
-    when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
+    when(account.getAccountIdentityKey()).thenReturn(identityKey);
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.getBadges()).thenReturn(Collections.emptyList());

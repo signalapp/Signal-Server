@@ -24,11 +24,9 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -39,9 +37,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
@@ -167,26 +162,6 @@ public class Account {
 
   public record BackupVoucher(@JsonProperty("rl") long receiptLevel, @JsonProperty("e") Instant expiration) {}
 
-  /// Returns an identifier for the given identity type for this account with the assumption that all accounts have
-  /// identifiers for all identity types.
-  ///
-  /// @param identityType the identity type for which to retrieve an account identifier
-  ///
-  /// @return the identifier for the given identity type
-  ///
-  /// @throws NoSuchElementException if the account does not have an identifier for the given identity type
-  ///
-  /// @deprecated Different identity types have significantly differing presence and staleness requirements/guarantees
-  /// for their respective account identifiers. Please use [#getAccountIdentifier()] or
-  /// [#getPhoneNumberIdentifierOptional()] instead.
-  @Deprecated
-  public UUID getIdentifier(final IdentityType identityType) {
-    return switch (identityType) {
-      case ACI -> getAccountIdentifier();
-      case PNI -> getPhoneNumberIdentifier();
-    };
-  }
-
   /// Returns the core account identifier (ACI) for this account. An account's core identifier never changes.
   ///
   /// @return the core account identifier for this account
@@ -201,28 +176,10 @@ public class Account {
     this.uuid = accountIdentifier;
   }
 
-  /// Returns the phone number identifier for this account.
-  ///
-  /// @throws NoSuchElementException if this account does not have a phone number identifier
-  ///
-  /// @return the phone number identifier for this account
-  ///
-  /// @deprecated Please use [#getPhoneNumberIdentifierOptional()] (which has clearer presence semantics) instead.
-  @Deprecated
-  public UUID getPhoneNumberIdentifier() {
-    requireNotStale();
-
-    if (phoneNumberIdentifier == null) {
-      throw new NoSuchElementException();
-    }
-
-    return phoneNumberIdentifier;
-  }
-
   /// Returns the phone number identifier for this account or empty if this account does not have a phone number.
   ///
   /// @return the phone number identifier for this account or empty if this account does not have a phone number
-  public Optional<UUID> getPhoneNumberIdentifierOptional() {
+  public Optional<UUID> getPhoneNumberIdentifier() {
     requireNotStale();
 
     return Optional.ofNullable(phoneNumberIdentifier);
@@ -240,26 +197,10 @@ public class Account {
     };
   }
 
-  /// Returns the E.164-formatted phone number for this account.
-  ///
-  /// @return the E.164-formatted phone number for this account
-  ///
-  /// @throws NoSuchElementException if this account does not have a phone number
-  @Deprecated
-  public String getNumber() {
-    requireNotStale();
-
-    if (number == null) {
-      throw new NoSuchElementException();
-    }
-
-    return number;
-  }
-
   /// Returns the phone number for this account or empty if this account does not have a phone number.
   ///
   /// @return the phone number for this account or empty if this account does not have a phone number
-  public Optional<String> getNumberOptional() {
+  public Optional<String> getNumber() {
     requireNotStale();
 
     return Optional.ofNullable(number);
@@ -391,28 +332,6 @@ public class Account {
     requireNotStale();
 
     this.identityKey = identityKey;
-  }
-
-  /// Returns an identity key for the given identity type for this account with the assumption that all accounts have
-  /// identity keys for all identity types.
-  ///
-  /// @param identityType the identity type for which to retrieve an identity key
-  ///
-  /// @return the identity key for the given identity type
-  ///
-  /// @throws NoSuchElementException if the account does not have an identifier (and therefore identity key) for the given identity type
-  ///
-  /// @deprecated Different identity types have significantly differing existence requirements/guarantees
-  /// for their respective identity keys. Please use [#getAccountIdentityKey()] or
-  /// [#getPhoneNumberIdentityKey()] instead.
-  @Deprecated
-  public IdentityKey getIdentityKey(final IdentityType identityType) {
-    requireNotStale();
-
-    return switch (identityType) {
-      case ACI -> identityKey;
-      case PNI -> Optional.ofNullable(phoneNumberIdentityKey).orElseThrow(NoSuchElementException::new);
-    };
   }
 
   /// Returns an identity key for the ACI identity for this account.
@@ -591,12 +510,12 @@ public class Account {
   /// @return `true` if this account has a phone number and has opted into discovery by phone number or `false`
   /// otherwise
   ///
-  /// @see #getPhoneNumberIdentifierOptional()
+  /// @see #getPhoneNumberIdentifier()
   /// @see #setDiscoverableByPhoneNumber(boolean)
   public boolean isDiscoverableByPhoneNumber() {
     requireNotStale();
 
-    return getPhoneNumberIdentifierOptional().isPresent() && this.discoverableByPhoneNumber;
+    return getPhoneNumberIdentifier().isPresent() && this.discoverableByPhoneNumber;
   }
 
   public void setDiscoverableByPhoneNumber(final boolean discoverableByPhoneNumber) {

@@ -605,7 +605,7 @@ public class MessageController {
 
     CompletableFuture.allOf(resolvedRecipients.values()
             .stream()
-            .map(account -> account.getIdentifier(IdentityType.ACI))
+            .map(account -> account.getAccountIdentifier())
             .map(accountIdentifier ->
                 rateLimiters.getStoriesLimiter().validateAsync(accountIdentifier).toCompletableFuture())
             .toList()
@@ -746,7 +746,7 @@ public class MessageController {
       final Optional<Account> maybeAccount = accountsManager.getByE164(source);
       if (maybeAccount.isPresent()) {
         sourceAci = maybeAccount.map(Account::getAccountIdentifier);
-        sourcePni = maybeAccount.flatMap(Account::getPhoneNumberIdentifierOptional);
+        sourcePni = maybeAccount.flatMap(Account::getPhoneNumberIdentifier);
       } else {
         sourcePni = Optional.ofNullable(phoneNumberIdentifiers.getPhoneNumberIdentifier(source).join());
         sourceAci = sourcePni.flatMap(accountsManager::findRecentlyDeletedAccountIdentifier);
@@ -764,8 +764,8 @@ public class MessageController {
             Util.getCanonicalNumber(phoneNumberIdentifiers.getPhoneNumber(pni).join()));
         sourceAccountDeleted = true;
       } else {
-        sourceNumber = sourceAccount.flatMap(Account::getNumberOptional);
-        sourcePni = sourceAccount.flatMap(Account::getPhoneNumberIdentifierOptional);
+        sourceNumber = sourceAccount.flatMap(Account::getNumber);
+        sourcePni = sourceAccount.flatMap(Account::getPhoneNumberIdentifier);
       }
     }
 

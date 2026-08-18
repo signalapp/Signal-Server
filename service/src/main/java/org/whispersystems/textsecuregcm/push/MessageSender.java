@@ -30,7 +30,6 @@ import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedExc
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -131,7 +130,7 @@ public class MessageSender {
         syncMessageSenderDeviceId,
         platformTag);
 
-    messagesManager.insert(destination.getIdentifier(IdentityType.ACI), messagesByDeviceId)
+    messagesManager.insert(destination.getAccountIdentifier(), messagesByDeviceId)
         .forEach((deviceId, destinationPresent) -> {
           final Envelope message = messagesByDeviceId.get(deviceId);
 
@@ -409,9 +408,14 @@ public class MessageSender {
           // We know the device must be present because we've already filtered out device IDs that aren't associated
           // with the given account
           final Device device = account.getDevice(deviceId).orElseThrow();
-          final int expectedRegistrationId = device.getRegistrationId(serviceIdentifier.identityType());
+          final Optional<Integer> maybeExpectedRegistrationId = switch (serviceIdentifier.identityType()) {
+            case ACI -> Optional.of(device.getAccountRegistrationId());
+            case PNI -> device.getPhoneNumberIdentityRegistrationId();
+          };
 
-          return registrationId != expectedRegistrationId;
+          return maybeExpectedRegistrationId
+              .map(expectedRegistrationId -> registrationId != expectedRegistrationId)
+              .orElse(true);
         })
         .map(Map.Entry::getKey)
         .collect(Collectors.toSet());

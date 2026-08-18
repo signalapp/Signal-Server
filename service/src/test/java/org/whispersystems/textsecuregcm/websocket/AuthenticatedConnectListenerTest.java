@@ -68,7 +68,7 @@ class AuthenticatedConnectListenerTest {
     when(device.getId()).thenReturn(DEVICE_ID);
 
     authenticatedAccount = mock(Account.class);
-    when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTIFIER);
+    when(authenticatedAccount.getAccountIdentifier()).thenReturn(ACCOUNT_IDENTIFIER);
     when(authenticatedAccount.getDevice(DEVICE_ID)).thenReturn(Optional.of(device));
 
     webSocketClient = mock(WebSocketClient.class);

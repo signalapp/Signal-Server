@@ -65,7 +65,7 @@ abstract class IdleDevicePushNotificationExperiment implements PushNotificationE
       } else {
         pushTokenType = null;
       }
-      return new DeviceLastSeenState(true, device.getRegistrationId(IdentityType.ACI), hasPushToken(device), device.getLastSeen(), pushTokenType);
+      return new DeviceLastSeenState(true, device.getAccountRegistrationId(), hasPushToken(device), device.getLastSeen(), pushTokenType);
     } else {
       return DeviceLastSeenState.MISSING_DEVICE_STATE;
     }

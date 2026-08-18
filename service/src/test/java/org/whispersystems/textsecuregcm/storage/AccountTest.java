@@ -138,11 +138,11 @@ class AccountTest {
     final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), Collections.emptyList(),
         new byte[0]);
 
-    assertDoesNotThrow(account::getNumberOptional);
+    assertDoesNotThrow(account::getNumber);
 
     account.markStale();
 
-    assertThrows(AssertionError.class, account::getNumberOptional);
+    assertThrows(AssertionError.class, account::getNumber);
     assertDoesNotThrow(account::getAccountIdentifier);
   }
 

@@ -72,7 +72,7 @@ abstract class IdleDevicePushNotificationExperimentTest {
     {
       final Device apnsDevice = mock(Device.class);
       when(apnsDevice.getApnId()).thenReturn("apns-token");
-      when(apnsDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+      when(apnsDevice.getAccountRegistrationId()).thenReturn(registrationId);
       when(apnsDevice.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
       assertEquals(
@@ -83,7 +83,7 @@ abstract class IdleDevicePushNotificationExperimentTest {
     {
       final Device fcmDevice = mock(Device.class);
       when(fcmDevice.getGcmId()).thenReturn("fcm-token");
-      when(fcmDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+      when(fcmDevice.getAccountRegistrationId()).thenReturn(registrationId);
       when(fcmDevice.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
       assertEquals(
@@ -93,7 +93,7 @@ abstract class IdleDevicePushNotificationExperimentTest {
 
     {
       final Device noTokenDevice = mock(Device.class);
-      when(noTokenDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+      when(noTokenDevice.getAccountRegistrationId()).thenReturn(registrationId);
       when(noTokenDevice.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
       assertEquals(
