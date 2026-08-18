@@ -208,7 +208,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   static final int TOTP_KEY_LENGTH_BITS = 256;
 
   @VisibleForTesting
-  static final TotpParameters TOTP_PARAMETERS = new TotpParameters(
+  public static final TotpParameters TOTP_PARAMETERS = new TotpParameters(
       TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA256,
       HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
       TimeBasedOneTimePasswordGenerator.DEFAULT_TIME_STEP);

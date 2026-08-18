@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
+import java.util.Arrays;
+import java.util.Objects;
 import javax.crypto.SecretKey;
 
 public record AnnotatedTotpKey(@JsonUnwrapped
@@ -28,5 +30,19 @@ public record AnnotatedTotpKey(@JsonUnwrapped
   @Override
   public byte[] getEncoded() {
     return totpKey().getEncoded();
+  }
+
+  @Override
+  public boolean equals(final Object o) {
+    if (!(o instanceof AnnotatedTotpKey(TotpKey key, byte[] ciphertext))) {
+      return false;
+    }
+
+    return Objects.equals(totpKey, key) && Objects.deepEquals(metadataCiphertext, ciphertext);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(totpKey, Arrays.hashCode(metadataCiphertext));
   }
 }

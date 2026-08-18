@@ -77,6 +77,25 @@ service Accounts {
 
   // Gets the capabilities for the authenticated account.
   rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse) {}
+
+  // Generates and stores a pending TOTP key for the authenticated account.
+  // To "activate" the key, callers must call the `ConfirmTotpKey` endpoint.
+  rpc GenerateTotpKey(GenerateTotpKeyRequest) returns (GenerateTotpKeyResponse) {}
+
+  // Confirms that the caller has stored and can derive one-time passwords from
+  // a pending TOTP key generated via `GenerateTotpKey` and stores/activates the
+  // key for the caller's account
+  rpc ConfirmTotpKey(ConfirmTotpKeyRequest) returns (ConfirmTotpKeyResponse) {}
+
+  // Returns a list of confirmed TOTP keys for the authenticated account
+  rpc ListTotpKeys(ListTotpKeysRequest) returns (ListTotpKeysResponse) {}
+
+  // Updates encrypted, user-supplied metadata (e.g. a human-readable name and
+  // creation timestamp) for an existing, confirmed TOTP key
+  rpc SetTotpKeyMetadata(SetTotpKeyMetadataRequest) returns (SetTotpKeyMetadataResponse) {}
+
+  // Removes a TOTP from the authenticated account
+  rpc RemoveTotpKey(RemoveTotpKeyRequest) returns (RemoveTotpKeyResponse) {}
 }
 
 // Provides methods for looking up Signal accounts. Callers must not provide
@@ -480,4 +499,110 @@ message GetCapabilitiesAnonymousResponse {
     errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
     errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3 [(tag.reason) = "failed_unidentified_authorization"];
   }
+}
+
+message TotpParameters {
+  // The HMAC algorithm (e.g. "HmacSHA256") used by the TOTP generator
+  string algorithm = 1;
+
+  // The length of one-time passwords (in decimal digits) produced and expected
+  // by the TOTP generator
+  uint32 password_length = 2;
+
+  // The time step (in seconds) used by the TOTP generator
+  uint32 time_step_seconds = 3;
+}
+
+message GenerateTotpKeyRequest {
+}
+
+message GenerateTotpKeyResponse {
+  message KeyGenerated {
+    // The raw TOTP key
+    bytes key = 1;
+
+    // The TOTP parameters associated with the generated key
+    TotpParameters totp_parameters = 2;
+  }
+
+  oneof response {
+    // A new, pending TOTP key has been generated and added to the authenticated
+    // account
+    KeyGenerated key_generated = 1;
+
+    // The authenticated account already has too many TOTP keys, and the caller
+    // must remove one before adding more
+    errors.FailedPrecondition too_many_totp_keys = 2 [(tag.reason) = "too_many_totp_keys"];
+  }
+}
+
+message ConfirmTotpKeyRequest {
+  // A one-time password derived from the current pending TOTP key
+  uint32 one_time_password = 1;
+
+  // The ciphertext of user-provided metadata (presumably including a
+  // human-readable name and creation timestamp) to be attached to the
+  // newly-confirmed key
+  bytes metadata_ciphertext = 2 [(require.exactlySize) = 160];
+}
+
+message ConfirmTotpKeyResponse {
+  message KeyConfirmed {
+    // The account-specific identifier for the newly-confirmed TOTP key
+    uint32 key_id = 1;
+  }
+
+  oneof response {
+    // The provided one-time password was accepted and the pending TOTP key was
+    // stored with the provided name ciphertext
+    KeyConfirmed key_confirmed = 1;
+
+    // The provided one-time password was not valid for any reason (including
+    // incorrect passwords, misaligned clocks, or missing account records)
+    errors.FailedPrecondition one_time_password_not_verified = 2 [(tag.reason) = "one_time_password_not_verified"];
+  }
+}
+
+message ListTotpKeysRequest {}
+
+message ListTotpKeysResponse {
+  message TotpKeyMetadata {
+    // The user-provided ciphertext for metadata associated with this TOTP key
+    bytes metadata_ciphertext = 1;
+
+    // The TOTP parameters associated with this key
+    TotpParameters totp_parameters = 2;
+  }
+
+  map<int32, TotpKeyMetadata> keys = 1;
+}
+
+message SetTotpKeyMetadataRequest {
+  // The account-specific identifier of the TOTP key to modify
+  uint32 key_id = 1;
+
+  // The ciphertext of the new user-provided metadata to be attached to the
+  // identified key
+  bytes metadata_ciphertext = 2 [(require.exactlySize) = 160];
+}
+
+message SetTotpKeyMetadataResponse {
+  message MetadataUpdated {
+  }
+
+  oneof response {
+    // New metadata was stored for the identified TOTP key
+    MetadataUpdated metadata_updated = 1;
+
+    // No TOTP was found with the given ID
+    errors.NotFound key_not_found = 2 [(tag.reason) = "key_not_found"];
+  }
+}
+
+message RemoveTotpKeyRequest {
+  // The account-specific identifier of the TOTP key to remove
+  uint32 key_id = 1;
+}
+
+message RemoveTotpKeyResponse {
 }
