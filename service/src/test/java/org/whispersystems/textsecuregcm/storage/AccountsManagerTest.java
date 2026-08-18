@@ -63,6 +63,8 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.crypto.spec.SecretKeySpec;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -949,6 +951,198 @@ class AccountsManagerTest {
         // maps to the same PNI, and the number used by the caller must be present on the re-registered account
         Arguments.argumentSet("Re-register with a phone number in the same equivalence class", Optional.of("+2290123456789"), Optional.of("+22923456789")),
         Arguments.argumentSet("Re-register a numberless account", Optional.empty(), Optional.empty()));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void reclaim(final boolean hasPhoneNumber) {
+    final Account existingAccount = new Account();
+    existingAccount.setAccountIdentifier(UUID.randomUUID());
+
+    final Device existingPrimaryDevice = new Device();
+    existingPrimaryDevice.setId(Device.PRIMARY_ID);
+
+    existingAccount.addDevice(existingPrimaryDevice);
+
+    final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
+
+    existingAccount.setAccountRecoveryPassword(recoveryPassword);
+
+    final int aciRegistrationId = 17;
+    final int pniRegistrationId = 19;
+
+    final ECKeyPair aciKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniKeyPair = ECKeyPair.generate();
+    final IdentityKey aciIdentityKey = new IdentityKey(aciKeyPair.getPublicKey());
+    final IdentityKey pniIdentityKey = new IdentityKey(pniKeyPair.getPublicKey());
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciKeyPair);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciKeyPair);
+    final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
+
+    if (hasPhoneNumber) {
+      existingAccount.setNumber(PhoneNumberUtil.getInstance().format(
+          PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164),
+          UUID.randomUUID());
+    }
+
+    final AccountAttributes accountAttributes = new AccountAttributes(false,
+        aciRegistrationId,
+        hasPhoneNumber ? pniRegistrationId : null,
+        TestRandomUtil.nextBytes(16),
+        hasPhoneNumber ? "registration-lock" : null,
+        hasPhoneNumber,
+        Collections.emptySet(),
+        recoveryPassword);
+
+    final DeviceSpec primaryDeviceSpec = new DeviceSpec(
+        TestRandomUtil.nextBytes(16),
+        RandomStringUtils.insecure().nextAlphanumeric(12),
+        "test",
+        Collections.emptySet(),
+        new DeviceIdentityInfo(aciRegistrationId, aciSignedPreKey, aciPqLastResortPreKey),
+        Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)).filter(_ -> hasPhoneNumber),
+        true,
+        Optional.empty(),
+        Optional.empty());
+
+    when(accounts.reclaimAccount(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    final Account reclaimedAccount = accountsManager.recover(existingAccount,
+        accountAttributes,
+        aciIdentityKey,
+        hasPhoneNumber ? Optional.of(pniIdentityKey) : Optional.empty(),
+        primaryDeviceSpec,
+        null);
+
+    assertEquals(existingAccount.getAccountIdentifier(), reclaimedAccount.getAccountIdentifier());
+    assertEquals(existingAccount.getNumberOptional(), reclaimedAccount.getNumberOptional());
+    assertEquals(existingAccount.getPhoneNumberIdentifierOptional(), reclaimedAccount.getPhoneNumberIdentifierOptional());
+    assertEquals(aciIdentityKey, reclaimedAccount.getAccountIdentityKey());
+    assertEquals(hasPhoneNumber ? Optional.of(pniIdentityKey) : Optional.empty(), reclaimedAccount.getPhoneNumberIdentityKey());
+
+    final Device reclaimedPrimaryDevice = reclaimedAccount.getPrimaryDevice();
+    assertArrayEquals(primaryDeviceSpec.deviceNameCiphertext(), reclaimedPrimaryDevice.getName());
+    assertEquals(primaryDeviceSpec.signalAgent(), reclaimedPrimaryDevice.getUserAgent());
+    assertEquals(aciRegistrationId, reclaimedPrimaryDevice.getAccountRegistrationId());
+    assertEquals(hasPhoneNumber ? Optional.of(pniRegistrationId) : Optional.empty(), reclaimedPrimaryDevice.getPhoneNumberIdentityRegistrationId());
+    assertTrue(reclaimedPrimaryDevice.getFetchesMessages());
+    assertTrue(StringUtils.isBlank(reclaimedPrimaryDevice.getApnId()));
+    assertTrue(StringUtils.isBlank(reclaimedPrimaryDevice.getGcmId()));
+
+    assertTrue(reclaimedAccount.getAccountRecoveryPassword().orElseThrow().verify(HexFormat.of().formatHex(recoveryPassword)));
+    assertTrue(reclaimedPrimaryDevice.getAuthTokenHash().verify(primaryDeviceSpec.password()));
+
+    verify(accounts).reclaimAccount(eq(existingAccount), argThat(account -> existingAccount.getAccountIdentifier().equals(account.getAccountIdentifier())), any());
+
+    verify(keysManager).buildWriteItemsForNewDevice(
+        eq(reclaimedAccount.getAccountIdentifier()),
+        eq(reclaimedAccount.getPhoneNumberIdentifierOptional()),
+        eq(Device.PRIMARY_ID),
+        notNull(),
+        hasPhoneNumber ? notNull() : eq(Optional.empty()),
+        notNull(),
+        hasPhoneNumber ? notNull() : eq(Optional.empty()));
+
+    verify(keysManager, times(2)).deleteSingleUsePreKeys(existingAccount.getAccountIdentifier());
+    existingAccount.getPhoneNumberIdentifierOptional().ifPresent(phoneNumberIdentifier ->
+        verify(keysManager, times(2)).deleteSingleUsePreKeys(phoneNumberIdentifier));
+    verify(messagesManager, times(2)).clear(existingAccount.getAccountIdentifier());
+    verify(profilesManager, times(2)).deleteAll(existingAccount.getAccountIdentifier(), false);
+    verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
+        account.getAccountIdentifier().equals(existingAccount.getAccountIdentifier()) && account != reclaimedAccount));
+    verify(changeNumberWaitingPeriodManager).handleAccountCreated(eq(existingAccount.getAccountIdentifier()), any(Instant.class));
+  }
+
+  @Test
+  void reclaimPniPresenceMismatch() {
+    final Account existingAccount = new Account();
+    existingAccount.setAccountIdentifier(UUID.randomUUID());
+
+    final Device existingPrimaryDevice = new Device();
+    existingPrimaryDevice.setId(Device.PRIMARY_ID);
+
+    existingAccount.addDevice(existingPrimaryDevice);
+
+    final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
+
+    existingAccount.setAccountRecoveryPassword(recoveryPassword);
+
+    final int aciRegistrationId = 17;
+    final int pniRegistrationId = 19;
+
+    final ECKeyPair aciKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniKeyPair = ECKeyPair.generate();
+    final IdentityKey aciIdentityKey = new IdentityKey(aciKeyPair.getPublicKey());
+    final IdentityKey pniIdentityKey = new IdentityKey(pniKeyPair.getPublicKey());
+    final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciKeyPair);
+    final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniKeyPair);
+    final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciKeyPair);
+    final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
+
+    existingAccount.setNumber(PhoneNumberUtil.getInstance().format(
+            PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164),
+        UUID.randomUUID());
+
+    {
+      final AccountAttributes accountAttributes = new AccountAttributes(false,
+          aciRegistrationId,
+          pniRegistrationId,
+          TestRandomUtil.nextBytes(16),
+          "registration-lock",
+          true,
+          Collections.emptySet(),
+          recoveryPassword);
+
+      final DeviceSpec primaryDeviceSpec = new DeviceSpec(
+          TestRandomUtil.nextBytes(16),
+          RandomStringUtils.insecure().nextAlphanumeric(12),
+          "test",
+          Collections.emptySet(),
+          new DeviceIdentityInfo(aciRegistrationId, aciSignedPreKey, aciPqLastResortPreKey),
+          Optional.of(new DeviceIdentityInfo(pniRegistrationId, pniSignedPreKey, pniPqLastResortPreKey)),
+          true,
+          Optional.empty(),
+          Optional.empty());
+
+      assertThrows(IllegalArgumentException.class, () -> accountsManager.recover(existingAccount,
+          accountAttributes,
+          aciIdentityKey,
+          Optional.empty(),
+          primaryDeviceSpec,
+          null));
+    }
+
+    existingAccount.setNumber(null, null);
+
+    {
+      final AccountAttributes accountAttributes = new AccountAttributes(false,
+          aciRegistrationId,
+          null,
+          TestRandomUtil.nextBytes(16),
+          null,
+          false,
+          Collections.emptySet(),
+          recoveryPassword);
+
+      final DeviceSpec primaryDeviceSpec = new DeviceSpec(
+          TestRandomUtil.nextBytes(16),
+          RandomStringUtils.insecure().nextAlphanumeric(12),
+          "test",
+          Collections.emptySet(),
+          new DeviceIdentityInfo(aciRegistrationId, aciSignedPreKey, aciPqLastResortPreKey),
+          Optional.empty(),
+          true,
+          Optional.empty(),
+          Optional.empty());
+
+      assertThrows(IllegalArgumentException.class, () -> accountsManager.recover(existingAccount,
+          accountAttributes,
+          aciIdentityKey,
+          Optional.of(pniIdentityKey),
+          primaryDeviceSpec,
+          null));
+    }
   }
 
   @Test

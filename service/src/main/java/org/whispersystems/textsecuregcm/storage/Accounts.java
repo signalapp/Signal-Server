@@ -341,8 +341,10 @@ public class Accounts {
 
           // If the account recovery password in the request matches the existing account, this is likely a client retry,
           // and we continue to allow for idempotency, otherwise this is an attempt to double-redeem a receipt
-          final boolean isRetry = existingAccount.getAccountRecoveryPassword().map(arp ->
-              PhoneNumberRecoveryPasswordsManager.verify(arp, accountRecoveryPasswordInRequest)).orElse(false);
+          final boolean isRetry = existingAccount.getAccountRecoveryPassword()
+              .map(arp -> PhoneNumberRecoveryPasswordsManager.verify(arp, accountRecoveryPasswordInRequest))
+              .orElse(false);
+
           if (!isRetry) {
             throw new ReceiptAlreadyRedeemedException();
           }
@@ -383,6 +385,7 @@ public class Accounts {
       log.error("Reclaimed accounts must match. Old account {}:{}:{}, New account {}:{}:{}",
           existingAccount.getAccountIdentifier(), existingAccount.getNumberOptional().map(Accounts::redactPhoneNumber), existingAccount.getPhoneNumberIdentifierOptional(),
           accountToCreate.getAccountIdentifier(), accountToCreate.getNumberOptional().map(Accounts::redactPhoneNumber), accountToCreate.getPhoneNumberIdentifierOptional());
+
       throw new IllegalArgumentException("reclaimed accounts must match");
     }
 

@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
@@ -33,7 +34,8 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   A base64-encoded registration recovery password. Must be provided if `sessionId` and
                                   `receiptCredentialPresentation` are not provided; must not be provided if `sessionId`
-                                  or `receiptCredentialPresentation` is provided.
+                                  or `receiptCredentialPresentation` is provided. Registration recovery passwords must
+                                  be specified when reclaiming an account by account identifier.
                                   """)
                                   @Nullable
                                   byte[] recoveryPassword,
@@ -74,7 +76,10 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   @Valid
                                   @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   The PNI-associated identity key for the account, encoded as a base64 string.
-                                  Must be provided for an account with a phone number.
+                                  Must be provided for an account with a phone number or when recovering an account by
+                                  ID (even if the recovered account does not have a phone number, in which case
+                                  PNI-associated key material will be ignored). Must be absent when registering an
+                                  account without a phone number.
                                   """)
                                   @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
                                   @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
@@ -115,5 +120,18 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
     } else {
       return deviceActivationRequest().apnToken().isPresent() ^ deviceActivationRequest().gcmToken().isPresent();
     }
+  }
+
+  @VisibleForTesting
+  @AssertTrue
+  @Schema(hidden = true)
+  boolean isAllOrNoPhoneNumberInformationProvided() {
+    final boolean expectPresence = pniIdentityKey != null;
+
+    return Stream.of(pniIdentityKey != null,
+            accountAttributes().getPhoneNumberIdentityRegistrationId().isPresent(),
+            deviceActivationRequest().pniSignedPreKey().isPresent(),
+            deviceActivationRequest().pniPqLastResortPreKey().isPresent())
+        .allMatch(present -> present == expectPresence);
   }
 }

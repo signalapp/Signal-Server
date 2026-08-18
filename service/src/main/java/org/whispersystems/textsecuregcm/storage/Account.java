@@ -714,6 +714,13 @@ public class Account {
     this.accountRecoveryPasswordHash = saltedAccountRecoveryPasswordHash.hash();
   }
 
+  public void clearAccountRecoveryPassword() {
+    requireNotStale();
+
+    this.accountRecoveryPasswordSalt = null;
+    this.accountRecoveryPasswordHash = null;
+  }
+
   public Optional<byte[]> getAuthCredentialSalt() {
     requireNotStale();
     return Optional.ofNullable(authCredentialSalt);

@@ -763,6 +763,38 @@ class AccountsTest {
   }
 
   @Test
+  void testReclaimAccountExistingAccountVersionChange() {
+    final Device device = generateDevice(DEVICE_ID_1);
+    final String number = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final UUID existingUuid = UUID.randomUUID();
+    final UUID existingPni = UUID.randomUUID();
+    final byte[] accountRecoveryPassword = TestRandomUtil.nextBytes(16);
+    final Account existingAccount = generateAccount(number, existingUuid, existingPni, List.of(device), accountRecoveryPassword);
+
+    createAccount(existingAccount);
+
+    // Update the existing account without directly modifying the in-memory version so the stored version is out of
+    // sync with the in-memory version
+    {
+      final Account updatedExistingAccount = accounts.getByAccountIdentifier(existingUuid).orElseThrow();
+      updatedExistingAccount.setUnrestrictedUnidentifiedAccess(!existingAccount.isUnrestrictedUnidentifiedAccess());
+
+      accounts.update(updatedExistingAccount);
+    }
+
+    final Account reclaimedAccount = new Account();
+    reclaimedAccount.setAccountIdentifier(existingAccount.getAccountIdentifier());
+    reclaimedAccount.setNumber(number, existingPni);
+
+    final CompletionException completionException = assertThrows(CompletionException.class,
+        () -> accounts.reclaimAccount(existingAccount, reclaimedAccount, Collections.emptyList()).toCompletableFuture().join());
+
+    assertInstanceOf(ContestedOptimisticLockException.class, completionException.getCause());
+  }
+
+  @Test
   void testUpdateAccountWithMismatchedJsonDdbPhoneNumbers() {
     // Test that fixing the DynamoDB/JSON phone number mismatch does not break account updates for existing accounts
     // with bad data in the time after we ship this change and before we run the crawler to fix the mismatch.

@@ -207,6 +207,58 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     }
   }
 
+  private enum AccountCreationType {
+    NEW("new"),
+    RECENTLY_DELETED("recently-deleted"),
+    RE_REGISTRATION("re-registration");
+
+    private final String tagValue;
+
+    AccountCreationType(final String tagValue) {
+      this.tagValue = tagValue;
+    }
+
+    public String getTagValue() {
+      return tagValue;
+    }
+  }
+
+  private enum PushTokenType {
+    APNS("apns"),
+    FCM("fcm"),
+    NONE("none");
+
+    private final String tagValue;
+
+    PushTokenType(final String tagValue) {
+      this.tagValue = tagValue;
+    }
+
+    public String getTagValue() {
+      return tagValue;
+    }
+
+    public static PushTokenType fromDeviceSpec(final DeviceSpec deviceSpec) {
+      if (deviceSpec.apnRegistrationId().isPresent()) {
+        return PushTokenType.APNS;
+      } else if (deviceSpec.gcmRegistrationId().isPresent()) {
+        return PushTokenType.FCM;
+      } else {
+        return PushTokenType.NONE;
+      }
+    }
+
+    public static PushTokenType fromDevice(final Device device) {
+      if (StringUtils.isNotBlank(device.getApnId())) {
+        return PushTokenType.APNS;
+      } else if (StringUtils.isNotBlank(device.getGcmId())) {
+        return PushTokenType.FCM;
+      } else {
+        return PushTokenType.NONE;
+      }
+    }
+  }
+
   private record DeviceIdentifier(UUID accountIdentifier, byte deviceId,
                                   int registrationId) {
   }
@@ -399,19 +451,13 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     accountAttributes.recoveryPassword().ifPresent(account::setAccountRecoveryPassword);
 
-    String accountCreationType = maybeRecentlyDeletedAccountIdentifier.isPresent() ? "recently-deleted" : "new";
+    AccountCreationType accountCreationType = maybeRecentlyDeletedAccountIdentifier.isPresent()
+        ? AccountCreationType.RECENTLY_DELETED
+        : AccountCreationType.NEW;
 
-    final String pushTokenType;
+    final PushTokenType pushTokenType = PushTokenType.fromDeviceSpec(primaryDeviceSpec);
 
-    if (primaryDeviceSpec.apnRegistrationId().isPresent()) {
-      pushTokenType = "apns";
-    } else if (primaryDeviceSpec.gcmRegistrationId().isPresent()) {
-      pushTokenType = "fcm";
-    } else {
-      pushTokenType = "none";
-    }
-
-    String previousPushTokenType = null;
+    @Nullable PushTokenType previousPushTokenType = null;
 
     try {
       final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(account.getAccountIdentifier(),
@@ -436,81 +482,169 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             additionalWriteItems);
       }
     } catch (final AccountAlreadyExistsException e) {
-      accountCreationType = "re-registration";
+      accountCreationType = AccountCreationType.RE_REGISTRATION;
+      previousPushTokenType = PushTokenType.fromDevice(e.getExistingAccount().getPrimaryDevice());
 
-      if (StringUtils.isNotBlank(e.getExistingAccount().getPrimaryDevice().getApnId())) {
-        previousPushTokenType = "apns";
-      } else if (StringUtils.isNotBlank(e.getExistingAccount().getPrimaryDevice().getGcmId())) {
-        previousPushTokenType = "fcm";
+      reclaimAccount(account, e.getExistingAccount(), primaryDeviceSpec, accountAttributes);
+    }
+
+    handleAccountCreated(account,
+        accountCreationType,
+        pushTokenType,
+        previousPushTokenType,
+        accountAttributes.recoveryPassword().isPresent(),
+        userAgent);
+
+    return account;
+  }
+
+  /// Recovers (re-registers) an account with a specific identifier. Callers are responsible for checking that the end
+  /// user has permission to recover the account (i.e. via an account recovery password).
+  ///
+  /// @param existingAccount the account to recover
+  /// @param accountAttributes a new set of attributes for the recovered account
+  /// @param aciIdentityKey a new identity key for the recovered account
+  /// @param maybePniIdentityKey a new PNI-associated identity for the recovered account; must be present if
+  ///                            `existingAccount` has a phone number
+  /// @param primaryDeviceSpec a new device spec for the account's primary device
+  /// @param userAgent the User-Agent string of the client requesting account reclamation
+  ///
+  /// @return the recovered [Account]
+  ///
+  /// @throws IllegalArgumentException if `maybePniIdentityKey` is set but the `existingAccount` does not have a phone
+  /// number or vice versa
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  public Account recover(final Account existingAccount,
+      final AccountAttributes accountAttributes,
+      final IdentityKey aciIdentityKey,
+      final Optional<IdentityKey> maybePniIdentityKey,
+      final DeviceSpec primaryDeviceSpec,
+      @Nullable final String userAgent) {
+
+    final Account recoveredAccount = accountLockManager.withSingleAccountLock(existingAccount, () -> {
+      final Account account = new Account();
+      account.setAccountIdentifier(existingAccount.getAccountIdentifier());
+
+      if (existingAccount.getNumberOptional().isPresent()) {
+        account.setNumber(existingAccount.getNumberOptional().get(),
+            existingAccount.getPhoneNumberIdentifierOptional()
+                .orElseThrow(() -> new AssertionError("Accounts that have a phone number must also have a PNI")));
+
+        account.setPhoneNumberIdentityKey(maybePniIdentityKey
+            .orElseThrow(() -> new IllegalArgumentException("PNI identity key must be provided if existing account has a phone number")));
+
+        account.setRegistrationLockFromAttributes(accountAttributes);
+        account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
       } else {
-        previousPushTokenType = "none";
+        if (maybePniIdentityKey.isPresent()) {
+          throw new IllegalArgumentException("PNI identity key must not be provided if existing account does not have a phone number");
+        }
+
+        final byte[] authCredentialSalt = new byte[AUTH_CREDENTIAL_SALT_SIZE];
+        SECURE_RANDOM.nextBytes(authCredentialSalt);
+
+        account.setAuthCredentialSalt(authCredentialSalt);
       }
 
-      final UUID aci = e.getExistingAccount().getAccountIdentifier();
-      account.setAccountIdentifier(aci);
+      account.setIdentityKey(aciIdentityKey);
+      account.addDevice(primaryDeviceSpec.toDevice(Device.PRIMARY_ID, clock, aciIdentityKey));
+      account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
+      account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
+      account.setAccountRecoveryPassword(accountAttributes.recoveryPassword().orElseThrow(() ->
+          new IllegalArgumentException("Must specify a recovery password when reclaiming an existing account")));
 
-      final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(account.getAccountIdentifier(),
-          account.getPhoneNumberIdentifierOptional(),
-          Device.PRIMARY_ID,
-          primaryDeviceSpec.aciInfo().signedPreKey(),
-          primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::signedPreKey),
-          primaryDeviceSpec.aciInfo().pqLastResortPreKey(),
-          primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::pqLastResortPreKey)));
+      reclaimAccount(account, existingAccount, primaryDeviceSpec, accountAttributes);
 
-      e.getExistingAccount().getDevices()
-          .stream()
-          .map(Device::getId)
-          // No need to clear the keys for the primary device since we'll just overwrite them in the same
-          // transaction anyhow
-          .filter(existingDeviceId -> existingDeviceId != Device.PRIMARY_ID)
-          .map(existingDeviceId ->
-              keysManager.buildWriteItemsForRemovedDevice(aci, account.getPhoneNumberIdentifierOptional(), existingDeviceId))
-          .forEach(additionalWriteItems::addAll);
+      return account;
+    }, accountLockExecutor);
 
-      maybePni.ifPresent(phoneNumberIdentifier ->
-          accountAttributes.recoveryPassword().ifPresent(phoneNumberRecoveryPassword ->
-              additionalWriteItems.add(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, phoneNumberRecoveryPassword))));
+    final PushTokenType pushTokenType = PushTokenType.fromDeviceSpec(primaryDeviceSpec);
+    final PushTokenType previousPushTokenType = PushTokenType.fromDevice(existingAccount.getPrimaryDevice());
 
-      CompletableFuture.allOf(
-              keysManager.deleteSingleUsePreKeys(aci),
+    handleAccountCreated(recoveredAccount,
+        AccountCreationType.RE_REGISTRATION,
+        pushTokenType,
+        previousPushTokenType,
+        true,
+        userAgent);
+
+    return recoveredAccount;
+  }
+
+  private void reclaimAccount(final Account account,
+      final Account existingAccount,
+      final DeviceSpec primaryDeviceSpec,
+      final AccountAttributes accountAttributes) {
+
+    final UUID aci = existingAccount.getAccountIdentifier();
+    account.setAccountIdentifier(aci);
+
+    final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(account.getAccountIdentifier(),
+        account.getPhoneNumberIdentifierOptional(),
+        Device.PRIMARY_ID,
+        primaryDeviceSpec.aciInfo().signedPreKey(),
+        primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::signedPreKey),
+        primaryDeviceSpec.aciInfo().pqLastResortPreKey(),
+        primaryDeviceSpec.pniInfo().map(DeviceIdentityInfo::pqLastResortPreKey)));
+
+    existingAccount.getDevices()
+        .stream()
+        .map(Device::getId)
+        // No need to clear the keys for the primary device since we'll just overwrite them in the same
+        // transaction anyhow
+        .filter(existingDeviceId -> existingDeviceId != Device.PRIMARY_ID)
+        .map(existingDeviceId ->
+            keysManager.buildWriteItemsForRemovedDevice(aci, account.getPhoneNumberIdentifierOptional(), existingDeviceId))
+        .forEach(additionalWriteItems::addAll);
+
+    account.getPhoneNumberIdentifierOptional().ifPresent(phoneNumberIdentifier ->
+        accountAttributes.recoveryPassword().ifPresent(phoneNumberRecoveryPassword ->
+            additionalWriteItems.add(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, phoneNumberRecoveryPassword))));
+
+    CompletableFuture.allOf(
+            keysManager.deleteSingleUsePreKeys(aci),
+            account.getPhoneNumberIdentifierOptional().map(keysManager::deleteSingleUsePreKeys).orElse(CompletableFuture.completedFuture(null)),
+            messagesManager.clear(aci),
+            profilesManager.deleteAll(aci, false))
+        .thenCompose(ignored -> disconnectionRequestManager.requestDisconnection(existingAccount))
+        .thenCompose(ignored -> accounts.reclaimAccount(existingAccount, account, additionalWriteItems))
+        .thenCompose(ignored -> {
+          // We should have cleared all messages before overwriting the old account, but more may have arrived
+          // while we were working. Similarly, the old account holder could have added keys or profiles. We'll
+          // largely repeat the cleanup process after creating the account to make sure we really REALLY got
+          // everything.
+          //
+          // We exclude the primary device's repeated-use keys from deletion because new keys were provided as
+          // part of the account creation process, and we don't want to delete the keys that just got added.
+          return CompletableFuture.allOf(keysManager.deleteSingleUsePreKeys(aci),
               account.getPhoneNumberIdentifierOptional().map(keysManager::deleteSingleUsePreKeys).orElse(CompletableFuture.completedFuture(null)),
               messagesManager.clear(aci),
-              profilesManager.deleteAll(aci, false))
-          .thenCompose(ignored -> disconnectionRequestManager.requestDisconnection(e.getExistingAccount()))
-          .thenCompose(ignored -> accounts.reclaimAccount(e.getExistingAccount(), account, additionalWriteItems))
-          .thenCompose(ignored -> {
-            // We should have cleared all messages before overwriting the old account, but more may have arrived
-            // while we were working. Similarly, the old account holder could have added keys or profiles. We'll
-            // largely repeat the cleanup process after creating the account to make sure we really REALLY got
-            // everything.
-            //
-            // We exclude the primary device's repeated-use keys from deletion because new keys were provided as
-            // part of the account creation process, and we don't want to delete the keys that just got added.
-            return CompletableFuture.allOf(keysManager.deleteSingleUsePreKeys(aci),
-                account.getPhoneNumberIdentifierOptional().map(keysManager::deleteSingleUsePreKeys).orElse(CompletableFuture.completedFuture(null)),
-                messagesManager.clear(aci),
-                profilesManager.deleteAll(aci, false));
-          })
-          .join();
-    }
+              profilesManager.deleteAll(aci, false));
+        })
+        .join();
+  }
+
+  private void handleAccountCreated(final Account account,
+      final AccountCreationType accountCreationType,
+      final PushTokenType pushTokenType,
+      @Nullable final PushTokenType previousPushTokenType,
+      final boolean hasRecoveryPassword,
+      @Nullable final String userAgent) {
 
     redisSet(account);
 
     changeNumberWaitingPeriodManager.handleAccountCreated(account.getAccountIdentifier(), clock.instant());
 
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
-        Tag.of("type", accountCreationType),
-        Tag.of("hasPushToken", String.valueOf(
-            primaryDeviceSpec.apnRegistrationId().isPresent() || primaryDeviceSpec.gcmRegistrationId()
-                .isPresent())),
-        Tag.of("pushTokenType", pushTokenType),
-        Tag.of("hasRecoveryPassword", String.valueOf(accountAttributes.recoveryPassword().isPresent())));
+        Tag.of("type", accountCreationType.getTagValue()),
+        Tag.of("pushTokenType", pushTokenType.getTagValue()),
+        Tag.of("hasRecoveryPassword", String.valueOf(hasRecoveryPassword)));
 
-    if (StringUtils.isNotBlank(previousPushTokenType)) {
-      tags = tags.and(Tag.of("previousPushTokenType", previousPushTokenType));
+    if (previousPushTokenType != null) {
+      tags = tags.and(Tag.of("previousPushTokenType", previousPushTokenType.getTagValue()));
     }
+
     Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
-    return account;
   }
 
   public Pair<Account, Device> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final String linkDeviceToken)

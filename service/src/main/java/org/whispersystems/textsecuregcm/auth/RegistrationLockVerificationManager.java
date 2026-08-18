@@ -14,6 +14,7 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
@@ -28,6 +29,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class RegistrationLockVerificationManager {
   public enum Flow {
@@ -137,12 +139,8 @@ public class RegistrationLockVerificationManager {
       // Freezing the existing account credentials will definitively start the reglock timeout.
       // Until the timeout, the current reglock can still be supplied,
       // along with phone number verification, to restore access.
-      final Account updatedAccount;
-      if (!alreadyLocked) {
-        updatedAccount = accounts.update(account, Account::lockAuthTokenHash);
-      } else {
-        updatedAccount = account;
-      }
+
+      final List<TransactWriteItem> additionalWriteItems;
 
       // The client often sends an empty registration lock token on the first request
       // and sends an actual token if the server returns a 423 indicating that one is required.
@@ -151,9 +149,19 @@ public class RegistrationLockVerificationManager {
       // This allows users to re-register via registration recovery password
       // instead of always being forced to fall back to SMS verification.
       if (!phoneVerificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
-        phoneNumberRecoveryPasswordsManager.remove(updatedAccount.getPhoneNumberIdentifierOptional()
-            .orElseThrow(() -> new AssertionError("Account with a phone number did not have a phone number identifier")));
+        additionalWriteItems = List.of(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForRemovePassword(account.getPhoneNumberIdentifierOptional()
+            .orElseThrow(() -> new AssertionError("Account with a phone number did not have a phone number identifier"))));
+      } else {
+        additionalWriteItems = Collections.emptyList();
       }
+
+      final Account updatedAccount = accounts.update(account.getAccountIdentifier(), a -> {
+        if (!a.hasLockedCredentials()) {
+          a.lockAuthTokenHash();
+        }
+
+        a.clearAccountRecoveryPassword();
+      }, additionalWriteItems);
 
       final List<Byte> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
       disconnectionRequestManager.requestDisconnection(updatedAccount.getAccountIdentifier(), deviceIds);

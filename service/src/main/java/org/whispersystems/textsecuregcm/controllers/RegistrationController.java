@@ -41,6 +41,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.UUID;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -71,6 +74,7 @@ import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceIdentityInfo;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.ReceiptAlreadyRedeemedException;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
@@ -151,10 +155,12 @@ public class RegistrationController {
           in = ParameterIn.HEADER,
           name = HttpHeaders.AUTHORIZATION,
           description = """
-            The basic auth header. For accounts with a phone number, the username must be the e164-formatted number that is being registered.
-            For accounts without a phone number, the username is ignored on a fresh registration (it must be present, however, so an arbitrary
-            string is acceptable). For account recovery (re-registration) by ACI, it must be set to the ACI of the account being recovered.
-            In all cases, the password is the password to be used for primary device authentication.
+            The basic auth header. For accounts with a phone number, the username must be the e164-formatted number that
+            is being registered. For accounts without a phone number, the username is ignored on a fresh registration
+            (it must be present, however, so any string that can't be parsed as an e164-formatted phone number or UUID
+            is acceptable; "__no_number__" is recommended). For account recovery (re-registration) by ACI, it must be
+            set to the ACI of the account being recovered. In all cases, the password is the password to be used for
+            primary device authentication.
             """,
           required = true,
           schema = @Schema(type = "string")
@@ -165,9 +171,6 @@ public class RegistrationController {
       @NotNull @Valid final RegistrationRequest registrationRequest,
       @Context final ContainerRequestContext requestContext)
       throws RateLimitExceededException, InterruptedException, RegistrationLockFailureException {
-
-    final String number = authorizationHeader.getUsername();
-    final String password = authorizationHeader.getPassword();
 
     if (!registrationRequest.isEverySignedKeyValid(userAgent)) {
       throw new WebApplicationException("Invalid signature", 422);
@@ -181,10 +184,28 @@ public class RegistrationController {
     }
 
     final AccountCreationResponse response;
-    if (registrationRequest.pniIdentityKey() != null) {
-      response = registerAccountWithNumber(number, password, registrationRequest, requestContext, userAgent, signalAgent);
+
+    if (registrationRequest.receiptCredentialPresentation() != null && registrationRequest.receiptCredentialPresentation().length > 0) {
+      // A receipt credential presentation will only be present if the caller is trying to register a new account
+      // without a phone number, in which case we can (and must) ignore the "username" in the authentication header.
+      response = registerAccountWithoutNumber(authorizationHeader.getPassword(), registrationRequest, userAgent, signalAgent);
     } else {
-      response = registerAccountWithoutNumber(password, registrationRequest, userAgent, signalAgent);
+      // The caller is either trying to register a new account with a phone number or recover an account by ACI. Either
+      // way, the "username" from the auth header is meaningful.
+      @Nullable UUID recoveredAccountIdentifier;
+
+      try {
+        recoveredAccountIdentifier = UUID.fromString(authorizationHeader.getUsername());
+      } catch (final IllegalArgumentException _) {
+        // The provided username is either a phone number or a nonsense string (for registration without a phone number)
+        recoveredAccountIdentifier = null;
+      }
+
+      if (recoveredAccountIdentifier != null) {
+        response = recoverAccount(recoveredAccountIdentifier, authorizationHeader.getPassword(), registrationRequest, userAgent, signalAgent);
+      } else {
+        response = registerAccountWithNumber(authorizationHeader.getUsername(), authorizationHeader.getPassword(), registrationRequest, requestContext, userAgent, signalAgent);
+      }
     }
 
     return response;
@@ -199,8 +220,9 @@ public class RegistrationController {
       final String signalAgent)
       throws RateLimitExceededException, InterruptedException, RegistrationLockFailureException {
 
-    if (registrationRequest.accountAttributes().getPhoneNumberIdentityRegistrationId().isEmpty()) {
-      throw new WebApplicationException("PNI registration ID must be provided", 422);
+    if (registrationRequest.pniIdentityKey() == null) {
+      // RegistrationRequest checks that either all phone number-associated information is present or all is absent
+      throw new WebApplicationException("PNI keys and registration ID must be provided", 422);
     }
 
     rateLimiters.getRegistrationLimiter().validate(number);
@@ -365,4 +387,119 @@ public class RegistrationController {
     }
   }
 
+  private AccountCreationResponse recoverAccount(final UUID accountIdentifier,
+      final String password,
+      final RegistrationRequest registrationRequest,
+      final String userAgent,
+      final String signalAgent) throws RegistrationLockFailureException, RateLimitExceededException {
+
+    if (!dynamicConfigurationManager.getConfiguration().getLoginPurchaseConfiguration().enabled()) {
+      throw new BadRequestException("login purchases are not enabled");
+    }
+
+    if (ArrayUtils.isEmpty(registrationRequest.recoveryPassword())) {
+      throw new BadRequestException("Recovery password required for authentication when recovering an account by identifier");
+    }
+
+    if (registrationRequest.accountAttributes().recoveryPassword().isEmpty()) {
+      throw new BadRequestException("Recovery password required for for storage when recovering an account by identifier");
+    }
+
+    if (registrationRequest.pniIdentityKey() == null) {
+      throw new BadRequestException("Must specify a PNI-associated identity key when recovering an account by identifier");
+    }
+
+    final Account existingAccount = accounts.getByAccountIdentifier(accountIdentifier)
+            .orElseThrow(ForbiddenException::new);
+
+    final boolean passwordVerified = existingAccount.getAccountRecoveryPassword()
+        .map(saltedRecoveryPasswordHash -> PhoneNumberRecoveryPasswordsManager.verify(saltedRecoveryPasswordHash, registrationRequest.recoveryPassword()))
+        .orElse(false);
+
+    if (!passwordVerified) {
+      throw new ForbiddenException();
+    }
+
+    if (!registrationRequest.skipDeviceTransfer() && existingAccount.hasCapability(DeviceCapability.TRANSFER)) {
+      // If a device transfer is possible, clients must explicitly opt out of a transfer (i.e. after prompting the user)
+      // before we'll let them recover an account and start "from scratch"
+      throw new WebApplicationException(Response.status(409, "device transfer available").build());
+    }
+
+    final Account reclaimedAccount = existingAccount.getNumberOptional().isPresent()
+        ? recoverAccountWithPhoneNumber(existingAccount, registrationRequest, password, userAgent, signalAgent)
+        : recoverAccountWithoutPhoneNumber(existingAccount, registrationRequest, password, userAgent, signalAgent);
+
+    Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of(VERIFICATION_TYPE_TAG_NAME, registrationRequest.verificationType().name())))
+        .increment();
+
+    return new AccountCreationResponse(new AccountIdentityResponseBuilder(reclaimedAccount)
+        .storageCapable(existingAccount.hasCapability(DeviceCapability.STORAGE))
+        .build(), true);
+  }
+
+  private Account recoverAccountWithoutPhoneNumber(final Account existingAccount,
+      final RegistrationRequest registrationRequest,
+      final String password,
+      final String userAgent,
+      final String signalAgent) {
+
+    return accounts.recover(existingAccount,
+        registrationRequest.accountAttributes(),
+        registrationRequest.aciIdentityKey(),
+        Optional.empty(),
+        new DeviceSpec(
+            registrationRequest.accountAttributes().getName(),
+            password,
+            signalAgent,
+            registrationRequest.accountAttributes().getCapabilities(),
+            new DeviceIdentityInfo(
+                registrationRequest.accountAttributes().getRegistrationId(),
+                registrationRequest.deviceActivationRequest().aciSignedPreKey(),
+                registrationRequest.deviceActivationRequest().aciPqLastResortPreKey()),
+            Optional.empty(),
+            registrationRequest.accountAttributes().getFetchesMessages(),
+            registrationRequest.deviceActivationRequest().apnToken(),
+            registrationRequest.deviceActivationRequest().gcmToken()),
+        userAgent);
+  }
+
+  private Account recoverAccountWithPhoneNumber(final Account existingAccount,
+      final RegistrationRequest registrationRequest,
+      final String password,
+      final String userAgent,
+      final String signalAgent) throws RegistrationLockFailureException, RateLimitExceededException {
+
+    registrationLockVerificationManager.verifyRegistrationLock(existingAccount,
+        registrationRequest.accountAttributes().getRegistrationLock(),
+        userAgent,
+        RegistrationLockVerificationManager.Flow.REGISTRATION,
+        PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD);
+
+    assert registrationRequest.pniIdentityKey() != null;
+
+    return accounts.recover(existingAccount,
+        registrationRequest.accountAttributes(),
+        registrationRequest.aciIdentityKey(),
+        Optional.of(registrationRequest.pniIdentityKey()),
+        new DeviceSpec(
+            registrationRequest.accountAttributes().getName(),
+            password,
+            signalAgent,
+            registrationRequest.accountAttributes().getCapabilities(),
+            new DeviceIdentityInfo(
+                registrationRequest.accountAttributes().getRegistrationId(),
+                registrationRequest.deviceActivationRequest().aciSignedPreKey(),
+                registrationRequest.deviceActivationRequest().aciPqLastResortPreKey()),
+            Optional.of(new DeviceIdentityInfo(
+                registrationRequest.accountAttributes().getPhoneNumberIdentityRegistrationId().get(),
+                // We've already validated the presence of PNI keys by this point
+                registrationRequest.deviceActivationRequest().pniSignedPreKey().orElseThrow(),
+                registrationRequest.deviceActivationRequest().pniPqLastResortPreKey().orElseThrow())),
+            registrationRequest.accountAttributes().getFetchesMessages(),
+            registrationRequest.deviceActivationRequest().apnToken(),
+            registrationRequest.deviceActivationRequest().gcmToken()),
+        userAgent);
+  }
 }

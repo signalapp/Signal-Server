@@ -230,7 +230,7 @@ class AccountControllerTest {
       return null;
     }).when(usernameZkProofVerifier).verifyProof(any(), any());
 
-    when(PHONE_NUMBER_RECOVERY_PASSWORDS_MANAGER.buildTransactWriteItemForStorePassword(any(), any()))
+    when(PHONE_NUMBER_RECOVERY_PASSWORDS_MANAGER.buildTransactWriteItemForStorePassword(any(), any(byte[].class)))
         .thenReturn(TransactWriteItem.builder().build());
   }
 

@@ -41,15 +41,16 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 class RegistrationLockVerificationManagerTest {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final DisconnectionRequestManager disconnectionRequestManager = mock(DisconnectionRequestManager.class);
-  private final ExternalServiceCredentialsGenerator svr2CredentialsGenerator = mock(
-      ExternalServiceCredentialsGenerator.class);
-  private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager = mock(
-      PhoneNumberRecoveryPasswordsManager.class);
+  private final ExternalServiceCredentialsGenerator svr2CredentialsGenerator =
+      mock(ExternalServiceCredentialsGenerator.class);
+  private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
+      mock(PhoneNumberRecoveryPasswordsManager.class);
   private final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
@@ -84,6 +85,9 @@ class RegistrationLockVerificationManagerTest {
 
     existingRegistrationLock = mock(StoredRegistrationLock.class);
     when(account.getRegistrationLock()).thenReturn(existingRegistrationLock);
+
+    when(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForRemovePassword(any()))
+        .thenReturn(TransactWriteItem.builder().build());
   }
 
   @ParameterizedTest
@@ -103,7 +107,7 @@ class RegistrationLockVerificationManagerTest {
         yield new Pair<>(RegistrationLockFailureException.class, e -> {
           if (e instanceof RegistrationLockFailureException) {
             if (!verificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
-              verify(phoneNumberRecoveryPasswordsManager).remove(account.getPhoneNumberIdentifierOptional().orElseThrow());
+              verify(phoneNumberRecoveryPasswordsManager).buildTransactWriteItemForRemovePassword(account.getPhoneNumberIdentifierOptional().orElseThrow());
             } else {
               verify(phoneNumberRecoveryPasswordsManager, never()).remove(any());
             }
