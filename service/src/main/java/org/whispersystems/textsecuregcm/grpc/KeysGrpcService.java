@@ -212,7 +212,7 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     final IdentityKey identityKey = switch (identityType) {
       case ACI -> account.getAccountIdentityKey();
       case PNI -> account.getPhoneNumberIdentityKey()
-          .orElseThrow(() -> new IllegalArgumentException("Account does not have a PNI identity key"));
+          .orElseThrow(() -> GrpcExceptions.invalidArguments("account does not have a PNI identity key"));
     };
 
     final UUID identifier = getIdentifier(account, identityType);
