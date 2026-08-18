@@ -125,7 +125,8 @@ public record CommandDependencies(
     DynamoDbAsyncClient dynamoDbAsyncClient,
     DynamoDbClient dynamoDbClient,
     PhoneNumberIdentifiers phoneNumberIdentifiers,
-    DynamoDbRecoveryManager dynamoDbRecoveryManager) {
+    DynamoDbRecoveryManager dynamoDbRecoveryManager,
+    FDB fdb) {
 
   static CommandDependencies build(
       final String name,
@@ -458,7 +459,8 @@ public record CommandDependencies(
         dynamoDbAsyncClient,
         dynamoDbClient,
         phoneNumberIdentifiers,
-        dynamoDbRecoveryManager
+        dynamoDbRecoveryManager,
+        fdb
     );
   }
 

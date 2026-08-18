@@ -85,7 +85,7 @@ public class FoundationDbMessageStore {
   private static final byte[] SERVER_ID = UUIDUtil.toBytes(UUID.randomUUID());
   private static final int PRESENCE_VALUE_LENGTH = 28;
 
-  private static final Subspace MESSAGES_SUBSPACE = new Subspace(Tuple.from("M"));
+  public static final Subspace MESSAGES_SUBSPACE = new Subspace(Tuple.from("M"));
 
   @VisibleForTesting
   static final Duration PRESENCE_STALE_THRESHOLD = Duration.ofMinutes(5);
@@ -717,8 +717,13 @@ public class FoundationDbMessageStore {
     });
   }
 
-  private static Subspace getAccountSubspace(final AciServiceIdentifier aci) {
-    return MESSAGES_SUBSPACE.get(aci.uuid());
+  @VisibleForTesting
+  public static Subspace getAccountSubspace(final AciServiceIdentifier aci) {
+    return getAccountSubspace(MESSAGES_SUBSPACE, aci);
+  }
+
+  public static Subspace getAccountSubspace(final Subspace messagesSubspace, final AciServiceIdentifier aci) {
+    return messagesSubspace.get(aci.uuid());
   }
 
   @VisibleForTesting
