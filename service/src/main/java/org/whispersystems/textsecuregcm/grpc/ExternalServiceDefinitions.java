@@ -18,6 +18,7 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2ClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
 
 public enum ExternalServiceDefinitions {
@@ -48,7 +49,7 @@ public enum ExternalServiceDefinitions {
         .build();
   }),
   STORAGE(ExternalServiceType.EXTERNAL_SERVICE_TYPE_STORAGE, (chatConfig, _) -> {
-    final PaymentsServiceConfiguration cfg = chatConfig.getPaymentsServiceConfiguration();
+    final SecureStorageServiceConfiguration cfg = chatConfig.getSecureStorageServiceConfiguration();
     return ExternalServiceCredentialsGenerator
         .builder(cfg.userAuthenticationTokenSharedSecret())
         .prependUsername(true)
