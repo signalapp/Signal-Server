@@ -109,9 +109,9 @@ class SchedulingUtilTest {
 
   @Test
   void zoneIdSelectionMultipleOffsets() {
-    // A US VOIP number spans multiple time zones, we should pick a 'middle' one
+    // A US toll-free number spans multiple time zones, we should pick a 'middle' one
     final Phonenumber.PhoneNumber phoneNumber =
-        PhoneNumberUtil.getInstance().getExampleNumberForType("US", PhoneNumberUtil.PhoneNumberType.VOIP);
+        PhoneNumberUtil.getInstance().getExampleNumberForType("US", PhoneNumberUtil.PhoneNumberType.TOLL_FREE);
     final String e164 = PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
 
     final Instant now = Instant.now();
