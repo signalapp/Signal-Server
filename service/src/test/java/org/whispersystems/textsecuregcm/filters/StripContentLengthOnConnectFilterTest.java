@@ -70,7 +70,7 @@ class StripContentLengthOnConnectFilterTest {
 
   @Test
   void versionCheck() {
-    assertEquals("12.1.5", Jetty.VERSION, "This class can be removed with https://github.com/jetty/jetty.project/issues/15074, likely 12.1.10");
+    assertEquals("12.1.9", Jetty.VERSION, "This class can be removed with https://github.com/jetty/jetty.project/issues/15074, likely 12.1.10");
   }
 
   private static HttpFields sendUpgradeRequest(final String path) throws Exception {
