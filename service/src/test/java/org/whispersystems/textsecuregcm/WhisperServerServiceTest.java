@@ -31,9 +31,7 @@ import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.http2.client.HTTP2Client;
 import org.eclipse.jetty.http2.client.transport.HttpClientTransportOverHTTP2;
 import org.eclipse.jetty.io.ClientConnector;
-import org.eclipse.jetty.util.component.LifeCycle;
 import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.StatusCode;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -87,7 +85,9 @@ class WhisperServerServiceTest {
   public static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(DynamoDbExtensionSchema.Tables.values());
 
   @AfterAll
-  static void teardown() {
+  static void teardown() throws Exception {
+    h2WebSocketClient.stop();
+    webSocketClient.stop();
     System.clearProperty("secrets.bundle.filename");
   }
 
@@ -132,23 +132,24 @@ class WhisperServerServiceTest {
 
     final TestWebsocketListener testWebsocketListener = new TestWebsocketListener();
 
-    // Session is Closeable, but we intentionally keep it open so that we can confirm the container Lifecycle behavior
-    final Session session = (useH2 ? h2WebSocketClient : webSocketClient).connect(testWebsocketListener,
+    try(Session session = (useH2 ? h2WebSocketClient : webSocketClient).connect(testWebsocketListener,
             URI.create(String.format("ws://localhost:%d/v1/websocket/", EXTENSION.getLocalPort())))
-        .join();
-    final long sessionTimestamp = Long.parseLong(session.getUpgradeResponse().getHeader(HeaderUtils.TIMESTAMP_HEADER));
-    assertTrue(sessionTimestamp >= start);
+        .join()) {
+      final long sessionTimestamp = Long.parseLong(
+          session.getUpgradeResponse().getHeader(HeaderUtils.TIMESTAMP_HEADER));
+      assertTrue(sessionTimestamp >= start);
 
-    final WebSocketResponseMessage keepAlive = testWebsocketListener.doGet("/v1/keepalive").join();
-    assertEquals(200, keepAlive.getStatus());
-    final long keepAliveTimestamp = Long.parseLong(
-        keepAlive.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase()));
-    assertTrue(keepAliveTimestamp >= start);
+      final WebSocketResponseMessage keepAlive = testWebsocketListener.doGet("/v1/keepalive").join();
+      assertEquals(200, keepAlive.getStatus());
+      final long keepAliveTimestamp = Long.parseLong(
+          keepAlive.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase()));
+      assertTrue(keepAliveTimestamp >= start);
 
-    final WebSocketResponseMessage whoami = testWebsocketListener.doGet("/v1/accounts/whoami").join();
-    assertEquals(401, whoami.getStatus());
-    final long whoamiTimestamp = Long.parseLong(whoami.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase()));
-    assertTrue(whoamiTimestamp >= start);
+      final WebSocketResponseMessage whoami = testWebsocketListener.doGet("/v1/accounts/whoami").join();
+      assertEquals(401, whoami.getStatus());
+      final long whoamiTimestamp = Long.parseLong(whoami.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase()));
+      assertTrue(whoamiTimestamp >= start);
+    }
   }
 
   @Test
