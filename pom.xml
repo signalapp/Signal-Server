@@ -74,7 +74,7 @@
     <libphonenumber.version>9.0.21</libphonenumber.version>
     <logstash.logback.version>8.1</logstash.logback.version>
     <log4j-bom.version>2.25.4</log4j-bom.version>
-    <luajava.version>3.5.0</luajava.version>
+    <luajava.version>4.1.0</luajava.version>
     <micrometer.version>1.16.4</micrometer.version>
     <netty.version>4.2.13.Final</netty.version>
     <!-- Must be less than or equal to the value from Google libraries-bom which controls the protobuf runtime version.
