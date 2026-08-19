@@ -72,7 +72,7 @@
     <logback-access-common.version>2.0.12</logback-access-common.version>
     <lettuce.version>7.5.1.RELEASE</lettuce.version>
     <libphonenumber.version>9.0.21</libphonenumber.version>
-    <logstash.logback.version>8.1</logstash.logback.version>
+    <logstash.logback.version>9.0</logstash.logback.version>
     <log4j-bom.version>2.25.4</log4j-bom.version>
     <luajava.version>4.1.0</luajava.version>
     <micrometer.version>1.16.4</micrometer.version>
