@@ -47,6 +47,11 @@
           <groupId>com.squareup.okio</groupId>
           <artifactId>okio-jvm</artifactId>
         </exclusion>
+        <!-- conflicts with our direct dependency -->
+        <exclusion>
+          <groupId>com.auth0</groupId>
+          <artifactId>java-jwt</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
@@ -173,6 +178,19 @@
     <dependency>
       <groupId>net.logstash.logback</groupId>
       <artifactId>logstash-logback-encoder</artifactId>
+      <exclusions>
+        <!-- conflicts with webauthn4j-appattest -->
+        <exclusion>
+          <groupId>tools.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- sentinel for dependency convergence -->
+    <dependency>
+      <groupId>tools.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>3.2.1</version>
     </dependency>
 
     <dependency>
@@ -284,6 +302,13 @@
       <groupId>com.google.firebase</groupId>
       <artifactId>firebase-admin</artifactId>
       <version>${firebase-admin.version}</version>
+      <exclusions>
+        <exclusion>
+          <!-- conflicts with jackson-dataformat 2.22.1 -->
+          <groupId>org.codehaus.woodstox</groupId>
+          <artifactId>stax2-api</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -301,6 +326,13 @@
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
       <artifactId>jsr305</artifactId>
+    </dependency>
+
+    <dependency>
+      <!-- manually resolve dependency conflict -->
+      <groupId>org.codehaus.woodstox</groupId>
+      <artifactId>stax2-api</artifactId>
+      <version>4.3.0</version>
     </dependency>
 
     <dependency>
@@ -616,7 +648,7 @@
     <dependency>
       <groupId>com.squareup.okio</groupId>
       <artifactId>okio-jvm</artifactId>
-      <version>3.18.1</version>
+      <version>3.17.0</version>
     </dependency>
 
   </dependencies>
