@@ -10,10 +10,6 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>integration-tests</artifactId>
 
-  <properties>
-    <jetty.http2-client.version>12.1.12</jetty.http2-client.version>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>org.whispersystems.textsecure</groupId>
@@ -39,7 +35,6 @@
     <dependency>
       <groupId>org.eclipse.jetty.http2</groupId>
       <artifactId>jetty-http2-client-transport</artifactId>
-      <version>${jetty.http2-client.version}</version>
     </dependency>
   </dependencies>
 

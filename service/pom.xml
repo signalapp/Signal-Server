@@ -23,7 +23,6 @@
     <opentelemetry-logback-appender-1.0.version>2.30.0-alpha</opentelemetry-logback-appender-1.0.version>
     <storekit.version>5.2.0</storekit.version>
     <webauthn4j.version>0.31.9.RELEASE</webauthn4j.version>
-    <jetty.http2-client.version>12.1.12</jetty.http2-client.version>
   </properties>
 
   <dependencies>
@@ -147,7 +146,6 @@
       <groupId>org.eclipse.jetty.http2</groupId>
       <artifactId>jetty-http2-client-transport</artifactId>
       <scope>test</scope>
-      <version>${jetty.http2-client.version}</version>
     </dependency>
     <dependency>
       <groupId>io.dropwizard</groupId>

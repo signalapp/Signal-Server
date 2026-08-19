@@ -65,6 +65,7 @@
     <httpclient.version>4.5.14</httpclient.version>
     <jackson.version>2.22.2</jackson.version>
     <java-otp.version>1.0.0</java-otp.version>
+    <jetty.version>12.1.9</jetty.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>2.4.10</kotlin.version>
@@ -109,10 +110,27 @@
   <dependencyManagement>
     <!-- note: order matters, and earlier declarations take precedence -->
     <dependencies>
+      <!-- use a pinned version of jackson, rather than Dropwizard's BOM -->
       <dependency>
         <groupId>com.fasterxml.jackson</groupId>
         <artifactId>jackson-bom</artifactId>
         <version>${jackson.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- use a pinned version of jetty, rather than Dropwizard's BOM -->
+      <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-bom</artifactId>
+        <version>${jetty.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- use a pinned version of jetty, rather than Dropwizard's BOM -->
+      <dependency>
+        <groupId>org.eclipse.jetty.ee10</groupId>
+        <artifactId>jetty-ee10-bom</artifactId>
+        <version>${jetty.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
