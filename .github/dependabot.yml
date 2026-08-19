@@ -10,7 +10,7 @@ updates:
       update-types: [ minor, patch ]
 
 - package-ecosystem: maven
-  directory: /
+  directories: [ "**/*" ]
   schedule:
     interval: monthly
   groups:
