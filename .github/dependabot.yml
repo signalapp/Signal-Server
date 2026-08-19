@@ -13,6 +13,12 @@ updates:
   directories: [ "**/*" ]
   schedule:
     interval: monthly
+  ignore:
+    # Only patch updates don't require coordination with the deployed database
+    - dependency-name: "org.foundationdb:fdb-java"
+      update-types:
+        - version-update:semver-major
+        - version-update:semver-minor
   groups:
     minor-java-dependencies:
       # Java: Only group minor and patch updates (we want to carefully review major updates)
