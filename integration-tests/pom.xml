@@ -11,7 +11,7 @@
   <artifactId>integration-tests</artifactId>
 
   <properties>
-    <jetty.http2-client.version>12.1.5</jetty.http2-client.version>
+    <jetty.http2-client.version>12.1.12</jetty.http2-client.version>
   </properties>
 
   <dependencies>

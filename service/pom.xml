@@ -11,19 +11,19 @@
   <artifactId>service</artifactId>
 
   <properties>
-    <apollo-api-jvm.version>3.8.5</apollo-api-jvm.version>
+    <apollo-api-jvm.version>3.8.6</apollo-api-jvm.version>
     <commons-compress.version>1.28.0</commons-compress.version>
-    <dynamodb-lock-client.version>1.4.0</dynamodb-lock-client.version>
-    <firebase-admin.version>9.7.0</firebase-admin.version>
-    <libphonenumber-geocoder.version>3.23</libphonenumber-geocoder.version>
+    <dynamodb-lock-client.version>1.5.0</dynamodb-lock-client.version>
+    <firebase-admin.version>9.10.0</firebase-admin.version>
+    <libphonenumber-geocoder.version>3.37</libphonenumber-geocoder.version>
     <google-androidpublisher.version>v3-rev20250904-2.0.0</google-androidpublisher.version>
-    <java-jwt.version>4.5.0</java-jwt.version>
+    <java-jwt.version>4.6.0</java-jwt.version>
     <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
     <!-- *all* opentelemetry-logback-appender versions are "alpha" despite the advanced version number -->
-    <opentelemetry-logback-appender-1.0.version>2.22.0-alpha</opentelemetry-logback-appender-1.0.version>
+    <opentelemetry-logback-appender-1.0.version>2.30.0-alpha</opentelemetry-logback-appender-1.0.version>
     <storekit.version>4.0.0</storekit.version>
-    <webauthn4j.version>0.30.2.RELEASE</webauthn4j.version>
-    <jetty.http2-client.version>12.1.5</jetty.http2-client.version>
+    <webauthn4j.version>0.31.9.RELEASE</webauthn4j.version>
+    <jetty.http2-client.version>12.1.12</jetty.http2-client.version>
   </properties>
 
   <dependencies>
@@ -616,7 +616,7 @@
     <dependency>
       <groupId>com.squareup.okio</groupId>
       <artifactId>okio-jvm</artifactId>
-      <version>3.16.4</version>
+      <version>3.18.1</version>
     </dependency>
 
   </dependencies>
@@ -831,7 +831,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>templating-maven-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
         <executions>
           <execution>
             <id>filter-src</id>
