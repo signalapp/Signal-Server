@@ -5,9 +5,9 @@
 
 package org.whispersystems.textsecuregcm.util.redis;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.io.Resources;
@@ -27,7 +27,7 @@ public class RedisLuaScriptSandbox {
   private static final String PREFIX = """
       function redis_call(...)
         -- variable name needs to match the one used in the `L.setGlobal()` call
-        -- method name needs to match method name of the Java class 
+        -- method name needs to match method name of the Java class
         local result = proxy:redisCall(arg)
         if type(result) == "userdata" then
           return java.luaify(result)
@@ -86,8 +86,7 @@ public class RedisLuaScriptSandbox {
       lua.setGlobal("KEYS");
       lua.push(args, Lua.Conversion.FULL);
       lua.setGlobal("ARGV");
-      final Lua.LuaError executionResult = lua.run(PREFIX + luaScript);
-      assertEquals("OK", executionResult.name(), "Runtime error during Lua script execution");
+      assertDoesNotThrow(() -> lua.run(PREFIX + luaScript));
       return adaptOutputResult(lua.get());
     }
   }
@@ -97,10 +96,10 @@ public class RedisLuaScriptSandbox {
       final Object javaValue = luaValue.toJavaObject();
       // validate expected script output type
       switch (scriptOutputType) {
-        case INTEGER -> assertTrue(javaValue instanceof Double); // lua number is always Double
-        case STATUS -> assertTrue(javaValue instanceof String);
-        case BOOLEAN -> assertTrue(javaValue instanceof Boolean);
-      };
+        case INTEGER -> assertInstanceOf(Double.class, javaValue); // lua number is always Double
+        case STATUS -> assertInstanceOf(String.class, javaValue);
+        case BOOLEAN -> assertInstanceOf(Boolean.class, javaValue);
+      }
       if (javaValue instanceof Double d) {
         return d.longValue();
       }
@@ -165,8 +164,8 @@ public class RedisLuaScriptSandbox {
     @SuppressWarnings("unused")
     public Object redisCall(final List<Object> args) {
       assertFalse(args.isEmpty(), "`redis.call()` in Lua script invoked without arguments");
-      assertTrue(args.get(0) instanceof String, "first argument to `redis.call()` must be of type `String`");
-      return handler.redisCommand((String) args.get(0), tail(args, 1));
+      assertInstanceOf(String.class, args.getFirst(), "first argument to `redis.call()` must be of type `String`");
+      return handler.redisCommand((String) args.getFirst(), tail(args, 1));
     }
   }
 }

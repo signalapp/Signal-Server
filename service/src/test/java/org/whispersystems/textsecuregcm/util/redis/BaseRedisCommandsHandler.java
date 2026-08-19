@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.util.redis;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.whispersystems.textsecuregcm.util.redis.RedisLuaScriptSandbox.tail;
 
@@ -27,16 +28,16 @@ public class BaseRedisCommandsHandler implements RedisCommandsHandler {
       }
       case "GET" -> {
         assertEquals(1, args.size());
-        yield get(args.get(0).toString());
+        yield get(args.getFirst().toString());
       }
       case "DEL" -> {
-        assertTrue(args.size() >= 1);
+        assertFalse(args.isEmpty());
         yield del(args.stream().map(Object::toString).toList());
       }
       case "HSET" -> {
         assertTrue(args.size() > 1);
-        assertTrue(args.size() % 2 == 1);
-        yield hset(args.get(0).toString(), tail(args, 1));
+        assertEquals(1, args.size() % 2);
+        yield hset(args.getFirst().toString(), tail(args, 1));
       }
       case "HGET" -> {
         assertEquals(2, args.size());
@@ -44,7 +45,7 @@ public class BaseRedisCommandsHandler implements RedisCommandsHandler {
       }
       case "HMGET" -> {
         assertTrue(args.size() > 1);
-        yield hmget(args.get(0).toString(), tail(args, 1));
+        yield hmget(args.getFirst().toString(), tail(args, 1));
       }
       case "PEXPIRE" -> {
         assertEquals(2, args.size());
@@ -52,15 +53,15 @@ public class BaseRedisCommandsHandler implements RedisCommandsHandler {
       }
       case "TYPE" -> {
         assertEquals(1, args.size());
-        yield type(args.get(0).toString());
+        yield type(args.getFirst().toString());
       }
       case "RPUSH" -> {
         assertTrue(args.size() > 1);
-        yield push(false, args.get(0).toString(), tail(args, 1));
+        yield push(false, args.getFirst().toString(), tail(args, 1));
       }
       case "LPUSH" -> {
         assertTrue(args.size() > 1);
-        yield push(true, args.get(0).toString(), tail(args, 1));
+        yield push(true, args.getFirst().toString(), tail(args, 1));
       }
       case "RPOP" -> {
         assertEquals(2, args.size());
