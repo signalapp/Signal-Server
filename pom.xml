@@ -64,7 +64,6 @@
     <httpcore.version>4.4.16</httpcore.version>
     <httpclient.version>4.5.14</httpclient.version>
     <jackson.version>2.21.2</jackson.version>
-    <jetty.version>12.1.12</jetty.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>2.3.20</kotlin.version>
@@ -299,11 +298,6 @@
         <version>${log4j-bom.version}</version>
         <type>pom</type>
         <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>jetty</groupId>
-        <artifactId>org.eclipse.jetty</artifactId>
-        <version>${jetty.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.httpcomponents</groupId>
