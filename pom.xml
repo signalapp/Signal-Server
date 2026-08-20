@@ -107,6 +107,7 @@
   <version>JGITVER</version>
 
   <dependencyManagement>
+    <!-- note: order matters, and earlier declarations take precedence -->
     <dependencies>
       <dependency>
         <groupId>com.fasterxml.jackson</groupId>
@@ -116,9 +117,30 @@
         <scope>import</scope>
       </dependency>
       <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${netty.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-bom</artifactId>
+        <type>pom</type>
+        <scope>import</scope>
+        <version>${protobuf.version}</version>
+      </dependency>
+      <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>libraries-bom</artifactId>
         <version>${google-cloud-libraries.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>bom</artifactId>
+        <version>${aws.sdk2.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -135,27 +157,6 @@
         <artifactId>annotations-api</artifactId>
         <version>6.0.53</version>
         <scope>provided</scope>
-      </dependency>
-      <dependency>
-        <groupId>io.netty</groupId>
-        <artifactId>netty-bom</artifactId>
-        <version>${netty.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>software.amazon.awssdk</groupId>
-        <artifactId>bom</artifactId>
-        <version>${aws.sdk2.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>com.google.protobuf</groupId>
-        <artifactId>protobuf-bom</artifactId>
-        <type>pom</type>
-        <scope>import</scope>
-        <version>${protobuf.version}</version>
       </dependency>
       <dependency>
         <groupId>io.github.resilience4j</groupId>
