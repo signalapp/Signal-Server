@@ -17,6 +17,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import jakarta.validation.constraints.PositiveOrZero;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
@@ -48,6 +49,13 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   """)
                                   @Nullable
                                   byte[] receiptCredentialPresentation,
+
+                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
+                                  A TOTP one-time password; required if recovering an account that has TOTP keys.
+                                  """)
+                                  @PositiveOrZero
+                                  @Nullable
+                                  Integer totp,
 
                                   @NotNull
                                   @Valid

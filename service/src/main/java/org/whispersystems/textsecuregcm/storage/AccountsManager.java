@@ -61,6 +61,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
@@ -147,6 +148,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final ScheduledExecutorService messagesPollExecutor;
   private final ScheduledExecutorService retryExecutor;
   private final Clock clock;
+  private final Duration maxTotpValidationDelay;
 
   private final KeyGenerator totpKeyGenerator;
   private final TimeBasedOneTimePasswordGenerator totpGenerator;
@@ -293,15 +295,18 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final AccountLockManager accountLockManager,
       final KeysManager keysManager,
       final MessagesManager messagesManager,
-      final ProfilesManager profilesManager, final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager,
+      final ProfilesManager profilesManager,
+      final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager,
       final SecureStorageClient secureStorageClient,
       final SecureValueRecoveryClient secureValueRecovery2Client,
       final DisconnectionRequestManager disconnectionRequestManager,
       final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
       final Executor accountLockExecutor,
-      final ScheduledExecutorService messagesPollExecutor, final ScheduledExecutorService retryExecutor,
+      final ScheduledExecutorService messagesPollExecutor,
+      final ScheduledExecutorService retryExecutor,
       final Clock clock,
-      final byte[] linkDeviceSecret) {
+      final byte[] linkDeviceSecret,
+      final Duration maxTotpValidationDelay) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
@@ -319,6 +324,12 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.messagesPollExecutor = messagesPollExecutor;
     this.retryExecutor = retryExecutor;
     this.clock = requireNonNull(clock);
+
+    if (maxTotpValidationDelay.compareTo(TOTP_PARAMETERS.timeStep()) > 0) {
+      throw new IllegalArgumentException("Max TOTP validation delay must be less than or equal to TOTP time step");
+    }
+
+    this.maxTotpValidationDelay = maxTotpValidationDelay;
 
     this.verificationTokenKey = new SecretKeySpec(linkDeviceSecret, LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM);
 
@@ -2109,5 +2120,30 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
               }
             })
             .map(Map.Entry::getKey));
+  }
+
+  public boolean verifyTotp(final Account account, final Instant validationTimestamp, @Nullable final Integer oneTimePassword) {
+    if (account.getTotpKeys().isEmpty()) {
+      return oneTimePassword == null;
+    }
+
+    if (oneTimePassword == null) {
+      // The account has TOTP keys, but the caller hasn't provided a one-time password
+      return false;
+    }
+
+    for (final Instant timestamp : new Instant[] { validationTimestamp, validationTimestamp.minus(maxTotpValidationDelay) }) {
+      for (final SecretKey totpKey : account.getTotpKeys().values()) {
+        try {
+          if (totpGenerator.validateOneTimePassword(totpKey, timestamp, oneTimePassword)) {
+            return true;
+          }
+        } catch (final InvalidKeyException e) {
+          ImpossibleEvents.logImpossible(logger, "Invalid TOTP key for account {}", account.getAccountIdentifier(), e);
+        }
+      }
+    }
+
+    return false;
   }
 }

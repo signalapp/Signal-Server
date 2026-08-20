@@ -149,6 +149,7 @@ public class RegistrationController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  @ApiResponse(responseCode = "441", description = "A valid one-time password (TOTP) is required, but either no password was provided or it was incorrect")
   @ApiResponse(responseCode = "499", description = "Client must support post-quantum ratchet")
   public AccountCreationResponse register(
       @Parameter(
@@ -272,6 +273,8 @@ public class RegistrationController {
       registrationLockVerificationManager.verifyRegistrationLock(existingAccount.get(),
           registrationRequest.accountAttributes().getRegistrationLock(),
           userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION, verificationType);
+
+      checkTotp(existingAccount.get(), registrationRequest.totp());
     }
 
     final Account account = accounts.create(number,
@@ -420,6 +423,8 @@ public class RegistrationController {
       throw new ForbiddenException();
     }
 
+    checkTotp(existingAccount, registrationRequest.totp());
+
     if (!registrationRequest.skipDeviceTransfer() && existingAccount.hasCapability(DeviceCapability.TRANSFER)) {
       // If a device transfer is possible, clients must explicitly opt out of a transfer (i.e. after prompting the user)
       // before we'll let them recover an account and start "from scratch"
@@ -501,5 +506,13 @@ public class RegistrationController {
             registrationRequest.deviceActivationRequest().apnToken(),
             registrationRequest.deviceActivationRequest().gcmToken()),
         userAgent);
+  }
+
+  private void checkTotp(final Account account, @Nullable final Integer totp) throws RateLimitExceededException {
+    rateLimiters.getCheckTotpLimiter().validate(account.getAccountIdentifier());
+
+    if (!accounts.verifyTotp(account, clock.instant(), totp)) {
+      throw new WebApplicationException(441);
+    }
   }
 }

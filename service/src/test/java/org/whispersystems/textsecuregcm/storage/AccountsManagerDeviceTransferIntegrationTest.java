@@ -31,7 +31,6 @@ import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachmentError;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveResult;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -73,7 +72,8 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(ScheduledExecutorService.class),
         mock(ScheduledExecutorService.class),
         Clock.systemUTC(),
-        "link-device-secret".getBytes(StandardCharsets.UTF_8));
+        "link-device-secret".getBytes(StandardCharsets.UTF_8),
+        AccountsManager.TOTP_PARAMETERS.timeStep().dividedBy(2));
 
     accountsManager.start();
   }

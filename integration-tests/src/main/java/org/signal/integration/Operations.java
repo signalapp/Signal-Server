@@ -112,6 +112,7 @@ public final class Operations {
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         null,
         receiptCredentialPresentation.serialize(),
+        null,
         user.accountAttributes(),
         true,
         new IdentityKey(aciIdentityKeyPair.getPublicKey()),
@@ -145,6 +146,7 @@ public final class Operations {
     // register account
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         registrationPassword,
+        null,
         null,
         accountAttributes,
         true,

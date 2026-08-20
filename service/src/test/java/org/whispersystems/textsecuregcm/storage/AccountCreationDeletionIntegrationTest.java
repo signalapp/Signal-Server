@@ -175,7 +175,8 @@ public class AccountCreationDeletionIntegrationTest {
         executor,
         executor,
         CLOCK,
-        "link-device-secret".getBytes(StandardCharsets.UTF_8));
+        "link-device-secret".getBytes(StandardCharsets.UTF_8),
+        AccountsManager.TOTP_PARAMETERS.timeStep().dividedBy(2));
   }
 
   @AfterEach

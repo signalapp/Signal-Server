@@ -73,6 +73,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.function.Executable;
@@ -125,6 +126,8 @@ class AccountsManagerTest {
   private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
 
   private static final byte[] LINK_DEVICE_SECRET = "link-device-secret".getBytes(StandardCharsets.UTF_8);
+
+  private static final Duration MAX_TOTP_VALIDATION_DELAY = AccountsManager.TOTP_PARAMETERS.timeStep().dividedBy(2);
 
   private static TestClock CLOCK;
 
@@ -249,7 +252,8 @@ class AccountsManagerTest {
         mock(ScheduledExecutorService.class),
         mock(ScheduledExecutorService.class),
         CLOCK,
-        LINK_DEVICE_SECRET);
+        LINK_DEVICE_SECRET,
+        MAX_TOTP_VALIDATION_DELAY);
   }
 
   @ParameterizedTest
@@ -2095,5 +2099,103 @@ class AccountsManagerTest {
 
       verify(account, never()).setPendingTotpKey(null);
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void verifyTotp(final Map<Integer, AnnotatedTotpKey> totpKeys,
+      final Instant timestamp,
+      @Nullable final Integer oneTimePassword,
+      final boolean expectVerified) {
+
+    final Account account = mock(Account.class);
+    when(account.getTotpKeys()).thenReturn(totpKeys);
+
+    assertEquals(expectVerified, accountsManager.verifyTotp(account, timestamp, oneTimePassword));
+  }
+
+  private static List<Arguments> verifyTotp() throws NoSuchAlgorithmException, InvalidKeyException {
+    final Instant timestamp = Instant.now();
+
+    final AnnotatedTotpKey totpKey;
+    final AnnotatedTotpKey secondTotpKey;
+    {
+      final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP_PARAMETERS.algorithm());
+      totpKeyGenerator.init(AccountsManager.TOTP_KEY_LENGTH_BITS);
+
+      totpKey = new AnnotatedTotpKey(
+          new TotpKey(AccountsManager.TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
+          TestRandomUtil.nextBytes(16));
+
+      secondTotpKey = new AnnotatedTotpKey(
+          new TotpKey(AccountsManager.TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
+          TestRandomUtil.nextBytes(16));
+    }
+
+    final TimeBasedOneTimePasswordGenerator totpGenerator =
+        new TimeBasedOneTimePasswordGenerator(AccountsManager.TOTP_PARAMETERS.timeStep(),
+            AccountsManager.TOTP_PARAMETERS.passwordLength(),
+            AccountsManager.TOTP_PARAMETERS.algorithm());
+
+    return List.of(
+        Arguments.argumentSet("No keys, no password provided",
+            Collections.emptyMap(), timestamp, null, true),
+
+        Arguments.argumentSet("No keys, password provided",
+            Collections.emptyMap(), timestamp, 123456, false),
+
+        Arguments.argumentSet("Has key, correct password provided",
+            Map.of(1, totpKey), timestamp, totpGenerator.generateOneTimePassword(totpKey, timestamp), true),
+
+        Arguments.argumentSet("Has key, incorrect password provided",
+            Map.of(1, totpKey), timestamp, totpGenerator.generateOneTimePassword(totpKey, timestamp) + 1, false),
+
+        Arguments.argumentSet("Has key, no password provided",
+            Map.of(1, totpKey), timestamp, null, false),
+
+        Arguments.argumentSet("Has multiple keys, correct password provided for one key",
+            Map.of(1, totpKey, 2, secondTotpKey), timestamp, totpGenerator.generateOneTimePassword(totpKey, timestamp), true)
+    );
+  }
+
+  @RepeatedTest(value = 10, failureThreshold = 2)
+  void verifyTotpWithDelay() throws NoSuchAlgorithmException, InvalidKeyException {
+    final AnnotatedTotpKey totpKey;
+    {
+      final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP_PARAMETERS.algorithm());
+      totpKeyGenerator.init(AccountsManager.TOTP_KEY_LENGTH_BITS);
+
+      totpKey = new AnnotatedTotpKey(
+          new TotpKey(AccountsManager.TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
+          TestRandomUtil.nextBytes(16));
+    }
+
+    final TimeBasedOneTimePasswordGenerator totpGenerator =
+        new TimeBasedOneTimePasswordGenerator(AccountsManager.TOTP_PARAMETERS.timeStep(),
+            AccountsManager.TOTP_PARAMETERS.passwordLength(),
+            AccountsManager.TOTP_PARAMETERS.algorithm());
+
+    final Account account = mock(Account.class);
+    when(account.getTotpKeys()).thenReturn(Map.of(1, totpKey));
+
+    final Instant beginningOfTotpWindow =
+        Instant.ofEpochMilli((Instant.now().toEpochMilli() / AccountsManager.TOTP_PARAMETERS.timeStep().toMillis()) *
+            AccountsManager.TOTP_PARAMETERS.timeStep().toMillis());
+
+    final int oneTimePassword = totpGenerator.generateOneTimePassword(totpKey, beginningOfTotpWindow);
+
+    assertTrue(accountsManager.verifyTotp(account, beginningOfTotpWindow, oneTimePassword),
+        "One-time password should be valid at the start of the window in which it was generated");
+
+    assertTrue(accountsManager.verifyTotp(account, beginningOfTotpWindow.plus(AccountsManager.TOTP_PARAMETERS.timeStep()), oneTimePassword),
+        "One-time password should be valid at the start of the window after which it was generated");
+
+    assertTrue(accountsManager.verifyTotp(account, beginningOfTotpWindow.plus(AccountsManager.TOTP_PARAMETERS.timeStep()).plus(MAX_TOTP_VALIDATION_DELAY).minusMillis(1), oneTimePassword),
+        "One-time password should be valid up until max delay after end of current TOTP window");
+
+    // With six-digit OTPs, there's a one-in-a-million chance of this returning a false positive, and so we repeat the
+    // test several allowing for failure
+    assertFalse(accountsManager.verifyTotp(account, beginningOfTotpWindow.plus(AccountsManager.TOTP_PARAMETERS.timeStep()).plus(MAX_TOTP_VALIDATION_DELAY), oneTimePassword),
+        "One-time password should not be valid after max delay past end of current TOTP window");
   }
 }

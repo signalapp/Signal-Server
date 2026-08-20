@@ -65,6 +65,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     CREATE_DONATION_PERMIT("createDonationCredential", new RateLimiterConfig(30, Duration.ofHours(4), true)),
     ONE_TIME_DONATION("oneTimeDonation", new RateLimiterConfig(5, Duration.ofMinutes(1), true)),
     ADD_SUBSCRIPTION_PAYMENT_METHOD("addSubscriptionPaymentMethod", new RateLimiterConfig(10, Duration.ofMinutes(1), true)),
+    CHECK_TOTP("checkTotp", new RateLimiterConfig(5, Duration.ofSeconds(6), false))
     ;
 
     private final String id;
@@ -249,5 +250,9 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getCreateDonationPermitLimiter() {
     return forDescriptor(For.CREATE_DONATION_PERMIT);
+  }
+
+  public RateLimiter getCheckTotpLimiter() {
+    return forDescriptor(For.CHECK_TOTP);
   }
 }

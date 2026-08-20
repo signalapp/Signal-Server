@@ -136,7 +136,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(ScheduledExecutorService.class),
           mock(ScheduledExecutorService.class),
           mock(Clock.class),
-          "link-device-secret".getBytes(StandardCharsets.UTF_8)
+          "link-device-secret".getBytes(StandardCharsets.UTF_8),
+          AccountsManager.TOTP_PARAMETERS.timeStep().dividedBy(2)
       );
     }
   }

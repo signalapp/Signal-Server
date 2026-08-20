@@ -141,7 +141,8 @@ public class AccountsManagerMigrateRecoveryPasswordIntegrationTest {
           executor,
           executor,
           mock(Clock.class),
-          "link-device-secret".getBytes(StandardCharsets.UTF_8));
+          "link-device-secret".getBytes(StandardCharsets.UTF_8),
+          AccountsManager.TOTP_PARAMETERS.timeStep().dividedBy(2));
     }
   }
 

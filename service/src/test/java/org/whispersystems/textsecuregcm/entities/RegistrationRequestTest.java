@@ -90,6 +90,7 @@ class RegistrationRequestTest {
         null,
         null,
         null,
+        null,
         true,
         aciIdentityKey,
         pniIdentityKey,
@@ -133,6 +134,7 @@ class RegistrationRequestTest {
     return new RegistrationRequest(null,
         null,
         null,
+        null,
         new AccountAttributes(fetchesMessages, 1, 2, null, null, false, Collections.emptySet(), null),
         true,
         null,
@@ -157,6 +159,7 @@ class RegistrationRequestTest {
     final KEMSignedPreKey pniKemSignedPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
+        null,
         null,
         null,
         new AccountAttributes(true, 1, pniRegistrationIdPresent ? 2 : null, null, null, false, Collections.emptySet(), null),
