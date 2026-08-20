@@ -116,6 +116,13 @@
         <scope>import</scope>
       </dependency>
       <dependency>
+        <groupId>com.google.cloud</groupId>
+        <artifactId>libraries-bom</artifactId>
+        <version>${google-cloud-libraries.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
         <groupId>io.dropwizard</groupId>
         <artifactId>dropwizard-dependencies</artifactId>
         <version>${dropwizard.version}</version>
@@ -149,13 +156,6 @@
         <type>pom</type>
         <scope>import</scope>
         <version>${protobuf.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.google.cloud</groupId>
-        <artifactId>libraries-bom</artifactId>
-        <version>${google-cloud-libraries.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
       </dependency>
       <dependency>
         <groupId>io.github.resilience4j</groupId>
