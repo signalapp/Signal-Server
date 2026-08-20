@@ -311,6 +311,24 @@
       </p>
       
     
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.SetV1AvatarRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetV1AvatarRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.SetV1AvatarResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetV1AvatarResponse</code> 
+        </a>
+      </p>
+      
+    
 
     
       <p>
@@ -412,6 +430,32 @@ should use the version of this method in <code>ProfileAnonymous</code> instead.<
   <div class="block">
     <p><p>Returns anonymous credentials that may be presented with avatar operations in ProfilesAnonymous</p>
 <p>Note: <code>Accounts.SetZkCredentialKey</code> is a pre-requisite for this RPC</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.profile.Profile-SetV1Avatar">
+      <a href="#service-org.signal.chat.profile.Profile-SetV1Avatar">
+        rpc <code>SetV1Avatar</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.SetV1AvatarRequest"><span title="org.signal.chat.profile.SetV1AvatarRequest">org.signal.chat.profile.SetV1AvatarRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.SetV1AvatarResponse"><span title="org.signal.chat.profile.SetV1AvatarResponse">org.signal.chat.profile.SetV1AvatarResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns credentials used by clients to upload a v1 avatar, deleting any current avatar.</p>
+<p>This RPC streamlines avatar changes during the v1 -&gt; v2 transition by minimizing uploads:
+1. SetV1Avatar
+2. Upload to CDN
+3. SetProfile with v1 <code>AVATAR_CHANGE_UNCHANGED</code> and the v1 avatar in the v2 profile body</p>
+<p>Clients that do this will be required to upload current avatars using <code>ProfilesAnonymous.GetAvatarUploadFormRequest</code>
+once v1 Profile APIs are no longer supported.</p></p>
   </div>
   
 </div>
@@ -1200,7 +1244,7 @@ performed with this form will be limited to the provided length.</p></td>
     </a>
             </code>
           </td>
-          <td class="content"></td>
+          <td class="content"><p>the policy and credential used by clients to upload an avatar to the CDN</p></td>
           
         </tr>
       
@@ -2811,6 +2855,122 @@ field number without serialization overhead. This is purely aesthetic.</p></td>
         </code>
       </td>
       <td class="content"><p>The ciphertext of the phone-number sharing setting on the profile. 29-byte encrypted boolean.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.SetV1AvatarRequest">
+  <span>
+    <a href="#message-org.signal.chat.profile.SetV1AvatarRequest" title="org.signal.chat.profile.SetV1AvatarRequest">message SetV1AvatarRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        version
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The profile version. Required.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        commitment
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The profile key commitment. Required if this is a new profile version.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.SetV1AvatarResponse">
+  <span>
+    <a href="#message-org.signal.chat.profile.SetV1AvatarResponse" title="org.signal.chat.profile.SetV1AvatarResponse">message SetV1AvatarResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        form
+      </td>
+      <td>
+        <code title="org.signal.chat.common.S3UploadForm">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.S3UploadForm"><span title="org.signal.chat.common.S3UploadForm">org.signal.chat.common.S3UploadForm</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>the policy and credential used by clients to upload an avatar to the CDN</p></td>
       
     </tr>
     

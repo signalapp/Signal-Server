@@ -3160,6 +3160,9 @@ paths:
               description: "If present, an positive integer indicating the number\
                 \ of seconds before a subsequent attempt could succeed"
               style: simple
+        "441":
+          description: "A valid one-time password (TOTP) is required, but either no\
+            \ password was provided or it was incorrect"
         "499":
           description: Client must support post-quantum ratchet
   /v2/config:
@@ -5856,12 +5859,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        spendId:
-          type: string
-          format: byte
         expiration:
           type: string
           format: date-time
+        spendId:
+          type: string
+          format: byte
         internalContentsForJNI:
           type: string
           format: byte
@@ -6376,6 +6379,12 @@ components:
             Must be provided if `sessionId` and `recoveryPassword` are not provided;
             must not be provided if `sessionId` or `recoveryPassword` is provided.
           format: byte
+          nullable: true
+        totp:
+          type: integer
+          description: |
+            A TOTP one-time password; required if recovering an account that has TOTP keys.
+          format: int32
           nullable: true
         accountAttributes:
           $ref: "#/components/schemas/AccountAttributes"
