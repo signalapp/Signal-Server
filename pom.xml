@@ -78,9 +78,9 @@
     <luajava.version>4.1.0</luajava.version>
     <micrometer.version>1.17.0</micrometer.version>
     <netty.version>4.2.17.Final</netty.version>
-    <!-- Must be less than or equal to the value from Google libraries-bom which controls the protobuf runtime version.
-    See https://protobuf.dev/support/cross-version-runtime-guarantee/. -->
-    <protoc.version>4.33.2</protoc.version>
+    <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
+    <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
+    <protobuf.version>4.35.1</protobuf.version>
     <pushy.version>0.15.6</pushy.version>
     <reactor-bom.version>2025.0.6</reactor-bom.version> <!-- 3.8.4, see https://github.com/reactor/reactor#bom-versioning-scheme -->
     <resilience4j.version>2.4.0</resilience4j.version>
@@ -142,6 +142,13 @@
         <version>${aws.sdk2.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-bom</artifactId>
+        <type>pom</type>
+        <scope>import</scope>
+        <version>${protobuf.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.cloud</groupId>
@@ -476,7 +483,7 @@
         <version>0.6.1</version>
         <configuration>
           <checkStaleness>false</checkStaleness>
-          <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
+          <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
 
