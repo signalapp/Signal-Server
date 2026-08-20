@@ -33,6 +33,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.api.async.RedisAsyncCommands;
@@ -41,6 +42,7 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -59,13 +61,18 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import javax.crypto.KeyGenerator;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.function.Executable;
@@ -1917,5 +1924,176 @@ class AccountsManagerTest {
 
     when(accounts.getByAccountIdentifierAsync(account.getAccountIdentifier()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+  }
+
+  @Nested
+  class Totp {
+
+    @Test
+    void generatePendingTotpKey() throws TooManyTotpKeysException {
+      final UUID accountIdentifier = UUID.randomUUID();
+
+      final Account account = mock(Account.class);
+      when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
+
+      when(accounts.getByAccountIdentifier(accountIdentifier))
+          .thenReturn(Optional.of(account));
+
+      final TotpKey pendingTotpKey = accountsManager.generatePendingTotpKey(accountIdentifier);
+
+      verify(account).setPendingTotpKey(pendingTotpKey);
+    }
+
+    @Test
+    void generatePendingTotpKeyTooManyConfirmedKeys() {
+      final UUID accountIdentifier = UUID.randomUUID();
+
+      final Account account = mock(Account.class);
+      when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
+
+      when(account.getTotpKeys()).thenReturn(IntStream.range(0, AccountsManager.MAX_TOTP_KEYS)
+          .boxed()
+          .collect(Collectors.toMap(keyId -> keyId, _ -> new AnnotatedTotpKey(
+              new TotpKey(AccountsManager.TOTP_PARAMETERS, TestRandomUtil.nextBytes(16)),
+              TestRandomUtil.nextBytes(16)))));
+
+      when(accounts.getByAccountIdentifier(accountIdentifier))
+          .thenReturn(Optional.of(account));
+
+      assertThrows(TooManyTotpKeysException.class, () -> accountsManager.generatePendingTotpKey(accountIdentifier));
+      verify(account, never()).setPendingTotpKey(any());
+    }
+
+    @Test
+    void confirmPendingTotpKey() throws InvalidKeyException, TooManyTotpKeysException, NoSuchAlgorithmException {
+      final UUID accountIdentifier = UUID.randomUUID();
+
+      final Account account = mock(Account.class);
+      when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
+
+      when(accounts.getByAccountIdentifier(accountIdentifier))
+          .thenReturn(Optional.of(account));
+
+      final TotpKey pendingTotpKey = accountsManager.generatePendingTotpKey(accountIdentifier);
+      final int nextTotpKeyId = ThreadLocalRandom.current().nextInt();
+
+      when(account.getPendingTotpKey()).thenReturn(Optional.of(pendingTotpKey));
+      when(account.getNextTotpKeyId()).thenReturn(nextTotpKeyId);
+
+      final TimeBasedOneTimePasswordGenerator totpGenerator =
+          new TimeBasedOneTimePasswordGenerator(AccountsManager.TOTP_PARAMETERS.timeStep(),
+              AccountsManager.TOTP_PARAMETERS.passwordLength(),
+              AccountsManager.TOTP_PARAMETERS.algorithm());
+
+      final Instant timestamp = Instant.now();
+
+      assertEquals(Optional.of(nextTotpKeyId), accountsManager.confirmPendingTotpKey(accountIdentifier,
+          totpGenerator.generateOneTimePassword(pendingTotpKey, timestamp),
+          timestamp,
+          TestRandomUtil.nextBytes(16)));
+
+      verify(account).setPendingTotpKey(null);
+    }
+
+    @Test
+    void confirmPendingTotpKeyPreviouslyConfirmed() throws InvalidKeyException, NoSuchAlgorithmException {
+      final UUID accountIdentifier = UUID.randomUUID();
+
+      final Account account = mock(Account.class);
+      when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
+
+      when(accounts.getByAccountIdentifier(accountIdentifier))
+          .thenReturn(Optional.of(account));
+
+      final AnnotatedTotpKey confirmedTotpKey;
+      {
+        final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP_PARAMETERS.algorithm());
+        totpKeyGenerator.init(AccountsManager.TOTP_KEY_LENGTH_BITS);
+
+        confirmedTotpKey = new AnnotatedTotpKey(
+            new TotpKey(AccountsManager.TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
+            TestRandomUtil.nextBytes(16));
+      }
+
+      final int keyId = 17;
+
+      when(account.getPendingTotpKey()).thenReturn(Optional.empty());
+      when(account.getTotpKeys()).thenReturn(Map.of(
+          keyId - 1, confirmedTotpKey,
+          keyId, confirmedTotpKey));
+
+      final TimeBasedOneTimePasswordGenerator totpGenerator =
+          new TimeBasedOneTimePasswordGenerator(AccountsManager.TOTP_PARAMETERS.timeStep(),
+              AccountsManager.TOTP_PARAMETERS.passwordLength(),
+              AccountsManager.TOTP_PARAMETERS.algorithm());
+
+      final Instant timestamp = Instant.now();
+
+      assertEquals(Optional.of(keyId), accountsManager.confirmPendingTotpKey(accountIdentifier,
+          totpGenerator.generateOneTimePassword(confirmedTotpKey, timestamp),
+          timestamp,
+          TestRandomUtil.nextBytes(16)));
+    }
+
+    @Test
+    void confirmPendingTotpKeyNoKeys() throws InvalidKeyException, TooManyTotpKeysException, NoSuchAlgorithmException {
+      final UUID accountIdentifier = UUID.randomUUID();
+
+      final Account account = mock(Account.class);
+      when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
+
+      when(accounts.getByAccountIdentifier(accountIdentifier))
+          .thenReturn(Optional.of(account));
+
+      final TotpKey pendingTotpKey = accountsManager.generatePendingTotpKey(accountIdentifier);
+
+      when(account.getPendingTotpKey()).thenReturn(Optional.empty());
+      when(account.getTotpKeys()).thenReturn(Collections.emptyMap());
+
+      final TimeBasedOneTimePasswordGenerator totpGenerator =
+          new TimeBasedOneTimePasswordGenerator(AccountsManager.TOTP_PARAMETERS.timeStep(),
+              AccountsManager.TOTP_PARAMETERS.passwordLength(),
+              AccountsManager.TOTP_PARAMETERS.algorithm());
+
+      final Instant timestamp = Instant.now();
+
+      assertEquals(Optional.empty(), accountsManager.confirmPendingTotpKey(accountIdentifier,
+          totpGenerator.generateOneTimePassword(pendingTotpKey, timestamp),
+          timestamp,
+          TestRandomUtil.nextBytes(16)));
+    }
+
+    @Test
+    void confirmPendingTotpKeyIncorrectPassword()
+        throws InvalidKeyException, TooManyTotpKeysException, NoSuchAlgorithmException {
+      final UUID accountIdentifier = UUID.randomUUID();
+
+      final Account account = mock(Account.class);
+      when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
+
+      when(accounts.getByAccountIdentifier(accountIdentifier))
+          .thenReturn(Optional.of(account));
+
+      final TotpKey pendingTotpKey = accountsManager.generatePendingTotpKey(accountIdentifier);
+      final int nextTotpKeyId = ThreadLocalRandom.current().nextInt();
+
+      when(account.getPendingTotpKey()).thenReturn(Optional.of(pendingTotpKey));
+      when(account.getNextTotpKeyId()).thenReturn(nextTotpKeyId);
+
+      final TimeBasedOneTimePasswordGenerator totpGenerator =
+          new TimeBasedOneTimePasswordGenerator(AccountsManager.TOTP_PARAMETERS.timeStep(),
+              AccountsManager.TOTP_PARAMETERS.passwordLength(),
+              AccountsManager.TOTP_PARAMETERS.algorithm());
+
+      final Instant timestamp = Instant.now();
+      final int incorrectPassword = totpGenerator.generateOneTimePassword(pendingTotpKey, timestamp) + 1;
+
+      assertEquals(Optional.empty(), accountsManager.confirmPendingTotpKey(accountIdentifier,
+          incorrectPassword,
+          timestamp,
+          TestRandomUtil.nextBytes(16)));
+
+      verify(account, never()).setPendingTotpKey(null);
+    }
   }
 }

@@ -8,6 +8,8 @@ package org.whispersystems.textsecuregcm.storage;
 import static java.util.Objects.requireNonNull;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.eatthepath.otp.HmacOneTimePasswordGenerator;
+import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
@@ -38,6 +40,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -58,7 +62,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -82,6 +88,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.NoStackTraceRuntimeException;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RegistrationIdValidator;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
@@ -141,6 +148,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final ScheduledExecutorService retryExecutor;
   private final Clock clock;
 
+  private final KeyGenerator totpKeyGenerator;
+  private final TimeBasedOneTimePasswordGenerator totpGenerator;
+
   private final Key verificationTokenKey;
 
   private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
@@ -193,6 +203,17 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
   @VisibleForTesting
   static final String LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM = "HmacSHA256";
+
+  @VisibleForTesting
+  static final int TOTP_KEY_LENGTH_BITS = 256;
+
+  @VisibleForTesting
+  static final TotpParameters TOTP_PARAMETERS = new TotpParameters(
+      TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA256,
+      HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
+      TimeBasedOneTimePasswordGenerator.DEFAULT_TIME_STEP);
+
+  public static final int MAX_TOTP_KEYS = 2;
 
   public enum DeletionReason {
     ADMIN_DELETED("admin"),
@@ -262,6 +283,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                                   int registrationId) {
   }
 
+  private static class UncheckedTooManyTotpKeysException extends NoStackTraceRuntimeException {
+  }
+
   public AccountsManager(final Accounts accounts,
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final FaultTolerantRedisClusterClient cacheCluster,
@@ -303,6 +327,21 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       getInitializedMac(verificationTokenKey);
     } catch (final InvalidKeyException e) {
       throw new IllegalArgumentException(e);
+    }
+
+    try {
+      this.totpKeyGenerator = KeyGenerator.getInstance(TOTP_PARAMETERS.algorithm());
+      totpKeyGenerator.init(TOTP_KEY_LENGTH_BITS);
+    } catch (final NoSuchAlgorithmException e) {
+      throw new AssertionError("Every implementation of the Java platform is required to support the HmacSHA256 KeyGenerator algorithm", e);
+    }
+
+    try {
+      this.totpGenerator = new TimeBasedOneTimePasswordGenerator(TOTP_PARAMETERS.timeStep(),
+          TOTP_PARAMETERS.passwordLength(),
+          TOTP_PARAMETERS.algorithm());
+    } catch (final NoSuchAlgorithmException e) {
+      throw new AssertionError("Every implementation of the Java platform is required to support the HmacSHA256 MAC algorithm", e);
     }
 
     this.pubSubConnection = pubSubRedisClient.createPubSubConnection();
@@ -1967,5 +2006,108 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
       throw e;
     }
+  }
+
+  /// Generates and stores a pending TOTP key for the identified account. Accounts may have at most one pending TOTP
+  /// key.
+  ///
+  /// @param accountIdentifier the identifier of the account for which to generate and store a pending TOTP key
+  ///
+  /// @return the generated pending TOTP key
+  ///
+  /// @see [#confirmPendingTotpKey(UUID, int, Instant, byte[])
+  ///
+  /// @throws TooManyTotpKeysException if the target account already has at least [#MAX_TOTP_KEYS] TOTP keys
+  public TotpKey generatePendingTotpKey(final UUID accountIdentifier) throws TooManyTotpKeysException {
+    final SecretKey secretKey = totpKeyGenerator.generateKey();
+    final TotpKey pendingTotpKey = new TotpKey(TOTP_PARAMETERS, secretKey.getEncoded());
+
+    try {
+      update(accountIdentifier, account -> {
+        if (account.getTotpKeys().size() >= MAX_TOTP_KEYS) {
+          throw new UncheckedTooManyTotpKeysException();
+        }
+
+        account.setPendingTotpKey(pendingTotpKey);
+      });
+    } catch (final UncheckedTooManyTotpKeysException _) {
+      throw new TooManyTotpKeysException();
+    }
+
+    return pendingTotpKey;
+  }
+
+  /// Verifies that a caller has stored a copy of their pending TOTP key and can use it to generate one-time passwords,
+  /// then stores the key to the caller's account record.
+  ///
+  /// @param accountIdentifier the identifier of the account for which to confirm a pending TOTP key
+  /// @param oneTimePassword the one-time password the caller derived from the pending TOTP key
+  /// @param timestamp the time at which the user submitted the one-time password
+  ///
+  /// @return the account-specific ID for the confirmed key if the given one-time password is valid for either a pending
+  /// TOTP password for the given account or for a one-time password previously verified for the given account or empty
+  /// otherwise
+  ///
+  /// @see [#generatePendingTotpKey(UUID)
+  public Optional<Integer> confirmPendingTotpKey(final UUID accountIdentifier,
+      final int oneTimePassword,
+      final Instant timestamp,
+      final byte[] metadataCiphertext) {
+
+    final Optional<Account> maybeAccount = accounts.getByAccountIdentifier(accountIdentifier);
+
+    if (maybeAccount.isEmpty()) {
+      return Optional.empty();
+    }
+
+    final Optional<TotpKey> maybePendingTotpKey = maybeAccount.flatMap(Account::getPendingTotpKey);
+
+    if (maybePendingTotpKey.isPresent()) {
+      final TotpKey pendingTotpKey = maybePendingTotpKey.get();
+
+      try {
+        if (totpGenerator.validateOneTimePassword(pendingTotpKey, timestamp, oneTimePassword)) {
+          final AtomicInteger keyId = new AtomicInteger();
+
+          update(accountIdentifier, account -> {
+            final Map<Integer, AnnotatedTotpKey> updatedTotpKeys = new HashMap<>(account.getTotpKeys());
+
+            keyId.set(account.getNextTotpKeyId());
+
+            updatedTotpKeys.put(keyId.get(),
+                new AnnotatedTotpKey(new TotpKey(pendingTotpKey.totpParameters(), pendingTotpKey.encodedKey()), metadataCiphertext));
+
+            account.setPendingTotpKey(null);
+            account.setTotpKeys(updatedTotpKeys);
+          });
+
+          return Optional.of(keyId.get());
+        }
+      } catch (final InvalidKeyException e) {
+        ImpossibleEvents.logImpossible(logger, "Invalid pending TOTP key for account {}", accountIdentifier, e);
+      }
+    }
+
+    // Either there was no pending TOTP password for the given account identifier or the given one-time password
+    // wasn't valid for the pending key. Either way, see if it's a valid one-time password for a key stored on the
+    // account record in case the caller is retrying a dropped request (in which case we've stored a previously
+    // pending key on the account record).
+    //
+    // It's possible (though unlikely) that more than one key will produce the same one-time password at a given
+    // instant. To compensate, we just check the key with the highest ID (i.e. the most recent). It's also theoretically
+    // possible that a user will have iterated through so many keys that they've wrapped around into negative integers,
+    // but that's not really a practical concern.
+    return getByAccountIdentifier(accountIdentifier)
+        .flatMap(account -> account.getTotpKeys().entrySet().stream()
+            .max(Map.Entry.comparingByKey())
+            .filter(entry -> {
+              try {
+                return totpGenerator.validateOneTimePassword(entry.getValue(), timestamp, oneTimePassword);
+              } catch (final InvalidKeyException e) {
+                ImpossibleEvents.logImpossible(logger, "Invalid TOTP key for account {}", accountIdentifier, e);
+                return false;
+              }
+            })
+            .map(Map.Entry::getKey));
   }
 }

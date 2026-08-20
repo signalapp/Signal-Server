@@ -24,6 +24,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -154,6 +155,13 @@ public class Account {
   @JsonProperty("acs")
   @Nullable
   private byte[] authCredentialSalt;
+
+  @JsonProperty("pendingTotp")
+  @Nullable
+  private TotpKey pendingTotpKey;
+
+  @JsonProperty("totp")
+  private Map<Integer, AnnotatedTotpKey> totpKeys = Collections.emptyMap();
 
   @JsonIgnore
   private boolean stale;
@@ -648,6 +656,35 @@ public class Account {
   public void setAuthCredentialSalt(final byte[] authCredentialSalt) {
     requireNotStale();
     this.authCredentialSalt = authCredentialSalt;
+  }
+
+  public void setPendingTotpKey(@Nullable final TotpKey pendingTotpKey) {
+    requireNotStale();
+    this.pendingTotpKey = pendingTotpKey;
+  }
+
+  public Optional<TotpKey> getPendingTotpKey() {
+    requireNotStale();
+    return Optional.ofNullable(pendingTotpKey);
+  }
+
+  public int getNextTotpKeyId() {
+    requireNotStale();
+
+    return totpKeys.keySet().stream()
+        .mapToInt(i -> i)
+        .max()
+        .orElse(-1) + 1;
+  }
+
+  public Map<Integer, AnnotatedTotpKey> getTotpKeys() {
+    requireNotStale();
+    return totpKeys;
+  }
+
+  public void setTotpKeys(final Map<Integer, AnnotatedTotpKey> totpKeys) {
+    requireNotStale();
+    this.totpKeys = totpKeys;
   }
 
   public void markStale() {

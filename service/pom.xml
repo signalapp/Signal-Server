@@ -438,6 +438,11 @@
 
     <dependency>
       <groupId>com.eatthepath</groupId>
+      <artifactId>java-otp</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.eatthepath</groupId>
       <artifactId>pushy</artifactId>
     </dependency>
     <dependency>

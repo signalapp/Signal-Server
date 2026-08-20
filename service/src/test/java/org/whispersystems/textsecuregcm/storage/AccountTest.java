@@ -16,6 +16,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.createDevice;
 
+import com.eatthepath.otp.HmacOneTimePasswordGenerator;
+import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import com.fasterxml.jackson.annotation.JsonFilter;
 import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +27,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -277,5 +280,23 @@ class AccountTest {
       assertThat(deserializedHexCpv.getCurrentProfileVersion()).isPresent().hasValue(version);
       final Account deserializedBase64Cpv = SystemMapper.jsonMapper().readValue(String.format(jsonTemplate, Base64.getEncoder().encodeToString(version)), Account.class);
       assertThat(deserializedBase64Cpv.getCurrentProfileVersion()).isPresent().hasValue(version);
+  }
+
+  @Test
+  void getNextTotpKeyId() {
+    assertEquals(0, new Account().getNextTotpKeyId());
+
+    final AnnotatedTotpKey totpKey = new AnnotatedTotpKey(new TotpKey(
+        new TotpParameters(
+            TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA256,
+            HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
+            TimeBasedOneTimePasswordGenerator.DEFAULT_TIME_STEP),
+        TestRandomUtil.nextBytes(16)),
+        TestRandomUtil.nextBytes(16));
+
+    final Account accountWithTotpKey = new Account();
+    accountWithTotpKey.setTotpKeys(Map.of(0, totpKey));
+
+    assertEquals(1, accountWithTotpKey.getNextTotpKeyId());
   }
 }

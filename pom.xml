@@ -64,6 +64,7 @@
     <httpcore.version>4.4.16</httpcore.version>
     <httpclient.version>4.5.14</httpclient.version>
     <jackson.version>2.22.2</jackson.version>
+    <java-otp.version>1.0.0</java-otp.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>2.4.10</kotlin.version>
@@ -190,6 +191,11 @@
         <version>${kotlin.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.eatthepath</groupId>
+        <artifactId>java-otp</artifactId>
+        <version>${java-otp.version}</version>
       </dependency>
       <dependency>
         <groupId>com.eatthepath</groupId>
