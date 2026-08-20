@@ -63,7 +63,7 @@
     <!-- several libraries (AWS, Google Cloud) use Apache http components transitively, and we need to align them -->
     <httpcore.version>4.4.16</httpcore.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <jackson.version>2.22.1</jackson.version>
+    <jackson.version>2.22.2</jackson.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>2.4.10</kotlin.version>
