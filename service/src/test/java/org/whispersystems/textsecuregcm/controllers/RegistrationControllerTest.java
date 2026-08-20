@@ -60,6 +60,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
@@ -1022,19 +1023,22 @@ class RegistrationControllerTest {
 
   }
 
-  @Test
-  void registerAccountMissingRecoveryPassword() throws Exception {
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(ints = 0)
+  void registerAccountMissingRecoveryPassword(@Nullable final Integer recoveryPasswordLength) throws Exception {
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
 
     final AccountAttributes accountAttributes =
         new AccountAttributes(true, 1, null, "test".getBytes(StandardCharsets.UTF_8), null, false,
-            DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES, null)
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES,
+            recoveryPasswordLength == null ? null : new byte[recoveryPasswordLength])
             .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
 
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         new byte[0],
-        receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), 1).serialize(),
+        receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), ReceiptLevel.LOGIN.getValue()).serialize(),
         null,
         accountAttributes,
         true,

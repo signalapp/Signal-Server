@@ -334,9 +334,9 @@ public class RegistrationController {
       throw new BadRequestException("login purchases are not enabled");
     }
 
-    if (registrationRequest.accountAttributes().recoveryPassword().isEmpty()) {
-      throw new WebApplicationException("Account recovery password is required", 422);
-    }
+    registrationRequest.accountAttributes().recoveryPassword()
+        .filter(ArrayUtils::isNotEmpty)
+        .orElseThrow(() -> new WebApplicationException("Account recovery password is required", 422));
 
     final ReceiptCredentialPresentation receiptCredentialPresentation;
     try {
