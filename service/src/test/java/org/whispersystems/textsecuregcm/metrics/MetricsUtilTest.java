@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -14,8 +15,7 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
-import java.util.Set;
-
+import io.micrometer.registry.otlp.OtlpMeterRegistry;
 import org.assertj.core.api.AbstractStringAssert;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -82,6 +82,11 @@ class MetricsUtilTest {
     registry.counter("chat.MicrometerAwsSdkMetricPublisher.days_since_last_incident").increment();
 
     assertThat(registry.getMeters()).hasSize(enableAwsSdkMetrics ? 1 : 0);
+  }
+
+  @Test
+  void initOpenTelemetry() {
+    assertDoesNotThrow(() -> new OtlpMeterRegistry());
   }
 
 }
