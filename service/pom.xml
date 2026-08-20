@@ -296,6 +296,13 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
+      <exclusions>
+        <!-- gax depends on methods only available in 2.6+, and this uses 2.5 -->
+        <exclusion>
+          <groupId>org.conscrypt</groupId>
+          <artifactId>conscrypt-openjdk-uber</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -308,19 +315,18 @@
           <groupId>org.codehaus.woodstox</groupId>
           <artifactId>stax2-api</artifactId>
         </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.cloud</groupId>
-      <artifactId>google-cloud-firestore</artifactId>
-      <exclusions>
-        <!-- incubator packages aren't included in the opentelemetry BOM, and we don't use them -->
+        <!-- gax depends on methods only available in 2.6+, and this uses 2.5 -->
         <exclusion>
-          <groupId>io.opentelemetry.instrumentation</groupId>
-          <artifactId>opentelemetry-instrumentation-api-incubator</artifactId>
+          <groupId>org.conscrypt</groupId>
+          <artifactId>conscrypt-openjdk-uber</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <!-- gax depends on methods only available in 2.6+ -->
+    <dependency>
+      <groupId>org.conscrypt</groupId>
+      <artifactId>conscrypt-openjdk-uber</artifactId>
+      <version>2.6.0</version>
     </dependency>
 
     <dependency>
