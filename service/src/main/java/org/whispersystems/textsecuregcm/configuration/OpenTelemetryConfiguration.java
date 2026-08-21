@@ -18,6 +18,7 @@ public record OpenTelemetryConfiguration(
   @JsonProperty Duration shutdownWaitDuration,
   @JsonProperty int maxBucketCount,
   @JsonProperty Map<String, Integer> maxBucketsPerMeter,
+  @JsonProperty boolean publishMaxGaugeForHistograms,
   @JsonAnyGetter @JsonAnySetter Map<String, String> otlpConfig
 ) implements OtlpConfig {
 
