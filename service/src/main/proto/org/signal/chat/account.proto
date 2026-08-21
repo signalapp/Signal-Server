@@ -549,7 +549,7 @@ message ConfirmTotpKeyRequest {
 message ConfirmTotpKeyResponse {
   message KeyConfirmed {
     // The account-specific identifier for the newly-confirmed TOTP key
-    uint32 key_id = 1;
+    uint32 key_id = 1 [(require.range) = {min: 0, max: 127}];
   }
 
   oneof response {
@@ -568,7 +568,7 @@ message ListTotpKeysRequest {}
 message ListTotpKeysResponse {
   message TotpKeyMetadata {
     // The user-provided ciphertext for metadata associated with this TOTP key
-    bytes metadata_ciphertext = 1;
+    bytes metadata_ciphertext = 1 [(require.exactlySize) = 160];
 
     // The TOTP parameters associated with this key
     TotpParameters totp_parameters = 2;
@@ -579,7 +579,7 @@ message ListTotpKeysResponse {
 
 message SetTotpKeyMetadataRequest {
   // The account-specific identifier of the TOTP key to modify
-  uint32 key_id = 1;
+  uint32 key_id = 1 [(require.range) = {min: 0, max: 127}];
 
   // The ciphertext of the new user-provided metadata to be attached to the
   // identified key
@@ -601,7 +601,7 @@ message SetTotpKeyMetadataResponse {
 
 message RemoveTotpKeyRequest {
   // The account-specific identifier of the TOTP key to remove
-  uint32 key_id = 1;
+  uint32 key_id = 1 [(require.range) = {min: 0, max: 127}];
 }
 
 message RemoveTotpKeyResponse {

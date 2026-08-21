@@ -577,7 +577,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public ConfirmTotpKeyResponse confirmTotpKey(final ConfirmTotpKeyRequest request) {
-    final Optional<Integer> maybeConfirmedTotpKeyId =
+    final Optional<Byte> maybeConfirmedTotpKeyId =
         accountsManager.confirmPendingTotpKey(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
             request.getOneTimePassword(),
             clock.instant(),
@@ -610,17 +610,18 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public SetTotpKeyMetadataResponse setTotpKeyMetadata(final SetTotpKeyMetadataRequest request) {
+    final byte keyId = validateTotpKeyId(request.getKeyId());
+
     try {
       accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(), account -> {
-        final Map<Integer, AnnotatedTotpKey> totpKeys = new HashMap<>(account.getTotpKeys());
-        @Nullable final AnnotatedTotpKey existingKey = totpKeys.get(request.getKeyId());
+        final Map<Byte, AnnotatedTotpKey> totpKeys = new HashMap<>(account.getTotpKeys());
+        @Nullable final AnnotatedTotpKey existingKey = totpKeys.get(keyId);
 
         if (existingKey == null) {
           throw new TotpKeyNotFoundException();
         }
 
-        totpKeys.put(request.getKeyId(),
-            new AnnotatedTotpKey(existingKey.totpKey(), request.getMetadataCiphertext().toByteArray()));
+        totpKeys.put(keyId, new AnnotatedTotpKey(existingKey.totpKey(), request.getMetadataCiphertext().toByteArray()));
 
         account.setTotpKeys(totpKeys);
       });
@@ -637,14 +638,24 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public RemoveTotpKeyResponse removeTotpKey(final RemoveTotpKeyRequest request) {
+    final byte keyId = validateTotpKeyId(request.getKeyId());
+
     accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(), account -> {
-      final Map<Integer, AnnotatedTotpKey> totpKeys = new HashMap<>(account.getTotpKeys());
-      totpKeys.remove(request.getKeyId());
+      final Map<Byte, AnnotatedTotpKey> totpKeys = new HashMap<>(account.getTotpKeys());
+      totpKeys.remove(keyId);
 
       account.setTotpKeys(totpKeys);
     });
 
     return RemoveTotpKeyResponse.getDefaultInstance();
+  }
+
+  private byte validateTotpKeyId(final int keyId) {
+    if (keyId < 0 || keyId > Account.MAX_TOTP_KEY_ID) {
+      throw GrpcExceptions.invalidArguments("TOTP key ID out of range");
+    }
+
+    return (byte) keyId;
   }
 
   private static TotpParameters toGrpcTotpParameters(final org.whispersystems.textsecuregcm.storage.TotpParameters totpParameters) {

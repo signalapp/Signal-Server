@@ -1957,7 +1957,7 @@ class AccountsManagerTest {
 
       when(account.getTotpKeys()).thenReturn(IntStream.range(0, AccountsManager.MAX_TOTP_KEYS)
           .boxed()
-          .collect(Collectors.toMap(keyId -> keyId, _ -> new AnnotatedTotpKey(
+          .collect(Collectors.toMap(Integer::byteValue, _ -> new AnnotatedTotpKey(
               new TotpKey(AccountsManager.TOTP_PARAMETERS, TestRandomUtil.nextBytes(16)),
               TestRandomUtil.nextBytes(16)))));
 
@@ -1979,7 +1979,7 @@ class AccountsManagerTest {
           .thenReturn(Optional.of(account));
 
       final TotpKey pendingTotpKey = accountsManager.generatePendingTotpKey(accountIdentifier);
-      final int nextTotpKeyId = ThreadLocalRandom.current().nextInt();
+      final byte nextTotpKeyId = (byte) ThreadLocalRandom.current().nextInt();
 
       when(account.getPendingTotpKey()).thenReturn(Optional.of(pendingTotpKey));
       when(account.getNextTotpKeyId()).thenReturn(nextTotpKeyId);
@@ -2019,11 +2019,11 @@ class AccountsManagerTest {
             TestRandomUtil.nextBytes(16));
       }
 
-      final int keyId = 17;
+      final byte keyId = 17;
 
       when(account.getPendingTotpKey()).thenReturn(Optional.empty());
       when(account.getTotpKeys()).thenReturn(Map.of(
-          keyId - 1, confirmedTotpKey,
+          (byte) (keyId - 1), confirmedTotpKey,
           keyId, confirmedTotpKey));
 
       final TimeBasedOneTimePasswordGenerator totpGenerator =
@@ -2079,7 +2079,7 @@ class AccountsManagerTest {
           .thenReturn(Optional.of(account));
 
       final TotpKey pendingTotpKey = accountsManager.generatePendingTotpKey(accountIdentifier);
-      final int nextTotpKeyId = ThreadLocalRandom.current().nextInt();
+      final byte nextTotpKeyId = (byte) ThreadLocalRandom.current().nextInt();
 
       when(account.getPendingTotpKey()).thenReturn(Optional.of(pendingTotpKey));
       when(account.getNextTotpKeyId()).thenReturn(nextTotpKeyId);
@@ -2103,7 +2103,7 @@ class AccountsManagerTest {
 
   @ParameterizedTest
   @MethodSource
-  void verifyTotp(final Map<Integer, AnnotatedTotpKey> totpKeys,
+  void verifyTotp(final Map<Byte, AnnotatedTotpKey> totpKeys,
       final Instant timestamp,
       @Nullable final Integer oneTimePassword,
       final boolean expectVerified) {
@@ -2145,16 +2145,16 @@ class AccountsManagerTest {
             Collections.emptyMap(), timestamp, 123456, false),
 
         Arguments.argumentSet("Has key, correct password provided",
-            Map.of(1, totpKey), timestamp, totpGenerator.generateOneTimePassword(totpKey, timestamp), true),
+            Map.of((byte) 1, totpKey), timestamp, totpGenerator.generateOneTimePassword(totpKey, timestamp), true),
 
         Arguments.argumentSet("Has key, incorrect password provided",
-            Map.of(1, totpKey), timestamp, totpGenerator.generateOneTimePassword(totpKey, timestamp) + 1, false),
+            Map.of((byte) 1, totpKey), timestamp, totpGenerator.generateOneTimePassword(totpKey, timestamp) + 1, false),
 
         Arguments.argumentSet("Has key, no password provided",
-            Map.of(1, totpKey), timestamp, null, false),
+            Map.of((byte) 1, totpKey), timestamp, null, false),
 
         Arguments.argumentSet("Has multiple keys, correct password provided for one key",
-            Map.of(1, totpKey, 2, secondTotpKey), timestamp, totpGenerator.generateOneTimePassword(totpKey, timestamp), true)
+            Map.of((byte) 1, totpKey, (byte) 2, secondTotpKey), timestamp, totpGenerator.generateOneTimePassword(totpKey, timestamp), true)
     );
   }
 
@@ -2176,7 +2176,7 @@ class AccountsManagerTest {
             AccountsManager.TOTP_PARAMETERS.algorithm());
 
     final Account account = mock(Account.class);
-    when(account.getTotpKeys()).thenReturn(Map.of(1, totpKey));
+    when(account.getTotpKeys()).thenReturn(Map.of((byte) 1, totpKey));
 
     final Instant beginningOfTotpWindow =
         Instant.ofEpochMilli((Instant.now().toEpochMilli() / AccountsManager.TOTP_PARAMETERS.timeStep().toMillis()) *

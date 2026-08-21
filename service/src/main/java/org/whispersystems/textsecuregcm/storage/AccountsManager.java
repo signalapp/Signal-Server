@@ -61,7 +61,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
@@ -2060,7 +2059,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   /// otherwise
   ///
   /// @see [#generatePendingTotpKey(UUID)
-  public Optional<Integer> confirmPendingTotpKey(final UUID accountIdentifier,
+  public Optional<Byte> confirmPendingTotpKey(final UUID accountIdentifier,
       final int oneTimePassword,
       final Instant timestamp,
       final byte[] metadataCiphertext) {
@@ -2081,18 +2080,18 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           final AtomicInteger keyId = new AtomicInteger();
 
           update(accountIdentifier, account -> {
-            final Map<Integer, AnnotatedTotpKey> updatedTotpKeys = new HashMap<>(account.getTotpKeys());
+            final Map<Byte, AnnotatedTotpKey> updatedTotpKeys = new HashMap<>(account.getTotpKeys());
 
             keyId.set(account.getNextTotpKeyId());
 
-            updatedTotpKeys.put(keyId.get(),
+            updatedTotpKeys.put((byte) keyId.get(),
                 new AnnotatedTotpKey(new TotpKey(pendingTotpKey.totpParameters(), pendingTotpKey.encodedKey()), metadataCiphertext));
 
             account.setPendingTotpKey(null);
             account.setTotpKeys(updatedTotpKeys);
           });
 
-          return Optional.of(keyId.get());
+          return Optional.of((byte) keyId.get());
         }
       } catch (final InvalidKeyException e) {
         ImpossibleEvents.logImpossible(logger, "Invalid pending TOTP key for account {}", accountIdentifier, e);

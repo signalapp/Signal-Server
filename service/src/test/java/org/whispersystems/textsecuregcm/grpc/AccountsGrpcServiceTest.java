@@ -1148,7 +1148,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void confirmTotpKey() {
-    final int keyId = 17;
+    final byte keyId = 17;
     final int oneTimePassword = 123456;
     final byte[] metadataCiphertext = TestRandomUtil.nextBytes(TOTP_KEY_METADATA_SIZE);
 
@@ -1188,9 +1188,9 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void listTotpKeys() {
-    final Map<Integer, AnnotatedTotpKey> totpKeys = Map.of(
-        1, generateRandomAnnotatedTotpKey(),
-        2, generateRandomAnnotatedTotpKey());
+    final Map<Byte, AnnotatedTotpKey> totpKeys = Map.of(
+        (byte) 1, generateRandomAnnotatedTotpKey(),
+        (byte) 2, generateRandomAnnotatedTotpKey());
 
     final Account account = mock(Account.class);
     when(account.getTotpKeys()).thenReturn(totpKeys);
@@ -1208,7 +1208,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         .build();
 
     final Map<Integer, ListTotpKeysResponse.TotpKeyMetadata> expectedTotpKeys = totpKeys.entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> ListTotpKeysResponse.TotpKeyMetadata.newBuilder()
+        .collect(Collectors.toMap(entry -> entry.getKey().intValue(), entry -> ListTotpKeysResponse.TotpKeyMetadata.newBuilder()
             .setTotpParameters(expectedTotpParameters)
             .setMetadataCiphertext(ByteString.copyFrom(entry.getValue().metadataCiphertext()))
             .build()));
@@ -1218,7 +1218,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void setTotpKeyMetadata() {
-    final int keyId = ThreadLocalRandom.current().nextInt();
+    final byte keyId = (byte) ThreadLocalRandom.current().nextInt(Account.MAX_TOTP_KEY_ID);
     final byte[] updatedMetadata = TestRandomUtil.nextBytes(TOTP_KEY_METADATA_SIZE);
     final AnnotatedTotpKey existingTotpKey = generateRandomAnnotatedTotpKey();
 
@@ -1248,7 +1248,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final SetTotpKeyMetadataResponse response =
         authenticatedServiceStub().setTotpKeyMetadata(SetTotpKeyMetadataRequest.newBuilder()
-            .setKeyId(ThreadLocalRandom.current().nextInt())
+            .setKeyId(ThreadLocalRandom.current().nextInt(Account.MAX_TOTP_KEY_ID))
             .setMetadataCiphertext(ByteString.copyFrom(TestRandomUtil.nextBytes(TOTP_KEY_METADATA_SIZE)))
             .build());
 
@@ -1265,11 +1265,20 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void removeTotpKey() {
-    final int retainedKeyId = 1;
-    final int removedKeyId = 2;
+  void setTotpKeyMetadataKeyIdOutOfRange() {
+    GrpcTestUtils.assertStatusInvalidArgument(
+        () -> authenticatedServiceStub().setTotpKeyMetadata(SetTotpKeyMetadataRequest.newBuilder()
+            .setKeyId(Account.MAX_TOTP_KEY_ID + 1)
+            .setMetadataCiphertext(ByteString.copyFrom(TestRandomUtil.nextBytes(TOTP_KEY_METADATA_SIZE)))
+            .build()));
+  }
 
-    final Map<Integer, AnnotatedTotpKey> initialKeys = Map.of(
+  @Test
+  void removeTotpKey() {
+    final byte retainedKeyId = 1;
+    final byte removedKeyId = 2;
+
+    final Map<Byte, AnnotatedTotpKey> initialKeys = Map.of(
         retainedKeyId, generateRandomAnnotatedTotpKey(),
         removedKeyId, generateRandomAnnotatedTotpKey());
 
@@ -1285,6 +1294,14 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         .build());
 
     verify(account).setTotpKeys(Map.of(retainedKeyId, initialKeys.get(retainedKeyId)));
+  }
+
+  @Test
+  void removeTotpKeyIdOutOfRange() {
+    GrpcTestUtils.assertStatusInvalidArgument(
+        () -> authenticatedServiceStub().removeTotpKey(RemoveTotpKeyRequest.newBuilder()
+            .setKeyId(Account.MAX_TOTP_KEY_ID + 1)
+            .build()));
   }
 
   private static AnnotatedTotpKey generateRandomAnnotatedTotpKey() {

@@ -22,12 +22,15 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -45,6 +48,8 @@ import org.whispersystems.textsecuregcm.util.ZkCredentialPublicKeyAdapter;
 
 @JsonFilter("Account")
 public class Account {
+
+  public static final int MAX_TOTP_KEY_ID = Byte.MAX_VALUE;
 
   private static final Logger logger = LoggerFactory.getLogger(Account.class);
 
@@ -161,7 +166,7 @@ public class Account {
   private TotpKey pendingTotpKey;
 
   @JsonProperty("totp")
-  private Map<Integer, AnnotatedTotpKey> totpKeys = Collections.emptyMap();
+  private Map<Byte, AnnotatedTotpKey> totpKeys = Collections.emptyMap();
 
   @JsonIgnore
   private boolean stale;
@@ -668,21 +673,23 @@ public class Account {
     return Optional.ofNullable(pendingTotpKey);
   }
 
-  public int getNextTotpKeyId() {
+  public byte getNextTotpKeyId() {
     requireNotStale();
 
-    return totpKeys.keySet().stream()
-        .mapToInt(i -> i)
-        .max()
-        .orElse(-1) + 1;
+    final Set<Byte> usedKeys = new HashSet<>(totpKeys.keySet());
+
+    return (byte) IntStream.range(0, MAX_TOTP_KEY_ID + 1)
+        .filter(b -> !usedKeys.contains((byte) b))
+        .findFirst()
+        .orElseThrow(IllegalStateException::new);
   }
 
-  public Map<Integer, AnnotatedTotpKey> getTotpKeys() {
+  public Map<Byte, AnnotatedTotpKey> getTotpKeys() {
     requireNotStale();
     return totpKeys;
   }
 
-  public void setTotpKeys(final Map<Integer, AnnotatedTotpKey> totpKeys) {
+  public void setTotpKeys(final Map<Byte, AnnotatedTotpKey> totpKeys) {
     requireNotStale();
     this.totpKeys = totpKeys;
   }

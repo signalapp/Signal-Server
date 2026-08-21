@@ -27,12 +27,16 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -282,21 +286,51 @@ class AccountTest {
       assertThat(deserializedBase64Cpv.getCurrentProfileVersion()).isPresent().hasValue(version);
   }
 
-  @Test
-  void getNextTotpKeyId() {
-    assertEquals(0, new Account().getNextTotpKeyId());
+  @ParameterizedTest
+  @MethodSource
+  void getNextTotpKeyId(final List<Byte> existingKeyIds, final byte expectedNextKeyId) {
+    final Account account = new Account();
+    account.setTotpKeys(existingKeyIds.stream()
+        .collect(Collectors.toMap(keyId -> keyId, _ -> new AnnotatedTotpKey(new TotpKey(
+            new TotpParameters(
+                TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA256,
+                HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
+                TimeBasedOneTimePasswordGenerator.DEFAULT_TIME_STEP),
+            TestRandomUtil.nextBytes(16)),
+            TestRandomUtil.nextBytes(16)))));
 
-    final AnnotatedTotpKey totpKey = new AnnotatedTotpKey(new TotpKey(
-        new TotpParameters(
-            TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA256,
-            HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
-            TimeBasedOneTimePasswordGenerator.DEFAULT_TIME_STEP),
-        TestRandomUtil.nextBytes(16)),
-        TestRandomUtil.nextBytes(16));
+    assertEquals(expectedNextKeyId, account.getNextTotpKeyId());
+  }
 
-    final Account accountWithTotpKey = new Account();
-    accountWithTotpKey.setTotpKeys(Map.of(0, totpKey));
+  private static List<Arguments> getNextTotpKeyId() {
+    final byte unclaimedId = 17;
 
-    assertEquals(1, accountWithTotpKey.getNextTotpKeyId());
+    final List<Byte> mostIdsTaken = IntStream.range(0, Account.MAX_TOTP_KEY_ID)
+        .filter(i -> i != unclaimedId)
+        .mapToObj(i -> (byte) i)
+        .toList();
+
+    return List.of(
+        Arguments.argumentSet("No existing keys", List.of(), (byte) 0),
+        Arguments.argumentSet("Single existing key", List.of((byte) 0), (byte) 1),
+        Arguments.argumentSet("Multiple existing keys", List.of((byte) 0, (byte) 1), (byte) 2),
+        Arguments.argumentSet("ID wraparound", List.of((byte) 0, (byte) 255), (byte) 1),
+        Arguments.argumentSet("Most IDs taken", mostIdsTaken, unclaimedId)
+    );
+  }
+
+  void getNextTotpKeyNoneAvailable() {
+    final Account account = new Account();
+    account.setTotpKeys(IntStream.range(0, Account.MAX_TOTP_KEY_ID)
+        .mapToObj(i -> (byte) i)
+        .collect(Collectors.toMap(keyId -> keyId, _ -> new AnnotatedTotpKey(new TotpKey(
+            new TotpParameters(
+                TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA256,
+                HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
+                TimeBasedOneTimePasswordGenerator.DEFAULT_TIME_STEP),
+            TestRandomUtil.nextBytes(16)),
+            TestRandomUtil.nextBytes(16)))));
+
+    assertThrows(IllegalStateException.class, account::getNextTotpKeyId);
   }
 }
