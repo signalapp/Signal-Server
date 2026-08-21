@@ -574,7 +574,7 @@ message ListTotpKeysResponse {
     TotpParameters totp_parameters = 2;
   }
 
-  map<int32, TotpKeyMetadata> keys = 1;
+  map<uint32, TotpKeyMetadata> keys = 1;
 }
 
 message SetTotpKeyMetadataRequest {
