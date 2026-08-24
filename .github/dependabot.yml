@@ -23,6 +23,8 @@ updates:
     - dependency-name: "ch.qos.logback:*"
       versions: [">=1.6.0"]
     # this dependency monitors convergence conflicts, so we pin a specific version
+    - dependency-name: "tools.jackson.core:jackson-databind"
+    # this dependency monitors convergence conflicts, so we pin a specific version
     - dependency-name: "com.squareup.okio:okio-jvm"
 
   groups:
