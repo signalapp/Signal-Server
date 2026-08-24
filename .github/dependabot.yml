@@ -19,16 +19,18 @@ updates:
       update-types:
         - version-update:semver-major
         - version-update:semver-minor
+
+    # Temporary exclusions, pending upstream fixes
     #  https://github.com/dropwizard/dropwizard/pull/11273
     - dependency-name: "ch.qos.logback:*"
       versions: [">=1.6.0"]
-    # this dependency monitors convergence conflicts, so we pin a specific version
-    - dependency-name: "tools.jackson.core:jackson-databind"
-    # this dependency monitors convergence conflicts, so we pin a specific version
-    - dependency-name: "com.squareup.okio:okio-jvm"
     # https://github.com/jetty/jetty.project/issues/15657
     - dependency-name: "org.eclipse.jetty:*"
       versions: ["<=12.1.12"]
+
+    # Dependency convergence sentinels, pinned to specific versions
+    - dependency-name: "tools.jackson.core:jackson-databind"
+    - dependency-name: "com.squareup.okio:okio-jvm"
 
   groups:
     minor-java-dependencies:
