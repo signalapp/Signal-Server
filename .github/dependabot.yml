@@ -22,6 +22,8 @@ updates:
     #  https://github.com/dropwizard/dropwizard/pull/11273
     - dependency-name: "ch.qos.logback:*"
       versions: [">=1.6.0"]
+    # this dependency monitors convergence conflicts, so we pin a specific version
+    - dependency-name: "com.squareup.okio:okio-jvm"
 
   groups:
     minor-java-dependencies:
