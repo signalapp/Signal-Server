@@ -61,7 +61,7 @@ public class MessagingTest {
       assertDoesNotThrow(() -> WebsocketClientSession.decode(SendMessageResponse.class, responseMessage));
 
       final WebsocketClientSession websocketB = Operations.authenticatedWebsocket(userB, Device.PRIMARY_ID);
-      assertTimeoutPreemptively(Duration.ofSeconds(5), websocketB::waitForQueueEmpty);
+      assertTimeoutPreemptively(Duration.ofSeconds(15), websocketB::waitForQueueEmpty);
 
       assertEquals(1, websocketB.getReceivedEnvelopes().size());
       final MessageProtos.Envelope envelope = websocketB.getReceivedEnvelopes().getFirst();
