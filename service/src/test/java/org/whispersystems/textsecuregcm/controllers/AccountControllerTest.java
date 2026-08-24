@@ -46,6 +46,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.ArrayUtils;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -881,10 +882,13 @@ class AccountControllerTest {
     }
   }
 
-  @Test
-  void testAccountsAttributesUpdateRecoveryPassword() {
-    final byte[] recoveryPassword = TestRandomUtil.nextBytes(32);
+  static Stream<byte[]> testAccountsAttributesUpdateRecoveryPassword() {
+    return Stream.of(null, new byte[]{}, TestRandomUtil.nextBytes(32));
+  }
 
+  @ParameterizedTest
+  @MethodSource
+  void testAccountsAttributesUpdateRecoveryPassword(final byte[] recoveryPassword) {
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/attributes/")
         .request()
@@ -893,9 +897,12 @@ class AccountControllerTest {
             .setUnidentifiedAccessKey(new byte[16])
             .setRecoveryPassword(recoveryPassword)))) {
 
+      final int expectedRrpUpdates = ArrayUtils.isEmpty(recoveryPassword) ? 0 : 1;
+
       assertThat(response.getStatus()).isEqualTo(204);
-      verify(accountsManager).update(eq(AuthHelper.UNDISCOVERABLE_UUID), any(), argThat(additionWriteItems -> additionWriteItems.size() == 1));
-      verify(AuthHelper.UNDISCOVERABLE_ACCOUNT).setAccountRecoveryPassword(recoveryPassword);
+      verify(accountsManager).update(eq(AuthHelper.UNDISCOVERABLE_UUID), any(), argThat(additionWriteItems -> additionWriteItems.size() == expectedRrpUpdates));
+
+      verify(AuthHelper.UNDISCOVERABLE_ACCOUNT, times(expectedRrpUpdates)).setAccountRecoveryPassword(recoveryPassword);
     }
   }
 

@@ -14,6 +14,7 @@ import jakarta.validation.constraints.AssertTrue;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.ArrayUtils;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
@@ -103,7 +104,7 @@ public class AccountAttributes {
   }
 
   public Optional<byte[]> recoveryPassword() {
-    return Optional.ofNullable(recoveryPassword);
+    return Optional.ofNullable(recoveryPassword).filter(ArrayUtils::isNotEmpty);
   }
 
   @VisibleForTesting
