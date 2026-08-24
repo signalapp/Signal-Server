@@ -19,6 +19,10 @@ updates:
       update-types:
         - version-update:semver-major
         - version-update:semver-minor
+    #  https://github.com/dropwizard/dropwizard/pull/11273
+    - dependency-name: "ch.qos.logback:*"
+      versions: [">=1.6.0"]
+
   groups:
     minor-java-dependencies:
       # Java: Only group minor and patch updates (we want to carefully review major updates)
