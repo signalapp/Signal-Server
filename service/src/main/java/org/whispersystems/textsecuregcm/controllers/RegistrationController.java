@@ -226,8 +226,6 @@ public class RegistrationController {
       throw new WebApplicationException("PNI keys and registration ID must be provided", 422);
     }
 
-    rateLimiters.getRegistrationLimiter().validate(number);
-
     final PhoneVerificationRequest.VerificationType verificationType;
     try {
       verificationType = phoneVerificationTokenManager.verify(
@@ -246,6 +244,8 @@ public class RegistrationController {
     } catch (final RecoveryPasswordVerificationFailedException e) {
       throw new ForbiddenException("recovery password could not be verified");
     }
+
+    rateLimiters.getRegistrationLimiter().validate(number);
 
     // There can be at most one existing account for a set of numbers in the same equivalence class, so it's sufficient
     // to find the first one.
