@@ -6,11 +6,14 @@
 package org.whispersystems.textsecuregcm.filters;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.Configuration;
 import io.dropwizard.core.setup.Environment;
+import io.dropwizard.testing.ConfigOverride;
 import io.dropwizard.testing.junit5.DropwizardAppExtension;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import jakarta.ws.rs.GET;
@@ -36,6 +39,7 @@ import org.eclipse.jetty.ee10.websocket.server.config.JettyWebSocketServletConta
 import org.eclipse.jetty.util.HostPort;
 import org.eclipse.jetty.websocket.api.Callback;
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +48,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
@@ -64,7 +69,9 @@ class RemoteAddressFilterIntegrationTest {
   // in jersey-test-framework-provider-jetty doesn’t easily support @Context HttpServletRequest, so this test runs a
   // full Jetty server in a separate process
   private static final DropwizardAppExtension<Configuration> EXTENSION = new DropwizardAppExtension<>(
-      TestApplication.class);
+      TestApplication.class, null,
+      ConfigOverride.config("server.applicationConnectors[0].type", "h2c"),
+      ConfigOverride.config("server.applicationConnectors[0].useForwardedHeaders", "true"));
 
   @Nested
   class Rest {
@@ -86,6 +93,37 @@ class RemoteAddressFilterIntegrationTest {
           .get(RemoteAddressFilterIntegrationTest.TestResponse.class);
 
       assertEquals(ip, response.remoteAddress());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"127.0.0.3", "0:0:0:0:0:0:dead:beef"})
+    void testForwardedForHeader(final String ip) throws Exception {
+      final Client client = EXTENSION.client();
+
+      final RemoteAddressFilterIntegrationTest.TestResponse response = client.target(
+              String.format("http://%s:%d%s", "localhost", EXTENSION.getLocalPort(), REMOTE_ADDRESS_PATH))
+          .request("application/json")
+          .header(HttpHeaders.X_FORWARDED_FOR, ip)
+          .get(RemoteAddressFilterIntegrationTest.TestResponse.class);
+
+      assertEquals(ip, response.remoteAddress());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Forwarded", "X-Forwarded-Host", "X-Forwarded-Server", "X-Forwarded-Proto"})
+    void testOtherHeadersIgnored(final String header) throws Exception {
+      final Client client = EXTENSION.client();
+
+      final String ip = "127.0.0.3";
+
+      final RemoteAddressFilterIntegrationTest.TestResponse response = client.target(
+              String.format("http://%s:%d%s", "localhost", EXTENSION.getLocalPort(), REMOTE_ADDRESS_PATH))
+          .request("application/json")
+          .header(header, ip)
+          .get(RemoteAddressFilterIntegrationTest.TestResponse.class);
+
+      assertNotEquals(ip, response.remoteAddress(), "header " + header + " should be ignored");
+      assertEquals("127.0.0.1", response.remoteAddress());
     }
   }
 
@@ -127,6 +165,45 @@ class RemoteAddressFilterIntegrationTest {
       final TestResponse response = SystemMapper.jsonMapper().readValue(responseBytes, TestResponse.class);
 
       assertEquals(ip, response.remoteAddress());
+    }
+
+
+    @ParameterizedTest
+    @ValueSource(strings = {"127.0.0.3", "0:0:0:0:0:0:dead:beef"})
+    void testForwardedForHeader(final String ip) throws Exception {
+      final CompletableFuture<byte[]> responseFuture = new CompletableFuture<>();
+      final ClientEndpoint clientEndpoint = new ClientEndpoint(WS_REQUEST_PATH, responseFuture);
+      final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest(URI.create(String.format("ws://%s:%d%s",
+          "localhost",
+          EXTENSION.getLocalPort(),
+          WEBSOCKET_PREFIX + REMOTE_ADDRESS_PATH)));
+      upgradeRequest.setHeader(HttpHeaders.X_FORWARDED_FOR, ip);
+      client.connect(clientEndpoint, upgradeRequest);
+
+      final byte[] responseBytes = responseFuture.get(1, TimeUnit.SECONDS);
+      final TestResponse response = SystemMapper.jsonMapper().readValue(responseBytes, TestResponse.class);
+      assertEquals(ip, response.remoteAddress());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Forwarded", "X-Forwarded-Host", "X-Forwarded-Server", "X-Forwarded-Proto"})
+    void testOtherHeadersIgnored(final String header) throws Exception {
+      final String ip = "127.0.0.3";
+
+      final CompletableFuture<byte[]> responseFuture = new CompletableFuture<>();
+      final ClientEndpoint clientEndpoint = new ClientEndpoint(WS_REQUEST_PATH, responseFuture);
+      final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest(URI.create(String.format("ws://%s:%d%s",
+          "localhost",
+          EXTENSION.getLocalPort(),
+          WEBSOCKET_PREFIX + REMOTE_ADDRESS_PATH)));
+      upgradeRequest.setHeader(header, ip);
+      client.connect(clientEndpoint, upgradeRequest);
+
+      final byte[] responseBytes = responseFuture.get(1, TimeUnit.SECONDS);
+      final TestResponse response = SystemMapper.jsonMapper().readValue(responseBytes, TestResponse.class);
+
+      assertNotEquals(ip, response.remoteAddress(), "header " + header + " should be ignored");
+      assertEquals("127.0.0.1", response.remoteAddress());
     }
   }
 
@@ -215,6 +292,8 @@ class RemoteAddressFilterIntegrationTest {
       WebSocketResourceProviderFactory<TestPrincipal> webSocketServlet = new WebSocketResourceProviderFactory<>(
           webSocketEnvironment, TestPrincipal.class,
           RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
+
+      environment.lifecycle().addEventListener(new JettyHttpConfigurationCustomizer());
 
       JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), (servletContext, container) -> {
         container.addMapping(WEBSOCKET_PREFIX + REMOTE_ADDRESS_PATH, webSocketServlet);

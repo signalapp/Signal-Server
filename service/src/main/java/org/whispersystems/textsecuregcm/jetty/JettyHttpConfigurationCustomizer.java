@@ -5,17 +5,17 @@
 
 package org.whispersystems.textsecuregcm.jetty;
 
+import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory;
 import org.eclipse.jetty.server.ConnectionFactory;
 import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.ForwardedRequestCustomizer;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.util.component.Container;
 import org.eclipse.jetty.util.component.LifeCycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.binder.jetty.JettyConnectionMetrics;
 
 /**
  * Uses {@link Container.Listener} to update {@link org.eclipse.jetty.server.HttpConfiguration}
@@ -38,6 +38,20 @@ public class JettyHttpConfigurationCustomizer implements Container.Listener, Lif
           // see https://github.com/jetty/jetty.project/issues/1891
           logger.info("setNotifyRemoteAsyncErrors(false) for {}", cf);
           httpConfiguration.setNotifyRemoteAsyncErrors(false);
+
+          httpConfiguration.getCustomizers().stream()
+              .filter(ForwardedRequestCustomizer.class::isInstance)
+              .map(ForwardedRequestCustomizer.class::cast)
+              .forEach(forwardedRequestCustomizer -> {
+                // If this http configuration supports using proxy-supplied headers, only use X-Forwarded-For
+
+                // Disable all headers except for 'Forwarded'
+                forwardedRequestCustomizer.setForwardedOnly(true);
+                // Disable 'Forwarded'
+                forwardedRequestCustomizer.setForwardedHeader(null);
+                // Enable 'X-Forwarded-For'
+                forwardedRequestCustomizer.setForwardedForHeader(HttpHeader.X_FORWARDED_FOR.toString());
+              });
         }
       }
     }
