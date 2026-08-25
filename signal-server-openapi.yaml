@@ -4198,7 +4198,6 @@ components:
           nullable: true
           items:
             type: string
-            nullable: true
             enum:
             - STORAGE
             - TRANSFER
@@ -4246,7 +4245,6 @@ components:
           nullable: true
           items:
             type: string
-            nullable: true
             enum:
             - STORAGE
             - TRANSFER
@@ -4360,7 +4358,6 @@ components:
             \ since epoch"
           format: int64
       description: "If present, the backup level set via /v1/archives/redeem-receipt"
-      nullable: true
     BadgeEntitlement:
       type: object
       properties:
@@ -4544,7 +4541,6 @@ components:
         ID (even if the recovered account does not have a phone number, in which case
         PNI-associated key material will be ignored). Must be absent when registering an
         account without a phone number.
-      nullable: true
     IncomingMessage:
       required:
       - content
@@ -4772,6 +4768,7 @@ components:
         sourceAttachment:
           $ref: "#/components/schemas/RemoteAttachment"
         objectLength:
+          minimum: 0
           type: integer
           description: The length of the source attachment before the encryption applied
             by the copy operation
@@ -5367,6 +5364,7 @@ components:
           type: string
           description: An identifier for an account based on the account's ACI
         entryPosition:
+          minimum: 0
           type: integer
           description: A log tree position maintained by the client for the aci.
           format: int64
@@ -5386,6 +5384,7 @@ components:
           type: string
           description: The e164-formatted phone number to monitor
         entryPosition:
+          minimum: 0
           type: integer
           description: A log tree position maintained by the client for the e164.
           format: int64
@@ -5408,10 +5407,14 @@ components:
         usernameHash:
           $ref: "#/components/schemas/UsernameHashMonitor"
         lastNonDistinguishedTreeHeadSize:
+          minimum: 0
+          exclusiveMinimum: true
           type: integer
           description: The tree head size to prove consistency against.
           format: int64
         lastDistinguishedTreeHeadSize:
+          minimum: 0
+          exclusiveMinimum: true
           type: integer
           description: The distinguished tree head size to prove consistency against.
           format: int64
@@ -5428,6 +5431,7 @@ components:
             \ base64."
           format: byte
         entryPosition:
+          minimum: 0
           type: integer
           description: A log tree position maintained by the client for the username
             hash.
@@ -5475,6 +5479,8 @@ components:
           description: The non-distinguished tree head size to prove consistency against.
           format: int64
         distinguishedTreeHeadSize:
+          minimum: 0
+          exclusiveMinimum: true
           type: integer
           description: The distinguished tree head size to prove consistency against.
           format: int64
@@ -5705,7 +5711,6 @@ components:
           type: string
           format: byte
           nullable: true
-      nullable: true
     SendMessageResponse:
       type: object
       properties:
@@ -5727,6 +5732,7 @@ components:
           type: boolean
         timestamp:
           maximum: 8640000000000000
+          minimum: 0
           type: integer
           format: int64
     SendMultiRecipientMessageResponse:
@@ -5765,7 +5771,6 @@ components:
         accessKeys:
           type: string
           format: byte
-      nullable: true
     Recipient:
       type: object
       properties:
@@ -6171,7 +6176,6 @@ components:
           format: byte
       description: Expiring profile key credential response. Null if profile version
         was not found or if the profile version is not current
-      nullable: true
     BatchIdentityCheckResponse:
       type: object
       properties:
@@ -6381,6 +6385,7 @@ components:
           format: byte
           nullable: true
         totp:
+          minimum: 0
           type: integer
           description: |
             A TOTP one-time password; required if recovering an account that has TOTP keys.
