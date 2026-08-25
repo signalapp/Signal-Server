@@ -19,6 +19,8 @@ updates:
       update-types:
         - version-update:semver-major
         - version-update:semver-minor
+      # Ignore the latest pre-release version
+      versions: ["<=7.3.79"]
 
     # Temporary exclusions, pending upstream fixes
     #  https://github.com/dropwizard/dropwizard/pull/11273
