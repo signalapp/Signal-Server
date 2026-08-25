@@ -328,6 +328,7 @@ import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.ClearExpiredFoundationDbMessagesCommand;
 import org.whispersystems.textsecuregcm.workers.ClearIssuedReceiptRedemptionsCommand;
+import org.whispersystems.textsecuregcm.workers.ClearOrphanedFoundationDbQueuesCommand;
 import org.whispersystems.textsecuregcm.workers.CopyToS3Command;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.IdleDeviceNotificationSchedulerFactory;
@@ -406,6 +407,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new CopyToS3Command());
     bootstrap.addCommand(new ClearExpiredFoundationDbMessagesCommand(Clock.systemUTC()));
     bootstrap.addCommand(new TrimOversizedFoundationDbMessageQueuesCommand());
+    bootstrap.addCommand(new ClearOrphanedFoundationDbQueuesCommand());
 
     bootstrap.addCommand(new ProcessScheduledJobsServiceCommand("process-idle-device-notification-jobs",
         "Processes scheduled jobs to send notifications to idle devices",
