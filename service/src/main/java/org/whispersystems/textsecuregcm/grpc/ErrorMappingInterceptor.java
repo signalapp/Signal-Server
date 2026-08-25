@@ -62,7 +62,7 @@ public class ErrorMappingInterceptor implements ServerInterceptor {
           }
           case IllegalStateException e -> {
             ImpossibleEvents.logImpossible(log, e.getMessage(), e);
-            yield GrpcExceptions.unavailable(e.getMessage());
+            yield GrpcExceptions.unavailable();
           }
           case null -> {
             log.error("RPC {} finished with status UNKNOWN: {}",
@@ -72,7 +72,7 @@ public class ErrorMappingInterceptor implements ServerInterceptor {
           default -> {
             log.error("RPC {} finished with status UNKNOWN",
                 call.getMethodDescriptor().getFullMethodName(), status.getCause());
-            yield GrpcExceptions.unavailable(status.getCause().getMessage());
+            yield GrpcExceptions.unavailable();
           }
         };
         super.close(statusException.getStatus(), statusException.getTrailers());
