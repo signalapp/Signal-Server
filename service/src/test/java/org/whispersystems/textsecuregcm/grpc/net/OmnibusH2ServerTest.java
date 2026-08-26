@@ -55,7 +55,6 @@ import io.netty.util.ReferenceCountUtil;
 import io.netty.util.test.LeakPresenceExtension;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -71,6 +70,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
@@ -88,9 +88,9 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicOmnibusConf
 
 @ExtendWith(LeakPresenceExtension.class)
 class OmnibusH2ServerTest {
-  // Paths that start with PREFIX should go to the prefix backend, everything else to default.
-  private static final String PREFIX_BACKEND_IDENTITY = "prefix-backend";
-  private static final String PREFIX = "/v1/prefix";
+  // URIs targeting PATH should go to the path backend, everything else to default.
+  private static final String PATH_BACKEND_IDENTITY = "path-backend";
+  private static final String PATH = "/v1/path/";
   private static final String DEFAULT_BACKEND_IDENTITY = "default-backend";
 
   private static NioEventLoopGroup nioEventLoopGroup;
@@ -152,7 +152,7 @@ class OmnibusH2ServerTest {
   @ValueSource(booleans = {true, false})
   void defaultBackend(final boolean localChannel) throws Exception {
     final OmnibusH2Server server = startOmnibusServer(
-        Map.of(PREFIX, startBackendServer(localChannel, PREFIX_BACKEND_IDENTITY)),
+        Map.of(PATH, startBackendServer(localChannel, PATH_BACKEND_IDENTITY)),
         startBackendServer(localChannel, DEFAULT_BACKEND_IDENTITY));
     final String response = sendRequestThroughOmnibus(connectToOmnibus(server), "/a/different/path");
     assertEquals(DEFAULT_BACKEND_IDENTITY, response);
@@ -172,14 +172,14 @@ class OmnibusH2ServerTest {
   }
 
   @CartesianTest
-  void prefixBackend(
-      @CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
-      @CartesianTest.Values(strings = {"/v1/prefix", "/v1/prefix/", "/v1/prefix/other"}) final String path) throws Exception {
+  void pathBackend(
+      @CartesianTest.Values(booleans = {false, true}) final boolean localChannel,
+      @CartesianTest.Values(strings = {"/v1/path/", "/v1/path/?foo=bar", "/v1/path/?foo=bar&baz=quux"}) final String path) throws Exception {
     final OmnibusH2Server server = startOmnibusServer(
-        Map.of(PREFIX, startBackendServer(localChannel, PREFIX_BACKEND_IDENTITY)),
+        Map.of(PATH, startBackendServer(localChannel, PATH_BACKEND_IDENTITY)),
         startBackendServer(true, DEFAULT_BACKEND_IDENTITY));
     final String response = sendRequestThroughOmnibus(connectToOmnibus(server), path);
-    assertEquals(PREFIX_BACKEND_IDENTITY, response);
+    assertEquals(PATH_BACKEND_IDENTITY, response);
   }
 
   @CartesianTest
@@ -187,7 +187,7 @@ class OmnibusH2ServerTest {
       @CartesianTest.Values(booleans = {true, false}) final boolean defaultLocalChannel,
       @CartesianTest.Values(booleans = {true, false}) final boolean prefixLocalChannel) throws Exception {
     final OmnibusH2Server server = startOmnibusServer(
-        Map.of(PREFIX, startBackendServer(prefixLocalChannel, PREFIX_BACKEND_IDENTITY)),
+        Map.of(PATH, startBackendServer(prefixLocalChannel, PATH_BACKEND_IDENTITY)),
         startBackendServer(defaultLocalChannel, DEFAULT_BACKEND_IDENTITY));
     final Channel h2Connection = connectToOmnibus(server);
     final int numStreams = 10;
@@ -198,14 +198,14 @@ class OmnibusH2ServerTest {
         .mapToObj(i -> CompletableFuture.supplyAsync(() ->
             sendRequestThroughOmnibus(
                 h2Connection,
-                i % 2 == 0 ? PREFIX : "/v1/other")))
+                i % 2 == 0 ? PATH : "/v1/other")))
         .toArray(CompletableFuture[]::new);
 
     // Ensure we get the response from the correct backend for each stream
     CompletableFuture.allOf(futures).join();
     for (int i = 0; i < numStreams; i++) {
       assertEquals(
-          i % 2 == 0 ? PREFIX_BACKEND_IDENTITY : DEFAULT_BACKEND_IDENTITY,
+          i % 2 == 0 ? PATH_BACKEND_IDENTITY : DEFAULT_BACKEND_IDENTITY,
           futures[i].resultNow());
     }
   }
@@ -438,7 +438,7 @@ class OmnibusH2ServerTest {
   void loadShed() throws Exception {
     dynamicConfiguration.set(new DynamicOmnibusConfiguration(BigDecimal.ONE));
     final OmnibusH2Server server = startOmnibusServer(
-        Map.of(PREFIX, startBackendServer(true, PREFIX_BACKEND_IDENTITY)),
+        Map.of(PATH, startBackendServer(true, PATH_BACKEND_IDENTITY)),
         startBackendServer(true, DEFAULT_BACKEND_IDENTITY));
 
     final CompletableFuture<Http2GoAwayFrame> goAwayFuture = new CompletableFuture<>();
@@ -475,9 +475,6 @@ class OmnibusH2ServerTest {
   /// @param defaultBackend The target backend if no prefix routes match the request path
   /// @param timeout The omnibus idle timeout
   private OmnibusH2Server startOmnibusServer(final Map<String, Channel> routes, final Channel defaultBackend, final Duration timeout) throws Exception {
-    // self-signed TLS context for the frontend loaded from test keyStore
-    final InputStream keyStore = OmnibusH2ServerTest.class.getResourceAsStream("omnibus-h2-server-test-keystore.p12");
-
     backendChannelsToShutDown.addAll(routes.values());
     backendChannelsToShutDown.add(defaultBackend);
 
@@ -486,8 +483,9 @@ class OmnibusH2ServerTest {
         nioEventLoopGroup,
         localEventLoopGroup,
         new InetSocketAddress("127.0.0.1", 0),
-        new OmnibusRouter(
-            routes.entrySet().stream().map(entry -> new OmnibusRouter.OmnibusRoute(entry.getKey(), entry.getValue().localAddress())).toList(),
+        new OmnibusRouter(routes.entrySet().stream().collect(Collectors.toMap(
+            Map.Entry::getKey,
+            e -> e.getValue().localAddress())),
             defaultBackend.localAddress()),
         dynamicConfiguration::get,
         timeout);
@@ -538,7 +536,7 @@ class OmnibusH2ServerTest {
     return startBackendServer(localChannel, identity, _ -> {}, _ -> {});
   }
 
-  /// Makes an H2 connection to the omnibus at [this#server] on which new H2 streams can be opened
+  /// Makes an H2 connection to the omnibus at `server` on which new H2 streams can be opened
   private Channel connectToOmnibus(final OmnibusH2Server server, @Nullable final HAProxyMessage proxyHeader) {
     final SslContext clientSsl = sslContext();
 

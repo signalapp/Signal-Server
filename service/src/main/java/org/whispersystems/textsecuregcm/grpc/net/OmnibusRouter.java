@@ -5,26 +5,21 @@
 package org.whispersystems.textsecuregcm.grpc.net;
 
 import java.net.SocketAddress;
-import java.util.List;
+import java.util.Map;
 
 public class OmnibusRouter {
 
-  public record OmnibusRoute(String prefix, SocketAddress backend) {}
-
-  private final List<OmnibusRoute> prefixRoutes;
+  private final Map<String, SocketAddress> routes;
   private final SocketAddress defaultBackend;
 
-  public OmnibusRouter(final List<OmnibusRoute> prefixRoutes, final SocketAddress defaultBackend) {
-    this.prefixRoutes = prefixRoutes;
+  public OmnibusRouter(final Map<String, SocketAddress> routes, final SocketAddress defaultBackend) {
+    this.routes = routes;
     this.defaultBackend = defaultBackend;
   }
 
-  SocketAddress match(final String path) {
-    for (final OmnibusRoute route : prefixRoutes) {
-      if (path.startsWith(route.prefix)) {
-        return route.backend;
-      }
-    }
-    return defaultBackend;
+  SocketAddress match(final String fullPath) {
+    final int queryIndex = fullPath.indexOf('?');
+    final String path = queryIndex >= 0 ? fullPath.substring(0, queryIndex) : fullPath;
+    return routes.getOrDefault(path, defaultBackend);
   }
 }

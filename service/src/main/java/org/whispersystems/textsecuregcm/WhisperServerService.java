@@ -1182,11 +1182,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     unauthenticatedServices.forEach(serverBuilder::addService);
     final ManagedGrpcServer localGrpcServer = new ManagedGrpcServer(serverBuilder.build());
 
+    final String websocketServletPath = "/v1/websocket/";
+    final String provisioningWebsocketServletPath = "/v1/websocket/provisioning/";
+
     final SocketAddress websocketAddress =
         new InetSocketAddress(config.getGrpc().websocketAddress(), config.getGrpc().websocketPort());
-    final OmnibusRouter omnibusRouter = new OmnibusRouter(List.of(
-        new OmnibusRouter.OmnibusRoute("/v1/websocket", websocketAddress),
-        new OmnibusRouter.OmnibusRoute("/v1/provisioning", websocketAddress)),
+    final OmnibusRouter omnibusRouter = new OmnibusRouter(Map.of(
+        websocketServletPath, websocketAddress,
+        provisioningWebsocketServletPath, websocketAddress),
         grpcLocalAddress);
     @Nullable final Mapping<String, SslContext> sniMapping = config.getGrpc().h2c()
         ? null
@@ -1216,9 +1219,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new BasicCredentialAuthFilter.Builder<AuthenticatedDevice>()
             .setAuthenticator(accountAuthenticator)
             .buildAuthFilter();
-
-    final String websocketServletPath = "/v1/websocket/";
-    final String provisioningWebsocketServletPath = "/v1/websocket/provisioning/";
 
     MetricsHttpEventHandler.configure(environment, Metrics.globalRegistry, clientReleaseManager, Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
 
