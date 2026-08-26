@@ -325,7 +325,7 @@ class AccountTest {
         .mapToObj(i -> (byte) i)
         .collect(Collectors.toMap(keyId -> keyId, _ -> new AnnotatedTotpKey(new TotpKey(
             new TotpParameters(
-                TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA256,
+                TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA1,
                 HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
                 TimeBasedOneTimePasswordGenerator.DEFAULT_TIME_STEP),
             TestRandomUtil.nextBytes(16)),

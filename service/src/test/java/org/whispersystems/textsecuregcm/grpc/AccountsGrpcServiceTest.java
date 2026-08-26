@@ -161,6 +161,12 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @Mock
   private ChangeNumberManager changeNumberManager;
 
+  private static final org.whispersystems.textsecuregcm.storage.TotpParameters TOTP_PARAMETERS =
+      new org.whispersystems.textsecuregcm.storage.TotpParameters(
+          AccountsManager.TOTP.getAlgorithm(),
+          AccountsManager.TOTP.getPasswordLength(),
+          AccountsManager.TOTP.getTimeStep());
+
   private static final int TOTP_KEY_METADATA_SIZE = 160;
 
   @Override
@@ -1122,7 +1128,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final byte[] encodedKey = TestRandomUtil.nextBytes(16);
 
     when(accountsManager.generatePendingTotpKey(AUTHENTICATED_ACI))
-        .thenReturn(new TotpKey(AccountsManager.TOTP_PARAMETERS, encodedKey));
+        .thenReturn(new TotpKey(TOTP_PARAMETERS, encodedKey));
 
     final GenerateTotpKeyResponse response =
         authenticatedServiceStub().generateTotpKey(GenerateTotpKeyRequest.getDefaultInstance());
@@ -1130,9 +1136,9 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     assertEquals(GenerateTotpKeyResponse.ResponseCase.KEY_GENERATED, response.getResponseCase());
 
     assertArrayEquals(encodedKey, response.getKeyGenerated().getKey().toByteArray());
-    assertEquals(AccountsManager.TOTP_PARAMETERS.algorithm(), response.getKeyGenerated().getTotpParameters().getAlgorithm());
-    assertEquals(AccountsManager.TOTP_PARAMETERS.passwordLength(), response.getKeyGenerated().getTotpParameters().getPasswordLength());
-    assertEquals(AccountsManager.TOTP_PARAMETERS.timeStep().toSeconds(), response.getKeyGenerated().getTotpParameters().getTimeStepSeconds());
+    assertEquals(AccountsManager.TOTP.getAlgorithm(), response.getKeyGenerated().getTotpParameters().getAlgorithm());
+    assertEquals(AccountsManager.TOTP.getPasswordLength(), response.getKeyGenerated().getTotpParameters().getPasswordLength());
+    assertEquals(AccountsManager.TOTP.getTimeStep().toSeconds(), response.getKeyGenerated().getTotpParameters().getTimeStepSeconds());
   }
 
   @Test
@@ -1202,9 +1208,9 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         authenticatedServiceStub().listTotpKeys(ListTotpKeysRequest.getDefaultInstance());
 
     final TotpParameters expectedTotpParameters = TotpParameters.newBuilder()
-        .setAlgorithm(AccountsManager.TOTP_PARAMETERS.algorithm())
-        .setPasswordLength(AccountsManager.TOTP_PARAMETERS.passwordLength())
-        .setTimeStepSeconds(Math.toIntExact(AccountsManager.TOTP_PARAMETERS.timeStep().toSeconds()))
+        .setAlgorithm(AccountsManager.TOTP.getAlgorithm())
+        .setPasswordLength(AccountsManager.TOTP.getPasswordLength())
+        .setTimeStepSeconds(Math.toIntExact(AccountsManager.TOTP.getTimeStep().toSeconds()))
         .build();
 
     final Map<Integer, ListTotpKeysResponse.TotpKeyMetadata> expectedTotpKeys = totpKeys.entrySet().stream()
@@ -1305,7 +1311,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   private static AnnotatedTotpKey generateRandomAnnotatedTotpKey() {
-    return new AnnotatedTotpKey(new TotpKey(AccountsManager.TOTP_PARAMETERS, TestRandomUtil.nextBytes(32)),
+    return new AnnotatedTotpKey(new TotpKey(TOTP_PARAMETERS, TestRandomUtil.nextBytes(32)),
         TestRandomUtil.nextBytes(TOTP_KEY_METADATA_SIZE));
   }
 }
