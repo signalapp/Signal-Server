@@ -23,6 +23,8 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.storage.ReceiptCredentialTestUtil.receiptPresentation;
 import static org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil.assertFailsWithCause;
 
+import com.eatthepath.otp.HmacOneTimePasswordGenerator;
+import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import jakarta.annotation.Nullable;
@@ -111,7 +113,6 @@ class AccountsTest {
   private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
 
   private static final AtomicInteger ACCOUNT_COUNTER = new AtomicInteger(1);
-
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
@@ -554,6 +555,46 @@ class AccountsTest {
     assertThat(reclaimed.getBackupCredentialRequest(BackupCredentialType.MEDIA).orElseThrow())
         .isEqualTo(existingAccount.getBackupCredentialRequest(BackupCredentialType.MEDIA).orElseThrow());
     assertThat(reclaimed.getZkCredentialKey()).hasValue(existingAccount.getZkCredentialKey().orElseThrow());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"+14151112222"})
+  @NullSource
+  void testReclaimAccountPreservesTotpKeys(@Nullable final String number) throws Exception {
+    final UUID existingUuid = UUID.randomUUID();
+    final byte[] accountRecoveryPassword = TestRandomUtil.nextBytes(16);
+    final Account existingAccount =
+        generateAccount(number, existingUuid, number == null ? null : UUID.randomUUID(),
+            List.of(generateDevice(DEVICE_ID_1)), accountRecoveryPassword);
+
+    existingAccount.setTotpKeys(Map.of((byte) 1, new AnnotatedTotpKey(new TotpKey(
+        new TotpParameters(
+            TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA1,
+            HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
+            TimeBasedOneTimePasswordGenerator.DEFAULT_TIME_STEP),
+        TestRandomUtil.nextBytes(16)),
+        TestRandomUtil.nextBytes(16))));
+
+    final ReceiptCredentialPresentation receiptCredentialPresentation = receiptPresentation();
+    if (number != null) {
+      createAccount(existingAccount);
+    } else {
+      createNumberlessAccount(existingAccount, receiptCredentialPresentation, accountRecoveryPassword);
+    }
+
+    final Account secondAccount =
+        generateAccount(number, UUID.randomUUID(), number == null ? null : UUID.randomUUID(),
+            List.of(generateDevice(DEVICE_ID_1)), accountRecoveryPassword);
+
+    if (number != null) {
+      reclaimAccount(secondAccount);
+    } else {
+      reclaimNumberlessAccount(secondAccount, receiptCredentialPresentation, accountRecoveryPassword);
+    }
+
+    final Account reclaimed = accounts.getByAccountIdentifier(existingUuid).orElseThrow();
+
+    assertThat(reclaimed.getTotpKeys()).isEqualTo(existingAccount.getTotpKeys());
   }
 
   @ParameterizedTest

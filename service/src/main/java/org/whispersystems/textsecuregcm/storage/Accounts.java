@@ -410,6 +410,10 @@ public class Accounts {
       accountToCreate.setZkCredentialKey(existingAccount.getZkCredentialKey().orElse(null));
       accountToCreate.setZkCredentialKeyRotationId(existingAccount.getZkCredentialKeyRotationId());
 
+      // Carry over any existing TOTP keys to the new account; we don't need to copy the pending TOTP key since that's
+      // just a temporary holding place for essentially ephemeral data
+      accountToCreate.setTotpKeys(new HashMap<>(existingAccount.getTotpKeys()));
+
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
       // If we're reclaiming an account that already has a username, we'd like to give the re-registering client
