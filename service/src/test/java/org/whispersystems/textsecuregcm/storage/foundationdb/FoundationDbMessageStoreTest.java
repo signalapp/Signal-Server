@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.ByteString;
@@ -553,8 +554,15 @@ class FoundationDbMessageStoreTest {
 
     foundationDbMessageStore.clearAll(deletedAccountIdentifier);
 
-    assertEquals(0, getItemsInDeviceQueue(deletedAccountIdentifier, deletedPrimaryDeviceId).size());
-    assertEquals(0, getItemsInDeviceQueue(deletedAccountIdentifier, deletedLinkedDeviceId).size());
+    // Verify that the entire account subspace (including metadata) was deleted
+    final Subspace deletedAccountSubspace = FoundationDbMessageStore.getAccountSubspace(deletedAccountIdentifier);
+    final List<KeyValue> keyValues = foundationDbMessageStore.getShardForAci(deletedAccountIdentifier, DEFAULT_EPOCH)
+        .readAsync(transaction ->
+            AsyncUtil.collect(
+                transaction.getRange(deletedAccountSubspace.range().begin, deletedAccountSubspace.range().end, 1)))
+        .join();
+    assertEquals(0, keyValues.size());
+
     assertEquals(1, getItemsInDeviceQueue(retainedAccountIdentifier, retainedPrimaryDeviceId).size());
   }
 
