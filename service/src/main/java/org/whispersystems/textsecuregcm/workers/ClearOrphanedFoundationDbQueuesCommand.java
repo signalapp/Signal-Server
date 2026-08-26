@@ -214,7 +214,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
   CompletableFuture<List<Range>> splitSubspace(final Database database, final int numChunks) {
     return database.runAsync(transaction -> transaction.getEstimatedRangeSizeBytes(messagesSubspace.range())
             .thenCompose(rangeSize -> {
-              final int chunkSize = Math.toIntExact(Math.ceilDiv(rangeSize, numChunks));
+              final long chunkSize = Math.ceilDiv(rangeSize, numChunks);
               return transaction.getRangeSplitPoints(messagesSubspace.range(), chunkSize);
             }))
         .thenApply(result -> splitPointsToRanges(result.getKeys()));
