@@ -319,9 +319,10 @@ class AccountTest {
     );
   }
 
+  @Test
   void getNextTotpKeyNoneAvailable() {
     final Account account = new Account();
-    account.setTotpKeys(IntStream.range(0, Account.MAX_TOTP_KEY_ID)
+    account.setTotpKeys(IntStream.range(0, Account.MAX_TOTP_KEY_ID + 1)
         .mapToObj(i -> (byte) i)
         .collect(Collectors.toMap(keyId -> keyId, _ -> new AnnotatedTotpKey(new TotpKey(
             new TotpParameters(
