@@ -11,11 +11,14 @@ import static org.assertj.core.api.Fail.fail;
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.FOUND;
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.NOT_STORED;
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.PASSWORD_MISMATCH;
+import static org.whispersystems.textsecuregcm.util.AttributeValues.b;
 
 import jakarta.ws.rs.ClientErrorException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
@@ -29,6 +32,8 @@ import org.whispersystems.textsecuregcm.storage.Subscriptions.Record;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 
 class SubscriptionsTest {
 
@@ -138,9 +143,8 @@ class SubscriptionsTest {
         .isInstanceOf(ClientErrorException.class)
         .satisfies(clientError409Condition);
 
-    assertThat(subscriptions.getSubscriberUserByProcessorCustomer(
-        new ProcessorCustomer(customer, PaymentProvider.STRIPE)))
-        .isEqualTo(user);
+    assertThat(getSubscriberUsersByProcessorCustomer(new ProcessorCustomer(customer, PaymentProvider.STRIPE)))
+        .containsExactly(user);
   }
 
   @Test
@@ -154,9 +158,8 @@ class SubscriptionsTest {
     subscriptions.setProcessorAndCustomerId(userRecord,
         new ProcessorCustomer(customer, PaymentProvider.STRIPE),
         subscriptionUpdated);
-    assertThat(subscriptions.getSubscriberUserByProcessorCustomer(
-        new ProcessorCustomer(customer, PaymentProvider.STRIPE)))
-        .isEqualTo(user);
+    assertThat(getSubscriberUsersByProcessorCustomer(new ProcessorCustomer(customer, PaymentProvider.STRIPE)))
+        .containsExactly(user);
   }
 
   @Test
@@ -372,4 +375,22 @@ class SubscriptionsTest {
       assertThat(record.currentPeriodEndsAt).isNull();
     };
   }
+
+  private List<byte[]> getSubscriberUsersByProcessorCustomer(final ProcessorCustomer processorCustomer) {
+    final QueryResponse queryResponse = DYNAMO_DB_EXTENSION.getDynamoDbClient().query(QueryRequest.builder()
+        .tableName(Tables.SUBSCRIPTIONS.tableName())
+        .indexName(Subscriptions.INDEX_NAME)
+        .keyConditionExpression("#processor_customer_id = :processor_customer_id")
+        .projectionExpression("#user")
+        .expressionAttributeNames(Map.of(
+            "#processor_customer_id", Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID,
+            "#user", Subscriptions.KEY_USER))
+        .expressionAttributeValues(Map.of(":processor_customer_id", b(processorCustomer.toDynamoBytes())))
+        .build());
+
+    return queryResponse.items().stream()
+        .map(item -> item.get(Subscriptions.KEY_USER).b().asByteArray())
+        .toList();
+  }
+
 }

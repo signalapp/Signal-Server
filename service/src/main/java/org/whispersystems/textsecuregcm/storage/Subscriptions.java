@@ -30,8 +30,6 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
-import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
@@ -166,37 +164,6 @@ public class Subscriptions {
       @Nonnull DynamoDbClient client) {
     this.table = Objects.requireNonNull(table);
     this.client = Objects.requireNonNull(client);
-  }
-
-  /**
-   * Looks in the GSI for a record with the given customer id and returns the user id.
-   */
-  public byte[] getSubscriberUserByProcessorCustomer(ProcessorCustomer processorCustomer) {
-    QueryRequest query = QueryRequest.builder()
-        .tableName(table)
-        .indexName(INDEX_NAME)
-        .keyConditionExpression("#processor_customer_id = :processor_customer_id")
-        .projectionExpression("#user")
-        .expressionAttributeNames(Map.of(
-            "#processor_customer_id", KEY_PROCESSOR_ID_CUSTOMER_ID,
-            "#user", KEY_USER))
-        .expressionAttributeValues(Map.of(
-            ":processor_customer_id", b(processorCustomer.toDynamoBytes())))
-        .build();
-    final QueryResponse queryResponse = client.query(query);
-
-    int count = queryResponse.count();
-    if (count == 0) {
-      return null;
-    } else if (count > 1) {
-      logger.error("expected invariant of 1-1 subscriber-customer violated for customer {} ({})",
-          processorCustomer.customerId(), processorCustomer.processor());
-      throw new IllegalStateException(
-          "expected invariant of 1-1 subscriber-customer violated for customer " + processorCustomer);
-    } else {
-      Map<String, AttributeValue> result = queryResponse.items().getFirst();
-      return result.get(KEY_USER).b().asByteArray();
-    }
   }
 
   public static class GetResult {
