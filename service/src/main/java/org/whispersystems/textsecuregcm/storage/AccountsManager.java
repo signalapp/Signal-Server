@@ -522,7 +522,15 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
               additionalWriteItems.add(phoneNumberRecoveryPasswordsManager.buildTransactWriteItemForStorePassword(phoneNumberIdentifier, phoneNumberRecoveryPassword))));
 
       if (maybeNumber.isPresent()) {
-        accounts.create(account, additionalWriteItems);
+        if (maybeRecentlyDeletedAccountIdentifier.isPresent()) {
+          // If we are re-using a recently deleted ACI, also obtain a lock for it so that clearing queues for the ACI synchronize against it
+          accountLockManager.withLock(Set.of(maybeRecentlyDeletedAccountIdentifier.get()), () -> {
+            accounts.create(account, additionalWriteItems);
+            return null;
+          }, accountLockExecutor);
+        } else {
+          accounts.create(account, additionalWriteItems);
+        }
       } else {
         assert accountAttributes.recoveryPassword().isPresent();
         accounts.create(account,

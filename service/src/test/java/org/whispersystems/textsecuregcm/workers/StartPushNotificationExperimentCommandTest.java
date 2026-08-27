@@ -22,7 +22,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperiment;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import reactor.core.publisher.Flux;
@@ -64,6 +63,7 @@ class StartPushNotificationExperimentCommandTest {
           null,
           null,
           pushNotificationExperimentSamples,
+          null,
           null,
           null,
           null,

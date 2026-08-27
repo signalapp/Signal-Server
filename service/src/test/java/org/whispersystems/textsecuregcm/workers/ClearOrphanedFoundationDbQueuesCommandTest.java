@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.workers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -38,12 +39,14 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.FoundationDbClusterExtension;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.ThrowingSupplier;
 
 class ClearOrphanedFoundationDbQueuesCommandTest {
 
@@ -54,12 +57,24 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
 
   private FoundationDbMessageStore foundationDbMessageStore;
 
+  private AccountsManager accountsManager;
+  private AccountLockManager accountLockManager;
+
   @BeforeEach
   void setup() {
     final byte[] versionstampCipherKey = new byte[16];
     new SecureRandom().nextBytes(versionstampCipherKey);
 
     final List<Database> databases = Arrays.asList(FOUNDATION_DB_EXTENSION.getDatabases());
+
+    accountsManager = mock(AccountsManager.class);
+    accountLockManager = mock(AccountLockManager.class);
+
+    when(accountLockManager.withLock(any(), any(), any())).thenAnswer(invocation -> {
+      //noinspection rawtypes
+      final ThrowingSupplier supplier = invocation.getArgument(1);
+      return supplier.get();
+    });
 
     foundationDbMessageStore = new FoundationDbMessageStore(
         Map.of(0, databases),
@@ -85,7 +100,6 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
     // Assume that a subset of accounts are deleted
     final Set<AciServiceIdentifier> deletedAccounts = new HashSet<>(accounts.subList(0, 3));
 
-    final AccountsManager accountsManager = mock(AccountsManager.class);
     when(accountsManager.getByAccountIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(mock(Account.class))));
     for (final AciServiceIdentifier deletedAccount : deletedAccounts) {
@@ -98,7 +112,10 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
         Arrays.stream(FOUNDATION_DB_EXTENSION.getDatabases()), accountsManager, 16, false, 8,
         3,
         Duration.ofSeconds(2),
-        2);
+        2,
+        accountLockManager,
+        Executors.newVirtualThreadPerTaskExecutor()
+    );
 
     for (final AciServiceIdentifier aci : accounts) {
       assertEquals(!deletedAccounts.contains(aci), queueExists(FoundationDbMessageStore.getAccountSubspace(aci)));
@@ -110,15 +127,18 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
     // create accounts in a test subspace that doesn't conflict with the main messages subspace
     final Subspace testMessagesSubspace = new Subspace(
         Tuple.from("MT"));
-    final ClearOrphanedFoundationDbQueuesCommand command = new ClearOrphanedFoundationDbQueuesCommand(testMessagesSubspace);
+    final ClearOrphanedFoundationDbQueuesCommand command = new ClearOrphanedFoundationDbQueuesCommand(
+        testMessagesSubspace);
     final List<AciServiceIdentifier> acis = IntStream.range(0, 128)
         .mapToObj(_ -> new AciServiceIdentifier(UUID.randomUUID()))
         .toList();
     final Database database = FOUNDATION_DB_EXTENSION.getDatabases()[0];
     database.run(transaction -> {
       acis.forEach(aci -> {
-        transaction.set(FoundationDbMessageStore.getAccountSubspace(testMessagesSubspace, aci).pack(Tuple.from("foo")), new byte[]{42});
-        transaction.set(FoundationDbMessageStore.getAccountSubspace(testMessagesSubspace, aci).pack(Tuple.from("bar")), new byte[]{43});
+        transaction.set(FoundationDbMessageStore.getAccountSubspace(testMessagesSubspace, aci).pack(Tuple.from("foo")),
+            new byte[]{42});
+        transaction.set(FoundationDbMessageStore.getAccountSubspace(testMessagesSubspace, aci).pack(Tuple.from("bar")),
+            new byte[]{43});
       });
       return null;
     });
@@ -127,6 +147,31 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
         .block();
     assertNotNull(fetchedAcis);
     assertEquals(new HashSet<>(acis), new HashSet<>(fetchedAcis));
+  }
+
+  @Test
+  void aciReusedAfterExistenceCheck() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage())).join();
+    foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage())).join();
+
+    // Stub that the initial existence check returns empty, but the second check under the ACI lock returns present i.e the ACI has been re-used
+    // since the initial check
+    when(accountsManager.getByAccountIdentifierAsync(aci.uuid()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(accountsManager.getByAccountIdentifier(aci.uuid())).thenReturn(Optional.of(mock(Account.class)));
+
+    final ClearOrphanedFoundationDbQueuesCommand command = new ClearOrphanedFoundationDbQueuesCommand();
+    command.clearOrphanedQueues(
+        Arrays.stream(FOUNDATION_DB_EXTENSION.getDatabases()), accountsManager, 16, false, 8,
+        3,
+        Duration.ofSeconds(2),
+        2,
+        accountLockManager,
+        Executors.newVirtualThreadPerTaskExecutor()
+    );
+
+    assertTrue(queueExists(FoundationDbMessageStore.getAccountSubspace(aci)));
   }
 
   /// Returns whether any key exists under the account's prefix in any shard
