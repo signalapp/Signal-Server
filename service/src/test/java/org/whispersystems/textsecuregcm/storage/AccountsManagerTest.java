@@ -2010,7 +2010,7 @@ class AccountsManagerTest {
       final AnnotatedTotpKey confirmedTotpKey;
       {
         final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP.getAlgorithm());
-        totpKeyGenerator.init(AccountsManager.TOTP_KEY_LENGTH_BITS);
+        totpKeyGenerator.init(AccountsManager.getTotpKeyLengthBits());
 
         confirmedTotpKey = new AnnotatedTotpKey(
             new TotpKey(TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
@@ -2104,7 +2104,7 @@ class AccountsManagerTest {
     final AnnotatedTotpKey secondTotpKey;
     {
       final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP.getAlgorithm());
-      totpKeyGenerator.init(AccountsManager.TOTP_KEY_LENGTH_BITS);
+      totpKeyGenerator.init(AccountsManager.getTotpKeyLengthBits());
 
       totpKey = new AnnotatedTotpKey(
           new TotpKey(TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
@@ -2141,7 +2141,7 @@ class AccountsManagerTest {
     final AnnotatedTotpKey totpKey;
     {
       final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP.getAlgorithm());
-      totpKeyGenerator.init(AccountsManager.TOTP_KEY_LENGTH_BITS);
+      totpKeyGenerator.init(AccountsManager.getTotpKeyLengthBits());
 
       totpKey = new AnnotatedTotpKey(
           new TotpKey(TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),

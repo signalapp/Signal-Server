@@ -204,9 +204,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   static final String LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM = "HmacSHA256";
 
   @VisibleForTesting
-  static final int TOTP_KEY_LENGTH_BITS = 160;
-
-  @VisibleForTesting
   public static final TimeBasedOneTimePasswordGenerator TOTP = new TimeBasedOneTimePasswordGenerator();
 
   private static final TotpParameters TOTP_PARAMETERS =
@@ -339,12 +336,22 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     try {
       this.totpKeyGenerator = KeyGenerator.getInstance(TOTP.getAlgorithm());
-      totpKeyGenerator.init(TOTP_KEY_LENGTH_BITS);
+      totpKeyGenerator.init(getTotpKeyLengthBits());
     } catch (final NoSuchAlgorithmException e) {
       throw new AssertionError("Every implementation of the Java platform is required to support the HmacSHA256 KeyGenerator algorithm", e);
     }
 
     this.pubSubConnection = pubSubRedisClient.createPubSubConnection();
+  }
+
+  @VisibleForTesting
+  static int getTotpKeyLengthBits() {
+    try {
+      // The HOTP/TOTP spec recommends using a key length that's the same as the HMAC block length
+      return Mac.getInstance(TOTP.getAlgorithm()).getMacLength() * 8;
+    } catch (final NoSuchAlgorithmException e) {
+      throw new AssertionError("Algorithm used by TOTP generator not found", e);
+    }
   }
 
   @Override
