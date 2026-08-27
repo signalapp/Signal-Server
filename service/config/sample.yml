@@ -315,6 +315,9 @@ storageService:
       AAAAAAAAAAAAAAAAAAAA
       -----END CERTIFICATE-----
 
+callingZkConfigPreV101:
+  serverSecret: secret://callingZkConfigPreV101.serverSecret
+
 callingZkConfig:
   serverSecret: secret://callingZkConfig.serverSecret
 

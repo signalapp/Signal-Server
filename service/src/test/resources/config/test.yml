@@ -324,6 +324,9 @@ storageService:
       9Kxq0DY7RCEpdHMCKcOL
       -----END CERTIFICATE-----
 
+callingZkConfigPreV101:
+  serverSecret: secret://callingZkConfigPreV101.serverSecret
+
 callingZkConfig:
   serverSecret: secret://callingZkConfig.serverSecret
 

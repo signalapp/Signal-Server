@@ -10,6 +10,7 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DefaultValue;
@@ -49,6 +50,7 @@ public class CertificateController {
   private final CertificateGenerator certificateGenerator;
   private final ServerZkAuthOperations serverZkAuthOperations;
   private final GenericServerSecretParams genericServerSecretParams;
+  private final GenericServerSecretParams genericServerSecretParamsPreV101;
   private final Clock clock;
 
   @VisibleForTesting
@@ -61,12 +63,14 @@ public class CertificateController {
       @Nonnull CertificateGenerator certificateGenerator,
       @Nonnull ServerZkAuthOperations serverZkAuthOperations,
       @Nonnull GenericServerSecretParams genericServerSecretParams,
+      @Nonnull GenericServerSecretParams genericServerSecretParamsPreV101,
       @Nonnull Clock clock) {
 
     this.accountsManager = accountsManager;
     this.certificateGenerator = Objects.requireNonNull(certificateGenerator);
     this.serverZkAuthOperations = Objects.requireNonNull(serverZkAuthOperations);
     this.genericServerSecretParams = genericServerSecretParams;
+    this.genericServerSecretParamsPreV101 = genericServerSecretParamsPreV101;
     this.clock = Objects.requireNonNull(clock);
   }
 
@@ -95,7 +99,9 @@ public class CertificateController {
   public GroupCredentials getGroupAuthenticationCredentials(
       @Auth AuthenticatedDevice auth,
       @QueryParam("redemptionStartSeconds") long startSeconds,
-      @QueryParam("redemptionEndSeconds") long endSeconds) {
+      @QueryParam("redemptionEndSeconds") long endSeconds,
+      @Parameter(description = "Whether to use libsignal v0.101.0+ secret params")
+      @QueryParam("v101") boolean v101) {
 
     final RedemptionRange redemptionRange;
     try {
@@ -127,7 +133,7 @@ public class CertificateController {
           (int) redemption.getEpochSecond()));
 
       callLinkAuthCredentials.add(new GroupCredentials.CallLinkAuthCredential(
-          CallLinkAuthCredentialResponse.issueCredential(aci, redemption, genericServerSecretParams).serialize(),
+          CallLinkAuthCredentialResponse.issueCredential(aci, redemption, v101 ? genericServerSecretParams : genericServerSecretParamsPreV101).serialize(),
           redemption.getEpochSecond()));
     }
 

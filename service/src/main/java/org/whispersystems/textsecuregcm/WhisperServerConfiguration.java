@@ -231,6 +231,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private GenericZkConfig callingZkConfigPreV101;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private GenericZkConfig callingZkConfig;
 
   @Valid
@@ -512,6 +517,11 @@ public class WhisperServerConfiguration extends Configuration {
   /// ZK secret limited to Chat Service
   public GenericZkConfig getChatZkConfig() {
     return chatZkConfig;
+  }
+
+  /// ZK secret shared with Calling Service
+  public GenericZkConfig getCallingZkConfigPreV101() {
+    return callingZkConfigPreV101;
   }
 
   /// ZK secret shared with Calling Service

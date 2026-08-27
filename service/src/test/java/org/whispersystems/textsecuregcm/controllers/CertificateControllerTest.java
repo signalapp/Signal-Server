@@ -68,6 +68,7 @@ class CertificateControllerTest {
   private static final ServerSecretParams SERVER_SECRET_PARAMS = ServerSecretParams.generate();
 
   private static final GenericServerSecretParams genericServerSecretParams = GenericServerSecretParams.generate();
+  private static final GenericServerSecretParams genericServerSecretParamsPreV101 = GenericServerSecretParams.generate();
 
   private static final ServerZkAuthOperations SERVER_ZK_AUTH_OPERATIONS;
   private static final Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
@@ -96,7 +97,7 @@ class CertificateControllerTest {
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new CertificateController(AuthHelper.ACCOUNTS_MANAGER, CERTIFICATE_GENERATOR, SERVER_ZK_AUTH_OPERATIONS, genericServerSecretParams, clock))
+      .addResource(new CertificateController(AuthHelper.ACCOUNTS_MANAGER, CERTIFICATE_GENERATOR, SERVER_ZK_AUTH_OPERATIONS, genericServerSecretParams, genericServerSecretParamsPreV101, clock))
       .build();
 
   @Test
@@ -237,7 +238,8 @@ class CertificateControllerTest {
       final UUID aci,
       final String password,
       @Nullable UUID pni,
-      @Nullable byte[] authCredentialSalt) {
+      @Nullable byte[] authCredentialSalt,
+      @Nullable Boolean v101) {
 
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
 
@@ -245,6 +247,8 @@ class CertificateControllerTest {
         .target("/v1/certificate/auth/group")
         .queryParam("redemptionStartSeconds", startOfDay.getEpochSecond())
         .queryParam("redemptionEndSeconds", startOfDay.getEpochSecond())
+        // a null value will exclude the parameter altogether, rather than sending `?v101=`
+        .queryParam("v101", v101)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(aci, password))
         .get(GroupCredentials.class);
@@ -276,16 +280,24 @@ class CertificateControllerTest {
 
     }
 
+    final GenericServerSecretParams verificationParams = v101 != null && v101
+        ? genericServerSecretParams
+        : genericServerSecretParamsPreV101;
+
     assertDoesNotThrow(() -> {
       new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().getFirst().credential())
-          .receive(new ServiceId.Aci(aci), startOfDay, genericServerSecretParams.getPublicParams());
+          .receive(new ServiceId.Aci(aci), startOfDay, verificationParams.getPublicParams());
     });
   }
 
   static Collection<Arguments> getGroupCredentials() {
     return List.of(
-      Arguments.argumentSet("account with phone number", true, AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD, AuthHelper.VALID_PNI, null),
-      Arguments.argumentSet("account without phone number", false, AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD, null, AuthHelper.NUMBERLESS_AUTH_CREDENTIAL_SALT)
+      Arguments.argumentSet("account with phone number", true, AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD, AuthHelper.VALID_PNI, null, null),
+      Arguments.argumentSet("account with phone number - v101 = false", true, AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD, AuthHelper.VALID_PNI, null, false),
+      Arguments.argumentSet("account with phone number - v101 = true", true, AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD, AuthHelper.VALID_PNI, null, true),
+      Arguments.argumentSet("account without phone number", false, AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD, null, AuthHelper.NUMBERLESS_AUTH_CREDENTIAL_SALT, null),
+      Arguments.argumentSet("account without phone number - v101 = false", false, AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD, null, AuthHelper.NUMBERLESS_AUTH_CREDENTIAL_SALT, false),
+      Arguments.argumentSet("account without phone number - v101 = true", false, AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD, null, AuthHelper.NUMBERLESS_AUTH_CREDENTIAL_SALT, true)
     );
   }
 
@@ -295,13 +307,15 @@ class CertificateControllerTest {
       final UUID aci,
       final String password,
       @Nullable UUID pni,
-      @Nullable byte[] authCredentialSalt) {
+      @Nullable byte[] authCredentialSalt,
+      @Nullable Boolean v101) {
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
 
     final GroupCredentials credentials = resources.getJerseyTest()
         .target("/v1/certificate/auth/group")
         .queryParam("redemptionStartSeconds", startOfDay.getEpochSecond())
         .queryParam("redemptionEndSeconds", startOfDay.plus(Duration.ofDays(7)).getEpochSecond())
+        .queryParam("v101", v101)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(aci, password))
         .get(GroupCredentials.class);
@@ -336,9 +350,13 @@ class CertificateControllerTest {
             new AuthCredentialWithPniResponse(credentials.credentials().getFirst().credential())));
       }
 
+      final GenericServerSecretParams verificationParams = v101 != null && v101
+          ? genericServerSecretParams
+          : genericServerSecretParamsPreV101;
+
       assertDoesNotThrow(() -> {
         new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().get(index).credential())
-            .receive(new ServiceId.Aci(aci), redemptionTime, genericServerSecretParams.getPublicParams());
+            .receive(new ServiceId.Aci(aci), redemptionTime, verificationParams.getPublicParams());
       });
     }
   }

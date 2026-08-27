@@ -940,6 +940,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getCdnConfiguration().credentials().secretAccessKey().value());
 
     ServerSecretParams groupZkSecretParams = new ServerSecretParams(config.getGroupsZkConfig().serverSecret().value());
+    GenericServerSecretParams callingPreV101GenericZkSecretParams = new GenericServerSecretParams(config.getCallingZkConfigPreV101().serverSecret().value());
     GenericServerSecretParams callingGenericZkSecretParams = new GenericServerSecretParams(config.getCallingZkConfig().serverSecret().value());
     GenericServerSecretParams chatGenericZkSecretParams = new GenericServerSecretParams(config.getChatZkConfig().serverSecret().value());
     ServerZkProfileOperations zkProfileOperations = new ServerZkProfileOperations(groupZkSecretParams);
@@ -1268,9 +1269,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             experimentEnrollmentManager, config.getAttachments().maxAttachmentUploadSizeInBytes()),
         new ArchiveController(accountsManager, backupAuthManager, backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
         new CallRoutingControllerV2(rateLimiters, cloudflareTurnCredentialsManager),
-        new CallLinkController(rateLimiters, callingGenericZkSecretParams),
+        new CallLinkController(rateLimiters, callingGenericZkSecretParams, callingPreV101GenericZkSecretParams),
         new CallQualitySurveyController(callQualitySurveyManager),
-        new CertificateController(accountsManager, certificateGenerator, zkAuthOperations, callingGenericZkSecretParams, clock),
+        new CertificateController(accountsManager, certificateGenerator, zkAuthOperations, callingGenericZkSecretParams, callingPreV101GenericZkSecretParams, clock),
         new ChallengeController(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
         new DeviceController(accountsManager, rateLimiters, persistentTimer),
         new DeviceCheckController(clock, accountsManager, backupAuthManager, appleDeviceCheckManager, rateLimiters,
