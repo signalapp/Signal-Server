@@ -319,7 +319,7 @@ callingZkConfigPreV101:
   serverSecret: secret://callingZkConfigPreV101.serverSecret
 
 callingZkConfig:
-  serverSecret: secret://callingZkConfig.serverSecret
+  serverSecret: secret://callingZkConfigV101.serverSecret
 
 chatZkConfig:
   serverSecret: secret://chatZkConfig.serverSecret
