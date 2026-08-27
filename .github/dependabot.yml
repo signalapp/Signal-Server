@@ -32,6 +32,10 @@ updates:
     - dependency-name: "org.eclipse.jetty.ee10:*"
       versions: ["<=12.1.12"]
 
+    # Temporary exclusions, pending adaptation to upstream changes
+    - dependency-name: "io.lettuce:lettuce-core"
+      versions: [">=7.7.0.RELEASE"]
+
     # Dependency convergence sentinels, pinned to specific versions
     - dependency-name: "tools.jackson.core:jackson-databind"
     - dependency-name: "com.squareup.okio:okio-jvm"
