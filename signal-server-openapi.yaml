@@ -1356,6 +1356,12 @@ paths:
         Generate a credential over a truncated timestamp, room ID, and account UUID. With zero knowledge
         group infrastructure, the server does not know the room ID.
       operationId: getCreateAuth
+      parameters:
+      - name: v101
+        in: query
+        description: Whether to use libsignal v0.101.0+ secret params
+        schema:
+          type: boolean
       requestBody:
         content:
           '*/*':
@@ -1474,6 +1480,11 @@ paths:
         schema:
           type: integer
           format: int64
+      - name: v101
+        in: query
+        description: Whether to use libsignal v0.101.0+ secret params
+        schema:
+          type: boolean
       responses:
         default:
           description: default response
@@ -5864,12 +5875,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        expiration:
-          type: string
-          format: date-time
         spendId:
           type: string
           format: byte
+        expiration:
+          type: string
+          format: date-time
         internalContentsForJNI:
           type: string
           format: byte
