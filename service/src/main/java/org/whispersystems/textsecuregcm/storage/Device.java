@@ -70,7 +70,6 @@ public class Device {
   @JsonProperty
   private String  apnId;
 
-  @Valid
   @JsonProperty
   private WebPushSubscription webPush;
 
