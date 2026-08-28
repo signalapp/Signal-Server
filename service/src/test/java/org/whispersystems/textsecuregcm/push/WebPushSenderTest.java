@@ -48,7 +48,6 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 
 class WebPushSenderTest {
 
-  private ExecutorService executorService;
   private FaultTolerantHttpClient httpClient;
   private FaultTolerantRedisClusterClient redisClient;
   private WebPushConfiguration config;
@@ -58,25 +57,15 @@ class WebPushSenderTest {
 
   @BeforeEach
   void setUp() throws Exception {
-    executorService = new SynchronousExecutorService();
     httpClient = mock(FaultTolerantHttpClient.class);
     redisClient = mock(FaultTolerantRedisClusterClient.class);
     config = new WebPushConfiguration(new SecretBytes(Base64.getDecoder().decode(VAPID_PRIVATE_KEY)), "mailto:test@example.tld");
     webPushSender = new WebPushSender(
-      executorService,
       redisClient,
       config.vapidStaticKeyPair(),
       config.vapidSub(),
       httpClient
     );
-  }
-
-  @AfterEach
-  void tearDown() throws InterruptedException {
-    executorService.shutdown();
-
-    //noinspection ResultOfMethodCallIgnored
-    executorService.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test

@@ -103,7 +103,7 @@ public class WebPushSender implements PushNotificationSender {
   }
 
   @VisibleForTesting
-  public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp, String vapidSub, FaultTolerantHttpClient httpClient) {
+  public WebPushSender (FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp, String vapidSub, FaultTolerantHttpClient httpClient) {
     CacheLoader<String, FaultTolerantHttpClient> loader;
     loader = new CacheLoader<String, FaultTolerantHttpClient>() {
         @Override
