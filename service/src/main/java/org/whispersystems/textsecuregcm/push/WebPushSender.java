@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
 
@@ -39,6 +40,9 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.net.HttpHeaders;
 import com.google.crypto.tink.apps.webpush.WebPushHybridEncrypt;
 import com.google.crypto.tink.subtle.EllipticCurves;
@@ -52,10 +56,19 @@ import net.logstash.logback.util.StringUtils;
 public class WebPushSender implements PushNotificationSender {
 
   private static final Logger logger = LoggerFactory.getLogger(WebPushSender.class);
-  private final FaultTolerantHttpClient httpClient;
   private final FaultTolerantRedisClusterClient redisClient;
   private final KeyPair vapidKp;
   private final String vapidSub;
+
+  /**
+   * Cache aud -> HttpClient
+   *
+   * We use one http client per origin,
+   * to get a circuit breaker per origin.
+   * That way, an origin timing out doesn't prevent push notifications
+   * to other push servers.
+   */
+  private final LoadingCache<String, FaultTolerantHttpClient> httpClients;
 
   private static final Timer SEND_NOTIFICATION_TIMER = Metrics.timer(name(WebPushSender.class, "sendNotification"));
   private static final String RETRY_NAME = ResilienceUtil.name(WebPushSender.class);
@@ -72,9 +85,18 @@ public class WebPushSender implements PushNotificationSender {
   private class RateLimitedException extends Exception {}
 
   public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp, String vapidSub) throws IOException {
-    this.httpClient = FaultTolerantHttpClient.newBuilder("webpush", executor)
-      .withRedirect(HttpClient.Redirect.NEVER)
-      .build();
+    CacheLoader<String, FaultTolerantHttpClient> loader;
+    loader = new CacheLoader<String, FaultTolerantHttpClient>() {
+        @Override
+        public FaultTolerantHttpClient load(String key) {
+          return FaultTolerantHttpClient.newBuilder("webpush:" + key, executor)
+            .withRedirect(HttpClient.Redirect.NEVER)
+      .     build();
+        }
+    };
+    this.httpClients = CacheBuilder.newBuilder()
+      .expireAfterAccess(1, TimeUnit.MINUTES)
+      .build(loader);
     this.redisClient = redisClient;
     this.vapidKp = vapidKp;
     this.vapidSub = vapidSub;
@@ -82,7 +104,16 @@ public class WebPushSender implements PushNotificationSender {
 
   @VisibleForTesting
   public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp, String vapidSub, FaultTolerantHttpClient httpClient) {
-    this.httpClient = httpClient;
+    CacheLoader<String, FaultTolerantHttpClient> loader;
+    loader = new CacheLoader<String, FaultTolerantHttpClient>() {
+        @Override
+        public FaultTolerantHttpClient load(String key) {
+          return httpClient;
+        }
+    };
+    this.httpClients = CacheBuilder.newBuilder()
+      .expireAfterAccess(1, TimeUnit.MINUTES)
+      .build(loader);
     this.redisClient = redisClient;
     this.vapidKp = vapidKp;
     this.vapidSub = vapidSub;
@@ -174,6 +205,14 @@ public class WebPushSender implements PushNotificationSender {
     // https://www.rfc-editor.org/info/rfc8030/#section-5.4
     if (pushNotification.data() == null) {
       requestBuilder.header("Topic", key);
+    }
+
+    FaultTolerantHttpClient httpClient;
+    try {
+      httpClient = httpClients.get(aud);
+    } catch (Exception e) {
+      logger.warn("Error while getting httpClient for " + aud, e);
+      return CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.of("Error while getting httpClient for " + aud), false, Optional.empty()));
     }
 
     return httpClient.sendAsync(requestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray()).whenComplete((ignored, throwable) -> sample.stop(SEND_NOTIFICATION_TIMER))
