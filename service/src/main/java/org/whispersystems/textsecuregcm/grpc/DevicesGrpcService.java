@@ -39,6 +39,7 @@ import org.signal.chat.errors.NotFound;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.WebPushActivation;
 import org.whispersystems.textsecuregcm.push.WebPushSubscription;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -50,9 +51,12 @@ import org.whispersystems.textsecuregcm.util.P256ECPublicKeyAdapter;
 public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
 
   private final AccountsManager accountsManager;
+  private final RateLimiters rateLimiters;
 
-  public DevicesGrpcService(final AccountsManager accountsManager) {
+  public DevicesGrpcService(final AccountsManager accountsManager,
+        final RateLimiters rateLimiters) {
     this.accountsManager = accountsManager;
+    this.rateLimiters = rateLimiters;
   }
 
   @Override
@@ -196,6 +200,9 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
     @Nullable final WebPushActivation webPushActivation;
     if (webPush != null) {
       if (!Objects.equals(device.getWebPush(), webPush) || !device.getWebPushActivated()) {
+        rateLimiters
+            .getSetWebPushLimiter()
+            .validate(authenticatedDevice.accountIdentifier());
         webPushActivation = WebPushActivation.newToken();
       } else {
         webPushActivation = device.getWebPushActivation();

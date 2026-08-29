@@ -140,8 +140,17 @@ public class AccountController {
   @Path("/webpush/")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Set web push subscription",
+      description = """
+          Authenticated endpoint. Takes in a web push endpoint, P256 public key, and an auth secret.
+          If the subscription is updated, it sends an encrypted activation token to the endpoint.
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "Web Push subscription updated successfully.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public void setWebPushSubscription(@Auth AuthenticatedDevice auth,
-      @NotNull @Valid WebPushSubscription webPushSubscription) {
+      @NotNull @Valid WebPushSubscription webPushSubscription) throws RateLimitExceededException {
 
     final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
@@ -152,6 +161,9 @@ public class AccountController {
     if (Objects.equals(device.getWebPush(), webPushSubscription) && device.getWebPushActivated()) {
       return;
     }
+
+    // Check rate limit only if the registration is different
+    rateLimiters.getSetWebPushLimiter().validate(auth.accountIdentifier());
 
     final WebPushActivation activationToken = WebPushActivation.newToken();
 

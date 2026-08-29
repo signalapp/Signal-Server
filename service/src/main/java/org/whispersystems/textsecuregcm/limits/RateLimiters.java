@@ -47,6 +47,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     SET_PAID_MEDIA_BACKUP_ID("setPaidMediaBackupId", new RateLimiterConfig(5, Duration.ofDays(7), false)),
     PUSH_CHALLENGE_ATTEMPT("pushChallengeAttempt", new RateLimiterConfig(10, Duration.ofMinutes(144), false)),
     PUSH_CHALLENGE_SUCCESS("pushChallengeSuccess", new RateLimiterConfig(2, Duration.ofHours(12), false)),
+    SET_WEBPUSH("setWebPush", new RateLimiterConfig(5, Duration.ofMinutes(1), false)),
     GET_CALLING_RELAYS("getCallingRelays", new RateLimiterConfig(100, Duration.ofMinutes(10), false)),
     CREATE_CALL_LINK("createCallLink", new RateLimiterConfig(100, Duration.ofMinutes(15), false)),
     INBOUND_MESSAGE_BYTES("inboundMessageBytes", new RateLimiterConfig(128 * 1024 * 1024, Duration.ofNanos(500_000), true)),
@@ -194,6 +195,10 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getPushChallengeSuccessLimiter() {
     return forDescriptor(For.PUSH_CHALLENGE_SUCCESS);
+  }
+
+  public RateLimiter getSetWebPushLimiter() {
+    return forDescriptor(For.SET_WEBPUSH);
   }
 
   public RateLimiter getVerificationPushChallengeLimiter() {

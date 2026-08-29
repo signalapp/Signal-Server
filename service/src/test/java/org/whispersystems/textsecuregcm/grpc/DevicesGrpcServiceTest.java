@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -20,6 +21,8 @@ import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusEx
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
+import reactor.core.publisher.Mono;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
@@ -54,6 +58,8 @@ import org.signal.chat.device.SetDeviceNameResponse;
 import org.signal.chat.device.SetPushTokenRequest;
 import org.signal.chat.device.SetPushTokenResponse;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.WebPushActivation;
 import org.whispersystems.textsecuregcm.push.WebPushSubscription;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -68,6 +74,9 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
   @Mock
   private AccountsManager accountsManager;
+
+  @Mock
+  private RateLimiter rateLimiter;
 
   @Mock
   private Account authenticatedAccount;
@@ -85,7 +94,18 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
-    return new DevicesGrpcService(accountsManager);
+    final RateLimiters rateLimiters = mock(RateLimiters.class);
+    /*
+    If we wanted to simulate the rate limit:
+
+    when(rateLimiters.getSetWebPushLimiter()).thenReturn(rateLimiter);
+    doThrow(new RateLimitExceededException(Duration.ofMinutes(7)))
+        .when(rateLimiter).validate(anyString());
+    doThrow(new RateLimitExceededException(Duration.ofMinutes(7)))
+        .when(rateLimiter).validate(any(UUID.class));
+    */
+
+    return new DevicesGrpcService(accountsManager, rateLimiters);
   }
 
   @Test
