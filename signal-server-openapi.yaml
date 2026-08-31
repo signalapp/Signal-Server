@@ -6686,6 +6686,9 @@ components:
         playProductId:
           type: string
           description: The play billing productID associated with a Signal Login purchase
+        playOptionId:
+          type: string
+          description: The play billing optionID to use to purchase a Signal Login
         appStoreProductId:
           type: string
           description: The App Store productID associated with a Signal Login purchase

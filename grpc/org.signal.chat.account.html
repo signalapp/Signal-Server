@@ -427,18 +427,18 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.account.ListTotpKeysRequest">
+        <a href="#message-org.signal.chat.account.ListMfaKeysRequest">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>ListTotpKeysRequest</code> 
+          <code>ListMfaKeysRequest</code> 
         </a>
       </p>
       
     
       
       <p>
-        <a href="#message-org.signal.chat.account.ListTotpKeysResponse">
+        <a href="#message-org.signal.chat.account.ListMfaKeysResponse">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>ListTotpKeysResponse</code> 
+          <code>ListMfaKeysResponse</code> 
         </a>
       </p>
       
@@ -481,9 +481,18 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.account.SetTotpKeyMetadataResponse.MetadataUpdated">
+        <a href="#message-org.signal.chat.account.SetMfaKeyMetadataResponse.MetadataUpdated">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>MetadataUpdated</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>MfaKeyMetadata</code> 
         </a>
       </p>
       
@@ -501,18 +510,18 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.account.RemoveTotpKeyRequest">
+        <a href="#message-org.signal.chat.account.RemoveMfaKeyRequest">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>RemoveTotpKeyRequest</code> 
+          <code>RemoveMfaKeyRequest</code> 
         </a>
       </p>
       
     
       
       <p>
-        <a href="#message-org.signal.chat.account.RemoveTotpKeyResponse">
+        <a href="#message-org.signal.chat.account.RemoveMfaKeyResponse">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>RemoveTotpKeyResponse</code> 
+          <code>RemoveMfaKeyResponse</code> 
         </a>
       </p>
       
@@ -555,6 +564,24 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.account.SetMfaKeyMetadataRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetMfaKeyMetadataRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetMfaKeyMetadataResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetMfaKeyMetadataResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.account.SetRegistrationLockRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>SetRegistrationLockRequest</code> 
@@ -585,24 +612,6 @@
         <a href="#message-org.signal.chat.account.SetRegistrationRecoveryPasswordResponse">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>SetRegistrationRecoveryPasswordResponse</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.account.SetTotpKeyMetadataRequest">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>SetTotpKeyMetadataRequest</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.account.SetTotpKeyMetadataResponse">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>SetTotpKeyMetadataResponse</code> 
         </a>
       </p>
       
@@ -648,15 +657,6 @@
         <a href="#message-org.signal.chat.account.StaleDevices">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>StaleDevices</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.account.ListTotpKeysResponse.TotpKeyMetadata">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>TotpKeyMetadata</code> 
         </a>
       </p>
       
@@ -1104,61 +1104,61 @@ key for the caller's account</p></p>
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-ListTotpKeys">
-      <a href="#service-org.signal.chat.account.Accounts-ListTotpKeys">
-        rpc <code>ListTotpKeys</code>
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-ListMfaKeys">
+      <a href="#service-org.signal.chat.account.Accounts-ListMfaKeys">
+        rpc <code>ListMfaKeys</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ListTotpKeysRequest"><span title="org.signal.chat.account.ListTotpKeysRequest">org.signal.chat.account.ListTotpKeysRequest</span>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ListMfaKeysRequest"><span title="org.signal.chat.account.ListMfaKeysRequest">org.signal.chat.account.ListMfaKeysRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ListTotpKeysResponse"><span title="org.signal.chat.account.ListTotpKeysResponse">org.signal.chat.account.ListTotpKeysResponse</span>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ListMfaKeysResponse"><span title="org.signal.chat.account.ListMfaKeysResponse">org.signal.chat.account.ListMfaKeysResponse</span>
     </a></code><br>
   </div>
 
   
   <div class="block">
-    <p><p>Returns a list of confirmed TOTP keys for the authenticated account</p></p>
+    <p><p>Returns a list of confirmed MFA keys for the authenticated account</p></p>
   </div>
   
 </div>
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-SetTotpKeyMetadata">
-      <a href="#service-org.signal.chat.account.Accounts-SetTotpKeyMetadata">
-        rpc <code>SetTotpKeyMetadata</code>
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-SetMfaKeyMetadata">
+      <a href="#service-org.signal.chat.account.Accounts-SetMfaKeyMetadata">
+        rpc <code>SetMfaKeyMetadata</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetTotpKeyMetadataRequest"><span title="org.signal.chat.account.SetTotpKeyMetadataRequest">org.signal.chat.account.SetTotpKeyMetadataRequest</span>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetMfaKeyMetadataRequest"><span title="org.signal.chat.account.SetMfaKeyMetadataRequest">org.signal.chat.account.SetMfaKeyMetadataRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetTotpKeyMetadataResponse"><span title="org.signal.chat.account.SetTotpKeyMetadataResponse">org.signal.chat.account.SetTotpKeyMetadataResponse</span>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetMfaKeyMetadataResponse"><span title="org.signal.chat.account.SetMfaKeyMetadataResponse">org.signal.chat.account.SetMfaKeyMetadataResponse</span>
     </a></code><br>
   </div>
 
   
   <div class="block">
     <p><p>Updates encrypted, user-supplied metadata (e.g. a human-readable name and
-creation timestamp) for an existing, confirmed TOTP key</p></p>
+creation timestamp) for an existing, confirmed MFA key</p></p>
   </div>
   
 </div>
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-RemoveTotpKey">
-      <a href="#service-org.signal.chat.account.Accounts-RemoveTotpKey">
-        rpc <code>RemoveTotpKey</code>
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-RemoveMfaKey">
+      <a href="#service-org.signal.chat.account.Accounts-RemoveMfaKey">
+        rpc <code>RemoveMfaKey</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.RemoveTotpKeyRequest"><span title="org.signal.chat.account.RemoveTotpKeyRequest">org.signal.chat.account.RemoveTotpKeyRequest</span>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.RemoveMfaKeyRequest"><span title="org.signal.chat.account.RemoveMfaKeyRequest">org.signal.chat.account.RemoveMfaKeyRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.RemoveTotpKeyResponse"><span title="org.signal.chat.account.RemoveTotpKeyResponse">org.signal.chat.account.RemoveTotpKeyResponse</span>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.RemoveMfaKeyResponse"><span title="org.signal.chat.account.RemoveMfaKeyResponse">org.signal.chat.account.RemoveMfaKeyResponse</span>
     </a></code><br>
   </div>
 
   
   <div class="block">
-    <p><p>Removes a TOTP from the authenticated account</p></p>
+    <p><p>Removes an MFA key from the authenticated account</p></p>
   </div>
   
 </div>
@@ -2336,6 +2336,27 @@ incorrect passwords, misaligned clocks, or missing account records)</p></td>
           
         </tr>
       
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            too_many_mfa_keys
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The authenticated account already has too many MFA keys of all types, and
+the caller must remove one before adding more</p></td>
+          
+        </tr>
+      
     
   </tbody>
 </table>
@@ -2977,6 +2998,27 @@ account</p></td>
           </td>
           <td class="content"><p>The authenticated account already has too many TOTP keys, and the caller
 must remove one before adding more</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            too_many_mfa_keys
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The authenticated account already has too many MFA keys of all types, and
+the caller must remove one before adding more</p></td>
           
         </tr>
       
@@ -3697,9 +3739,9 @@ must remove one before adding more</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ListTotpKeysRequest">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ListMfaKeysRequest">
   <span>
-    <a href="#message-org.signal.chat.account.ListTotpKeysRequest" title="org.signal.chat.account.ListTotpKeysRequest">message ListTotpKeysRequest</a>
+    <a href="#message-org.signal.chat.account.ListMfaKeysRequest" title="org.signal.chat.account.ListMfaKeysRequest">message ListMfaKeysRequest</a>
   
   </span>
   
@@ -3732,9 +3774,9 @@ must remove one before adding more</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ListTotpKeysResponse">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ListMfaKeysResponse">
   <span>
-    <a href="#message-org.signal.chat.account.ListTotpKeysResponse" title="org.signal.chat.account.ListTotpKeysResponse">message ListTotpKeysResponse</a>
+    <a href="#message-org.signal.chat.account.ListMfaKeysResponse" title="org.signal.chat.account.ListMfaKeysResponse">message ListMfaKeysResponse</a>
   
   </span>
   
@@ -3762,9 +3804,9 @@ must remove one before adding more</p></td>
         keys
       </td>
       <td>
-        <code title="map&lt;uint32, TotpKeyMetadata&gt;">
+        <code title="map&lt;uint32, MfaKeyMetadata&gt;">
           
-          <span>map&lt;uint32, TotpKeyMetadata&gt;</span>
+          <span>map&lt;uint32, MfaKeyMetadata&gt;</span>
         </code>
       </td>
       <td class="content"></td>
@@ -4054,11 +4096,11 @@ must remove one before adding more</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetTotpKeyMetadataResponse.MetadataUpdated">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetMfaKeyMetadataResponse.MetadataUpdated">
   <span>
-    <a href="#message-org.signal.chat.account.SetTotpKeyMetadataResponse.MetadataUpdated" title="org.signal.chat.account.SetTotpKeyMetadataResponse.MetadataUpdated">message MetadataUpdated</a>
+    <a href="#message-org.signal.chat.account.SetMfaKeyMetadataResponse.MetadataUpdated" title="org.signal.chat.account.SetMfaKeyMetadataResponse.MetadataUpdated">message MetadataUpdated</a>
   
-    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.SetTotpKeyMetadataResponse"><span title="org.signal.chat.account.SetTotpKeyMetadataResponse">org.signal.chat.account.SetTotpKeyMetadataResponse</span>
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.SetMfaKeyMetadataResponse"><span title="org.signal.chat.account.SetMfaKeyMetadataResponse">org.signal.chat.account.SetMfaKeyMetadataResponse</span>
     </a>)</span>
   
   </span>
@@ -4081,6 +4123,90 @@ must remove one before adding more</p></td>
   </thead>
   <tbody>
     
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata">
+  <span>
+    <a href="#message-org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata" title="org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata">message MfaKeyMetadata</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.ListMfaKeysResponse"><span title="org.signal.chat.account.ListMfaKeysResponse">org.signal.chat.account.ListMfaKeysResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        metadata_ciphertext
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The user-provided ciphertext for metadata associated with this MFA key</p></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof mfa_key</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            totp_parameters
+          </td>
+          <td>
+            <code title="org.signal.chat.account.TotpParameters">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.TotpParameters"><span title="org.signal.chat.account.TotpParameters">org.signal.chat.account.TotpParameters</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The TOTP parameters associated with this key, which is a TOTP key</p></td>
+          
+        </tr>
+      
     
   </tbody>
 </table>
@@ -4161,9 +4287,9 @@ be used to recover the secret used to derive the registration lock password.</p>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.RemoveTotpKeyRequest">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.RemoveMfaKeyRequest">
   <span>
-    <a href="#message-org.signal.chat.account.RemoveTotpKeyRequest" title="org.signal.chat.account.RemoveTotpKeyRequest">message RemoveTotpKeyRequest</a>
+    <a href="#message-org.signal.chat.account.RemoveMfaKeyRequest" title="org.signal.chat.account.RemoveMfaKeyRequest">message RemoveMfaKeyRequest</a>
   
   </span>
   
@@ -4196,7 +4322,7 @@ be used to recover the secret used to derive the registration lock password.</p>
           <span>uint32</span>
         </code>
       </td>
-      <td class="content"><p>The account-specific identifier of the TOTP key to remove</p></td>
+      <td class="content"><p>The account-specific identifier of the MFA key to remove</p></td>
       
     </tr>
     
@@ -4211,9 +4337,9 @@ be used to recover the secret used to derive the registration lock password.</p>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.RemoveTotpKeyResponse">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.RemoveMfaKeyResponse">
   <span>
-    <a href="#message-org.signal.chat.account.RemoveTotpKeyResponse" title="org.signal.chat.account.RemoveTotpKeyResponse">message RemoveTotpKeyResponse</a>
+    <a href="#message-org.signal.chat.account.RemoveMfaKeyResponse" title="org.signal.chat.account.RemoveMfaKeyResponse">message RemoveMfaKeyResponse</a>
   
   </span>
   
@@ -4471,6 +4597,158 @@ this account by other means (i.e. by username).</p></td>
       <div class="block">
         
 
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetMfaKeyMetadataRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.SetMfaKeyMetadataRequest" title="org.signal.chat.account.SetMfaKeyMetadataRequest">message SetMfaKeyMetadataRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        key_id
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The account-specific identifier of the MFA key to modify</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        metadata_ciphertext
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The ciphertext of the new user-provided metadata to be attached to the
+identified key</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetMfaKeyMetadataResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.SetMfaKeyMetadataResponse" title="org.signal.chat.account.SetMfaKeyMetadataResponse">message SetMfaKeyMetadataResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            metadata_updated
+          </td>
+          <td>
+            <code title="org.signal.chat.account.SetMfaKeyMetadataResponse.MetadataUpdated">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.SetMfaKeyMetadataResponse.MetadataUpdated"><span title="org.signal.chat.account.SetMfaKeyMetadataResponse.MetadataUpdated">org.signal.chat.account.SetMfaKeyMetadataResponse.MetadataUpdated</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>New metadata was stored for the identified TOTP key</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            key_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>No TOTP was found with the given ID</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
 <h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetRegistrationLockRequest">
   <span>
     <a href="#message-org.signal.chat.account.SetRegistrationLockRequest" title="org.signal.chat.account.SetRegistrationLockRequest">message SetRegistrationLockRequest</a>
@@ -4630,158 +4908,6 @@ this account by other means (i.e. by username).</p></td>
   </thead>
   <tbody>
     
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetTotpKeyMetadataRequest">
-  <span>
-    <a href="#message-org.signal.chat.account.SetTotpKeyMetadataRequest" title="org.signal.chat.account.SetTotpKeyMetadataRequest">message SetTotpKeyMetadataRequest</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        key_id
-      </td>
-      <td>
-        <code title="uint32">
-          
-          <span>uint32</span>
-        </code>
-      </td>
-      <td class="content"><p>The account-specific identifier of the TOTP key to modify</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        metadata_ciphertext
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>The ciphertext of the new user-provided metadata to be attached to the
-identified key</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetTotpKeyMetadataResponse">
-  <span>
-    <a href="#message-org.signal.chat.account.SetTotpKeyMetadataResponse" title="org.signal.chat.account.SetTotpKeyMetadataResponse">message SetTotpKeyMetadataResponse</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof response</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            1
-          </td>
-          <td>
-            metadata_updated
-          </td>
-          <td>
-            <code title="org.signal.chat.account.SetTotpKeyMetadataResponse.MetadataUpdated">
-              
-              <a href="org.signal.chat.account.html#message-org.signal.chat.account.SetTotpKeyMetadataResponse.MetadataUpdated"><span title="org.signal.chat.account.SetTotpKeyMetadataResponse.MetadataUpdated">org.signal.chat.account.SetTotpKeyMetadataResponse.MetadataUpdated</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>New metadata was stored for the identified TOTP key</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            key_not_found
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.NotFound">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>No TOTP was found with the given ID</p></td>
-          
-        </tr>
-      
     
   </tbody>
 </table>
@@ -5087,75 +5213,6 @@ device).</p>
         </code>
       </td>
       <td class="content"><p>The IDs of devices that are no longer active.</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ListTotpKeysResponse.TotpKeyMetadata">
-  <span>
-    <a href="#message-org.signal.chat.account.ListTotpKeysResponse.TotpKeyMetadata" title="org.signal.chat.account.ListTotpKeysResponse.TotpKeyMetadata">message TotpKeyMetadata</a>
-  
-    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.ListTotpKeysResponse"><span title="org.signal.chat.account.ListTotpKeysResponse">org.signal.chat.account.ListTotpKeysResponse</span>
-    </a>)</span>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        metadata_ciphertext
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>The user-provided ciphertext for metadata associated with this TOTP key</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        totp_parameters
-      </td>
-      <td>
-        <code title="org.signal.chat.account.TotpParameters">
-          
-          <a href="org.signal.chat.account.html#message-org.signal.chat.account.TotpParameters"><span title="org.signal.chat.account.TotpParameters">org.signal.chat.account.TotpParameters</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>The TOTP parameters associated with this key</p></td>
       
     </tr>
     
