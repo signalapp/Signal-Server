@@ -210,6 +210,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       new TotpParameters(TOTP.getAlgorithm(), TOTP.getPasswordLength(), TOTP.getTimeStep());
 
   public static final int MAX_TOTP_KEYS = 2;
+  public static final int MAX_MFA_KEYS = 10;
 
   public enum DeletionReason {
     ADMIN_DELETED("admin"),
@@ -280,6 +281,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   private static class UncheckedTooManyTotpKeysException extends NoStackTraceRuntimeException {
+  }
+
+  private static class UncheckedTooManyMfaKeysException extends NoStackTraceRuntimeException {
   }
 
   public AccountsManager(final Accounts accounts,
@@ -2025,20 +2029,25 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   /// @see [#confirmPendingTotpKey(UUID, int, Instant, byte[])
   ///
   /// @throws TooManyTotpKeysException if the target account already has at least [#MAX_TOTP_KEYS] TOTP keys
-  public TotpKey generatePendingTotpKey(final UUID accountIdentifier) throws TooManyTotpKeysException {
+  /// @throws TooManyMfaKeysException if the target account already has at least [#MAX_MFA_KEYS] total MFA keys
+  public TotpKey generatePendingTotpKey(final UUID accountIdentifier) throws TooManyTotpKeysException, TooManyMfaKeysException {
     final SecretKey secretKey = totpKeyGenerator.generateKey();
     final TotpKey pendingTotpKey = new TotpKey(TOTP_PARAMETERS, secretKey.getEncoded());
 
     try {
       update(accountIdentifier, account -> {
-        if (account.getTotpKeys().size() >= MAX_TOTP_KEYS) {
+        if (account.getMfaKeys().values().stream().filter(AnnotatedTotpKey.class::isInstance).count() >= MAX_TOTP_KEYS) {
           throw new UncheckedTooManyTotpKeysException();
+        } else if (account.getMfaKeys().size() >= MAX_MFA_KEYS) {
+          throw new UncheckedTooManyMfaKeysException();
         }
 
         account.setPendingTotpKey(pendingTotpKey);
       });
     } catch (final UncheckedTooManyTotpKeysException _) {
       throw new TooManyTotpKeysException();
+    } catch (final UncheckedTooManyMfaKeysException _) {
+      throw new TooManyMfaKeysException();
     }
 
     return pendingTotpKey;
@@ -2055,11 +2064,13 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   /// TOTP password for the given account or for a one-time password previously verified for the given account or empty
   /// otherwise
   ///
+  /// @throws TooManyMfaKeysException if the target account already has at least [#MAX_MFA_KEYS] total MFA keys
+  ///
   /// @see [#generatePendingTotpKey(UUID)
   public Optional<Byte> confirmPendingTotpKey(final UUID accountIdentifier,
       final int oneTimePassword,
       final Instant timestamp,
-      final byte[] metadataCiphertext) {
+      final byte[] metadataCiphertext) throws TooManyMfaKeysException {
 
     final Optional<Account> maybeAccount = accounts.getByAccountIdentifier(accountIdentifier);
 
@@ -2077,21 +2088,27 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           final AtomicInteger keyId = new AtomicInteger();
 
           update(accountIdentifier, account -> {
-            final Map<Byte, AnnotatedTotpKey> updatedTotpKeys = new HashMap<>(account.getTotpKeys());
+            final Map<Byte, AnnotatedMfaKey> updatedMfaKeys = new HashMap<>(account.getMfaKeys());
 
-            keyId.set(account.getNextTotpKeyId());
+            if (updatedMfaKeys.size() >= MAX_MFA_KEYS) {
+              throw new UncheckedTooManyMfaKeysException();
+            }
 
-            updatedTotpKeys.put((byte) keyId.get(),
+            keyId.set(account.getNextMfaKeyId());
+
+            updatedMfaKeys.put((byte) keyId.get(),
                 new AnnotatedTotpKey(new TotpKey(pendingTotpKey.totpParameters(), pendingTotpKey.encodedKey()), metadataCiphertext));
 
             account.setPendingTotpKey(null);
-            account.setTotpKeys(updatedTotpKeys);
+            account.setMfaKeys(updatedMfaKeys);
           });
 
           return Optional.of((byte) keyId.get());
         }
       } catch (final InvalidKeyException e) {
         ImpossibleEvents.logImpossible(logger, "Invalid pending TOTP key for account {}", accountIdentifier, e);
+      } catch (final UncheckedTooManyMfaKeysException _) {
+        throw new TooManyMfaKeysException();
       }
     }
 
@@ -2105,11 +2122,12 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     // possible that a user will have iterated through so many keys that they've wrapped around into negative integers,
     // but that's not really a practical concern.
     return getByAccountIdentifier(accountIdentifier)
-        .flatMap(account -> account.getTotpKeys().entrySet().stream()
+        .flatMap(account -> account.getMfaKeys().entrySet().stream()
+            .filter(entry -> entry.getValue() instanceof AnnotatedTotpKey)
             .max(Map.Entry.comparingByKey())
             .filter(entry -> {
               try {
-                return TOTP.validateOneTimePassword(entry.getValue(), timestamp, oneTimePassword);
+                return TOTP.validateOneTimePassword((AnnotatedTotpKey) entry.getValue(), timestamp, oneTimePassword);
               } catch (final InvalidKeyException e) {
                 ImpossibleEvents.logImpossible(logger, "Invalid TOTP key for account {}", accountIdentifier, e);
                 return false;
@@ -2119,7 +2137,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   public boolean verifyTotp(final Account account, final Instant validationTimestamp, @Nullable final Integer oneTimePassword) {
-    if (account.getTotpKeys().isEmpty()) {
+    final List<AnnotatedTotpKey> totpKeys = account.getMfaKeys().values().stream().filter(AnnotatedTotpKey.class::isInstance).map(AnnotatedTotpKey.class::cast).toList();
+    if (totpKeys.isEmpty()) {
       return oneTimePassword == null;
     }
 
@@ -2129,7 +2148,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     }
 
     for (final Instant timestamp : new Instant[] { validationTimestamp, validationTimestamp.minus(maxTotpValidationDelay) }) {
-      for (final SecretKey totpKey : account.getTotpKeys().values()) {
+      for (final SecretKey totpKey : totpKeys) {
         try {
           if (TOTP.validateOneTimePassword(totpKey, timestamp, oneTimePassword)) {
             return true;

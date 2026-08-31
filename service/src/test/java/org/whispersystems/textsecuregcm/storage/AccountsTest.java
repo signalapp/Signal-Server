@@ -481,7 +481,6 @@ class AccountsTest {
     assertThat(account.getReservedUsernameHash()).isEmpty();
   }
 
-  @SuppressWarnings("unused")
   static ArgumentSets reclaimAccountWithNoUsername() {
     return ArgumentSets.argumentsForFirstParameter(UsernameStatus.values())
         // number
@@ -567,7 +566,7 @@ class AccountsTest {
         generateAccount(number, existingUuid, number == null ? null : UUID.randomUUID(),
             List.of(generateDevice(DEVICE_ID_1)), accountRecoveryPassword);
 
-    existingAccount.setTotpKeys(Map.of((byte) 1, new AnnotatedTotpKey(new TotpKey(
+    existingAccount.setMfaKeys(Map.of((byte) 1, new AnnotatedTotpKey(new TotpKey(
         new TotpParameters(
             TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA1,
             HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
@@ -594,7 +593,7 @@ class AccountsTest {
 
     final Account reclaimed = accounts.getByAccountIdentifier(existingUuid).orElseThrow();
 
-    assertThat(reclaimed.getTotpKeys()).isEqualTo(existingAccount.getTotpKeys());
+    assertThat(reclaimed.getMfaKeys()).isEqualTo(existingAccount.getMfaKeys());
   }
 
   @ParameterizedTest

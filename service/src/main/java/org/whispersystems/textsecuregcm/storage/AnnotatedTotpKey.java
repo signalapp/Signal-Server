@@ -15,7 +15,7 @@ public record AnnotatedTotpKey(@JsonUnwrapped
                                TotpKey totpKey,
 
                                @JsonProperty("metadata")
-                               byte[] metadataCiphertext) implements SecretKey {
+                               byte[] metadataCiphertext) implements SecretKey, AnnotatedMfaKey {
 
   @Override
   public String getAlgorithm() {
@@ -44,5 +44,10 @@ public record AnnotatedTotpKey(@JsonUnwrapped
   @Override
   public int hashCode() {
     return Objects.hash(totpKey, Arrays.hashCode(metadataCiphertext));
+  }
+
+  @Override
+  public AnnotatedMfaKey withMetadataCiphertext(byte[] newCiphertext) {
+    return new AnnotatedTotpKey(totpKey(), newCiphertext);
   }
 }

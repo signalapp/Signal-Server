@@ -51,11 +51,11 @@ import org.signal.chat.account.GetCapabilitiesRequest;
 import org.signal.chat.account.GetCapabilitiesResponse;
 import org.signal.chat.account.GetEntitlementsRequest;
 import org.signal.chat.account.GetEntitlementsResponse;
-import org.signal.chat.account.ListTotpKeysRequest;
-import org.signal.chat.account.ListTotpKeysResponse;
+import org.signal.chat.account.ListMfaKeysRequest;
+import org.signal.chat.account.ListMfaKeysResponse;
 import org.signal.chat.account.RegistrationLockFailure;
-import org.signal.chat.account.RemoveTotpKeyRequest;
-import org.signal.chat.account.RemoveTotpKeyResponse;
+import org.signal.chat.account.RemoveMfaKeyRequest;
+import org.signal.chat.account.RemoveMfaKeyResponse;
 import org.signal.chat.account.ReserveUsernameHashRequest;
 import org.signal.chat.account.ReserveUsernameHashResponse;
 import org.signal.chat.account.SetDiscoverableByPhoneNumberRequest;
@@ -64,8 +64,8 @@ import org.signal.chat.account.SetRegistrationLockRequest;
 import org.signal.chat.account.SetRegistrationLockResponse;
 import org.signal.chat.account.SetRegistrationRecoveryPasswordRequest;
 import org.signal.chat.account.SetRegistrationRecoveryPasswordResponse;
-import org.signal.chat.account.SetTotpKeyMetadataRequest;
-import org.signal.chat.account.SetTotpKeyMetadataResponse;
+import org.signal.chat.account.SetMfaKeyMetadataRequest;
+import org.signal.chat.account.SetMfaKeyMetadataResponse;
 import org.signal.chat.account.SetUsernameLinkRequest;
 import org.signal.chat.account.SetUsernameLinkResponse;
 import org.signal.chat.account.SetZkCredentialKeyRequest;
@@ -104,10 +104,12 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.AnnotatedMfaKey;
 import org.whispersystems.textsecuregcm.storage.AnnotatedTotpKey;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.TooManyMfaKeysException;
 import org.whispersystems.textsecuregcm.storage.TooManyTotpKeysException;
 import org.whispersystems.textsecuregcm.storage.TotpKey;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
@@ -131,7 +133,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   private final Clock clock;
   private final ChangeNumberManager changeNumberManager;
 
-  private static class TotpKeyNotFoundException extends NoStackTraceRuntimeException {
+  private static class MfaKeyNotFoundException extends NoStackTraceRuntimeException {
   }
 
   public AccountsGrpcService(final AccountsManager accountsManager,
@@ -568,91 +570,106 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
               .setTotpParameters(toGrpcTotpParameters(pendingTotpKey.totpParameters()))
               .build())
           .build();
-    } catch (final TooManyTotpKeysException e) {
+    } catch (final TooManyTotpKeysException _) {
       return GenerateTotpKeyResponse.newBuilder()
           .setTooManyTotpKeys(FailedPrecondition.getDefaultInstance())
+          .build();
+    } catch (final TooManyMfaKeysException _) {
+      return GenerateTotpKeyResponse.newBuilder()
+          .setTooManyMfaKeys(FailedPrecondition.getDefaultInstance())
           .build();
     }
   }
 
   @Override
   public ConfirmTotpKeyResponse confirmTotpKey(final ConfirmTotpKeyRequest request) {
-    final Optional<Byte> maybeConfirmedTotpKeyId =
-        accountsManager.confirmPendingTotpKey(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
-            request.getOneTimePassword(),
-            clock.instant(),
-            request.getMetadataCiphertext().toByteArray());
+    try {
+      final Optional<Byte> maybeConfirmedTotpKeyId =
+        accountsManager.confirmPendingTotpKey(
+              AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
+              request.getOneTimePassword(),
+              clock.instant(),
+              request.getMetadataCiphertext().toByteArray());
 
-    return maybeConfirmedTotpKeyId.map(keyId -> ConfirmTotpKeyResponse.newBuilder()
-        .setKeyConfirmed(ConfirmTotpKeyResponse.KeyConfirmed.newBuilder()
-            .setKeyId(keyId)
-            .build())
-        .build()).orElseGet(() -> ConfirmTotpKeyResponse.newBuilder()
-        .setOneTimePasswordNotVerified(FailedPrecondition.getDefaultInstance())
-        .build());
+      return maybeConfirmedTotpKeyId.map(keyId -> ConfirmTotpKeyResponse.newBuilder()
+          .setKeyConfirmed(ConfirmTotpKeyResponse.KeyConfirmed.newBuilder()
+              .setKeyId(keyId)
+              .build())
+          .build()).orElseGet(() -> ConfirmTotpKeyResponse.newBuilder()
+              .setOneTimePasswordNotVerified(FailedPrecondition.getDefaultInstance())
+              .build());
+    } catch (TooManyMfaKeysException _) {
+      return ConfirmTotpKeyResponse.newBuilder()
+          .setTooManyMfaKeys(FailedPrecondition.getDefaultInstance())
+          .build();
+    }
   }
 
   @Override
-  public ListTotpKeysResponse listTotpKeys(final ListTotpKeysRequest request) {
-    final ListTotpKeysResponse.Builder responseBuilder = ListTotpKeysResponse.newBuilder();
+  public ListMfaKeysResponse listMfaKeys(final ListMfaKeysRequest request) {
+    final ListMfaKeysResponse.Builder responseBuilder = ListMfaKeysResponse.newBuilder();
 
-    getAuthenticatedAccount().getTotpKeys().forEach((keyId, totpKey) -> {
-      assert totpKey.metadataCiphertext() != null;
+    getAuthenticatedAccount().getMfaKeys().forEach((keyId, mfaKey) -> {
+      assert mfaKey.metadataCiphertext() != null;
 
-      responseBuilder.putKeys(keyId, ListTotpKeysResponse.TotpKeyMetadata.newBuilder()
-          .setMetadataCiphertext(ByteString.copyFrom(totpKey.metadataCiphertext()))
-          .setTotpParameters(toGrpcTotpParameters(totpKey.totpKey().totpParameters()))
-          .build());
+      ListMfaKeysResponse.MfaKeyMetadata.Builder metadataBuilder = ListMfaKeysResponse.MfaKeyMetadata.newBuilder()
+          .setMetadataCiphertext(ByteString.copyFrom(mfaKey.metadataCiphertext()));
+
+      switch (mfaKey) {
+        case AnnotatedTotpKey k -> metadataBuilder.setTotpParameters(toGrpcTotpParameters(k.totpKey().totpParameters()));
+      }
+
+      responseBuilder.putKeys(keyId, metadataBuilder.build());
     });
 
     return responseBuilder.build();
   }
 
   @Override
-  public SetTotpKeyMetadataResponse setTotpKeyMetadata(final SetTotpKeyMetadataRequest request) {
-    final byte keyId = validateTotpKeyId(request.getKeyId());
+  public SetMfaKeyMetadataResponse setMfaKeyMetadata(final SetMfaKeyMetadataRequest request) {
+    final byte keyId = validateMfaKeyId(request.getKeyId());
 
     try {
       accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(), account -> {
-        final Map<Byte, AnnotatedTotpKey> totpKeys = new HashMap<>(account.getTotpKeys());
-        @Nullable final AnnotatedTotpKey existingKey = totpKeys.get(keyId);
+        final Map<Byte, AnnotatedMfaKey> mfaKeys = new HashMap<>(account.getMfaKeys());
+        @Nullable final AnnotatedMfaKey existingKey = mfaKeys.get(keyId);
 
         if (existingKey == null) {
-          throw new TotpKeyNotFoundException();
+          throw new MfaKeyNotFoundException();
         }
 
-        totpKeys.put(keyId, new AnnotatedTotpKey(existingKey.totpKey(), request.getMetadataCiphertext().toByteArray()));
+        mfaKeys.put(keyId, existingKey.withMetadataCiphertext(request.getMetadataCiphertext().toByteArray()));
 
-        account.setTotpKeys(totpKeys);
+        account.setMfaKeys(mfaKeys);
       });
 
-      return SetTotpKeyMetadataResponse.newBuilder()
-          .setMetadataUpdated(SetTotpKeyMetadataResponse.MetadataUpdated.getDefaultInstance())
+      return SetMfaKeyMetadataResponse.newBuilder()
+          .setMetadataUpdated(SetMfaKeyMetadataResponse.MetadataUpdated.getDefaultInstance())
           .build();
-    } catch (final TotpKeyNotFoundException _) {
-      return SetTotpKeyMetadataResponse.newBuilder()
+    } catch (final MfaKeyNotFoundException _) {
+      return SetMfaKeyMetadataResponse.newBuilder()
           .setKeyNotFound(NotFound.getDefaultInstance())
           .build();
     }
   }
 
   @Override
-  public RemoveTotpKeyResponse removeTotpKey(final RemoveTotpKeyRequest request) {
-    final byte keyId = validateTotpKeyId(request.getKeyId());
+  public RemoveMfaKeyResponse removeMfaKey(final RemoveMfaKeyRequest request) {
+    final byte keyId = validateMfaKeyId(request.getKeyId());
 
     accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(), account -> {
-      final Map<Byte, AnnotatedTotpKey> totpKeys = new HashMap<>(account.getTotpKeys());
-      totpKeys.remove(keyId);
+      final Map<Byte, AnnotatedMfaKey> mfaKeys = new HashMap<>(account.getMfaKeys());
+      mfaKeys.remove(keyId);
 
-      account.setTotpKeys(totpKeys);
+      account.setMfaKeys(mfaKeys);
     });
 
-    return RemoveTotpKeyResponse.getDefaultInstance();
+    return RemoveMfaKeyResponse.getDefaultInstance();
   }
 
-  private byte validateTotpKeyId(final int keyId) {
-    if (keyId < 0 || keyId > Account.MAX_TOTP_KEY_ID) {
-      throw GrpcExceptions.invalidArguments("TOTP key ID out of range");
+  private byte validateMfaKeyId(final int keyId) {
+    if (keyId < 0 || keyId > Account.MAX_MFA_KEY_ID) {
+      throw GrpcExceptions.invalidArguments("MFA key ID out of range");
     }
 
     return (byte) keyId;

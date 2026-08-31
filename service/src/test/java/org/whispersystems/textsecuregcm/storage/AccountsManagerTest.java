@@ -1299,7 +1299,6 @@ class AccountsManagerTest {
     verify(accounts, expectUpdate ? times(1) : never()).update(account);
   }
 
-  @SuppressWarnings("unused")
   private static Stream<Arguments> testUpdateDeviceLastSeen() {
     return Stream.of(
         Arguments.of(true, 1, 2),
@@ -1937,7 +1936,7 @@ class AccountsManagerTest {
   class Totp {
 
     @Test
-    void generatePendingTotpKey() throws TooManyTotpKeysException {
+    void generatePendingTotpKey() throws TooManyTotpKeysException, TooManyMfaKeysException {
       final UUID accountIdentifier = UUID.randomUUID();
 
       final Account account = mock(Account.class);
@@ -1958,7 +1957,7 @@ class AccountsManagerTest {
       final Account account = mock(Account.class);
       when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
 
-      when(account.getTotpKeys()).thenReturn(IntStream.range(0, AccountsManager.MAX_TOTP_KEYS)
+      when(account.getMfaKeys()).thenReturn(IntStream.range(0, AccountsManager.MAX_TOTP_KEYS)
           .boxed()
           .collect(Collectors.toMap(Integer::byteValue, _ -> new AnnotatedTotpKey(
               new TotpKey(TOTP_PARAMETERS, TestRandomUtil.nextBytes(16)),
@@ -1972,7 +1971,7 @@ class AccountsManagerTest {
     }
 
     @Test
-    void confirmPendingTotpKey() throws InvalidKeyException, TooManyTotpKeysException, NoSuchAlgorithmException {
+    void confirmPendingTotpKey() throws InvalidKeyException, TooManyTotpKeysException, TooManyMfaKeysException, NoSuchAlgorithmException {
       final UUID accountIdentifier = UUID.randomUUID();
 
       final Account account = mock(Account.class);
@@ -1985,7 +1984,7 @@ class AccountsManagerTest {
       final byte nextTotpKeyId = (byte) ThreadLocalRandom.current().nextInt();
 
       when(account.getPendingTotpKey()).thenReturn(Optional.of(pendingTotpKey));
-      when(account.getNextTotpKeyId()).thenReturn(nextTotpKeyId);
+      when(account.getNextMfaKeyId()).thenReturn(nextTotpKeyId);
 
       final Instant timestamp = Instant.now();
 
@@ -1998,7 +1997,7 @@ class AccountsManagerTest {
     }
 
     @Test
-    void confirmPendingTotpKeyPreviouslyConfirmed() throws InvalidKeyException, NoSuchAlgorithmException {
+    void confirmPendingTotpKeyPreviouslyConfirmed() throws InvalidKeyException, NoSuchAlgorithmException, TooManyMfaKeysException {
       final UUID accountIdentifier = UUID.randomUUID();
 
       final Account account = mock(Account.class);
@@ -2020,7 +2019,7 @@ class AccountsManagerTest {
       final byte keyId = 17;
 
       when(account.getPendingTotpKey()).thenReturn(Optional.empty());
-      when(account.getTotpKeys()).thenReturn(Map.of(
+      when(account.getMfaKeys()).thenReturn(Map.of(
           (byte) (keyId - 1), confirmedTotpKey,
           keyId, confirmedTotpKey));
 
@@ -2033,7 +2032,7 @@ class AccountsManagerTest {
     }
 
     @Test
-    void confirmPendingTotpKeyNoKeys() throws InvalidKeyException, TooManyTotpKeysException, NoSuchAlgorithmException {
+    void confirmPendingTotpKeyNoKeys() throws InvalidKeyException, TooManyTotpKeysException, TooManyMfaKeysException, NoSuchAlgorithmException {
       final UUID accountIdentifier = UUID.randomUUID();
 
       final Account account = mock(Account.class);
@@ -2045,7 +2044,7 @@ class AccountsManagerTest {
       final TotpKey pendingTotpKey = accountsManager.generatePendingTotpKey(accountIdentifier);
 
       when(account.getPendingTotpKey()).thenReturn(Optional.empty());
-      when(account.getTotpKeys()).thenReturn(Collections.emptyMap());
+      when(account.getMfaKeys()).thenReturn(Collections.emptyMap());
 
       final Instant timestamp = Instant.now();
 
@@ -2057,7 +2056,7 @@ class AccountsManagerTest {
 
     @Test
     void confirmPendingTotpKeyIncorrectPassword()
-        throws InvalidKeyException, TooManyTotpKeysException, NoSuchAlgorithmException {
+        throws InvalidKeyException, TooManyTotpKeysException, TooManyMfaKeysException, NoSuchAlgorithmException {
       final UUID accountIdentifier = UUID.randomUUID();
 
       final Account account = mock(Account.class);
@@ -2070,7 +2069,7 @@ class AccountsManagerTest {
       final byte nextTotpKeyId = (byte) ThreadLocalRandom.current().nextInt();
 
       when(account.getPendingTotpKey()).thenReturn(Optional.of(pendingTotpKey));
-      when(account.getNextTotpKeyId()).thenReturn(nextTotpKeyId);
+      when(account.getNextMfaKeyId()).thenReturn(nextTotpKeyId);
 
       final Instant timestamp = Instant.now();
       final int incorrectPassword = AccountsManager.TOTP.generateOneTimePassword(pendingTotpKey, timestamp) + 1;
@@ -2086,13 +2085,13 @@ class AccountsManagerTest {
 
   @ParameterizedTest
   @MethodSource
-  void verifyTotp(final Map<Byte, AnnotatedTotpKey> totpKeys,
+  void verifyTotp(final Map<Byte, AnnotatedMfaKey> mfaKeys,
       final Instant timestamp,
       @Nullable final Integer oneTimePassword,
       final boolean expectVerified) {
 
     final Account account = mock(Account.class);
-    when(account.getTotpKeys()).thenReturn(totpKeys);
+    when(account.getMfaKeys()).thenReturn(mfaKeys);
 
     assertEquals(expectVerified, accountsManager.verifyTotp(account, timestamp, oneTimePassword));
   }
@@ -2137,7 +2136,7 @@ class AccountsManagerTest {
   }
 
   @RepeatedTest(value = 10, failureThreshold = 2)
-  void verifyTotpWithDelay() throws NoSuchAlgorithmException, InvalidKeyException {
+  void verifyTotpWithDelay() throws NoSuchAlgorithmException, InvalidKeyException, TooManyMfaKeysException {
     final AnnotatedTotpKey totpKey;
     {
       final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP.getAlgorithm());
@@ -2149,7 +2148,7 @@ class AccountsManagerTest {
     }
 
     final Account account = mock(Account.class);
-    when(account.getTotpKeys()).thenReturn(Map.of((byte) 1, totpKey));
+    when(account.getMfaKeys()).thenReturn(Map.of((byte) 1, totpKey));
 
     final Instant beginningOfTotpWindow =
         Instant.ofEpochMilli((Instant.now().toEpochMilli() / AccountsManager.TOTP.getTimeStep().toMillis()) *

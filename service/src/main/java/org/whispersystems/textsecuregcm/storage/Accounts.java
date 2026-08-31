@@ -410,9 +410,9 @@ public class Accounts {
       accountToCreate.setZkCredentialKey(existingAccount.getZkCredentialKey().orElse(null));
       accountToCreate.setZkCredentialKeyRotationId(existingAccount.getZkCredentialKeyRotationId());
 
-      // Carry over any existing TOTP keys to the new account; we don't need to copy the pending TOTP key since that's
+      // Carry over any existing MFA keys to the new account; we don't need to copy the pending TOTP key since that's
       // just a temporary holding place for essentially ephemeral data
-      accountToCreate.setTotpKeys(new HashMap<>(existingAccount.getTotpKeys()));
+      accountToCreate.setMfaKeys(new HashMap<>(existingAccount.getMfaKeys()));
 
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
