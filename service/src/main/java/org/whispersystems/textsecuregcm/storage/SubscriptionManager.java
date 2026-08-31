@@ -248,8 +248,7 @@ public class SubscriptionManager {
    * @param <E>                          An exception thrown by the paymentSetupFunction
    * @return The return value of the paymentSetupFunction
    * @throws SubscriptionForbiddenException         if the subscriber credentials were incorrect
-   * @throws SubscriptionNotFoundException          if the subscriber did not exist or did not have a subscription
-   *                                                attached
+   * @throws SubscriptionNotFoundException          if the subscriber did not exist
    * @throws SubscriptionProcessorConflictException if the new payment processor does not match the existing processor associated with
    *                                                the subscriberId
    */
@@ -373,8 +372,8 @@ public class SubscriptionManager {
    *                                 play store
    * @return the subscription level for the accepted subscription
    * @throws SubscriptionForbiddenException         if the subscriber credentials were incorrect
-   * @throws SubscriptionNotFoundException          if the subscriber did not exist or did not have a subscription
-   *                                                attached
+   * @throws SubscriptionNotFoundException          if the subscriber did not exist, or the purchaseToken was not found
+   *                                                in the play store
    * @throws SubscriptionProcessorConflictException if the new payment processor does not match the existing processor associated with
    *                                                the subscriberId
    * @throws SubscriptionPaymentRequiredException   if the subscription is not in a state that grants the user an
@@ -426,7 +425,8 @@ public class SubscriptionManager {
    *                              the app store
    * @return the subscription level for the accepted subscription
    * @throws SubscriptionForbiddenException         if the subscriber credentials are incorrect
-   * @throws SubscriptionNotFoundException          if the originalTransactionId does not exist
+   * @throws SubscriptionNotFoundException          if the subscriber did not exist, or the originalTransactionId does
+   *                                                not exist
    * @throws SubscriptionProcessorConflictException if the new payment processor does not match the existing processor associated with
    *                                                the subscriber
    * @throws SubscriptionInvalidArgumentsException  if the originalTransactionId is malformed or does not represent a
