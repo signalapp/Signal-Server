@@ -171,7 +171,9 @@ public class SubscriptionController {
         buildDonationLevelsConfiguration(subscriptionConfiguration, oneTimeDonationConfiguration, badgeTranslator,
             acceptableLanguages),
         new BackupConfiguration(backupLevels, subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays()),
-        new LoginConfiguration(ReceiptLevel.LOGIN.getValue(), loginPurchaseConfiguration.playProductId(),
+        new LoginConfiguration(ReceiptLevel.LOGIN.getValue(),
+            loginPurchaseConfiguration.playProductId(),
+            loginPurchaseConfiguration.playOptionId(),
             loginPurchaseConfiguration.appStoreProductId()),
         oneTimeDonationConfiguration.sepaMaximumEuros());
   }
@@ -549,6 +551,8 @@ public class SubscriptionController {
       long level,
       @Schema(description = "The play billing productID associated with a Signal Login purchase")
       String playProductId,
+      @Schema(description = "The play billing optionID to use to purchase a Signal Login")
+      String playOptionId,
       @Schema(description = "The App Store productID associated with a Signal Login purchase")
       String appStoreProductId) {}
 

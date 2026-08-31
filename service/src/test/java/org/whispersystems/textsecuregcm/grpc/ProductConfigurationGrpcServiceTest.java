@@ -40,7 +40,7 @@ public class ProductConfigurationGrpcServiceTest extends
       SubscriptionConfigTestHelper.getOneTimeConfig();
 
   private static final LoginPurchaseConfiguration LOGIN_PURCHASE_CONFIGURATION =
-      new LoginPurchaseConfiguration("testLoginPlayProductId", "testLoginAppStoreProductId");
+      new LoginPurchaseConfiguration("testLoginPlayProductId", "testLoginPlayOptionId", "testLoginAppStoreProductId");
 
   @Mock
   private StripeManager stripeManager;
@@ -135,6 +135,7 @@ public class ProductConfigurationGrpcServiceTest extends
 
     assertEquals(ReceiptLevel.LOGIN.getValue(), configuration.getLogin().getLevel());
     assertEquals(LOGIN_PURCHASE_CONFIGURATION.playProductId(), configuration.getLogin().getPlayProductId());
+    assertEquals(LOGIN_PURCHASE_CONFIGURATION.playOptionId(), configuration.getLogin().getPlayOptionId());
     assertEquals(LOGIN_PURCHASE_CONFIGURATION.appStoreProductId(), configuration.getLogin().getAppStoreProductId());
   }
 

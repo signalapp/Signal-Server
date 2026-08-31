@@ -95,6 +95,7 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
     return LoginConfiguration.newBuilder()
         .setLevel(ReceiptLevel.LOGIN.getValue())
         .setPlayProductId(loginPurchaseConfiguration.playProductId())
+        .setPlayOptionId(loginPurchaseConfiguration.playOptionId())
         .setAppStoreProductId(loginPurchaseConfiguration.appStoreProductId())
         .build();
   }

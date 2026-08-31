@@ -387,6 +387,7 @@ subscription: # configuration for Stripe subscriptions
 
 loginPurchase:
   playProductId: login_example
+  playOptionId: login_option_example
   appStoreProductId: login_example
 
 oneTimeDonations:

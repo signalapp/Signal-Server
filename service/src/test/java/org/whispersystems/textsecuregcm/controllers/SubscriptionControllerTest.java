@@ -112,7 +112,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
   private static final LoginPurchaseConfiguration LOGIN_PURCHASE_CONFIG =
-      new LoginPurchaseConfiguration("testLoginPlayProductId", "testLoginAppStoreProductId");
+      new LoginPurchaseConfiguration("testLoginPlayProductId", "testLoginPlayOptionId", "testLoginAppStoreProductId");
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK,
       SUBSCRIPTION_CONFIG, ONETIME_CONFIG, LOGIN_PURCHASE_CONFIG,
       new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
@@ -1080,6 +1080,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
     assertThat(response.login().level()).isEqualTo(ReceiptLevel.LOGIN.getValue());
     assertThat(response.login().playProductId()).isEqualTo(LOGIN_PURCHASE_CONFIG.playProductId());
+    assertThat(response.login().playOptionId()).isEqualTo(LOGIN_PURCHASE_CONFIG.playOptionId());
     assertThat(response.login().appStoreProductId()).isEqualTo(LOGIN_PURCHASE_CONFIG.appStoreProductId());
 
     // check the badge vs purchasable badge fields
