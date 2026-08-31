@@ -58,7 +58,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
@@ -210,12 +209,12 @@ class AccountsManagerTest {
     doAnswer(invocation -> {
       final ThrowingSupplier<?, ?> task = invocation.getArgument(1);
       return task.get();
-    }).when(accountLockManager).withLock(anySet(), any(), any());
+    }).when(accountLockManager).withLock(anySet(), any());
 
     doAnswer(invocation -> {
       final ThrowingSupplier<?, ?> task = invocation.getArgument(1);
       return task.get();
-    }).when(accountLockManager).withSingleAccountLock(any(Account.class), any(), any());
+    }).when(accountLockManager).withSingleAccountLock(any(Account.class), any());
 
     final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
         mock(PhoneNumberRecoveryPasswordsManager.class);
@@ -251,7 +250,6 @@ class AccountsManagerTest {
         svr2Client,
         disconnectionRequestManager,
         phoneNumberRecoveryPasswordsManager,
-        mock(Executor.class),
         mock(ScheduledExecutorService.class),
         mock(ScheduledExecutorService.class),
         CLOCK,

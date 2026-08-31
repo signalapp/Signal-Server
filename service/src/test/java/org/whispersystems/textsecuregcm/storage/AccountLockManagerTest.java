@@ -15,17 +15,12 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class AccountLockManagerTest {
 
   private AmazonDynamoDBLockClient lockClient;
-  private ExecutorService executor;
 
   private AccountLockManager accountLockManager;
 
@@ -36,22 +31,12 @@ class AccountLockManagerTest {
   @BeforeEach
   void setUp() {
     lockClient = mock(AmazonDynamoDBLockClient.class);
-    executor = Executors.newSingleThreadExecutor();
-
     accountLockManager = new AccountLockManager(lockClient);
-  }
-
-  @AfterEach
-  void tearDown() throws InterruptedException {
-    executor.shutdown();
-
-    //noinspection ResultOfMethodCallIgnored
-    executor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test
   void withLock() throws Exception {
-    accountLockManager.withLock(Set.of(FIRST_PNI, SECOND_PNI), () -> null, executor);
+    accountLockManager.withLock(Set.of(FIRST_PNI, SECOND_PNI), () -> null);
 
     verify(lockClient, times(2)).acquireLock(any());
     verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
@@ -61,7 +46,7 @@ class AccountLockManagerTest {
   void withLockTaskThrowsException() throws InterruptedException {
     assertThrows(RuntimeException.class, () -> accountLockManager.withLock(Set.of(FIRST_PNI, SECOND_PNI), () -> {
           throw new RuntimeException();
-    }, executor));
+    }));
 
     verify(lockClient, times(2)).acquireLock(any());
     verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
@@ -71,8 +56,7 @@ class AccountLockManagerTest {
   void withLockEmptyList() {
     final Runnable task = mock(Runnable.class);
 
-    assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptySet(), () -> null,
-        executor));
+    assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptySet(), () -> null));
     verify(task, never()).run();
   }
 
@@ -82,7 +66,7 @@ class AccountLockManagerTest {
     when(account.getAccountIdentifier()).thenReturn(ACI);
     when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(FIRST_PNI));
 
-    accountLockManager.withSingleAccountLock(account, () -> null, executor);
+    accountLockManager.withSingleAccountLock(account, () -> null);
     verify(lockClient, times(1)).acquireLock(
         AcquireLockOptions.builder(FIRST_PNI.toString()).withAcquireReleasedLocksConsistently(true).build());
   }
@@ -93,7 +77,7 @@ class AccountLockManagerTest {
     when(account.getAccountIdentifier()).thenReturn(ACI);
     when(account.getPhoneNumberIdentifier()).thenReturn(Optional.empty());
 
-    accountLockManager.withSingleAccountLock(account, () -> null, executor);
+    accountLockManager.withSingleAccountLock(account, () -> null);
     verify(lockClient, times(1)).acquireLock(
         AcquireLockOptions.builder(ACI.toString()).withAcquireReleasedLocksConsistently(true).build());
   }

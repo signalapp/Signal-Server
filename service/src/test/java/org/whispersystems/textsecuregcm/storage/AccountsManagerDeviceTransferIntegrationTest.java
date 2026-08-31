@@ -18,7 +18,6 @@ import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -68,7 +67,6 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(SecureValueRecoveryClient.class),
         mock(DisconnectionRequestManager.class),
         mock(PhoneNumberRecoveryPasswordsManager.class),
-        mock(ExecutorService.class),
         mock(ScheduledExecutorService.class),
         mock(ScheduledExecutorService.class),
         Clock.systemUTC(),

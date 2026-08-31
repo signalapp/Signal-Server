@@ -21,10 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,7 +69,6 @@ public class AddRemoveDeviceIntegrationTest {
   @RegisterExtension
   static final S3LocalStackExtension S3_EXTENSION = new S3LocalStackExtension("testbucket");
 
-  private ExecutorService accountLockExecutor;
   private ScheduledExecutorService scheduledExecutorService;
 
   private KeysManager keysManager;
@@ -109,7 +105,6 @@ public class AddRemoveDeviceIntegrationTest {
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS.tableName(),
         DynamoDbExtensionSchema.Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
-    accountLockExecutor = Executors.newSingleThreadExecutor();
     scheduledExecutorService = mock(ScheduledExecutorService.class);
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -157,7 +152,6 @@ public class AddRemoveDeviceIntegrationTest {
         svr2Client,
         mock(DisconnectionRequestManager.class),
         phoneNumberRecoveryPasswordsManager,
-        accountLockExecutor,
         scheduledExecutorService,
         scheduledExecutorService,
         clock,
@@ -170,11 +164,6 @@ public class AddRemoveDeviceIntegrationTest {
   @AfterEach
   void tearDown() throws InterruptedException {
     accountsManager.stop();
-
-    accountLockExecutor.shutdown();
-
-    //noinspection ResultOfMethodCallIgnored
-    accountLockExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test

@@ -105,7 +105,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       doAnswer(invocation -> {
         final ThrowingSupplier<?, ?> task = invocation.getArgument(1);
         return task.get();
-      }).when(accountLockManager).withLock(anySet(), any(), any());
+      }).when(accountLockManager).withLock(anySet(), any());
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
       when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString()))
@@ -132,7 +132,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(SecureValueRecoveryClient.class),
           mock(DisconnectionRequestManager.class),
           phoneNumberRecoveryPasswordsManager,
-          mock(Executor.class),
           mock(ScheduledExecutorService.class),
           mock(ScheduledExecutorService.class),
           mock(Clock.class),

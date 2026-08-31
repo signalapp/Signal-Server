@@ -50,7 +50,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -142,7 +141,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final SecureValueRecoveryClient secureValueRecovery2Client;
   private final DisconnectionRequestManager disconnectionRequestManager;
   private final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager;
-  private final Executor accountLockExecutor;
   private final ScheduledExecutorService messagesPollExecutor;
   private final ScheduledExecutorService retryExecutor;
   private final Clock clock;
@@ -299,7 +297,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final SecureValueRecoveryClient secureValueRecovery2Client,
       final DisconnectionRequestManager disconnectionRequestManager,
       final PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
-      final Executor accountLockExecutor,
       final ScheduledExecutorService messagesPollExecutor,
       final ScheduledExecutorService retryExecutor,
       final Clock clock,
@@ -318,7 +315,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.secureValueRecovery2Client = secureValueRecovery2Client;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.phoneNumberRecoveryPasswordsManager = requireNonNull(phoneNumberRecoveryPasswordsManager);
-    this.accountLockExecutor = accountLockExecutor;
     this.messagesPollExecutor = messagesPollExecutor;
     this.retryExecutor = retryExecutor;
     this.clock = requireNonNull(clock);
@@ -454,7 +450,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return Metrics.timer(CREATE_TIMER_NAME, HAS_NUMBER_TAG_NAME, "true").record(() -> {
       try {
         return accountLockManager.withLock(Set.of(pni),
-            () -> create(Optional.of(number), Optional.of(pni), Optional.empty(), Optional.empty(), accountAttributes, aciIdentityKey, Optional.of(pniIdentityKey), primaryDeviceSpec, userAgent), accountLockExecutor);
+            () -> create(Optional.of(number), Optional.of(pni), Optional.empty(), Optional.empty(), accountAttributes, aciIdentityKey, Optional.of(pniIdentityKey), primaryDeviceSpec, userAgent));
       } catch (final ReceiptAlreadyRedeemedException e) {
         throw new AssertionError("ReceiptAlreadyRedeemedException must never be thrown for accounts with numbers");
       } catch (final RuntimeException e) {
@@ -613,7 +609,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       reclaimAccount(account, existingAccount, primaryDeviceSpec, accountAttributes);
 
       return account;
-    }, accountLockExecutor);
+    });
 
     final PushTokenType pushTokenType = PushTokenType.fromDeviceSpec(primaryDeviceSpec);
     final PushTokenType previousPushTokenType = PushTokenType.fromDevice(existingAccount.getPrimaryDevice());
@@ -711,8 +707,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
 
     return accountLockManager.withSingleAccountLock(account,
-        () -> addDevice(accountIdentifier, deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
-        accountLockExecutor);
+        () -> addDevice(accountIdentifier, deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS));
   }
 
   private Pair<Account, Device> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final String linkDeviceToken, final int retries)
@@ -909,8 +904,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
 
     return accountLockManager.withSingleAccountLock(account,
-        () -> removeDevice(accountIdentifier, deviceId, MAX_UPDATE_ATTEMPTS),
-        accountLockExecutor);
+        () -> removeDevice(accountIdentifier, deviceId, MAX_UPDATE_ATTEMPTS));
   }
 
   private Account removeDevice(final UUID accountIdentifier, final byte deviceId, final int retries) {
@@ -976,7 +970,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     try {
       return accountLockManager.withLock(new HashSet<>(List.of(originalPhoneNumberIdentifier, targetPhoneNumberIdentifier)),
-          () -> changeNumber(account, targetNumber, targetPhoneNumberIdentifier, pniIdentityKey, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds), accountLockExecutor);
+          () -> changeNumber(account, targetNumber, targetPhoneNumberIdentifier, pniIdentityKey, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds));
     } catch (final RuntimeException e) {
       logger.error("Unexpected exception when changing phone number", e);
       throw e;
@@ -1280,7 +1274,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       }
 
       return maybeUpdatedAccount;
-    }, accountLockExecutor);
+    });
   }
 
   /**
@@ -1488,7 +1482,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       accountLockManager.withSingleAccountLock(account, () -> {
         delete(account);
         return null;
-      }, accountLockExecutor);
+      });
 
       Metrics.counter(DELETE_COUNTER_NAME,
               COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account),
@@ -2002,7 +1996,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     accountLockManager.withSingleAccountLock(account, () -> {
       migrateAccountRecoveryPassword(account.getAccountIdentifier(), MAX_UPDATE_ATTEMPTS);
       return null;
-    }, accountLockExecutor);
+    });
   }
 
   private void migrateAccountRecoveryPassword(final UUID accountIdentifier, final int retries) {

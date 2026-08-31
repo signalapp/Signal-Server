@@ -119,7 +119,7 @@ class AccountsManagerUsernameIntegrationTest {
     doAnswer(invocation -> {
       final ThrowingSupplier<?, ?> task = invocation.getArgument(1);
       return task.get();
-    }).when(accountLockManager).withLock(anySet(), any(), any());
+    }).when(accountLockManager).withLock(anySet(), any());
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
         new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.PNI.tableName());
@@ -153,7 +153,6 @@ class AccountsManagerUsernameIntegrationTest {
         mock(SecureValueRecoveryClient.class),
         disconnectionRequestManager,
         phoneNumberRecoveryPasswordsManager,
-        Executors.newSingleThreadExecutor(),
         Executors.newSingleThreadScheduledExecutor(),
         Executors.newSingleThreadScheduledExecutor(),
         Clock.systemUTC(),

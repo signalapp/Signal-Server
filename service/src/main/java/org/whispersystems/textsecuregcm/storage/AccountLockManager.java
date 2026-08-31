@@ -10,9 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.whispersystems.textsecuregcm.util.ThrowingSupplier;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -47,15 +44,12 @@ public class AccountLockManager {
   ///
   /// @param phoneNumberIdentifiers  the phone number identifiers for which to acquire a distributed, pessimistic lock
   /// @param task                    the task to execute once locks have been acquired
-  /// @param lockAcquisitionExecutor the executor on which to run blocking lock acquire/release tasks. this executor
-  ///                                should not use virtual threads.
   ///
   /// @return the value returned by the given {@code task}
   ///
   /// @throws E if an exception is thrown by the given {@code task}
   public <V, E extends Exception> V withLock(final Set<UUID> phoneNumberIdentifiers,
-      final ThrowingSupplier<V, E> task,
-      final Executor lockAcquisitionExecutor) throws E {
+      final ThrowingSupplier<V, E> task) throws E {
 
     if (phoneNumberIdentifiers.isEmpty()) {
       throw new IllegalArgumentException("List of PNIs to lock must not be empty");
@@ -64,30 +58,22 @@ public class AccountLockManager {
     final List<LockItem> lockItems = new ArrayList<>(phoneNumberIdentifiers.size());
 
     try {
-      // Offload the acquire/release tasks to the dedicated lock acquisition executor. The lock client performs blocking
-      // operations while holding locks which forces thread pinning when this method runs on a virtual thread.
-      // https://github.com/awslabs/amazon-dynamodb-lock-client/issues/97
-      CompletableFuture.runAsync(() -> {
-        for (final UUID pni : phoneNumberIdentifiers) {
-          try {
-            lockItems.add(lockClient.acquireLock(AcquireLockOptions.builder(pni.toString())
-                .withAcquireReleasedLocksConsistently(true)
-                .build()));
-          } catch (final InterruptedException e) {
-            throw new CompletionException(e);
-          }
+      for (final UUID pni : phoneNumberIdentifiers) {
+        try {
+          lockItems.add(lockClient.acquireLock(AcquireLockOptions.builder(pni.toString())
+              .withAcquireReleasedLocksConsistently(true)
+              .build()));
+        } catch (final InterruptedException e) {
+          throw new RuntimeException(e);
         }
-      }, lockAcquisitionExecutor).join();
-
+      }
       return task.get();
     } finally {
-      CompletableFuture.runAsync(() -> {
-        for (final LockItem lockItem : lockItems) {
-          lockClient.releaseLock(ReleaseLockOptions.builder(lockItem)
-              .withBestEffort(true)
-              .build());
-        }
-      }, lockAcquisitionExecutor).join();
+      for (final LockItem lockItem : lockItems) {
+        lockClient.releaseLock(ReleaseLockOptions.builder(lockItem)
+            .withBestEffort(true)
+            .build());
+      }
     }
   }
 
@@ -104,15 +90,12 @@ public class AccountLockManager {
   ///
   /// @param account                 the account for which to acquire a distributed, pessimistic lock
   /// @param task                    the task to execute once locks have been acquired
-  /// @param lockAcquisitionExecutor the executor on which to run blocking lock acquire/release tasks. this executor
-  ///                                should not use virtual threads.
   ///
   /// @return the value returned by the given {@code task}
   ///
   /// @throws E if an exception is thrown by the given {@code task}
-  public <V, E extends Exception> V withSingleAccountLock(Account account,
-      final ThrowingSupplier<V, E> task,
-      final Executor lockAcquisitionExecutor) throws E {
-    return withLock(Set.of(account.getPhoneNumberIdentifier().orElse(account.getAccountIdentifier())), task, lockAcquisitionExecutor);
+  public <V, E extends Exception> V withSingleAccountLock(final Account account,
+      final ThrowingSupplier<V, E> task) throws E {
+    return withLock(Set.of(account.getPhoneNumberIdentifier().orElse(account.getAccountIdentifier())), task);
   }
 }

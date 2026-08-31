@@ -153,7 +153,6 @@ class AccountsManagerChangeNumberIntegrationTest {
               phoneNumberRecoveryPasswordsManager,
           executor,
           executor,
-          executor,
           mock(Clock.class),
           "link-device-secret".getBytes(StandardCharsets.UTF_8),
           AccountsManager.TOTP.getTimeStep().dividedBy(2));
