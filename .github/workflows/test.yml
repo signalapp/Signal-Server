@@ -32,11 +32,11 @@ jobs:
       - name: Install APT packages
         # ca-certificates: required for AWS CRT client
         run: |
-          # Add Docker's official GPG key:
           apt update
-          apt install -y ca-certificates curl
           # Maven Wrapper requires `unzip`; see https://github.com/apache/maven-wrapper/issues/425
-          apt install -y unzip
+          # setup-java requires gpg
+          apt install -y ca-certificates curl gpg unzip
+          # Add Docker's official GPG key:
           install -m 0755 -d /etc/apt/keyrings
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
           chmod a+r /etc/apt/keyrings/docker.asc
