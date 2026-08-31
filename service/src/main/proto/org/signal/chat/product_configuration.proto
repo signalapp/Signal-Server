@@ -91,7 +91,7 @@ message LoginConfiguration {
   // The play billing productID associated with a Signal Login purchase
   string play_product_id = 2;
   // The play billing optionID to use to purchase a Signal Login
-  string play_option_id = 5;
+  string play_option_id = 4;
   // The App Store productID associated with a Signal Login purchase
-  string app_store_product_id = 4;
+  string app_store_product_id = 3;
 }
