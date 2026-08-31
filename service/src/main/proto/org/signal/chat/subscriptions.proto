@@ -37,6 +37,10 @@ service Subscriptions {
   rpc CreatePaymentMethod(CreatePaymentMethodRequest) returns (CreatePaymentMethodResponse) {}
 
   // Returns a PayPal billing agreement approval URL and token that can be used to set up PayPal as a payment method.
+  //
+  // The presented billing agreement may be localized. Callers should set their
+  // language preferences via an "Accept-Language" header on the request:
+  // https://datatracker.ietf.org/doc/html/rfc3282#section-3
   rpc CreatePayPalPaymentMethod(CreatePayPalPaymentMethodRequest) returns (CreatePayPalPaymentMethodResponse) {}
 
   // Sets the default payment method for a subscriber.
@@ -102,7 +106,11 @@ service Subscriptions {
   // associated with the old purchaseToken will be cancelled.
   rpc SetIapSubscription(SetIapSubscriptionRequest) returns (SetIapSubscriptionResponse) {}
 
-  // Returns a localized bank mandate for the specified bank transfer type
+  // Returns a localized bank mandate for the specified bank transfer type.
+  //
+  // Callers should set their language preferences via an "Accept-Language"
+  // header on the request:
+  // https://datatracker.ietf.org/doc/html/rfc3282#section-3
   rpc GetBankMandate(GetBankMandateRequest) returns (GetBankMandateResponse) {}
 }
 

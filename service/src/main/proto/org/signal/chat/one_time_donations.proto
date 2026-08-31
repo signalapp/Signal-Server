@@ -25,7 +25,13 @@ service OneTimeDonations {
   rpc CreateBoost(CreateBoostRequest) returns (CreateBoostResponse) {}
 
   // Create a PayPal one-time payment.
-  // Once the payment is complete, call ConfirmPayPalBoost with the payment ID and token
+  //
+  // Once the payment is complete, call ConfirmPayPalBoost with the payment ID
+  // and token.
+  //
+  // The presented billing agreement may be localized. Callers should set their
+  // language preferences via an "Accept-Language" header on the request:
+  // https://datatracker.ietf.org/doc/html/rfc3282#section-3
   rpc CreatePayPalBoost(CreatePayPalBoostRequest) returns (CreatePayPalBoostResponse) {}
 
   // Confirm a PayPal one-time payment
