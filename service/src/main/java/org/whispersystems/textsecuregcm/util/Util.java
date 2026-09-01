@@ -15,16 +15,17 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Locale.LanguageRange;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.Strings;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 public class Util {
@@ -35,6 +36,13 @@ public class Util {
 
   public static final String COUNTRY_CODE_NOT_APPLICABLE = "n/a";
   public static final String REGION_NOT_APPLICABLE = "n/a";
+
+  // We use a `HashMap` because `HashMap` allows for null keys at query time, and `PhoneNumberUtil` may return a null
+  // region code for some phone numbers
+  private static final Map<String, AlternatePhoneNumberFormGenerator> ALTERNATE_FORM_GENERATORS_BY_REGION =
+      new HashMap<>(Map.of(
+          "BJ", new BeninAlternateFormGenerator()
+      ));
 
   // Use `CompletableFuture#thenApply(ASYNC_EMPTY_RESPONSE) to convert futures to
   // CompletableFuture<Response> instead of using NOOP to convert them to CompletableFuture<Void>
@@ -131,25 +139,9 @@ public class Util {
     try {
       final PhoneNumber phoneNumber = PHONE_NUMBER_UTIL.parse(number, null);
 
-      // Benin changed phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX on November 30, 2024
-      if ("BJ".equals(PHONE_NUMBER_UTIL.getRegionCodeForNumber(phoneNumber))) {
-        final String nationalSignificantNumber = PHONE_NUMBER_UTIL.getNationalSignificantNumber(phoneNumber);
-        final String alternateE164;
-
-        if (nationalSignificantNumber.length() == 10) {
-          // This is a new-format number; we can get the old-format version by stripping the leading "01" from the
-          // national number
-          alternateE164 = "+229" + Strings.CS.removeStart(nationalSignificantNumber, "01");
-        } else {
-          // This is an old-format number; we can get the new-format version by adding a "01" prefix to the national
-          // number
-          alternateE164 = "+22901" + nationalSignificantNumber;
-        }
-
-        return number.equals(alternateE164) ? List.of(number) : List.of(number, alternateE164);
-      }
-
-      return List.of(number);
+      return ALTERNATE_FORM_GENERATORS_BY_REGION.getOrDefault(PHONE_NUMBER_UTIL.getRegionCodeForNumber(phoneNumber),
+              AlternatePhoneNumberFormGenerator.IDENTITY)
+          .getAlternateForms(number);
     } catch (final NumberParseException e) {
       return List.of(number);
     }
