@@ -15,7 +15,7 @@
     <commons-compress.version>1.28.0</commons-compress.version>
     <dynamodb-lock-client.version>1.5.0</dynamodb-lock-client.version>
     <firebase-admin.version>9.10.0</firebase-admin.version>
-    <libphonenumber-geocoder.version>3.37</libphonenumber-geocoder.version>
+    <libphonenumber-geocoder.version>3.38</libphonenumber-geocoder.version>
     <google-androidpublisher.version>v3-rev20250904-2.0.0</google-androidpublisher.version>
     <java-jwt.version>4.6.0</java-jwt.version>
     <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
