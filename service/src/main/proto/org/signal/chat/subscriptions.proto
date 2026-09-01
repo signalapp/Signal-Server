@@ -21,7 +21,7 @@ import "org/signal/chat/tag.proto";
 service Subscriptions {
   option (require.auth) = AUTH_ONLY_ANONYMOUS;
   // Creates a subscriber record if it does not exist, otherwise refreshes its last access time.
-
+  //
   //  Subscribers MUST periodically hit this endpoint to update the access time on the subscription record. Subscribers
   //  SHOULD attempt to make an update call approximately every 3 days. Not accessing this endpoint for an extended
   //  period of time will result in the subscription being canceled.
@@ -115,6 +115,7 @@ service Subscriptions {
 }
 
 message UpdateSubscriberRequest {
+  // New subscriber-ids must be a randomly-generated 32 byte byte-string.
   bytes subscriber_id = 1 [(require.exactlySize) = 32];
   // A libsignal DonationPermit from rpc Donations.CreateDonationPermit.
   // Not required if the subscriber already exists.
@@ -124,11 +125,8 @@ message UpdateSubscriberRequest {
 message UpdateSubscriberResponse {
   oneof response {
     google.protobuf.Empty success = 1;
-    // The subscriber-key embedded in the subscriber-id did not match the stored
-    // key for the subscriber-user embedded in the subscriber-id
-    errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 2 [(tag.reason) = "subscriber_id_mismatch"];
     // The donation permit was expired or already spent
-    errors.FailedZkAuthentication permit_rejected = 3 [(tag.reason) = "permit_rejected"];
+    errors.FailedZkAuthentication permit_rejected = 2 [(tag.reason) = "permit_rejected"];
   }
 }
 
@@ -201,14 +199,11 @@ message CreatePaymentMethodResponse {
     CreatePaymentMethodResult result = 1;
     // The subscriber did not exist
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
-    // The subscriber-key embedded in the subscriber-id did not match the stored
-    // key for the subscriber-user embedded in the subscriber-id
-    errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 3 [(tag.reason) = "subscriber_id_mismatch"];
     // New payment processor does not match existing processor associated with
     // the subscription
-    errors.FailedPrecondition subscription_processor_conflict = 4 [(tag.reason) = "subscription_processor_conflict"];
+    errors.FailedPrecondition subscription_processor_conflict = 3 [(tag.reason) = "subscription_processor_conflict"];
     // The donation permit was expired or already spent
-    errors.FailedZkAuthentication permit_rejected = 5 [(tag.reason) = "permit_rejected"];
+    errors.FailedZkAuthentication permit_rejected = 4 [(tag.reason) = "permit_rejected"];
   }
 }
 
@@ -232,12 +227,9 @@ message CreatePayPalPaymentMethodResponse {
     CreatePayPalPaymentMethodResult result = 1;
     // The subscriber did not exist
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
-    // The subscriber-key embedded in the subscriber-id did not match the stored
-    // key for the subscriber-user embedded in the subscriber-id
-    errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 3 [(tag.reason) = "subscriber_id_mismatch"];
     // New payment processor does not match existing processor associated with
     // the subscription
-    errors.FailedPrecondition subscription_processor_conflict = 4 [(tag.reason) = "subscription_processor_conflict"];
+    errors.FailedPrecondition subscription_processor_conflict = 3 [(tag.reason) = "subscription_processor_conflict"];
   }
 }
 
@@ -265,12 +257,9 @@ message SetDefaultPaymentMethodResponse {
     google.protobuf.Empty success = 1;
     // The subscriber did not exist, or the referenced setup intent was not found
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
-    // The subscriber-key embedded in the subscriber-id did not match the stored
-    // key for the subscriber-user embedded in the subscriber-id
-    errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 3 [(tag.reason) = "subscriber_id_mismatch"];
     // No payment method has been created for the subscriber, or the provided
     // payment method has not finished being set up with the processor
-    errors.FailedPrecondition payment_method_not_set_up = 4 [(tag.reason) = "payment_method_not_set_up"];
+    errors.FailedPrecondition payment_method_not_set_up = 3 [(tag.reason) = "payment_method_not_set_up"];
   }
 }
 
@@ -327,28 +316,25 @@ message SetSubscriptionLevelResponse {
     SetSubscriptionLevelResult success = 1;
     // The subscriber did not exist
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
-    // The subscriber-key embedded in the subscriber-id did not match the stored
-    // key for the subscriber-user embedded in the subscriber-id
-    errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 3 [(tag.reason) = "subscriber_id_mismatch"];
     // New payment processor does not match existing processor associated with
     // the subscription
-    errors.FailedPrecondition subscription_processor_conflict = 4 [(tag.reason) = "subscription_processor_conflict"];
+    errors.FailedPrecondition subscription_processor_conflict = 3 [(tag.reason) = "subscription_processor_conflict"];
     // No payment method has been created for the subscriber
-    errors.FailedPrecondition payment_method_not_set_up = 5 [(tag.reason) = "payment_method_not_set_up"];
+    errors.FailedPrecondition payment_method_not_set_up = 4 [(tag.reason) = "payment_method_not_set_up"];
     // The payment processor does not support this operation
-    errors.FailedPrecondition unsupported_operation = 6 [(tag.reason) = "unsupported_operation"];
+    errors.FailedPrecondition unsupported_operation = 5 [(tag.reason) = "unsupported_operation"];
     // The requested level was invalid
-    errors.FailedPrecondition unsupported_level = 7 [(tag.reason) = "unsupported_level"];
+    errors.FailedPrecondition unsupported_level = 6 [(tag.reason) = "unsupported_level"];
     // The requested currency was invalid
-    errors.FailedPrecondition unsupported_currency = 8 [(tag.reason) = "unsupported_currency"];
+    errors.FailedPrecondition unsupported_currency = 7 [(tag.reason) = "unsupported_currency"];
     // The card could not be charged
-    errors.FailedPrecondition payment_requires_action = 9 [(tag.reason) = "payment_requires_action"];
+    errors.FailedPrecondition payment_requires_action = 8 [(tag.reason) = "payment_requires_action"];
     // Cannot transition from existing level to the requested level
-    errors.FailedPrecondition invalid_level_transition = 10 [(tag.reason) = "invalid_level_transition"];
+    errors.FailedPrecondition invalid_level_transition = 9 [(tag.reason) = "invalid_level_transition"];
     // The idempotency key was invalid or re-used with a modified request
-    errors.FailedPrecondition invalid_idempotency_key = 11 [(tag.reason) = "invalid_idempotency_key"];
+    errors.FailedPrecondition invalid_idempotency_key = 10 [(tag.reason) = "invalid_idempotency_key"];
     // The payment failed; see charge failure details
-    ChargeFailure charge_failure = 12 [(tag.reason) = "charge_failure"];
+    ChargeFailure charge_failure = 11 [(tag.reason) = "charge_failure"];
   }
 }
 
@@ -376,18 +362,15 @@ message SetIapSubscriptionResponse {
     SetIapSubscriptionResult success = 1;
     // The subscriber did not exist or the provided purchase identifier does not exist
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
-    // The subscriber-key embedded in the subscriber-id did not match the stored
-    // key for the subscriber-user embedded in the subscriber-id
-    errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 3 [(tag.reason) = "subscriber_id_mismatch"];
     // New payment processor does not match existing processor associated with
     // the subscription
-    errors.FailedPrecondition subscription_processor_conflict = 4 [(tag.reason) = "subscription_processor_conflict"];
+    errors.FailedPrecondition subscription_processor_conflict = 3 [(tag.reason) = "subscription_processor_conflict"];
     // The subscription is not in a purchase state that grants the user an
     // entitlement
-    errors.FailedPrecondition payment_required = 5 [(tag.reason) = "payment_required"];
+    errors.FailedPrecondition payment_required = 4 [(tag.reason) = "payment_required"];
     // The provided purchase identifier is malformed or the identified
     // transaction is not supported for use at this endpoint
-    errors.FailedPrecondition invalid_transaction = 6 [(tag.reason) = "invalid_transaction"];
+    errors.FailedPrecondition invalid_transaction = 5 [(tag.reason) = "invalid_transaction"];
   }
 }
 
@@ -405,15 +388,12 @@ message GetReceiptCredentialsResponse {
     GetReceiptCredentialsResult success = 1;
     // The subscriber did not exist or it did not have an associated subscription
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
-    // The subscriber-key embedded in the subscriber-id did not match the stored
-    // key for the subscriber-user embedded in the subscriber-id
-    errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 3 [(tag.reason) = "subscriber_id_mismatch"];
     // No invoice has been issued for this subscription OR invoice is in 'draft' or 'open' state
-    errors.FailedPrecondition no_paid_invoice = 4 [(tag.reason) = "no_paid_invoice"];
+    errors.FailedPrecondition no_paid_invoice = 3 [(tag.reason) = "no_paid_invoice"];
     // Invoice is in any state other than 'draft', 'open', or 'paid'; Charge failure details may be present
-    PaymentRequired payment_required = 5 [(tag.reason) = "payment_required"];
+    PaymentRequired payment_required = 4 [(tag.reason) = "payment_required"];
     // Latest paid receipt on subscription was already redeemed for a receipt credential but with a different GetReceiptCredentialRequest
-    errors.FailedPrecondition already_redeemed = 6 [(tag.reason) = "already_redeemed"];
+    errors.FailedPrecondition already_redeemed = 5 [(tag.reason) = "already_redeemed"];
   }
 }
 
@@ -455,9 +435,6 @@ message GetSubscriptionInformationResponse {
     google.protobuf.Empty no_subscription = 2;
     // The subscriber did not exist
     errors.NotFound subscriber_not_found = 3 [(tag.reason) = "subscriber_not_found"];
-    // The subscriber-key embedded in the subscriber-id did not match the stored
-    // key for the subscriber-user embedded in the subscriber-id
-    errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 4 [(tag.reason) = "subscriber_id_mismatch"];
   }
 }
 

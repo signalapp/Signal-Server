@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import io.grpc.Status;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -193,11 +195,10 @@ public class SubscriptionsGrpcServiceTest extends
   void updateSubscriberIdMismatch() throws SubscriptionException {
     doThrow(new SubscriptionForbiddenException("subscriberId mismatch"))
         .when(subscriptionManager).updateSubscriber(any(), anyBoolean());
-    final UpdateSubscriberResponse response = unauthenticatedServiceStub().updateSubscriber(
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().updateSubscriber(
         UpdateSubscriberRequest.newBuilder()
             .setSubscriberId(SUBSCRIBER_ID)
-            .build());
-    assertEquals(UpdateSubscriberResponse.ResponseCase.SUBSCRIBER_ID_MISMATCH, response.getResponseCase());
+            .build()));
   }
 
   @Test
