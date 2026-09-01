@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 public class ReceiptCredentialTestUtil {
-  private static final ServerSecretParams RECEIPT_PARAMS = ServerSecretParams.generate();
+  public static final ServerSecretParams RECEIPT_PARAMS = ServerSecretParams.generate();
 
   public static ReceiptCredentialPresentation receiptPresentation()
       throws InvalidInputException, VerificationFailedException {
@@ -30,12 +30,16 @@ public class ReceiptCredentialTestUtil {
     return receiptPresentation(new ReceiptSerial(TestRandomUtil.nextBytes(ReceiptSerial.SIZE)), expiresAt, receiptLevel);
   }
 
-  public static ReceiptCredentialPresentation receiptPresentation(final ReceiptSerial receiptSerial, final Instant expiresAt, final long receiptLevel)
+  public static ReceiptCredentialPresentation receiptPresentation(final ReceiptSerial receiptSerial, final Instant expiresAt, final long receiptLevel) throws VerificationFailedException {
+    return receiptPresentation(RECEIPT_PARAMS, receiptSerial, expiresAt, receiptLevel);
+  }
+
+  public static ReceiptCredentialPresentation receiptPresentation(final ServerSecretParams receiptParams, final ReceiptSerial receiptSerial, final Instant expiresAt, final long receiptLevel)
       throws VerificationFailedException {
 
-    final ServerZkReceiptOperations serverOperations = new ServerZkReceiptOperations(RECEIPT_PARAMS);
+    final ServerZkReceiptOperations serverOperations = new ServerZkReceiptOperations(receiptParams);
     final ClientZkReceiptOperations clientOperations =
-        new ClientZkReceiptOperations(RECEIPT_PARAMS.getPublicParams());
+        new ClientZkReceiptOperations(receiptParams.getPublicParams());
 
     final ReceiptCredentialRequestContext requestContext =
         clientOperations.createReceiptCredentialRequestContext(receiptSerial);

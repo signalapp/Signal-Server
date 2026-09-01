@@ -141,7 +141,7 @@ public class RegistrationController {
       """)
   @ApiResponse(responseCode = "200", description = "Account creation succeeded", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "400", description = "Invalid session ID or receipt credential presentation")
-  @ApiResponse(responseCode = "401", description = "The session identified in the request is not verified")
+  @ApiResponse(responseCode = "401", description = "The session identified in the request is not verified, or the receipt credential presented fails verification, is expired, or is already redeemed")
   @ApiResponse(responseCode = "403", description = "Verification failed for the provided Registration Recovery Password")
   @ApiResponse(responseCode = "409", description = "The caller has not explicitly elected to skip transferring data from another device, but a device transfer is technically possible")
   @ApiResponse(responseCode = "422", description = "The request did not pass validation")
@@ -348,12 +348,12 @@ public class RegistrationController {
     try {
       serverZkReceiptOperations.verifyReceiptCredentialPresentation(receiptCredentialPresentation);
     } catch (VerificationFailedException _) {
-      throw new BadRequestException("Receipt credential presentation verification failed");
+      throw new NotAuthorizedException("Receipt credential presentation verification failed");
     }
 
     final Instant receiptExpiration = Instant.ofEpochSecond(receiptCredentialPresentation.getReceiptExpirationTime());
     if (clock.instant().isAfter(receiptExpiration)) {
-      throw new BadRequestException("Receipt is already expired");
+      throw new NotAuthorizedException("Receipt is already expired");
     }
 
     final long receiptLevel = receiptCredentialPresentation.getReceiptLevel();
@@ -386,7 +386,7 @@ public class RegistrationController {
       final AccountIdentityResponse accountIdentityResponse = new AccountIdentityResponseBuilder(account).build();
       return new AccountCreationResponse(accountIdentityResponse, false);
     } catch (ReceiptAlreadyRedeemedException _) {
-      throw new BadRequestException("Receipt already redeemed");
+      throw new NotAuthorizedException("Receipt already redeemed");
     }
   }
 

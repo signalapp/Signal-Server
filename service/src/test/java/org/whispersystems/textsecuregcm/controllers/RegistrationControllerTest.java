@@ -67,8 +67,10 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
+import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.InvalidRegistrationSessionException;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
@@ -102,6 +104,7 @@ import org.whispersystems.textsecuregcm.storage.DeviceIdentityInfo;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ReceiptAlreadyRedeemedException;
+import org.whispersystems.textsecuregcm.storage.ReceiptCredentialTestUtil;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -147,8 +150,8 @@ class RegistrationControllerTest {
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new RegistrationController(accountsManager, phoneVerificationTokenManager,
-          registrationLockVerificationManager, rateLimiters, registrationFraudChecker, ReceiptCredentialPresentation::new, mock(
-          ServerZkReceiptOperations.class), CLOCK, DYNAMIC_CONFIGURATION_MANAGER))
+          registrationLockVerificationManager, rateLimiters, registrationFraudChecker, ReceiptCredentialPresentation::new,
+          new ServerZkReceiptOperations(ReceiptCredentialTestUtil.RECEIPT_PARAMS), CLOCK, DYNAMIC_CONFIGURATION_MANAGER))
       .build();
 
   @BeforeEach
@@ -880,7 +883,7 @@ class RegistrationControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void registerAccountBadReceipt(final byte[] receiptCredentialPresentation) {
+  void registerAccountBadReceipt(final byte[] receiptCredentialPresentation, final int expectedStatusCode) {
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
@@ -923,7 +926,7 @@ class RegistrationControllerTest {
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
 
     try (Response response = request.post(Entity.json(requestToJson(registrationRequest)))) {
-      assertEquals(400, response.getStatus());
+      assertEquals(expectedStatusCode, response.getStatus());
     }
 
     verifyNoInteractions(phoneVerificationTokenManager);
@@ -932,9 +935,14 @@ class RegistrationControllerTest {
 
   static Stream<Arguments> registerAccountBadReceipt() throws InvalidInputException, VerificationFailedException {
     return Stream.of(
-        Arguments.argumentSet("malformed receipt", new byte[]{0, 0}),
-        Arguments.argumentSet("expired receipt", receiptPresentation(CLOCK.instant().minusSeconds(5), ReceiptLevel.LOGIN.getValue()).serialize()),
-        Arguments.argumentSet("wrong receipt level", receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), ReceiptLevel.BACKUP_PAID.getValue()).serialize())
+        Arguments.argumentSet("malformed receipt", new byte[]{0, 0}, 400),
+        Arguments.argumentSet("expired receipt",
+            receiptPresentation(CLOCK.instant().minusSeconds(5), ReceiptLevel.LOGIN.getValue()).serialize(), 401),
+        Arguments.argumentSet("receipt signed by wrong params", receiptPresentation(
+            ServerSecretParams.generate(), new ReceiptSerial(TestRandomUtil.nextBytes(ReceiptSerial.SIZE)),
+            CLOCK.instant().plus(Duration.ofDays(30)), ReceiptLevel.LOGIN.getValue()).serialize(), 401),
+        Arguments.argumentSet("wrong receipt level", receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)),
+            ReceiptLevel.BACKUP_PAID.getValue()).serialize(), 400)
     );
   }
 
@@ -1123,7 +1131,7 @@ class RegistrationControllerTest {
 
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         new byte[0],
-        receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), 1).serialize(),
+        receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), ReceiptLevel.LOGIN.getValue()).serialize(),
         null,
         accountAttributes,
         true,
@@ -1145,7 +1153,8 @@ class RegistrationControllerTest {
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
 
     try (Response response = request.post(Entity.json(requestToJson(registrationRequest)))) {
-      assertEquals(400, response.getStatus());
+      assertEquals(401, response.getStatus());
+      verify(accountsManager).create(any(), any(), any(), any(), any());
     }
   }
 
