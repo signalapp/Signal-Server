@@ -5,18 +5,37 @@
 
 package org.signal.integration;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
+import com.google.protobuf.ByteString;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.Test;
+import org.signal.chat.account.AccountsGrpc;
+import org.signal.chat.account.ConfirmTotpKeyRequest;
+import org.signal.chat.account.ConfirmTotpKeyResponse;
+import org.signal.chat.account.GenerateTotpKeyRequest;
+import org.signal.chat.account.GenerateTotpKeyResponse;
+import org.signal.chat.account.ListMfaKeysRequest;
+import org.signal.chat.account.ListMfaKeysResponse;
+import org.signal.chat.account.TotpParameters;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
@@ -49,6 +68,63 @@ public class AccountTest {
       Operations.deleteReceipt(receipt.serial());
       Operations.deleteUser(user);
     }
+  }
+
+  @Test
+  public void testRecoverWithTotp()
+      throws VerificationFailedException, InvalidInputException, NoSuchAlgorithmException, InvalidKeyException {
+    final Operations.Receipt receipt = Operations.getPrescribedReceipt();
+    final TestUser originalUser = Operations.registerNumberlessUser(receipt.credential());
+
+    try {
+      final GenerateTotpKeyResponse generateTotpKeyResponse =
+          getAccountsStubForUser(originalUser).generateTotpKey(GenerateTotpKeyRequest.getDefaultInstance());
+      assertEquals(GenerateTotpKeyResponse.ResponseCase.KEY_GENERATED, generateTotpKeyResponse.getResponseCase());
+
+      final TotpParameters totpParameters = generateTotpKeyResponse.getKeyGenerated().getTotpParameters();
+      final TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator(
+          Duration.ofSeconds(totpParameters.getTimeStepSeconds()),
+          totpParameters.getPasswordLength(),
+          totpParameters.getAlgorithm());
+
+      final SecretKey totpKey = new SecretKeySpec(
+          generateTotpKeyResponse.getKeyGenerated().getKey().toByteArray(),
+          totpParameters.getAlgorithm());
+
+      final byte[] totpMetadata = Operations.randomBytes(160);
+
+      final ConfirmTotpKeyResponse confirmTotpKeyResponse = getAccountsStubForUser(originalUser)
+          .confirmTotpKey(ConfirmTotpKeyRequest.newBuilder()
+              .setOneTimePassword(totpGenerator.generateOneTimePassword(totpKey, Instant.now()))
+              .setMetadataCiphertext(ByteString.copyFrom(totpMetadata))
+              .build());
+      assertEquals(ConfirmTotpKeyResponse.ResponseCase.KEY_CONFIRMED, confirmTotpKeyResponse.getResponseCase());
+      final int keyId = confirmTotpKeyResponse.getKeyConfirmed().getKeyId();
+
+      final TestUser recoveredUser =
+          Operations.recoverNumberlessUser(originalUser, totpGenerator.generateOneTimePassword(totpKey, Instant.now()));
+
+      assertEquals(originalUser.aciUuid(), recoveredUser.aciUuid());
+
+      // MFA key should remain set after re-registration
+      final Map<Integer, ListMfaKeysResponse.MfaKeyMetadata> mfaKeys =
+          getAccountsStubForUser(recoveredUser).listMfaKeys(ListMfaKeysRequest.getDefaultInstance()).getKeysMap();
+
+      assertEquals(1, mfaKeys.size());
+      assertTrue(mfaKeys.containsKey(keyId));
+      assertEquals(ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType.MFA_KEY_TYPE_TOTP, mfaKeys.get(keyId).getType());
+      assertArrayEquals(totpMetadata, mfaKeys.get(keyId).getMetadataCiphertext().toByteArray());
+
+    } finally {
+      Operations.deleteReceipt(receipt.serial());
+      Operations.deleteUser(originalUser);
+    }
+  }
+
+  private static AccountsGrpc.AccountsBlockingStub getAccountsStubForUser(final TestUser user) {
+    return AccountsGrpc
+        .newBlockingStub(Operations.grpcChannel())
+        .withInterceptors(Operations.authorizationInterceptor(user, Device.PRIMARY_ID));
   }
 
   @Test

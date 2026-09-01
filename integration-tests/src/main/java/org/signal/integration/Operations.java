@@ -12,8 +12,17 @@ import com.google.common.io.Resources;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.configuration.ConfigurationValidationException;
 import io.dropwizard.jersey.validation.Validators;
+import io.grpc.ChannelCredentials;
+import io.grpc.ClientInterceptor;
+import io.grpc.Grpc;
+import io.grpc.ManagedChannel;
+import io.grpc.Metadata;
+import io.grpc.TlsChannelCredentials;
+import io.grpc.stub.MetadataUtils;
 import jakarta.validation.ConstraintViolation;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URI;
 import java.net.URL;
@@ -32,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
@@ -58,6 +68,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.grpc.RequireAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
@@ -77,6 +88,8 @@ public final class Operations {
 
   private static final Config CONFIG = loadConfigFromClasspath("config.yml");
 
+  private static final String GRPC_DOMAIN = "grpc." + CONFIG.domain();
+
   private static final IntegrationTools INTEGRATION_TOOLS = IntegrationTools.create(CONFIG);
 
   private static final String USER_AGENT = "integration-test";
@@ -85,6 +98,7 @@ public final class Operations {
 
   private static final WebSocketClient WEB_SOCKET_CLIENT = buildWebSocketClient();
 
+  private static final ManagedChannel GRPC_CHANNEL = buildGrpcChannel();
 
   private Operations() {
     // utility class
@@ -131,6 +145,36 @@ public final class Operations {
 
     user.setAciUuid(registrationResponse.uuid());
     return user;
+  }
+
+  public static TestUser recoverNumberlessUser(final TestUser testUser, @Nullable final Integer totp) {
+    final String accountPassword = Base64.getEncoder().encodeToString(randomBytes(32));
+    final TestUser recoveredUser = TestUser.createNumberlessForRecovery(accountPassword, testUser.registrationPassword());
+
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
+        testUser.registrationPassword(),
+        null,
+        totp,
+        recoveredUser.accountAttributes(),
+        true,
+        new IdentityKey(aciIdentityKeyPair.getPublicKey()),
+        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+        new DeviceActivationRequest(generateSignedECPreKey(1, aciIdentityKeyPair),
+            Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
+            generateSignedKEMPreKey(3, aciIdentityKeyPair),
+            Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
+            Optional.empty(),
+            Optional.empty()));
+
+    final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
+        // For a numberless account recovery, the username is the ACI
+        .authorized(testUser.aciUuid().toString(), accountPassword)
+        .executeExpectSuccess(AccountIdentityResponse.class);
+
+    recoveredUser.setAciUuid(registrationResponse.uuid());
+    return recoveredUser;
   }
 
   public static TestUser newRegisteredUser(final String number) {
@@ -239,7 +283,7 @@ public final class Operations {
     }
   }
 
-  private static byte[] randomBytes(int numBytes) {
+  public static byte[] randomBytes(final int numBytes) {
     final byte[] bytes = new byte[numBytes];
     new SecureRandom().nextBytes(bytes);
     return bytes;
@@ -270,6 +314,33 @@ public final class Operations {
         ? StringUtils.EMPTY
         : "?" + String.join("&", queryParams);
     return URI.create("https://" + CONFIG.domain() + endpoint + query);
+  }
+
+  public static ManagedChannel grpcChannel() {
+    return GRPC_CHANNEL;
+  }
+
+  public static ClientInterceptor authorizationInterceptor(final TestUser user, final byte deviceId) {
+    final String username = "%s.%d".formatted(user.aciUuid().toString(), deviceId);
+
+    final Metadata metadata = new Metadata();
+    metadata.put(RequireAuthenticationInterceptor.AUTHORIZATION_METADATA_KEY,
+        HeaderUtils.basicAuthHeader(username, user.accountPassword()));
+
+    return MetadataUtils.newAttachHeadersInterceptor(metadata);
+  }
+
+  private static ManagedChannel buildGrpcChannel() {
+    try {
+      final ByteArrayInputStream rootCert =
+          new ByteArrayInputStream(CONFIG.rootCert().getBytes(StandardCharsets.UTF_8));
+      final ChannelCredentials credentials = TlsChannelCredentials.newBuilder().trustManager(rootCert).build();
+      return Grpc.newChannelBuilderForAddress(GRPC_DOMAIN, 443, credentials)
+          .userAgent(USER_AGENT)
+          .build();
+    } catch (final IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   public static class RequestBuilder {
@@ -416,7 +487,7 @@ public final class Operations {
       final String path,
       final Map<String, String> headers) throws IOException {
 
-    final URI uri = URI.create("wss://grpc." + CONFIG.domain() + path);
+    final URI uri = URI.create("wss://" + GRPC_DOMAIN + path);
     final ClientUpgradeRequest request = new ClientUpgradeRequest(uri);
     headers.forEach(request::setHeader);
 

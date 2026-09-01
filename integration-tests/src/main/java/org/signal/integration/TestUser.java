@@ -5,29 +5,15 @@
 
 package org.signal.integration;
 
-import static java.util.Objects.requireNonNull;
-
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import java.security.SecureRandom;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.security.SecureRandom;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.IdentityKeyPair;
-import org.signal.libsignal.protocol.InvalidKeyException;
-import org.signal.libsignal.protocol.ecc.ECPublicKey;
-import org.signal.libsignal.protocol.state.SignedPreKeyRecord;
+import javax.annotation.Nullable;
 import org.signal.libsignal.protocol.util.KeyHelper;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
-import javax.annotation.Nullable;
 
 public class TestUser {
 
@@ -36,21 +22,14 @@ public class TestUser {
   @Nullable
   private final Integer pniRegistrationId;
 
-  private final IdentityKeyPair aciIdentityKey;
-
-  private final Map<Byte, TestDevice> devices = new ConcurrentHashMap<>();
-
   private final byte[] unidentifiedAccessKey;
 
   @Nullable
-  private String phoneNumber;
+  private final String phoneNumber;
 
-  @Nullable
-  private IdentityKeyPair pniIdentityKey;
+  private final String accountPassword;
 
-  private String accountPassword;
-
-  private byte[] registrationPassword;
+  private final byte[] registrationPassword;
 
   private UUID aciUuid;
 
@@ -58,15 +37,11 @@ public class TestUser {
   private UUID pniUuid;
 
   public static TestUser createNumberless(final String accountPassword, final byte[] accountRecoveryPassword) {
-    final IdentityKeyPair aciIdentityKey = IdentityKeyPair.generate();
     final int registrationId = KeyHelper.generateRegistrationId(false);
-    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
-    new SecureRandom().nextBytes(unidentifiedAccessKey);
+    final byte[] unidentifiedAccessKey = Operations.randomBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     return new TestUser(
         registrationId,
-        null,
-        aciIdentityKey,
         null,
         null,
         unidentifiedAccessKey,
@@ -74,24 +49,32 @@ public class TestUser {
         accountRecoveryPassword);
   }
 
-  public static TestUser create(final String phoneNumber, final String accountPassword, final byte[] registrationPassword) {
-    // ACI identity key pair
-    final IdentityKeyPair aciIdentityKey = IdentityKeyPair.generate();
-    // PNI identity key pair
-    final IdentityKeyPair pniIdentityKey = IdentityKeyPair.generate();
-    // registration id
+  public static TestUser createNumberlessForRecovery(final String accountPassword, final byte[] accountRecoveryPassword) {
+    // Recovering a numberless account requires PNI keys (though they are discarded by the server)
     final int registrationId = KeyHelper.generateRegistrationId(false);
     final int pniRegistrationId = KeyHelper.generateRegistrationId(false);
-    // uak
     final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
     new SecureRandom().nextBytes(unidentifiedAccessKey);
 
     return new TestUser(
         registrationId,
         pniRegistrationId,
-        aciIdentityKey,
+        null,
+        unidentifiedAccessKey,
+        accountPassword,
+        accountRecoveryPassword);
+  }
+
+  public static TestUser create(final String phoneNumber, final String accountPassword, final byte[] registrationPassword) {
+    final int registrationId = KeyHelper.generateRegistrationId(false);
+    final int pniRegistrationId = KeyHelper.generateRegistrationId(false);
+    final byte[] unidentifiedAccessKey = new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH];
+    new SecureRandom().nextBytes(unidentifiedAccessKey);
+
+    return new TestUser(
+        registrationId,
+        pniRegistrationId,
         phoneNumber,
-        pniIdentityKey,
         unidentifiedAccessKey,
         accountPassword,
         registrationPassword);
@@ -100,37 +83,24 @@ public class TestUser {
   public TestUser(
       final int registrationId,
       @Nullable final Integer pniRegistrationId,
-      final IdentityKeyPair aciIdentityKey,
       @Nullable final String phoneNumber,
-      @Nullable final IdentityKeyPair pniIdentityKey,
       final byte[] unidentifiedAccessKey,
       final String accountPassword,
       final byte[] registrationPassword) {
     this.registrationId = registrationId;
     this.pniRegistrationId = pniRegistrationId;
-    this.aciIdentityKey = aciIdentityKey;
     this.phoneNumber = phoneNumber;
-    this.pniIdentityKey = pniIdentityKey;
     this.unidentifiedAccessKey = unidentifiedAccessKey;
     this.accountPassword = accountPassword;
     this.registrationPassword = registrationPassword;
-    devices.put(Device.PRIMARY_ID, TestDevice.create(Device.PRIMARY_ID, aciIdentityKey, pniIdentityKey));
   }
 
   public int registrationId() {
     return registrationId;
   }
 
-  public IdentityKeyPair aciIdentityKey() {
-    return aciIdentityKey;
-  }
-
   public Optional<String> phoneNumber() {
     return Optional.ofNullable(phoneNumber);
-  }
-
-  public Optional<IdentityKeyPair> pniIdentityKey() {
-    return Optional.ofNullable(pniIdentityKey);
   }
 
   public String accountPassword() {
@@ -151,9 +121,8 @@ public class TestUser {
 
   public AccountAttributes accountAttributes() {
     return new AccountAttributes(true, registrationId, pniRegistrationId, "".getBytes(StandardCharsets.UTF_8), "", true,
-        DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES, null)
-        .setUnidentifiedAccessKey(unidentifiedAccessKey)
-        .setRecoveryPassword(registrationPassword);
+        DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES, registrationPassword)
+        .setUnidentifiedAccessKey(unidentifiedAccessKey);
   }
 
   public void setAciUuid(final UUID aciUuid) {
@@ -162,60 +131,5 @@ public class TestUser {
 
   public void setPniUuid(@Nullable final UUID pniUuid) {
     this.pniUuid = pniUuid;
-  }
-
-  public void setPhoneNumber(@Nullable final String phoneNumber) {
-    this.phoneNumber = phoneNumber;
-  }
-
-  public void setPniIdentityKey(@Nullable final IdentityKeyPair pniIdentityKey) {
-    this.pniIdentityKey = pniIdentityKey;
-  }
-
-  public void setAccountPassword(final String accountPassword) {
-    this.accountPassword = accountPassword;
-  }
-
-  public void setRegistrationPassword(final byte[] registrationPassword) {
-    this.registrationPassword = registrationPassword;
-  }
-
-  public PreKeySetPublicView preKeys(final byte deviceId, final boolean pni) {
-    final IdentityKeyPair identity = pni
-        ? pniIdentityKey
-        : aciIdentityKey;
-    final TestDevice device = requireNonNull(devices.get(deviceId));
-    final SignedPreKeyRecord signedPreKeyRecord = device.latestSignedPreKey(identity);
-    try {
-      return new PreKeySetPublicView(
-          Collections.emptyList(),
-          identity.getPublicKey(),
-          new SignedPreKeyPublicView(
-              signedPreKeyRecord.getId(),
-              signedPreKeyRecord.getKeyPair().getPublicKey(),
-              signedPreKeyRecord.getSignature()
-          )
-      );
-    } catch (InvalidKeyException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public record SignedPreKeyPublicView(
-      int keyId,
-      @JsonSerialize(using = Codecs.ECPublicKeySerializer.class)
-      @JsonDeserialize(using = Codecs.ECPublicKeyDeserializer.class)
-      ECPublicKey publicKey,
-      @JsonSerialize(using = Codecs.ByteArraySerializer.class)
-      @JsonDeserialize(using = Codecs.ByteArrayDeserializer.class)
-      byte[] signature) {
-  }
-
-  public record PreKeySetPublicView(
-      List<String> preKeys,
-      @JsonSerialize(using = Codecs.IdentityKeySerializer.class)
-      @JsonDeserialize(using = Codecs.IdentityKeyDeserializer.class)
-      IdentityKey identityKey,
-      SignedPreKeyPublicView signedPreKey) {
   }
 }
