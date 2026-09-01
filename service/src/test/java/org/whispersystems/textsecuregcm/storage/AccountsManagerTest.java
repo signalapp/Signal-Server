@@ -1995,6 +1995,41 @@ class AccountsManagerTest {
     }
 
     @Test
+    void confirmPendingTotpKeyWithDelay() throws InvalidKeyException, TooManyTotpKeysException, TooManyMfaKeysException, NoSuchAlgorithmException {
+      final UUID accountIdentifier = UUID.randomUUID();
+
+      final Account account = mock(Account.class);
+      when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
+
+      when(accounts.getByAccountIdentifier(accountIdentifier))
+          .thenReturn(Optional.of(account));
+
+      final TotpKey pendingTotpKey = accountsManager.generatePendingTotpKey(accountIdentifier);
+      final byte nextTotpKeyId = (byte) ThreadLocalRandom.current().nextInt();
+
+      when(account.getPendingTotpKey()).thenReturn(Optional.of(pendingTotpKey));
+      when(account.getNextMfaKeyId()).thenReturn(nextTotpKeyId);
+
+      final Instant beginningOfTotpWindow = totpWindowStart(Instant.now());
+      final int oneTimePassword = AccountsManager.TOTP.generateOneTimePassword(pendingTotpKey, beginningOfTotpWindow);
+
+      // Should be rejected since even after delay allowance, our otp is from the previous window
+      assertEquals(Optional.empty(), accountsManager.confirmPendingTotpKey(accountIdentifier,
+          oneTimePassword,
+          beginningOfTotpWindow.plus(AccountsManager.TOTP.getTimeStep()).plus(MAX_TOTP_VALIDATION_DELAY),
+          TestRandomUtil.nextBytes(16)));
+
+      // Should still be accepted as MAX_TOTP_VALIDATION_DELAY delay brings us to the otp's window
+      assertEquals(Optional.of(nextTotpKeyId), accountsManager.confirmPendingTotpKey(accountIdentifier,
+          oneTimePassword,
+          beginningOfTotpWindow.plus(AccountsManager.TOTP.getTimeStep())
+              .plus(MAX_TOTP_VALIDATION_DELAY)
+              .minus(Duration.ofMillis(1)),
+          TestRandomUtil.nextBytes(16)));
+    }
+
+
+    @Test
     void confirmPendingTotpKeyPreviouslyConfirmed() throws InvalidKeyException, NoSuchAlgorithmException, TooManyMfaKeysException {
       final UUID accountIdentifier = UUID.randomUUID();
 
@@ -2148,10 +2183,7 @@ class AccountsManagerTest {
     final Account account = mock(Account.class);
     when(account.getMfaKeys()).thenReturn(Map.of((byte) 1, totpKey));
 
-    final Instant beginningOfTotpWindow =
-        Instant.ofEpochMilli((Instant.now().toEpochMilli() / AccountsManager.TOTP.getTimeStep().toMillis()) *
-            AccountsManager.TOTP.getTimeStep().toMillis());
-
+    final Instant beginningOfTotpWindow = totpWindowStart(Instant.now());
     final int oneTimePassword = AccountsManager.TOTP.generateOneTimePassword(totpKey, beginningOfTotpWindow);
 
     assertTrue(accountsManager.verifyTotp(account, beginningOfTotpWindow, oneTimePassword),
@@ -2167,5 +2199,10 @@ class AccountsManagerTest {
     // test several allowing for failure
     assertFalse(accountsManager.verifyTotp(account, beginningOfTotpWindow.plus(AccountsManager.TOTP.getTimeStep()).plus(MAX_TOTP_VALIDATION_DELAY), oneTimePassword),
         "One-time password should not be valid after max delay past end of current TOTP window");
+  }
+
+  private static Instant totpWindowStart(final Instant instant) {
+    return Instant.ofEpochMilli((instant.toEpochMilli() / AccountsManager.TOTP.getTimeStep().toMillis()) *
+        AccountsManager.TOTP.getTimeStep().toMillis());
   }
 }

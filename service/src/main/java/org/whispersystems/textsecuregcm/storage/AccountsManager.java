@@ -2086,7 +2086,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final TotpKey pendingTotpKey = maybePendingTotpKey.get();
 
       try {
-        if (TOTP.validateOneTimePassword(pendingTotpKey, timestamp, oneTimePassword)) {
+        if (verifyTotp(pendingTotpKey, timestamp, oneTimePassword)) {
           final AtomicInteger keyId = new AtomicInteger();
 
           update(accountIdentifier, account -> {
@@ -2129,7 +2129,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             .max(Map.Entry.comparingByKey())
             .filter(entry -> {
               try {
-                return TOTP.validateOneTimePassword((AnnotatedTotpKey) entry.getValue(), timestamp, oneTimePassword);
+                return verifyTotp((AnnotatedTotpKey) entry.getValue(), timestamp, oneTimePassword);
               } catch (final InvalidKeyException e) {
                 ImpossibleEvents.logImpossible(logger, "Invalid TOTP key for account {}", accountIdentifier, e);
                 return false;
@@ -2149,18 +2149,25 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       return false;
     }
 
-    for (final Instant timestamp : new Instant[] { validationTimestamp, validationTimestamp.minus(maxTotpValidationDelay) }) {
-      for (final SecretKey totpKey : totpKeys) {
-        try {
-          if (TOTP.validateOneTimePassword(totpKey, timestamp, oneTimePassword)) {
-            return true;
-          }
-        } catch (final InvalidKeyException e) {
-          ImpossibleEvents.logImpossible(logger, "Invalid TOTP key for account {}", account.getAccountIdentifier(), e);
+    for (final SecretKey totpKey : totpKeys) {
+      try {
+        if (verifyTotp(totpKey, validationTimestamp, oneTimePassword)) {
+          return true;
         }
+      } catch (final InvalidKeyException e) {
+        ImpossibleEvents.logImpossible(logger, "Invalid TOTP key for account {}", account.getAccountIdentifier(), e);
       }
     }
 
+    return false;
+  }
+
+  private boolean verifyTotp(final SecretKey totpKey, final Instant validationTimestamp, final int oneTimePassword) throws InvalidKeyException {
+    for (final Instant timestamp : new Instant[]{validationTimestamp, validationTimestamp.minus(maxTotpValidationDelay)}) {
+        if (TOTP.validateOneTimePassword(totpKey, timestamp, oneTimePassword)) {
+          return true;
+        }
+    }
     return false;
   }
 }
