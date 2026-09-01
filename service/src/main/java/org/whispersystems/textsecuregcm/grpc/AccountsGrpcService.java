@@ -53,6 +53,7 @@ import org.signal.chat.account.GetEntitlementsRequest;
 import org.signal.chat.account.GetEntitlementsResponse;
 import org.signal.chat.account.ListMfaKeysRequest;
 import org.signal.chat.account.ListMfaKeysResponse;
+import org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType;
 import org.signal.chat.account.RegistrationLockFailure;
 import org.signal.chat.account.RemoveMfaKeyRequest;
 import org.signal.chat.account.RemoveMfaKeyResponse;
@@ -612,14 +613,13 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     getAuthenticatedAccount().getMfaKeys().forEach((keyId, mfaKey) -> {
       assert mfaKey.metadataCiphertext() != null;
 
-      ListMfaKeysResponse.MfaKeyMetadata.Builder metadataBuilder = ListMfaKeysResponse.MfaKeyMetadata.newBuilder()
-          .setMetadataCiphertext(ByteString.copyFrom(mfaKey.metadataCiphertext()));
-
-      switch (mfaKey) {
-        case AnnotatedTotpKey k -> metadataBuilder.setTotpParameters(toGrpcTotpParameters(k.totpKey().totpParameters()));
-      }
-
-      responseBuilder.putKeys(keyId, metadataBuilder.build());
+      responseBuilder.putKeys(
+          keyId,
+          ListMfaKeysResponse.MfaKeyMetadata.newBuilder()
+              .setMetadataCiphertext(ByteString.copyFrom(mfaKey.metadataCiphertext()))
+              .setType(switch (mfaKey) {
+                  case AnnotatedTotpKey _ -> MfaKeyType.MFA_KEY_TYPE_TOTP;
+              }).build());
     });
 
     return responseBuilder.build();

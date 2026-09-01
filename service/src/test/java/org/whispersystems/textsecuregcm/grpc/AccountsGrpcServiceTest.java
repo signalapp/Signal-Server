@@ -92,6 +92,7 @@ import org.signal.chat.account.SetZkCredentialKeyResponse;
 import org.signal.chat.account.StaleDevices;
 import org.signal.chat.account.TotpParameters;
 import org.signal.chat.account.UsernameNotAvailable;
+import org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType;
 import org.signal.chat.common.AccountIdentifiers;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
@@ -1236,15 +1237,9 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final ListMfaKeysResponse response =
         authenticatedServiceStub().listMfaKeys(ListMfaKeysRequest.getDefaultInstance());
 
-    final TotpParameters expectedTotpParameters = TotpParameters.newBuilder()
-        .setAlgorithm(AccountsManager.TOTP.getAlgorithm())
-        .setPasswordLength(AccountsManager.TOTP.getPasswordLength())
-        .setTimeStepSeconds(Math.toIntExact(AccountsManager.TOTP.getTimeStep().toSeconds()))
-        .build();
-
     final Map<Integer, ListMfaKeysResponse.MfaKeyMetadata> expectedTotpKeys = totpKeys.entrySet().stream()
         .collect(Collectors.toMap(entry -> entry.getKey().intValue(), entry -> ListMfaKeysResponse.MfaKeyMetadata.newBuilder()
-            .setTotpParameters(expectedTotpParameters)
+            .setType(MfaKeyType.MFA_KEY_TYPE_TOTP)
             .setMetadataCiphertext(ByteString.copyFrom(entry.getValue().metadataCiphertext()))
             .build()));
 

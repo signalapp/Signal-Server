@@ -575,13 +575,16 @@ message ListMfaKeysRequest {}
 
 message ListMfaKeysResponse {
   message MfaKeyMetadata {
-    // The user-provided ciphertext for metadata associated with this MFA key
+    enum MfaKeyType {
+      MFA_KEY_TYPE_UNSPECIFIED = 0;
+      MFA_KEY_TYPE_TOTP = 1;
+    }
+
+    /// The user-provided ciphertext for metadata associated with this MFA key
     bytes metadata_ciphertext = 1 [(require.exactlySize) = 160];
 
-    oneof mfa_key {
-      // The TOTP parameters associated with this key, which is a TOTP key
-      TotpParameters totp_parameters = 2;
-    }
+    /// The type of MFA factor this key is for
+    MfaKeyType type = 2;
   }
 
   map<uint32, MfaKeyMetadata> keys = 1;
