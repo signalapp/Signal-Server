@@ -870,6 +870,19 @@ class AccountControllerTest {
   }
 
   @Test
+  void testSetAccountAttributesRegistrationLockWithNoNumber() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/attributes/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.NUMBERLESS_UUID, AuthHelper.NUMBERLESS_PASSWORD))
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, "1234", false, null, null)
+            .setUnidentifiedAccessKey(new byte[16])))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
+  }
+
+  @Test
   void testSetAccountAttributesEnableDiscovery() {
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/attributes/")

@@ -239,6 +239,10 @@ public class AccountController {
         }
       });
 
+      if (StringUtils.isNotEmpty(attributes.getRegistrationLock()) && a.getNumber().isEmpty()) {
+        throw new BadRequestException("account does not have a phone number");
+      }
+
       a.setRegistrationLockFromAttributes(attributes);
       a.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
       a.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());

@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -106,6 +107,20 @@ class AccountTest {
 
       assertFalse(transferableLinkedAccount.hasCapability(DeviceCapability.TRANSFER));
     }
+  }
+
+  @Test
+  void testSetRegistrationLockWithNoPhoneNumber() {
+    final Account numberlessAccount =
+        AccountsHelper.generateTestAccount(null, UUID.randomUUID(), null, List.of(recentPrimaryDevice), null);
+
+    assertThrows(IllegalArgumentException.class, () -> numberlessAccount.setRegistrationLock("hash", "salt"),
+        "Accounts without phone numbers should never have a registration lock");
+
+    assertDoesNotThrow(() -> numberlessAccount.setRegistrationLock(null, null),
+        "Clearing a registration lock an account never had should be a no-op");
+
+    assertEquals(StoredRegistrationLock.Status.ABSENT, numberlessAccount.getRegistrationLock().getStatus());
   }
 
   @Test

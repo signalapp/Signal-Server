@@ -475,10 +475,11 @@ public class Account {
     }
   }
 
-  public void setRegistrationLock(final String registrationLock, final String registrationLockSalt) {
+  public void setRegistrationLock(@Nullable final String registrationLock, @Nullable final String registrationLockSalt) {
     requireNotStale();
 
-    if (number == null) {
+    // Accounts without a phone number can't set a registration lock
+    if (number == null && (registrationLock != null || registrationLockSalt != null)) {
       throw new IllegalArgumentException("Cannot set registration lock on account with no phone number");
     }
 
