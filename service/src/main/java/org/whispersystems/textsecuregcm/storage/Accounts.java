@@ -338,11 +338,17 @@ public class Accounts {
               // The account was already deleted, and we don't allow re-registering with the same receipt
               .orElseThrow(ReceiptAlreadyRedeemedException::new);
 
-          // If the account recovery password in the request matches the existing account, this is likely a client retry,
-          // and we continue to allow for idempotency, otherwise this is an attempt to double-redeem a receipt
-          final boolean isRetry = existingAccount.getAccountRecoveryPassword()
+          final boolean accountRecoveryPasswordMatches = existingAccount.getAccountRecoveryPassword()
               .map(arp -> PhoneNumberRecoveryPasswordsManager.verify(arp, accountRecoveryPasswordInRequest))
               .orElse(false);
+
+          // Determine if this request is safe to idempotently succeed. It's safe if:
+          // - The account recovery password in the request matches the existing account's
+          // - The existing account does not have any MFA keys. If MFA keys were added to the account the caller should
+          //   have used numberless account recovery rather than using their original receipt
+          //
+          // If either of these conditions are not met, the caller is incorrectly using an already redeemed receipt.
+          final boolean isRetry = accountRecoveryPasswordMatches && existingAccount.getMfaKeys().isEmpty();
 
           if (!isRetry) {
             throw new ReceiptAlreadyRedeemedException();

@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import jakarta.validation.constraints.PositiveOrZero;
+import org.apache.commons.lang3.ArrayUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
@@ -45,13 +46,15 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
                                   A base64-encoded receipt credential presentation that allows for redeeming a Signal Login.
                                   Must be provided if `sessionId` and `recoveryPassword` are not provided;
-                                  must not be provided if `sessionId` or `recoveryPassword` is provided.
+                                  must not be provided if `sessionId` or `recoveryPassword` is provided. Must not be
+                                  provided if recovering a previously used account.
                                   """)
                                   @Nullable
                                   byte[] receiptCredentialPresentation,
 
                                   @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
-                                  A TOTP one-time password; required if recovering an account that has TOTP keys.
+                                  A TOTP one-time password; required if recovering an account that has TOTP keys. Must
+                                  not be provided if `receiptCredentialPresentation` is provided.
                                   """)
                                   @PositiveOrZero
                                   @Nullable
@@ -141,5 +144,12 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
             deviceActivationRequest().pniSignedPreKey().isPresent(),
             deviceActivationRequest().pniPqLastResortPreKey().isPresent())
         .allMatch(present -> present == expectPresence);
+  }
+
+  @VisibleForTesting
+  @AssertTrue
+  @Schema(hidden = true)
+  boolean isMfaAbsentWhenUsingReceipt() {
+    return ArrayUtils.isEmpty(receiptCredentialPresentation) || totp == null;
   }
 }

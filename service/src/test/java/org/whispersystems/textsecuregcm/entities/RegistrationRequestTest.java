@@ -18,6 +18,7 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class RegistrationRequestTest {
 
@@ -178,5 +179,28 @@ class RegistrationRequestTest {
             !(pniIdentityKeyPresent || pniRegistrationIdPresent || pniEcSignedPreKeyPresent || pniKemSignedPreKeyPresent);
 
     assertEquals(expectAllPresentOrAbsent, registrationRequest.isAllOrNoPhoneNumberInformationProvided());
+  }
+
+  @CartesianTest
+  void isMfaAbsentWhenUsingReceipt(
+      @CartesianTest.Values(booleans = {false, true}) boolean hasTotp,
+      @CartesianTest.Values(booleans = {false, true}) boolean hasReceipt) {
+    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
+        null,
+        hasReceipt ? TestRandomUtil.nextBytes(32) : null,
+        hasTotp ? 12345 : null,
+        new AccountAttributes(true, 1, null, null, null, false, Collections.emptySet(), null),
+        true,
+        null,
+        null,
+        new DeviceActivationRequest(null,
+            Optional.empty(),
+            null,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty()));
+
+    final boolean expectFailure = hasReceipt && hasTotp;
+    assertEquals(!expectFailure, registrationRequest.isMfaAbsentWhenUsingReceipt());
   }
 }
