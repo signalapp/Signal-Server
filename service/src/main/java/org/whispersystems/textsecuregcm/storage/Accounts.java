@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static java.util.Objects.requireNonNull;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-import static org.whispersystems.textsecuregcm.util.Util.getAlternateForms;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -468,7 +467,7 @@ public class Accounts {
           && accountToCreate.getNumber().isPresent()) {
         final String existingAccountNumber = existingAccount.getNumber().get();
         final String accountToCreateNumber = accountToCreate.getNumber().get();
-        if (getAlternateForms(existingAccountNumber).contains(accountToCreateNumber)) {
+        if (Util.getAlternateForms(existingAccountNumber).contains(accountToCreateNumber)) {
           final AttributeValue uuidAttr = AttributeValues.fromUUID(existingAccount.getAccountIdentifier());
           final AttributeValue numberAttr = AttributeValues.fromString(accountToCreateNumber);
           final TransactWriteItem phoneNumberConstraintPut = buildConstraintTablePutIfAbsent(
@@ -1094,7 +1093,7 @@ public class Accounts {
             setClauses.add("#number = :number");
 
             final MembershipExpression membershipExpression = maybeExpectedExistingE164
-                .map(e164 -> MembershipExpression.build(getAlternateForms(e164)))
+                .map(e164 -> MembershipExpression.build(Util.getAlternateForms(e164)))
                 .orElseThrow(() -> new IllegalArgumentException("E164 must be present on existing account"));
 
             attrValues.putAll(membershipExpression.values());

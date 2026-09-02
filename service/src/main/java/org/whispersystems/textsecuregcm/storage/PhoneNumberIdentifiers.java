@@ -43,7 +43,7 @@ public class PhoneNumberIdentifiers {
   private final String tableName;
 
   @VisibleForTesting
-  static final String KEY_E164 = "P";
+  public static final String KEY_E164 = "P";
   @VisibleForTesting
   static final String INDEX_NAME = "pni_to_p";
   @VisibleForTesting
@@ -183,7 +183,8 @@ public class PhoneNumberIdentifiers {
    * @return The provided PNI if the update occurred, or the existing PNI associated with originalPhoneNumber
    */
   @VisibleForTesting
-  CompletableFuture<UUID> setPni(final String originalPhoneNumber, final List<String> allPhoneNumberForms,
+  public CompletableFuture<UUID> setPni(final String originalPhoneNumber,
+      final List<String> allPhoneNumberForms,
       final UUID pni) {
     if (!originalPhoneNumber.equals(allPhoneNumberForms.getFirst())) {
       throw new IllegalArgumentException("allPhoneNumberForms must start with the target phoneNumber");
