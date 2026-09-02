@@ -70,7 +70,7 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
     accountsManager = mock(AccountsManager.class);
     accountLockManager = mock(AccountLockManager.class);
 
-    when(accountLockManager.withLock(any(), any(), any())).thenAnswer(invocation -> {
+    when(accountLockManager.withLock(any(), any())).thenAnswer(invocation -> {
       //noinspection rawtypes
       final ThrowingSupplier supplier = invocation.getArgument(1);
       return supplier.get();

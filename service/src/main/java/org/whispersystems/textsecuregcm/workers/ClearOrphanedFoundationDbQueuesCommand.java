@@ -209,7 +209,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
           }
           clearQueue(database, aci, transactionRetryLimit, transactionTimeout);
           return null;
-        }, executor), executor));
+        }), executor));
   }
 
   private void clearQueue(final Database database, final AciServiceIdentifier aci, final long transactionRetryLimit,

@@ -523,7 +523,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           accountLockManager.withLock(Set.of(maybeRecentlyDeletedAccountIdentifier.get()), () -> {
             accounts.create(account, additionalWriteItems);
             return null;
-          }, accountLockExecutor);
+          });
         } else {
           accounts.create(account, additionalWriteItems);
         }
