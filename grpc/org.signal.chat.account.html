@@ -681,6 +681,13 @@
     
 
     
+      <p>
+        <a href="#enum-org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType">
+          <span class="tag" style="min-width: 6em">Enum</span>
+          <code>MfaKeyType</code> 
+        </a>
+      </p>
+    
   </div>
 
   <div class="block">
@@ -4172,41 +4179,26 @@ the caller must remove one before adding more</p></td>
           <span>bytes</span>
         </code>
       </td>
-      <td class="content"><p>The user-provided ciphertext for metadata associated with this MFA key</p></td>
+      <td class="content"><p>/ The user-provided ciphertext for metadata associated with this MFA key</p></td>
       
     </tr>
     
-    
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof mfa_key</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            totp_parameters
-          </td>
-          <td>
-            <code title="org.signal.chat.account.TotpParameters">
-              
-              <a href="org.signal.chat.account.html#message-org.signal.chat.account.TotpParameters"><span title="org.signal.chat.account.TotpParameters">org.signal.chat.account.TotpParameters</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The TOTP parameters associated with this key, which is a TOTP key</p></td>
+    <tr>
+      <td>2</td>
+      <td>
+        type
+      </td>
+      <td>
+        <code title="org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType">
           
-        </tr>
+          <a href="org.signal.chat.account.html#enum-org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType"><span title="org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType">org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>/ The type of MFA factor this key is for</p></td>
       
+    </tr>
+    
     
   </tbody>
 </table>
@@ -5341,6 +5333,50 @@ by the TOTP generator</p></td>
     
 
   
+
+  
+
+    <h3 class="title is-3">
+      Enums
+    </h3>
+
+    
+    <div class="block">
+      <h4 class="title is-4 type-heading" id="enum-org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType">
+  <a href="#enum-org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType" title="org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType">enum MfaKeyType</a>
+  
+</h4>
+
+<div class="block content">
+  <p></p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Number</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><code>MFA_KEY_TYPE_UNSPECIFIED</code></td>
+      <td>0</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>MFA_KEY_TYPE_TOTP</code></td>
+      <td>1</td>
+      <td class="content"></td>
+    </tr>
+    
+  </tbody>
+</table> 
+    </div>
+    
 
   
 

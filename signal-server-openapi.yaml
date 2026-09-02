@@ -3150,7 +3150,9 @@ paths:
         "400":
           description: Invalid session ID or receipt credential presentation
         "401":
-          description: The session identified in the request is not verified
+          description: "The session identified in the request is not verified, or\
+            \ the receipt credential presented fails verification, is expired, or\
+            \ is already redeemed"
         "403":
           description: Verification failed for the provided Registration Recovery
             Password
@@ -6392,14 +6394,16 @@ components:
           description: |
             A base64-encoded receipt credential presentation that allows for redeeming a Signal Login.
             Must be provided if `sessionId` and `recoveryPassword` are not provided;
-            must not be provided if `sessionId` or `recoveryPassword` is provided.
+            must not be provided if `sessionId` or `recoveryPassword` is provided. Must not be
+            provided if recovering a previously used account.
           format: byte
           nullable: true
         totp:
           minimum: 0
           type: integer
           description: |
-            A TOTP one-time password; required if recovering an account that has TOTP keys.
+            A TOTP one-time password; required if recovering an account that has TOTP keys. Must
+            not be provided if `receiptCredentialPresentation` is provided.
           format: int32
           nullable: true
         accountAttributes:
