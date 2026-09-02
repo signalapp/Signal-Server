@@ -41,7 +41,8 @@ public class Util {
   // region code for some phone numbers
   private static final Map<String, AlternatePhoneNumberFormGenerator> ALTERNATE_FORM_GENERATORS_BY_REGION =
       new HashMap<>(Map.of(
-          "BJ", new BeninAlternateFormGenerator()
+          "BJ", new BeninAlternateFormGenerator(),
+          "GM", new GambiaAlternateFormGenerator()
       ));
 
   // Use `CompletableFuture#thenApply(ASYNC_EMPTY_RESPONSE) to convert futures to

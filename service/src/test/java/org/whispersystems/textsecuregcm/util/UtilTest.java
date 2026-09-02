@@ -44,7 +44,9 @@ class UtilTest {
         Arguments.of(usE164, List.of(usE164)),
         Arguments.of(NEW_FORMAT_BENIN_E164_STRING, List.of(NEW_FORMAT_BENIN_E164_STRING, OLD_FORMAT_BENIN_E164_STRING)),
         Arguments.of(OLD_FORMAT_BENIN_E164_STRING, List.of(OLD_FORMAT_BENIN_E164_STRING, NEW_FORMAT_BENIN_E164_STRING)),
-        Arguments.of(TEN_DIGIT_NATIONAL_SIGNIFICANT_BENIN_E164, List.of(TEN_DIGIT_NATIONAL_SIGNIFICANT_BENIN_E164))
+        Arguments.of(TEN_DIGIT_NATIONAL_SIGNIFICANT_BENIN_E164, List.of(TEN_DIGIT_NATIONAL_SIGNIFICANT_BENIN_E164)),
+        // Please see `GambiaAlternateFormGeneratorTest` for more comprehensive coverage
+        Arguments.argumentSet("Gambia alternate forms", "+220872123456", List.of("+220872123456", "+2202123456"))
     );
   }
 
