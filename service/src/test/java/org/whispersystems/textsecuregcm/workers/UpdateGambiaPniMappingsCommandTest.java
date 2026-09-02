@@ -107,6 +107,7 @@ class UpdateGambiaPniMappingsCommandTest {
           null,
           phoneNumberIdentifiers,
           null,
+          null,
           null);
     }
   }
@@ -158,7 +159,6 @@ class UpdateGambiaPniMappingsCommandTest {
         mock(SecureValueRecoveryClient.class),
         mock(DisconnectionRequestManager.class),
         phoneNumberRecoveryPasswordsManager,
-        executor,
         executor,
         executor,
         mock(Clock.class),
