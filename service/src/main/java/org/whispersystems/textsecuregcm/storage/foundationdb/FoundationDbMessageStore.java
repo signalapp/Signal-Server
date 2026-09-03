@@ -285,7 +285,7 @@ public class FoundationDbMessageStore {
         .map(MessageProtos.Envelope::getEphemeral)
         .orElseThrow(() -> new IllegalStateException("One or more bundles is empty"));
 
-    return getDatabases(epoch)[shardId].runAsync(transaction -> {
+    return FoundationDbUtil.safeRunAsync(getDatabases(epoch)[shardId], transaction -> {
           messagesByAccountIdentifier.forEach(entry ->
               insertFuturesByAci.put(entry.getKey(), insert(entry.getKey(), entry.getValue(), epoch, shardId, transaction)));
 
@@ -303,7 +303,7 @@ public class FoundationDbMessageStore {
                 }
                 return CompletableFuture.completedFuture(Optional.<Versionstamp>empty());
               });
-        })
+        }, FoundationDbUtil.Context.INSERT_MESSAGE_BATCH)
         .thenCompose(Function.identity())
         .thenApply(maybeVersionstamp -> insertFuturesByAci.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
@@ -391,10 +391,10 @@ public class FoundationDbMessageStore {
 
     final byte[] messageKey = getDeviceQueueSubspace(aci, deviceId).pack(Tuple.from(versionstamp));
 
-    return databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].runAsync(transaction -> {
+    return FoundationDbUtil.safeRunAsync(databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)], transaction -> {
           transaction.clear(messageKey);
           return CompletableFuture.completedFuture(null);
-        })
+        }, FoundationDbUtil.Context.DELETE_MESSAGE)
         .thenRun(() -> {
           sample.stop(DELETE_MESSAGE_TIMER);
           DELETE_MESSAGE_COUNTER.increment();
@@ -590,7 +590,7 @@ public class FoundationDbMessageStore {
     final Range deviceQueueRange = getDeviceQueueSubspace(aci, deviceId).range();
 
     return getDistinctDatabasesForAci(aci)
-        .flatMap(database -> Mono.fromFuture(() -> FoundationDbUtil.safeRunAsync(database, transaction -> transaction.getEstimatedRangeSizeBytes(deviceQueueRange))))
+        .flatMap(database -> Mono.fromFuture(() -> FoundationDbUtil.safeRunAsync(database, transaction -> transaction.getEstimatedRangeSizeBytes(deviceQueueRange), FoundationDbUtil.Context.ESTIMATE_QUEUE_SIZE)))
         .reduce(0L, Long::sum);
   }
 
@@ -625,7 +625,7 @@ public class FoundationDbMessageStore {
 
       final CompletableFuture<KeyArrayResult> rangeSplitPointsFuture = transaction.getRangeSplitPoints(deviceQueueRange, rangeSplitChunkSize);
       return estimatedQueueSizeFuture.thenCombine(rangeSplitPointsFuture, Pair::new);
-    });
+    }, FoundationDbUtil.Context.ESTIMATE_QUEUE_SIZE_AND_RANGE_SPLITS);
   }
 
   public Mono<Void> trimQueue(final AciServiceIdentifier aci,
@@ -714,7 +714,7 @@ public class FoundationDbMessageStore {
       transaction.options().setRetryLimit(batchPriorityTransactionRetryLimit);
       transaction.clear(range);
       return CompletableFuture.completedFuture(null);
-    });
+    }, FoundationDbUtil.Context.TRIM_QUEUE);
   }
 
   @VisibleForTesting
