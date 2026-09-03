@@ -50,8 +50,8 @@ public class MirroringMessageStream implements MessageStream {
 
   private static final String STREAM_AGREEMENTS = MetricsUtil.name(MirroringMessageStream.class, "streamAgreements");
 
-  private static final Counter MISSING_MESSAGES_COUNTER =
-      Metrics.counter(MetricsUtil.name(MirroringMessageStream.class, "missingMessages"));
+  private static final String MISSING_MESSAGES_COUNTER =
+      MetricsUtil.name(MirroringMessageStream.class, "missingMessages");
 
   private static final int MAX_WINDOW_SIZE = 1024;
 
@@ -64,6 +64,13 @@ public class MirroringMessageStream implements MessageStream {
   private Tags agreementFailureTags;
 
   private final Set<UUID> recentFoundationDbUuids = Collections.newSetFromMap(new LinkedHashMap<>() {
+    @Override
+    protected boolean removeEldestEntry(final Map.Entry<UUID, Boolean> eldest) {
+      return size() > MAX_WINDOW_SIZE;
+    }
+  });
+
+  private final Set<UUID> recentRedisDynamoEphemeralUuids = Collections.newSetFromMap(new LinkedHashMap<>() {
     @Override
     protected boolean removeEldestEntry(final Map.Entry<UUID, Boolean> eldest) {
       return size() > MAX_WINDOW_SIZE;
@@ -181,8 +188,7 @@ public class MirroringMessageStream implements MessageStream {
         foundationDbMessageStream.acknowledgeAndGetMessage(messageGuid)
             .thenAccept(deleteMessage -> {
               if (deleteMessage.isEmpty()) {
-                setAgreementFailure(Tags.of("reason", "missingMessages"));
-                MISSING_MESSAGES_COUNTER.increment();
+                handleMissingFoundationDbMessage(messageGuid);
                 return;
               }
               verifyMessageAgreement(deleteMessage.get(), Stream.FOUNDATION_DB);
@@ -210,13 +216,21 @@ public class MirroringMessageStream implements MessageStream {
   private synchronized void verifyMessageAgreement(final MessageStreamEntry.Envelope envelope,
       final Stream stream) {
 
-    // We don't compare ephemeral messages across streams because the two systems have different ways of handling and
-    // delivering ephemeral messages
-    if (stopAgreementVerification || envelope.message().getEphemeral()) {
+    if (stopAgreementVerification) {
       return;
     }
 
     final UUID messageUUID = UUIDUtil.fromByteString(envelope.message().getServerGuid());
+
+    if (envelope.message().getEphemeral()) {
+      // We don't compare ephemeral messages across streams because the two systems have different ways of handling and
+      // delivering ephemeral messages. However, we track recently seen ephemeral UUIDs on the Redis/Dynamo stream
+      // to answer whether a message missing from FoundationDB was ephemeral or not.
+      if (stream == Stream.REDIS_DYNAMO) {
+        recentRedisDynamoEphemeralUuids.add(messageUUID);
+      }
+      return;
+    }
 
     // There could be a race where a FoundationDB message is delivered on the stream right after it was acknowledged,
     // so we don't want to add it to the window again; check it against a set of recently seen UUIDs before adding.
@@ -270,6 +284,21 @@ public class MirroringMessageStream implements MessageStream {
     }
 
     Metrics.counter(STREAM_AGREEMENTS, tags).increment();
+  }
+
+  private synchronized void handleMissingFoundationDbMessage(final UUID messageGuid) {
+    final Boolean ephemeral;
+    if (redisDynamoMessageWindow.containsKey(messageGuid)) {
+      // The comparison window always contains non-ephemeral messages since we ignore ephemeral messages for comparison
+      ephemeral = false;
+    } else if (recentRedisDynamoEphemeralUuids.contains(messageGuid)) {
+      ephemeral = true;
+    } else {
+      ephemeral = null;
+    }
+    setAgreementFailure(Tags.of("reason", "missingMessages"));
+    Metrics.counter(MISSING_MESSAGES_COUNTER, "ephemeral", ephemeral == null ? "unknown" : ephemeral.toString())
+        .increment();
   }
 
 }
