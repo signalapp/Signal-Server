@@ -333,7 +333,6 @@ import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.IdleDeviceNotificationSchedulerFactory;
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
 import org.whispersystems.textsecuregcm.workers.NotifyIdleDevicesCommand;
-import org.whispersystems.textsecuregcm.workers.PopulateAccountRecoveryPasswordsCommand;
 import org.whispersystems.textsecuregcm.workers.ProcessScheduledJobsServiceCommand;
 import org.whispersystems.textsecuregcm.workers.RegenerateSecondaryDynamoDbTableDataCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredAccountsCommand;
@@ -414,8 +413,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new IdleDeviceNotificationSchedulerFactory()));
 
     bootstrap.addCommand(new RegenerateSecondaryDynamoDbTableDataCommand());
-
-    bootstrap.addCommand(new PopulateAccountRecoveryPasswordsCommand());
 
     bootstrap.addCommand(new UpdateGambiaPniMappingsCommand());
 
