@@ -530,6 +530,25 @@ class FoundationDbMessageStoreTest {
   }
 
   @Test
+  void acknowledgeAndGetMessage() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deviceId = Device.PRIMARY_ID;
+
+    final UUID messageGuid =
+        foundationDbMessageStore.insert(aci, Map.of(deviceId, generateRandomMessage(false))).join()
+            .get(deviceId).messageGuid().orElseThrow();
+
+    final FoundationDbMessageStream messageStream = foundationDbMessageStore.getMessages(aci, deviceId);
+
+    final Optional<MessageStreamEntry.Envelope> acknowledgeAndGetResult =
+        messageStream.acknowledgeAndGetMessage(messageGuid).join();
+
+    assertTrue(acknowledgeAndGetResult.isPresent());
+    assertEquals(messageGuid, UUIDUtil.fromByteString(acknowledgeAndGetResult.get().message().getServerGuid()));
+    assertTrue(getItemsInDeviceQueue(aci, deviceId).isEmpty());
+  }
+
+  @Test
   void clearAllForAccount() {
     final AciServiceIdentifier deletedAccountIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     final byte deletedPrimaryDeviceId = Device.PRIMARY_ID;

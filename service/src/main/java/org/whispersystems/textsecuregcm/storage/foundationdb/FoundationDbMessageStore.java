@@ -12,6 +12,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hashing;
+import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.util.DataSize;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
@@ -19,6 +20,7 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.time.Clock;
 import java.time.Duration;
@@ -399,6 +401,35 @@ public class FoundationDbMessageStore {
           sample.stop(DELETE_MESSAGE_TIMER);
           DELETE_MESSAGE_COUNTER.increment();
         });
+  }
+
+  CompletableFuture<Optional<FoundationDbMessageStreamEntry.Message>> deleteAndGet(final AciServiceIdentifier aci, final byte deviceId, final UUID messageGuid) {
+    return deleteAndGet(aci, deviceId, versionstampUUIDCipher.decryptVersionstamp(messageGuid, aci.uuid(), deviceId));
+  }
+
+  CompletableFuture<Optional<FoundationDbMessageStreamEntry.Message>> deleteAndGet(final AciServiceIdentifier aci, final byte deviceId, final Versionstamp versionstamp) {
+    final Timer.Sample sample = Timer.start();
+
+    final byte[] messageKey = getDeviceQueueSubspace(aci, deviceId).pack(Tuple.from(versionstamp));
+
+    return databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].runAsync(
+            transaction -> transaction.get(messageKey)
+                .thenApply(value -> {
+                  if (value == null) {
+                    return Optional.<byte[]>empty();
+                  }
+                  transaction.clear(messageKey);
+                  return Optional.of(value);
+                }))
+        .whenComplete((_, _) -> sample.stop(DELETE_MESSAGE_TIMER))
+        .thenApply(maybeValue -> maybeValue.map(value -> {
+          DELETE_MESSAGE_COUNTER.increment();
+          try {
+            return new FoundationDbMessageStreamEntry.Message(versionstamp, MessageProtos.Envelope.parseFrom(value));
+          } catch (final InvalidProtocolBufferException e) {
+            throw new UncheckedIOException(e);
+          }
+        }));
   }
 
   public void clearAll(final AciServiceIdentifier aci) {

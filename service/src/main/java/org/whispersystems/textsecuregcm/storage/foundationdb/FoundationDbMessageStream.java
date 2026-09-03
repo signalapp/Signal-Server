@@ -227,4 +227,17 @@ public class FoundationDbMessageStream implements MessageStream {
 
     return foundationDbMessageStore.delete(aciServiceIdentifier, deviceId, messageGuid);
   }
+
+  public CompletableFuture<Optional<MessageStreamEntry.Envelope>> acknowledgeAndGetMessage(final UUID messageGuid) {
+    messageAcknowledgedCounter.increment();
+
+    return foundationDbMessageStore.deleteAndGet(aciServiceIdentifier, deviceId, messageGuid)
+        .thenApply(foundationDbMessageStreamEntry -> foundationDbMessageStreamEntry.map(m -> {
+          final MessageStreamEntry messageStreamEntry = m.toMessageStreamEntry(messageGuidCodec);
+          if (!(messageStreamEntry instanceof MessageStreamEntry.Envelope)) {
+            throw new AssertionError("Expected MessageStreamEntry.Envelope, got " + messageStreamEntry);
+          }
+          return (MessageStreamEntry.Envelope) messageStreamEntry;
+        }));
+  }
 }
