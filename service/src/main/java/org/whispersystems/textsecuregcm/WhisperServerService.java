@@ -295,6 +295,7 @@ import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckMana
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckTrustAnchor;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceChecks;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDBWarmup;
 import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreClient;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
@@ -523,6 +524,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
               entry -> entry.getValue().stream()
                   .map(databasesByName::get)
                   .toList()));
+
+      environment.lifecycle().manage(new FoundationDBWarmup(databasesByName));
     }
 
     final AwsCredentialsProvider cdnCredentialsProvider = config.getCdnConfiguration().credentials().build();
