@@ -347,7 +347,6 @@ import org.whispersystems.textsecuregcm.workers.SetUserDiscoverabilityCommand;
 import org.whispersystems.textsecuregcm.workers.TrimOversizedFoundationDbMessageQueuesCommand;
 import org.whispersystems.textsecuregcm.workers.UnlinkDeviceCommand;
 import org.whispersystems.textsecuregcm.workers.UnlinkDevicesWithIdlePrimaryCommand;
-import org.whispersystems.textsecuregcm.workers.UpdateGambiaPniMappingsCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -413,8 +412,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new IdleDeviceNotificationSchedulerFactory()));
 
     bootstrap.addCommand(new RegenerateSecondaryDynamoDbTableDataCommand());
-
-    bootstrap.addCommand(new UpdateGambiaPniMappingsCommand());
 
     ServiceLoader.load(SpamFilter.class)
         .stream()
