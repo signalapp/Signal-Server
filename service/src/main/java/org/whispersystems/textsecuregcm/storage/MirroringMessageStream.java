@@ -5,9 +5,14 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
+import com.google.protobuf.CodedOutputStream;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -55,8 +60,8 @@ public class MirroringMessageStream implements MessageStream {
 
   private static final int MAX_WINDOW_SIZE = 1024;
 
-  private final Map<UUID, MessageProtos.Envelope> redisDynamoMessageWindow = new HashMap<>();
-  private final Map<UUID, MessageProtos.Envelope> foundationDbMessageWindow = new HashMap<>();
+  private final Map<UUID, HashCode> redisDynamoMessageWindow = new HashMap<>();
+  private final Map<UUID, HashCode> foundationDbMessageWindow = new HashMap<>();
 
   private boolean stopAgreementVerification = false;
 
@@ -238,8 +243,8 @@ public class MirroringMessageStream implements MessageStream {
       return;
     }
 
-    final Map<UUID, MessageProtos.Envelope> thisStreamWindow;
-    final Map<UUID, MessageProtos.Envelope> otherStreamWindow;
+    final Map<UUID, HashCode> thisStreamWindow;
+    final Map<UUID, HashCode> otherStreamWindow;
     if (Stream.REDIS_DYNAMO == stream) {
       thisStreamWindow = redisDynamoMessageWindow;
       otherStreamWindow = foundationDbMessageWindow;
@@ -248,13 +253,15 @@ public class MirroringMessageStream implements MessageStream {
       otherStreamWindow = redisDynamoMessageWindow;
     }
 
-    final MessageProtos.Envelope otherStreamMessage = otherStreamWindow.remove(messageUUID);
-    if (otherStreamMessage != null) {
-      if (!otherStreamMessage.equals(envelope.message())) {
+    final HashCode thisStreamMessageHashCode = hashCode(envelope.message());
+
+    final HashCode otherStreamMessageHashCode = otherStreamWindow.remove(messageUUID);
+    if (otherStreamMessageHashCode != null) {
+      if (!otherStreamMessageHashCode.equals(thisStreamMessageHashCode)) {
         MESSAGE_MISMATCHES_COUNTER.increment();
       }
     } else {
-      thisStreamWindow.put(messageUUID, envelope.message());
+      thisStreamWindow.put(messageUUID, thisStreamMessageHashCode);
       if (thisStreamWindow.size() >= MAX_WINDOW_SIZE) {
         // Stream is way ahead of the other, stop comparing further
         stopAgreementVerification = true;
@@ -299,6 +306,19 @@ public class MirroringMessageStream implements MessageStream {
     setAgreementFailure(Tags.of("reason", "missingMessages"));
     Metrics.counter(MISSING_MESSAGES_COUNTER, "ephemeral", ephemeral == null ? "unknown" : ephemeral.toString())
         .increment();
+  }
+
+  private static HashCode hashCode(final MessageProtos.Envelope envelope) {
+    final byte[] serialized = new byte[envelope.getSerializedSize()];
+    final CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(serialized);
+    codedOutputStream.useDeterministicSerialization();
+    try {
+      envelope.writeTo(codedOutputStream);
+      codedOutputStream.flush();
+    } catch (final IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return Hashing.murmur3_128().hashBytes(serialized);
   }
 
 }
