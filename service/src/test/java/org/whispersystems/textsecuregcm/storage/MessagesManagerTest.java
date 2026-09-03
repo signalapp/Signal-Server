@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -29,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -44,7 +47,6 @@ import org.signal.libsignal.protocol.ServiceId;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
@@ -141,10 +143,14 @@ class MessagesManagerTest {
 
     final UUID destinationUuid = UUID.randomUUID();
 
-    messagesManager.insert(destinationUuid, Map.of(Device.PRIMARY_ID, message));
+    final CompletionException completionException =
+        assertThrows(CompletionException.class,
+            () -> messagesManager.insert(destinationUuid, Map.of(Device.PRIMARY_ID, message)));
+
+    assertInstanceOf(RuntimeException.class, completionException.getCause());
 
     verify(foundationDbMessageStore).insert(any(), any());
-    verify(messagesCache)
+    verify(messagesCache, never())
         .insert(argThat(messageGuid -> messageGuid.version() == 4),
             eq(destinationUuid),
             eq(Device.PRIMARY_ID),

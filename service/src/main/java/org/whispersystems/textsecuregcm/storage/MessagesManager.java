@@ -34,7 +34,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
@@ -143,7 +142,7 @@ public class MessagesManager {
                       e);
                 }
 
-                return Collections.emptyMap();
+                throw ExceptionUtils.wrap(e);
               });
     } else {
       foundationDbInsertFuture = CompletableFuture.completedFuture(Collections.emptyMap());
