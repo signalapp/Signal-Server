@@ -5,8 +5,11 @@ import io.dropwizard.lifecycle.Managed;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 
 public class FoundationDBWarmup implements Managed {
 
@@ -16,6 +19,8 @@ public class FoundationDBWarmup implements Managed {
   private static final int MAX_ATTEMPTS = 3;
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDBWarmup.class);
+
+  private static final Timer WARMUP_TIMER = Metrics.timer(MetricsUtil.name(FoundationDBWarmup.class, "warmupTimer"));
 
   private static final byte[] STATUS_JSON_KEY;
 
@@ -43,9 +48,11 @@ public class FoundationDBWarmup implements Managed {
   /// @param database     the FoundationDB [Database] instance
   private void readStatusKey(final String databaseName, final Database database) {
     int attempts = 0;
+    final Timer.Sample sample = Timer.start();
     while (true) {
       try {
         database.readAsync(transaction -> transaction.get(STATUS_JSON_KEY)).join();
+        sample.stop(WARMUP_TIMER);
         return;
       } catch (final Exception e) {
         attempts++;
