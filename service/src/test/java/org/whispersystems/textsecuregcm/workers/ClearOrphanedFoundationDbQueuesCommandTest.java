@@ -12,7 +12,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -43,6 +42,7 @@ import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.FoundationDbClusterExtension;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -65,7 +65,7 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
     final byte[] versionstampCipherKey = new byte[16];
     new SecureRandom().nextBytes(versionstampCipherKey);
 
-    final List<Database> databases = Arrays.asList(FOUNDATION_DB_EXTENSION.getDatabases());
+    final List<FaultTolerantDatabase> databases = Arrays.asList(FOUNDATION_DB_EXTENSION.getDatabases());
 
     accountsManager = mock(AccountsManager.class);
     accountLockManager = mock(AccountLockManager.class);
@@ -132,7 +132,7 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
     final List<AciServiceIdentifier> acis = IntStream.range(0, 128)
         .mapToObj(_ -> new AciServiceIdentifier(UUID.randomUUID()))
         .toList();
-    final Database database = FOUNDATION_DB_EXTENSION.getDatabases()[0];
+    final FaultTolerantDatabase database = FOUNDATION_DB_EXTENSION.getDatabases()[0];
     database.run(transaction -> {
       acis.forEach(aci -> {
         transaction.set(FoundationDbMessageStore.getAccountSubspace(testMessagesSubspace, aci).pack(Tuple.from("foo")),
@@ -178,7 +178,7 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
   private boolean queueExists(final Subspace accountSpace) {
     final Range accountRange = accountSpace.range();
 
-    for (final Database database : FOUNDATION_DB_EXTENSION.getDatabases()) {
+    for (final FaultTolerantDatabase database : FOUNDATION_DB_EXTENSION.getDatabases()) {
       final List<KeyValue> keyValues = database.readAsync(transaction ->
           AsyncUtil.collect(transaction.getRange(accountRange, 1))).join();
 

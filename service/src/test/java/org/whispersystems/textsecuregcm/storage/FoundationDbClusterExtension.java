@@ -5,21 +5,20 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
+import java.io.IOException;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
-
-import java.io.IOException;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDatabase;
 
 public class FoundationDbClusterExtension implements BeforeAllCallback, ExtensionContext.Store.CloseableResource {
 
   private FoundationDbDatabaseLifecycleManager[] databaseLifecycleManagers;
-  private Database[] databases;
+  private FaultTolerantDatabase[] databases;
 
   public FoundationDbClusterExtension(final int numInstances) {
     this.databaseLifecycleManagers = new FoundationDbDatabaseLifecycleManager[numInstances];
-    this.databases = new Database[numInstances];
+    this.databases = new FaultTolerantDatabase[numInstances];
   }
 
   @Override
@@ -33,13 +32,13 @@ public class FoundationDbClusterExtension implements BeforeAllCallback, Extensio
                 : new TestcontainersFoundationDbDatabaseLifecycleManager();
         databaseLifecycleManager.initializeDatabase(FDB.selectAPIVersion(FoundationDbVersion.getFoundationDbApiVersion()));
         databaseLifecycleManagers[i] = databaseLifecycleManager;
-        databases[i] = databaseLifecycleManager.getDatabase();
+        databases[i] = new FaultTolerantDatabase(databaseLifecycleManager.getDatabase(), String.format("messages-%d", i), null);
       }
 
     }
   }
 
-  public Database[] getDatabases() {
+  public FaultTolerantDatabase[] getDatabases() {
     return databases;
   }
 

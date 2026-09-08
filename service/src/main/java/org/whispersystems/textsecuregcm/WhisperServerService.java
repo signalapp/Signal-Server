@@ -294,6 +294,7 @@ import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckTrustAnchor;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceChecks;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDBWarmup;
 import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
@@ -499,9 +500,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     // we'd like, but is the least bad option given current constraints.
     fdb.disableShutdownHook();
 
-    final Map<Integer, List<Database>> messageDatabasesByEpoch;
+    final Map<Integer, List<FaultTolerantDatabase>> messageDatabasesByEpoch;
     {
-      final Map<String, Database> databasesByName =
+      final Map<String, FaultTolerantDatabase> faultTolerantDatabasesByName =
           config.getFoundationDbMessagesConfiguration().clusters().entrySet().stream()
               .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
                   entry -> {
@@ -513,7 +514,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                       database.options().setTransactionRetryLimit(
                           config.getFoundationDbMessagesConfiguration().transactionRetryLimit());
 
-                      return database;
+                      return new FaultTolerantDatabase(database, entry.getKey(),
+                          config.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName());
                     } catch (final IOException e) {
                       throw new UncheckedIOException(e);
                     }
@@ -522,10 +524,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       messageDatabasesByEpoch = config.getFoundationDbMessagesConfiguration().epochs().entrySet().stream()
           .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
               entry -> entry.getValue().stream()
-                  .map(databasesByName::get)
+                  .map(faultTolerantDatabasesByName::get)
                   .toList()));
 
-      environment.lifecycle().manage(new FoundationDBWarmup(databasesByName));
+      environment.lifecycle().manage(new FoundationDBWarmup(faultTolerantDatabasesByName));
     }
 
     final AwsCredentialsProvider cdnCredentialsProvider = config.getCdnConfiguration().credentials().build();

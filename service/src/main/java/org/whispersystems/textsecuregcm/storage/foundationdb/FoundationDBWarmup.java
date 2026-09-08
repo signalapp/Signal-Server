@@ -13,7 +13,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 
 public class FoundationDBWarmup implements Managed {
 
-  private final Map<String, Database> databasesByName;
+  private final Map<String, FaultTolerantDatabase> databasesByName;
 
   private static final Duration RETRY_DELAY = Duration.ofMillis(500);
   private static final int MAX_ATTEMPTS = 3;
@@ -32,7 +32,7 @@ public class FoundationDBWarmup implements Managed {
     System.arraycopy(suffix, 0, STATUS_JSON_KEY, 2, suffix.length);
   }
 
-  public FoundationDBWarmup(final Map<String, Database> databasesByName) {
+  public FoundationDBWarmup(final Map<String, FaultTolerantDatabase> databasesByName) {
     this.databasesByName = databasesByName;
   }
 
@@ -46,7 +46,7 @@ public class FoundationDBWarmup implements Managed {
   ///
   /// @param databaseName the name of the database to read from
   /// @param database     the FoundationDB [Database] instance
-  private void readStatusKey(final String databaseName, final Database database) {
+  private void readStatusKey(final String databaseName, final FaultTolerantDatabase database) {
     int attempts = 0;
     final Timer.Sample sample = Timer.start();
     while (true) {

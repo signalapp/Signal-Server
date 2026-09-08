@@ -69,12 +69,12 @@ import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PagedSingleUseKEMPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswords;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.ProfileAvatars;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesV2;
-import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswords;
-import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.RepeatedUseECSignedPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.RepeatedUseKEMSignedPreKeyStore;
@@ -83,6 +83,7 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.SingleUseECPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreClient;
@@ -150,9 +151,9 @@ public record CommandDependencies(
     // we'd like, but is the least bad option given current constraints.
     fdb.disableShutdownHook();
 
-    final Map<Integer, List<Database>> messageDatabasesByEpoch;
+    final Map<Integer, List<FaultTolerantDatabase>> messageDatabasesByEpoch;
     {
-      final Map<String, Database> databasesByName =
+      final Map<String, FaultTolerantDatabase> faultTolerantDatabasesByName =
           configuration.getFoundationDbMessagesConfiguration().clusters().entrySet().stream()
               .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
                   entry -> {
@@ -164,7 +165,8 @@ public record CommandDependencies(
                       database.options().setTransactionRetryLimit(
                           configuration.getFoundationDbMessagesConfiguration().transactionRetryLimit());
 
-                      return database;
+                      return new FaultTolerantDatabase(database, entry.getKey(),
+                          configuration.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName());
                     } catch (final IOException e) {
                       throw new UncheckedIOException(e);
                     }
@@ -173,7 +175,7 @@ public record CommandDependencies(
       messageDatabasesByEpoch = configuration.getFoundationDbMessagesConfiguration().epochs().entrySet().stream()
           .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
               entry -> entry.getValue().stream()
-                  .map(databasesByName::get)
+                  .map(faultTolerantDatabasesByName::get)
                   .toList()));
     }
 

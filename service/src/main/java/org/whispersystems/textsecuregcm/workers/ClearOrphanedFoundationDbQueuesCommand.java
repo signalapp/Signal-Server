@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.workers;
 
 import static org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore.getAccountSubspace;
 
-import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.Range;
@@ -42,7 +41,9 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbUtil;
 import org.whispersystems.textsecuregcm.util.ManagedExecutors;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -129,10 +130,11 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
 
     final FDB fdb = commandDependencies.fdb();
 
-    final Stream<Database> databases = configuration.getFoundationDbMessagesConfiguration().clusters().values().stream()
-        .map(databaseFactory -> {
+    final Stream<FaultTolerantDatabase> databases = configuration.getFoundationDbMessagesConfiguration().clusters().entrySet().stream()
+        .map(entry -> {
           try {
-            return databaseFactory.build(fdb);
+            return new FaultTolerantDatabase(entry.getValue().build(fdb), entry.getKey(),
+                configuration.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName());
           } catch (final IOException e) {
             throw new UncheckedIOException(e);
           }
@@ -148,7 +150,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
   }
 
   @VisibleForTesting
-  void clearOrphanedQueues(final Stream<Database> databases, final AccountsManager accountsManager,
+  void clearOrphanedQueues(final Stream<FaultTolerantDatabase> databases, final AccountsManager accountsManager,
       final int concurrency, final boolean dryRun, final int maxAcisPerTransaction, final long transactionRetryLimit,
       final Duration transactionTimeout, final int numChunks, final AccountLockManager accountLockManager,
       final Executor executor) {
@@ -159,7 +161,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
         .block();
   }
 
-  private Mono<Void> crawlAcisInShard(final Database database, final AccountsManager accountsManager,
+  private Mono<Void> crawlAcisInShard(final FaultTolerantDatabase database, final AccountsManager accountsManager,
       final int concurrency, final boolean dryRun, final int maxAcisPerTransaction, final long transactionRetryLimit,
       final Duration transactionTimeout, final int numChunks, final AccountLockManager accountLockManager,
       final Executor executor) {
@@ -197,7 +199,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
         .then();
   }
 
-  private Mono<Void> clearQueueWithAciLock(final Database database, final AciServiceIdentifier aci,
+  private Mono<Void> clearQueueWithAciLock(final FaultTolerantDatabase database, final AciServiceIdentifier aci,
       final long transactionRetryLimit, final Duration transactionTimeout, final AccountsManager accountsManager,
       final AccountLockManager accountLockManager,
       final Executor executor) {
@@ -212,7 +214,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
         }), executor));
   }
 
-  private void clearQueue(final Database database, final AciServiceIdentifier aci, final long transactionRetryLimit,
+  private void clearQueue(final FaultTolerantDatabase database, final AciServiceIdentifier aci, final long transactionRetryLimit,
       final Duration transactionTimeout) {
     database.run(transaction -> {
       transaction.options().setPriorityBatch();
@@ -224,7 +226,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
   }
 
   @VisibleForTesting
-  Flux<AciServiceIdentifier> getAcisInShard(final Database database, final int maxAcisPerTransaction,
+  Flux<AciServiceIdentifier> getAcisInShard(final FaultTolerantDatabase database, final int maxAcisPerTransaction,
       final long transactionRetryLimit, final Duration transactionTimeout, final int numChunks) {
     return Mono.fromFuture(() -> splitSubspace(database, numChunks))
         .flatMapIterable(Function.identity())
@@ -238,12 +240,12 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
   /// @param database  the FDB instance
   /// @param numChunks the number of chunks to split the subspace into
   /// @return a list of key [Range]s representing chunk boundaries
-  CompletableFuture<List<Range>> splitSubspace(final Database database, final int numChunks) {
+  CompletableFuture<List<Range>> splitSubspace(final FaultTolerantDatabase database, final int numChunks) {
     return database.runAsync(transaction -> transaction.getEstimatedRangeSizeBytes(messagesSubspace.range())
             .thenCompose(rangeSize -> {
               final long chunkSize = Math.ceilDiv(rangeSize, numChunks);
               return transaction.getRangeSplitPoints(messagesSubspace.range(), chunkSize);
-            }))
+            }), FoundationDbUtil.Context.GET_RANGE_SPLITS)
         .thenApply(result -> splitPointsToRanges(result.getKeys()));
   }
 
@@ -259,7 +261,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
     return ranges;
   }
 
-  Flux<AciServiceIdentifier> getAcisInChunk(final Database database, final int maxAcisPerTransaction,
+  Flux<AciServiceIdentifier> getAcisInChunk(final FaultTolerantDatabase database, final int maxAcisPerTransaction,
       final long transactionRetryLimit, final Duration transactionTimeout, final Range range) {
     return readAciBatch(database, range.begin, range.end, maxAcisPerTransaction, transactionRetryLimit,
         transactionTimeout)
@@ -277,7 +279,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
   private record BatchReadResult(List<AciServiceIdentifier> acis, byte[] cursor) {}
 
   private Mono<BatchReadResult> readAciBatch(
-      final Database database,
+      final FaultTolerantDatabase database,
       final byte[] beginInclusive,
       final byte[] endExclusive,
       final int maxAcisPerTransaction,

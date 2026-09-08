@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
@@ -110,7 +109,7 @@ class FoundationDbMessageStoreTest {
 
     versionstampUUIDCipher = new VersionstampUUIDCipher(0, versionstampCipherKey);
 
-    final List<Database> databases = Arrays.asList(FOUNDATION_DB_EXTENSION.getDatabases());
+    final List<FaultTolerantDatabase> databases = Arrays.asList(FOUNDATION_DB_EXTENSION.getDatabases());
 
     foundationDbMessageStore = new FoundationDbMessageStore(
         // Simulate a topology change by reversing the order of the (two) databases in the group in a second epoch. This
@@ -841,7 +840,7 @@ class FoundationDbMessageStoreTest {
 
     while (!presenceCleared && Instant.now().isBefore(deadline)) {
       presenceCleared = foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).runAsync(transaction ->
-              transaction.get(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID)))
+              transaction.get(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID)), FoundationDbUtil.Context.GET_PRESENCE)
           .thenApply(Objects::isNull)
           .join();
     }
@@ -905,7 +904,8 @@ class FoundationDbMessageStoreTest {
 
     while (!presenceCleared && Instant.now().isBefore(deadline)) {
       presenceCleared = foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).runAsync(transaction ->
-              transaction.get(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID)))
+              transaction.get(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID)),
+              FoundationDbUtil.Context.GET_PRESENCE)
           .thenApply(Objects::isNull)
           .join();
     }

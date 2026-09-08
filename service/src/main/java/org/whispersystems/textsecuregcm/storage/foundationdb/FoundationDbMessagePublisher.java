@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.storage.foundationdb;
 
-import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
@@ -35,7 +34,7 @@ import reactor.core.publisher.Mono;
 /// catching up to end-of-queue,and an infinite stream for live updates.
 class FoundationDbMessagePublisher {
 
-  private final Database database;
+  private final FaultTolerantDatabase database;
   private final Clock clock;
   /// Keeps track of the key from which to start reading on the next iteration
   private volatile KeySelector beginKeyCursor;
@@ -128,7 +127,7 @@ class FoundationDbMessagePublisher {
   }
 
   FoundationDbMessagePublisher(
-      final Database database,
+      final FaultTolerantDatabase database,
       final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
@@ -175,7 +174,7 @@ class FoundationDbMessagePublisher {
   /// cases when callers need to "catch up" on stored messages without following fresh updates (for example, when a
   /// client first connects and needs to load stored messages before receiving a "live" stream of new messages).
   public static FoundationDbMessagePublisher createFinitePublisher(
-      final Database database,
+      final FaultTolerantDatabase database,
       final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive) {
@@ -195,7 +194,7 @@ class FoundationDbMessagePublisher {
   /// It waits for new messages and publishes them in a loop. Useful when a client has finished receiving its stored
   /// messages and is now waiting for a live stream of new messages.
   public static FoundationDbMessagePublisher createInfinitePublisher(
-      final Database database,
+      final FaultTolerantDatabase database,
       final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
@@ -312,7 +311,7 @@ class FoundationDbMessagePublisher {
       throw new IllegalArgumentException("Max messages must be positive");
     }
 
-    return FoundationDbUtil.safeRunAsync(database, transaction -> {
+    return database.runAsync(transaction -> {
           final CompletableFuture<Void> checkPresenceFuture;
 
           if (!terminateOnQueueEmpty) {
@@ -489,7 +488,7 @@ class FoundationDbMessagePublisher {
       return CompletableFuture.failedFuture(new IllegalStateException("Publisher already terminated"));
     }
 
-    return FoundationDbUtil.safeRunAsync(database, transaction -> {
+    return database.runAsync(transaction -> {
       transaction.set(presenceKey, FoundationDbMessageStore.getPresenceValue(clock.instant(), streamId));
       return CompletableFuture.completedFuture(null);
     }, FoundationDbUtil.Context.SET_PRESENCE);
@@ -501,7 +500,7 @@ class FoundationDbMessagePublisher {
       renewPresenceFuture.cancel(true);
 
       renewPresenceFuture.whenComplete((_, _) ->
-          FoundationDbUtil.safeRunAsync(database, transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
+          database.runAsync(transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
                 if (!isPresenceContested(presenceValue)) {
                   transaction.clear(presenceKey);
                 }

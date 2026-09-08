@@ -2,7 +2,6 @@ package org.whispersystems.textsecuregcm.storage.foundationdb;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.subspace.Subspace;
@@ -42,7 +41,7 @@ public class FoundationDbMessageStream implements MessageStream {
   private final Subspace deviceQueueSubspace;
   private final byte[] presenceKey;
   private final byte[] messagesAvailableWatchKey;
-  private final Database[] databasesByEpoch;
+  private final FaultTolerantDatabase[] databasesByEpoch;
   private final MessageGuidCodec messageGuidCodec;
   /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
   private final Flow.Publisher<MessageStreamEntry> messageStreamPublisher;
@@ -71,7 +70,7 @@ public class FoundationDbMessageStream implements MessageStream {
   FoundationDbMessageStream(final FoundationDbMessageStore foundationDbMessageStore,
       final AciServiceIdentifier aciServiceIdentifier,
       final byte deviceId,
-      final Database[] databasesByEpoch,
+      final FaultTolerantDatabase[] databasesByEpoch,
       final MessageGuidCodec messageGuidCodec,
       final Runnable doAfterCleanup,
       final ScheduledExecutorService presenceRenewalExecutorService,
@@ -126,7 +125,7 @@ public class FoundationDbMessageStream implements MessageStream {
   private Flux<FoundationDbMessageStreamEntry> createFoundationDbMessagePublisher() {
     // This may seem like an odd construction since it looks like we could also just do `Flux#fromArray`, but
     // `Flux#fromArray` cannot handle `null` elements
-    final List<Database> databases = Arrays.stream(databasesByEpoch).filter(Objects::nonNull).distinct().toList();
+    final List<FaultTolerantDatabase> databases = Arrays.stream(databasesByEpoch).filter(Objects::nonNull).distinct().toList();
 
     return Flux.fromIterable(databases)
         .flatMap(database -> Mono.fromFuture(() -> getEndOfQueueKeyExclusive(database))
@@ -136,7 +135,7 @@ public class FoundationDbMessageStream implements MessageStream {
           @SuppressWarnings("unchecked") final Flux<FoundationDbMessageStreamEntry.Message>[] finitePublishers =
               endOfQueueKeysByDatabase.entrySet().stream()
                   .map(entry -> {
-                    final Database database = entry.getKey();
+                    final FaultTolerantDatabase database = entry.getKey();
                     final Optional<KeySelector> maybeEndOfQueueKeyExclusive = entry.getValue();
 
                     return maybeEndOfQueueKeyExclusive
@@ -165,7 +164,7 @@ public class FoundationDbMessageStream implements MessageStream {
           @SuppressWarnings("unchecked") final Flux<FoundationDbMessageStreamEntry.Message>[] infinitePublishers =
               endOfQueueKeysByDatabase.entrySet().stream()
                   .map(entry -> {
-                    final Database database = entry.getKey();
+                    final FaultTolerantDatabase database = entry.getKey();
                     final Optional<KeySelector> maybeEndOfQueueKeyExclusive = entry.getValue();
 
                     final KeySelector infinitePublisherBeginKey = maybeEndOfQueueKeyExclusive
@@ -204,8 +203,8 @@ public class FoundationDbMessageStream implements MessageStream {
   /// subsequent scan.
   ///
   /// @return a [KeySelector] for the first key greater than the current greatest key in the device queue.
-  private CompletableFuture<Optional<KeySelector>> getEndOfQueueKeyExclusive(final Database database) {
-    return FoundationDbUtil.safeRunAsync(database, transaction ->
+  private CompletableFuture<Optional<KeySelector>> getEndOfQueueKeyExclusive(final FaultTolerantDatabase database) {
+    return database.runAsync(transaction ->
             transaction.getRange(deviceQueueSubspace.range(), 1, true, StreamingMode.EXACT).asList(), FoundationDbUtil.Context.GET_END_OF_QUEUE)
         .<Optional<KeySelector>>thenApply(items -> {
           if (items.isEmpty()) {

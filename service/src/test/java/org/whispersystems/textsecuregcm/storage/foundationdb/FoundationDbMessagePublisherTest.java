@@ -56,6 +56,7 @@ import reactor.test.StepVerifier;
 class FoundationDbMessagePublisherTest {
 
   private Database database;
+  private FaultTolerantDatabase ftDatabase;
   private List<FoundationDbMessagePublisher.State> stateTransitions;
 
   private static ScheduledExecutorService presenceRenewalExecutorService;
@@ -80,6 +81,8 @@ class FoundationDbMessagePublisherTest {
   @BeforeEach
   void setUp() {
     database = mock(Database.class);
+    ftDatabase = new FaultTolerantDatabase(database, getClass().getSimpleName() + "-testCircuitBreaker",
+        null);
     stateTransitions = new ArrayList<>();
 
     final byte[] messageGuidCodecKey = new byte[16];
@@ -123,7 +126,7 @@ class FoundationDbMessagePublisherTest {
         });
 
     final FoundationDbMessagePublisher finitePublisher = new FoundationDbMessagePublisher(
-        database,
+        ftDatabase,
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),
@@ -200,7 +203,7 @@ class FoundationDbMessagePublisherTest {
         .thenReturn(CompletableFuture.completedFuture(FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID)));
 
     final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
-        database,
+        ftDatabase,
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
@@ -290,7 +293,7 @@ class FoundationDbMessagePublisherTest {
         .thenReturn(CompletableFuture.completedFuture(FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID + 1)));
 
     final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
-        database,
+        ftDatabase,
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
@@ -344,7 +347,7 @@ class FoundationDbMessagePublisherTest {
         .thenReturn(CompletableFuture.completedFuture(FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID)));
 
     final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
-        database,
+        ftDatabase,
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
@@ -392,7 +395,7 @@ class FoundationDbMessagePublisherTest {
   @SuppressWarnings({"unchecked", "resource"})
   void watchCanceledOnSubscriptionCancel() {
     final FoundationDbMessagePublisher infinitePublisher = FoundationDbMessagePublisher.createInfinitePublisher(
-        database,
+        ftDatabase,
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterThan(SUBSPACE_RANGE.end),
@@ -454,7 +457,7 @@ class FoundationDbMessagePublisherTest {
         });
 
     final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
-        database,
+        ftDatabase,
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
@@ -520,7 +523,7 @@ class FoundationDbMessagePublisherTest {
 
     final CountDownLatch latch = new CountDownLatch(1);
     final FoundationDbMessagePublisher finitePublisher = new FoundationDbMessagePublisher(
-        database,
+        ftDatabase,
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),
@@ -578,7 +581,7 @@ class FoundationDbMessagePublisherTest {
         });
 
     final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
-        database,
+        ftDatabase,
         CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),

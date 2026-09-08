@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import jakarta.annotation.Nullable;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
@@ -33,7 +34,8 @@ public record FoundationDbMessagesConfiguration(@NotEmpty Map<String, @Valid Fou
                                                 @NotNull Duration transactionTimeout,
                                                 @PositiveOrZero long transactionRetryLimit,
                                                 @NotNull Duration batchPriorityTransactionTimeout,
-                                                @PositiveOrZero long batchPriorityTransactionRetryLimit) {
+                                                @PositiveOrZero long batchPriorityTransactionRetryLimit,
+                                                @Nullable String circuitBreakerConfigurationName) {
 
   public static final long DEFAULT_MAX_WATCHES_PER_CLIENT = 10_000;
   public static final Duration DEFAULT_TRANSACTION_TIMEOUT = Duration.ofSeconds(1);

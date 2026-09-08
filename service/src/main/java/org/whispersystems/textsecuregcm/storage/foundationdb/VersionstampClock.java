@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.storage.foundationdb;
 
-import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.subspace.Subspace;
@@ -29,15 +28,15 @@ public class VersionstampClock {
   @VisibleForTesting
   static final Subspace SUBSPACE = new Subspace(Tuple.from("V"));
 
-  private final Database database;
+  private final FaultTolerantDatabase database;
   private final Clock clock;
 
-  public VersionstampClock(final Database database) {
+  public VersionstampClock(final FaultTolerantDatabase database) {
     this(database, Clock.systemUTC());
   }
 
   @VisibleForTesting
-  public VersionstampClock(final Database database, final Clock clock) {
+  public VersionstampClock(final FaultTolerantDatabase database, final Clock clock) {
     this.database = database;
     this.clock = clock;
   }

@@ -2,7 +2,6 @@ package org.whispersystems.textsecuregcm.storage.foundationdb;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeyArrayResult;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
@@ -72,8 +71,8 @@ import reactor.util.function.Tuples;
 ///         * {versionstamp_2} => envelope_2
 public class FoundationDbMessageStore {
 
-  private final Database[][] databasesByEpoch;
-  private final Map<Database, VersionstampClock> versionstampClocks;
+  private final FaultTolerantDatabase[][] databasesByEpoch;
+  private final Map<FaultTolerantDatabase, VersionstampClock> versionstampClocks;
   private final int[] liveEpochs;
   private final int activeEpoch;
   private final VersionstampUUIDCipher versionstampUUIDCipher;
@@ -132,7 +131,7 @@ public class FoundationDbMessageStore {
                              boolean present) {
   }
 
-  public FoundationDbMessageStore(final Map<Integer, List<Database>> databasesByEpochMap,
+  public FoundationDbMessageStore(final Map<Integer, List<FaultTolerantDatabase>> databasesByEpochMap,
       final int activeEpoch,
       final VersionstampUUIDCipher versionstampUUIDCipher,
       final ScheduledExecutorService presenceRenewalExecutorService,
@@ -140,10 +139,10 @@ public class FoundationDbMessageStore {
       final Duration batchPriorityTransactionTimeout,
       final long batchPriorityTransactionRetryLimit) {
 
-    final Database[][] databasesByEpochArray = new Database[MAX_EPOCHS][];
+    final FaultTolerantDatabase[][] databasesByEpochArray = new FaultTolerantDatabase[MAX_EPOCHS][];
 
     databasesByEpochMap.forEach((epoch, databases) ->
-        databasesByEpochArray[epoch] = databases.toArray(Database[]::new));
+        databasesByEpochArray[epoch] = databases.toArray(FaultTolerantDatabase[]::new));
 
     this.databasesByEpoch = databasesByEpochArray;
     this.liveEpochs = IntStream.range(0, MAX_EPOCHS).filter(e -> databasesByEpochArray[e] != null).toArray();
@@ -287,7 +286,7 @@ public class FoundationDbMessageStore {
         .map(MessageProtos.Envelope::getEphemeral)
         .orElseThrow(() -> new IllegalStateException("One or more bundles is empty"));
 
-    return FoundationDbUtil.safeRunAsync(getDatabases(epoch)[shardId], transaction -> {
+    return getDatabases(epoch)[shardId].runAsync(transaction -> {
           messagesByAccountIdentifier.forEach(entry ->
               insertFuturesByAci.put(entry.getKey(), insert(entry.getKey(), entry.getValue(), epoch, shardId, transaction)));
 
@@ -393,7 +392,7 @@ public class FoundationDbMessageStore {
 
     final byte[] messageKey = getDeviceQueueSubspace(aci, deviceId).pack(Tuple.from(versionstamp));
 
-    return FoundationDbUtil.safeRunAsync(databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)], transaction -> {
+    return databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].runAsync(transaction -> {
           transaction.clear(messageKey);
           return CompletableFuture.completedFuture(null);
         }, FoundationDbUtil.Context.DELETE_MESSAGE)
@@ -420,7 +419,7 @@ public class FoundationDbMessageStore {
                   }
                   transaction.clear(messageKey);
                   return Optional.of(value);
-                }))
+                }), FoundationDbUtil.Context.DELETE_MESSAGE)
         .whenComplete((_, _) -> sample.stop(DELETE_MESSAGE_TIMER))
         .thenApply(maybeValue -> maybeValue.map(value -> {
           DELETE_MESSAGE_COUNTER.increment();
@@ -446,7 +445,7 @@ public class FoundationDbMessageStore {
     }));
   }
 
-  private void doForAllDatabasesWithMessages(final AciServiceIdentifier aci, final Consumer<Database> action) {
+  private void doForAllDatabasesWithMessages(final AciServiceIdentifier aci, final Consumer<FaultTolerantDatabase> action) {
     IntStream.range(0, databasesByEpoch.length)
         .filter(epoch -> databasesByEpoch[epoch] != null)
         .mapToObj(epoch -> databasesByEpoch[epoch][hashAciToShardNumber(aci, epoch)])
@@ -458,9 +457,9 @@ public class FoundationDbMessageStore {
     return getMessages(aci, deviceId, Util.NOOP);
   }
 
-  Database[] getDatabasesByEpochForAci(final AciServiceIdentifier aci) {
+  FaultTolerantDatabase[] getDatabasesByEpochForAci(final AciServiceIdentifier aci) {
     // For each configured database epoch, which database held (or holds) the messages for this ACI/device pair?
-    final Database[] databasesForQueueByEpoch = new Database[databasesByEpoch.length];
+    final FaultTolerantDatabase[] databasesForQueueByEpoch = new FaultTolerantDatabase[databasesByEpoch.length];
 
     for (final int epoch : liveEpochs) {
       databasesForQueueByEpoch[epoch] = getShardForAci(aci, epoch);
@@ -474,7 +473,7 @@ public class FoundationDbMessageStore {
       final byte deviceId,
       final Runnable doAfterCleanup) {
 
-   final Database[] databasesForQueueByEpoch = getDatabasesByEpochForAci(aci);
+   final FaultTolerantDatabase[] databasesForQueueByEpoch = getDatabasesByEpochForAci(aci);
 
     return new FoundationDbMessageStream(this,
         aci,
@@ -520,7 +519,7 @@ public class FoundationDbMessageStore {
   /// after it will not be. Deletion depends on the underlying [versionstamp clocks][VersionstampClock] being kept up to
   /// date.
   public void deleteMessagesBefore(final Map<AciServiceIdentifier, List<Byte>> accountDeviceIdentifiers, final Instant cutoffTime) {
-    final Map<Database, List<Subspace>> queueSubspacesToTrimByDatabase = new IdentityHashMap<>();
+    final Map<FaultTolerantDatabase, List<Subspace>> queueSubspacesToTrimByDatabase = new IdentityHashMap<>();
 
     accountDeviceIdentifiers.forEach((aci, deviceIds) -> {
       for (final byte deviceId : deviceIds) {
@@ -555,15 +554,14 @@ public class FoundationDbMessageStore {
   }
 
   @VisibleForTesting
-  Database getShardForAci(final AciServiceIdentifier aci, final int epoch) {
+  FaultTolerantDatabase getShardForAci(final AciServiceIdentifier aci, final int epoch) {
     return getDatabases(epoch)[hashAciToShardNumber(aci, epoch)];
   }
 
-  private Database[] getDatabases(final int epoch) {
+  private FaultTolerantDatabase[] getDatabases(final int epoch) {
     if (databasesByEpoch[epoch] == null) {
       throw new IllegalStateException("Epoch (%d) not in static configuration".formatted(epoch));
     }
-
     return databasesByEpoch[epoch];
   }
 
@@ -606,9 +604,9 @@ public class FoundationDbMessageStore {
   }
 
   @VisibleForTesting
-  record QueueSizeAndRangeSplitPoints(long estimatedQueueSize, Map<Database, List<byte[]>> splitPointsByDatabase) {}
+  record QueueSizeAndRangeSplitPoints(long estimatedQueueSize, Map<FaultTolerantDatabase, List<byte[]>> splitPointsByDatabase) {}
 
-  private Flux<Database> getDistinctDatabasesForAci(final AciServiceIdentifier aci) {
+  private Flux<FaultTolerantDatabase> getDistinctDatabasesForAci(final AciServiceIdentifier aci) {
     return Flux.fromStream(Arrays.stream(getDatabasesByEpochForAci(aci)).filter(Objects::nonNull).distinct());
   }
 
@@ -621,7 +619,7 @@ public class FoundationDbMessageStore {
     final Range deviceQueueRange = getDeviceQueueSubspace(aci, deviceId).range();
 
     return getDistinctDatabasesForAci(aci)
-        .flatMap(database -> Mono.fromFuture(() -> FoundationDbUtil.safeRunAsync(database, transaction -> transaction.getEstimatedRangeSizeBytes(deviceQueueRange), FoundationDbUtil.Context.ESTIMATE_QUEUE_SIZE)))
+        .flatMap(database -> Mono.fromFuture(() -> database.runAsync(transaction -> transaction.getEstimatedRangeSizeBytes(deviceQueueRange), FoundationDbUtil.Context.ESTIMATE_QUEUE_SIZE)))
         .reduce(0L, Long::sum);
   }
 
@@ -646,11 +644,11 @@ public class FoundationDbMessageStore {
   }
 
   private CompletableFuture<Pair<Long, KeyArrayResult>> estimateQueueSizeAndRangeSplitsForDatabase(
-      final Database database,
+      final FaultTolerantDatabase database,
       final AciServiceIdentifier aci,
       final byte deviceId,
       final long rangeSplitChunkSize) {
-    return FoundationDbUtil.safeRunAsync(database, transaction -> {
+    return database.runAsync( transaction -> {
       final Range deviceQueueRange = getDeviceQueueSubspace(aci, deviceId).range();
       final CompletableFuture<Long> estimatedQueueSizeFuture = transaction.getEstimatedRangeSizeBytes(deviceQueueRange);
 
@@ -681,7 +679,7 @@ public class FoundationDbMessageStore {
             return Mono.empty();
           }
 
-          final List<Database> orderedDatabases;
+          final List<FaultTolerantDatabase> orderedDatabases;
           {
             // Trim messages from the database(s) in the inactive epoch(s) before trimming from the database in the active epoch
             final List<Integer> orderedEpochsToTrim = new ArrayList<>(Arrays.stream(liveEpochs)
@@ -738,8 +736,8 @@ public class FoundationDbMessageStore {
         });
   }
 
-  private CompletableFuture<Void> trimQueue(final Database database, final Range range) {
-    return FoundationDbUtil.safeRunAsync(database, transaction -> {
+  private CompletableFuture<Void> trimQueue(final FaultTolerantDatabase database, final Range range) {
+    return database.runAsync(transaction -> {
       transaction.options().setPriorityBatch();
       transaction.options().setTimeout(batchPriorityTransactionTimeout.toMillis());
       transaction.options().setRetryLimit(batchPriorityTransactionRetryLimit);
