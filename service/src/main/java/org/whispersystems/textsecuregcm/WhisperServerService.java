@@ -111,6 +111,7 @@ import org.whispersystems.textsecuregcm.captcha.CaptchaClient;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
 import org.whispersystems.textsecuregcm.captcha.ShortCodeExpander;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
+import org.whispersystems.textsecuregcm.configuration.FoundationDbExternalClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretStore;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretsModule;
@@ -499,6 +500,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     // FoundationDB's shutdown hook and let the JVM terminate its (daemon) threads at exit. This isn't as graceful as
     // we'd like, but is the least bad option given current constraints.
     fdb.disableShutdownHook();
+
+    final FoundationDbExternalClientConfiguration externalClientConfiguration = config.getFoundationDbMessagesConfiguration()
+        .externalClientConfiguration();
+    if (externalClientConfiguration != null) {
+      // If threadsPerClient is not specified, we default to the cluster size so that there is 1:1 correspondence between
+      // Database objects and threads.
+      final int clientThreadsPerVersion = externalClientConfiguration.threadsPerClient()
+          .orElseGet(() -> config.getFoundationDbMessagesConfiguration().clusters().size());
+      externalClientConfiguration.clientLibraryPaths().forEach(path -> fdb.options().setExternalClientLibrary(path));
+      fdb.options().setClientThreadsPerVersion(clientThreadsPerVersion);
+    }
 
     final Map<Integer, List<FaultTolerantDatabase>> messageDatabasesByEpoch;
     {

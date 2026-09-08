@@ -37,6 +37,7 @@ import org.whispersystems.textsecuregcm.backup.BackupsDb;
 import org.whispersystems.textsecuregcm.backup.Cdn3BackupCredentialGenerator;
 import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.backup.SecureValueRecoveryBCredentialsGeneratorFactory;
+import org.whispersystems.textsecuregcm.configuration.FoundationDbExternalClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
@@ -150,6 +151,17 @@ public record CommandDependencies(
     // FoundationDB's shutdown hook and let the JVM terminate its (daemon) threads at exit. This isn't as graceful as
     // we'd like, but is the least bad option given current constraints.
     fdb.disableShutdownHook();
+
+    final FoundationDbExternalClientConfiguration externalClientConfiguration = configuration.getFoundationDbMessagesConfiguration()
+        .externalClientConfiguration();
+    if (externalClientConfiguration != null) {
+      // If threadsPerClient is not specified, we default to the cluster size so that there is 1:1 correspondence between
+      // Database objects and threads.
+      final int clientThreadsPerVersion = externalClientConfiguration.threadsPerClient()
+          .orElseGet(() -> configuration.getFoundationDbMessagesConfiguration().clusters().size());
+      externalClientConfiguration.clientLibraryPaths().forEach(path -> fdb.options().setExternalClientLibrary(path));
+      fdb.options().setClientThreadsPerVersion(clientThreadsPerVersion);
+    }
 
     final Map<Integer, List<FaultTolerantDatabase>> messageDatabasesByEpoch;
     {
