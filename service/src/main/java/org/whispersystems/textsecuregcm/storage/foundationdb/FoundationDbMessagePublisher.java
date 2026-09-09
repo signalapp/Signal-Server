@@ -122,8 +122,6 @@ class FoundationDbMessagePublisher {
     MESSAGE_AVAILABLE_WATCH_TRIGGERED,
     /// Internal self-trigger used to immediately transition to the next state.
     INTERNAL_TRIGGER,
-    /// An error occurred during fetching from FoundationDB or publishing messages to the sink.
-    FETCH_OR_PUBLISH_ERROR_OCCURRED
   }
 
   FoundationDbMessagePublisher(
@@ -251,7 +249,6 @@ class FoundationDbMessagePublisher {
             transitionStateOnEvent(Event.INTERNAL_TRIGGER);
           }
           case MESSAGE_AVAILABLE_WATCH_TRIGGERED -> setState(State.MESSAGE_AVAILABLE_SIGNAL_BUFFERED, event);
-          case FETCH_OR_PUBLISH_ERROR_OCCURRED -> setState(State.ERROR, event);
           default -> knownTransition = false;
         }
       }
@@ -390,7 +387,7 @@ class FoundationDbMessagePublisher {
   /// operation returns fewer items than the batch size, we infer that we have fetched all available messages and
   /// [Event#FETCHED_ALL_AVAILABLE_MESSAGES] is sent to the state machine. See [#getMessagesBatch(int)] for details.
   /// Additionally, after we successfully publish the batch of messages, {@link Event#PUBLISHED_MESSAGES} is emitted. If
-  /// there's an error while fetching or publishing, [Event#FETCH_OR_PUBLISH_ERROR_OCCURRED] is emitted instead.
+  /// there's an error while fetching or publishing, the stream is terminated with the error.
   private void emitMessages() {
     final int maxMessages = Math.min(getOutstandingDemand(), MAX_MESSAGES_PER_PAGE);
 
@@ -401,8 +398,7 @@ class FoundationDbMessagePublisher {
           transitionStateOnEvent(Event.PUBLISHED_MESSAGES);
         })
         .exceptionally(t -> {
-          transitionStateOnEvent(Event.FETCH_OR_PUBLISH_ERROR_OCCURRED);
-          emitter.error(ExceptionUtils.unwrap(t));
+          terminateWithError(ExceptionUtils.unwrap(t));
           return null;
         });
   }
@@ -525,7 +521,7 @@ class FoundationDbMessagePublisher {
 
   @VisibleForTesting
   synchronized void terminateWithError(final Throwable throwable) {
-    if (state != State.TERMINATED && state != State.ERROR) {
+    if (state != State.TERMINATED && state != State.ERROR && !emitter.isCancelled()) {
       setState(State.ERROR, Event.INTERNAL_TRIGGER);
       emitter.error(throwable);
     }

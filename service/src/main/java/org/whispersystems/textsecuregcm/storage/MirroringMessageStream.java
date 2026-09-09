@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import com.apple.foundationdb.FDBException;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.protobuf.CodedOutputStream;
@@ -31,6 +32,7 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStream;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.publisher.BaseSubscriber;
@@ -128,8 +130,11 @@ public class MirroringMessageStream implements MessageStream {
 
     @Override
     protected void hookOnError(final Throwable throwable) {
-      switch (throwable) {
+      switch (ExceptionUtils.unwrap(throwable)) {
         case ConflictingMessageConsumerException _ -> CONFLICTING_CONSUMER_COUNTER.increment();
+        case FDBException _ -> {
+          // FDBExceptions are already instrumented by metrics, so do nothing
+        }
         default -> super.hookOnError(throwable);
       }
     }
