@@ -9,6 +9,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.protobuf.CodedOutputStream;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
@@ -57,6 +58,10 @@ public class MirroringMessageStream implements MessageStream {
 
   private static final String MISSING_MESSAGES_COUNTER =
       MetricsUtil.name(MirroringMessageStream.class, "missingMessages");
+
+  private static final DistributionSummary MISSING_MESSAGE_AGE_DISTRIBUTION =
+      DistributionSummary.builder(MetricsUtil.name(MirroringMessageStream.class, "missingMessageAge"))
+          .register(Metrics.globalRegistry);
 
   private static final int MAX_WINDOW_SIZE = 1024;
 
@@ -193,7 +198,7 @@ public class MirroringMessageStream implements MessageStream {
         foundationDbMessageStream.acknowledgeAndGetMessage(messageGuid)
             .thenAccept(deleteMessage -> {
               if (deleteMessage.isEmpty()) {
-                handleMissingFoundationDbMessage(messageGuid);
+                handleMissingFoundationDbMessage(messageGuid, serverTimestamp);
                 return;
               }
               verifyMessageAgreement(deleteMessage.get(), Stream.FOUNDATION_DB);
@@ -293,7 +298,7 @@ public class MirroringMessageStream implements MessageStream {
     Metrics.counter(STREAM_AGREEMENTS, tags).increment();
   }
 
-  private synchronized void handleMissingFoundationDbMessage(final UUID messageGuid) {
+  private synchronized void handleMissingFoundationDbMessage(final UUID messageGuid, final long serverTimestamp) {
     final Boolean ephemeral;
     if (redisDynamoMessageWindow.containsKey(messageGuid)) {
       // The comparison window always contains non-ephemeral messages since we ignore ephemeral messages for comparison
@@ -306,6 +311,7 @@ public class MirroringMessageStream implements MessageStream {
     setAgreementFailure(Tags.of("reason", "missingMessages"));
     Metrics.counter(MISSING_MESSAGES_COUNTER, "ephemeral", ephemeral == null ? "unknown" : ephemeral.toString())
         .increment();
+    MISSING_MESSAGE_AGE_DISTRIBUTION.record(System.currentTimeMillis() - serverTimestamp);
   }
 
   private static HashCode hashCode(final MessageProtos.Envelope envelope) {
