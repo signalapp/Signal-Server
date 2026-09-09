@@ -180,7 +180,7 @@ public record CommandDependencies(
                       return new FaultTolerantDatabase(database, entry.getKey(),
                           configuration.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName());
                     } catch (final IOException e) {
-                      throw new UncheckedIOException(e);
+                      throw new UncheckedIOException("Failed to construct FoundationDB database", e);
                     }
                   }));
 
