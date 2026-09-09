@@ -562,6 +562,11 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   @Override
   public GenerateTotpKeyResponse generateTotpKey(final GenerateTotpKeyRequest request) {
     try {
+      final Account account = getAuthenticatedAccount();
+      if (account.getNumber().isPresent()) {
+        throw GrpcExceptions.invalidArguments("TOTP keys may not be generated for an account with a number");
+      }
+
       final TotpKey pendingTotpKey =
           accountsManager.generatePendingTotpKey(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier());
 
@@ -585,6 +590,11 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   @Override
   public ConfirmTotpKeyResponse confirmTotpKey(final ConfirmTotpKeyRequest request) {
     try {
+      final Account account = getAuthenticatedAccount();
+      if (account.getNumber().isPresent()) {
+        throw GrpcExceptions.invalidArguments("TOTP keys may not be added to an account with a number");
+      }
+
       final Optional<Byte> maybeConfirmedTotpKeyId =
         accountsManager.confirmPendingTotpKey(
               AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),

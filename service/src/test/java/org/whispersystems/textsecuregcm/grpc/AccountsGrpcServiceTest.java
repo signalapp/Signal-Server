@@ -1130,6 +1130,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void generateTotpKey() throws TooManyTotpKeysException, TooManyMfaKeysException {
     final byte[] encodedKey = TestRandomUtil.nextBytes(16);
 
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
     when(accountsManager.generatePendingTotpKey(AUTHENTICATED_ACI))
         .thenReturn(new TotpKey(TOTP_PARAMETERS, encodedKey));
 
@@ -1146,6 +1151,10 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void generateTotpKeyTooManyKeys() throws TooManyTotpKeysException, TooManyMfaKeysException {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
     when(accountsManager.generatePendingTotpKey(AUTHENTICATED_ACI))
         .thenThrow(TooManyTotpKeysException.class);
 
@@ -1157,6 +1166,10 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void generateTotpKeyTooManyNonTotpKeys() throws TooManyTotpKeysException, TooManyMfaKeysException {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
     when(accountsManager.generatePendingTotpKey(AUTHENTICATED_ACI))
         .thenThrow(TooManyMfaKeysException.class);
 
@@ -1172,6 +1185,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final byte keyId = 17;
     final int oneTimePassword = 123456;
     final byte[] metadataCiphertext = TestRandomUtil.nextBytes(MFA_KEY_METADATA_SIZE);
+
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
 
     when(accountsManager.confirmPendingTotpKey(AUTHENTICATED_ACI, oneTimePassword, testClock.instant(), metadataCiphertext))
         .thenReturn(Optional.of(keyId));
@@ -1196,6 +1214,10 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void confirmTotpKeyPasswordNotVerified() throws TooManyMfaKeysException {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
     when(accountsManager.confirmPendingTotpKey(any(), anyInt(), any(), any()))
         .thenReturn(Optional.empty());
 
@@ -1209,6 +1231,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void confirmTotpKeyTooManyNonTotpKeys() throws TooManyTotpKeysException, TooManyMfaKeysException {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
     when(accountsManager.confirmPendingTotpKey(any(), anyInt(), any(), any()))
         .thenThrow(TooManyMfaKeysException.class);
 
@@ -1219,6 +1246,24 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
           .build());
 
     assertEquals(ConfirmTotpKeyResponse.ResponseCase.TOO_MANY_MFA_KEYS, response.getResponseCase());
+  }
+
+  @Test
+  void forbidSetMfaOnAccountsWithNumbers() {
+    final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(Optional.of(
+        PhoneNumberUtil.getInstance().format(PhoneNumberUtil.getInstance()
+            .getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
+
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, "CONSTRAINT_VIOLATED", () ->
+        authenticatedServiceStub().generateTotpKey(GenerateTotpKeyRequest.getDefaultInstance()));
+
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, "CONSTRAINT_VIOLATED", () ->
+        authenticatedServiceStub().confirmTotpKey(ConfirmTotpKeyRequest.newBuilder()
+            .setOneTimePassword(123456)
+            .setMetadataCiphertext(ByteString.copyFrom(TestRandomUtil.nextBytes(MFA_KEY_METADATA_SIZE)))
+            .build()));
   }
 
 

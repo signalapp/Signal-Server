@@ -80,11 +80,15 @@ service Accounts {
 
   // Generates and stores a pending TOTP key for the authenticated account.
   // To "activate" the key, callers must call the `ConfirmTotpKey` endpoint.
+  //
+  // TOTP keys may only be generated for accounts without phone numbers.
   rpc GenerateTotpKey(GenerateTotpKeyRequest) returns (GenerateTotpKeyResponse) {}
 
   // Confirms that the caller has stored and can derive one-time passwords from
   // a pending TOTP key generated via `GenerateTotpKey` and stores/activates the
   // key for the caller's account
+  //
+  // TOTP keys may only be generated for accounts without phone numbers.
   rpc ConfirmTotpKey(ConfirmTotpKeyRequest) returns (ConfirmTotpKeyResponse) {}
 
   // Returns a list of confirmed MFA keys for the authenticated account
