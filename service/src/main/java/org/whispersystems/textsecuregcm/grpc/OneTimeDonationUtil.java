@@ -16,7 +16,7 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 
 public class OneTimeDonationUtil {
 
-  private static final String EURO_CURRENCY_CODE = "EUR";
+  public static final String EURO_CURRENCY_CODE = "EUR";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(OneTimeDonationUtil.class);
 
@@ -51,7 +51,7 @@ public class OneTimeDonationUtil {
 
   public static OneTimeDonationRequestValidationResult validateOneTimeDonationRequest(
       final String currency,
-      final BigDecimal amount,
+      final long amount,
       final long level,
       final PaymentMethod paymentMethod,
       final OneTimeDonationConfiguration oneTimeDonationConfiguration,
@@ -69,21 +69,17 @@ public class OneTimeDonationUtil {
       return new OneTimeDonationRequestValidationResult.UnsupportedCurrency();
     }
 
-    final BigDecimal minCurrencyAmountMajorUnits = oneTimeDonationConfiguration.currencies()
-        .get(currency.toLowerCase(Locale.ROOT)).minimum();
-    final BigDecimal minCurrencyAmountMinorUnits = SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(
-        currency,
-        minCurrencyAmountMajorUnits);
-    if (minCurrencyAmountMinorUnits.compareTo(amount) > 0) {
-      return new OneTimeDonationRequestValidationResult.AmountBelowMinimum(minCurrencyAmountMajorUnits);
+    final BigDecimal minCurrencyAmount =
+        oneTimeDonationConfiguration.currencies().get(currency.toLowerCase(Locale.ROOT)).minimum();
+    if (SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(currency, minCurrencyAmount) > amount) {
+      return new OneTimeDonationRequestValidationResult.AmountBelowMinimum(minCurrencyAmount);
     }
 
-    if (paymentMethod == PaymentMethod.SEPA_DEBIT &&
-        amount.compareTo(SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(
-            EURO_CURRENCY_CODE,
-            oneTimeDonationConfiguration.sepaMaximumEuros())) > 0) {
-      return new OneTimeDonationRequestValidationResult.AmountAboveSepaLimit(
-          oneTimeDonationConfiguration.sepaMaximumEuros());
+    if (paymentMethod == PaymentMethod.SEPA_DEBIT) {
+      final BigDecimal sepaMaximumEuros = oneTimeDonationConfiguration.sepaMaximumEuros();
+      if (amount > SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(EURO_CURRENCY_CODE, sepaMaximumEuros)) {
+        return new OneTimeDonationRequestValidationResult.AmountAboveSepaLimit(sepaMaximumEuros);
+      }
     }
     return new OneTimeDonationRequestValidationResult.Success();
   }

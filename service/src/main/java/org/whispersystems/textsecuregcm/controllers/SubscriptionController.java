@@ -626,7 +626,7 @@ public class SubscriptionController {
         String currency,
 
         @Schema(
-            description = "The amount paid for the subscription in the currency's smallest unit",
+            description = "The amount paid for the subscription in the currency's minor unit",
             externalDocs = @ExternalDocumentation(description = "Stripe Currencies", url = "https://docs.stripe.com/currencies"))
         BigDecimal amount,
 
@@ -678,7 +678,7 @@ public class SubscriptionController {
                     subscriptionInformation.active(),
                     subscriptionInformation.cancelAtPeriodEnd(),
                     subscriptionInformation.price().currency(),
-                    subscriptionInformation.price().amount(),
+                    BigDecimal.valueOf(subscriptionInformation.price().amount()),
                     subscriptionInformation.status().getApiValue(),
                     subscriptionInformation.paymentProvider(),
                     subscriptionInformation.paymentMethod(),

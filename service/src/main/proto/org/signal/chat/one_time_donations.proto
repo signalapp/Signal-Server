@@ -46,14 +46,14 @@ service OneTimeDonations {
 
 // The amount is below the minimum for the currency.
 message AmountBelowMinimumError {
-  // The minimum amount for the currency
-  string minimum = 1;
+  // The minimum amount for the currency in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)
+  uint64 minimum = 1;
 }
 
 // The SEPA Direct Debit amount exceeds the allowed maximum.
 message AmountAboveSepaLimitError {
-  // The maximum amount for a SEPA transaction
-  string maximum = 1;
+  // The maximum amount for a SEPA transaction in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)
+  uint64 maximum = 1;
 }
 
 message CreateBoostRequest {

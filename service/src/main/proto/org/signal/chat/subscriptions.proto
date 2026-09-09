@@ -415,7 +415,7 @@ message GetSubscriptionInformationResponse {
     bool cancel_at_period_end = 5;
     // A three-letter ISO 4217 currency code for currency used in the subscription
     string currency = 6;
-    // The amount paid for the subscription in the currency's smallest unit
+    // The amount paid for the subscription in the currency's minor unit
     uint64 amount = 7;
     // The subscription's status, mapped to Stripe's statuses. trialing will never be returned
     SubscriptionStatus status = 8;

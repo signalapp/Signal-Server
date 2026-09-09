@@ -46,6 +46,7 @@ import com.stripe.param.SubscriptionUpdateParams.BillingCycleAnchor;
 import com.stripe.param.SubscriptionUpdateParams.ProrationBehavior;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -596,7 +597,9 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor,
     }
 
     return new SubscriptionInformation(
-        new SubscriptionPrice(price.getCurrency().toUpperCase(Locale.ROOT), price.getUnitAmountDecimal()),
+        new SubscriptionPrice(
+            price.getCurrency().toUpperCase(Locale.ROOT),
+            price.getUnitAmountDecimal().longValueExact()),
         level,
         Instant.ofEpochSecond(subscription.getBillingCycleAnchor()),
         Instant.ofEpochSecond(subscription.getItems().getData().getFirst().getCurrentPeriodEnd()),

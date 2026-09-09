@@ -29,7 +29,6 @@ import com.google.api.services.androidpublisher.model.PurchaseStateContext;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseLineItem;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseV2;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -270,7 +269,7 @@ class GooglePlayBillingManagerTest {
     assertThat(info.active()).isTrue();
     assertThat(info.paymentProcessing()).isFalse();
     assertThat(info.price().currency()).isEqualTo("USD");
-    assertThat(info.price().amount().compareTo(new BigDecimal("175"))).isEqualTo(0); // 175 cents
+    assertThat(info.price().amount()).isEqualTo(175L); // 175 cents
     assertThat(info.level()).isEqualTo(201L);
     assertThat(info.cancelAtPeriodEnd()).isTrue();
 

@@ -78,7 +78,7 @@ public class ProductConfigurationGrpcServiceTest extends
     final GetConfigurationResponse configuration = unauthenticatedServiceStub()
         .getConfiguration(GetConfigurationRequest.newBuilder().build());
 
-    assertEquals("10000", configuration.getSepaMaximumEuros());
+    assertEquals(1000000L, configuration.getSepaMaximumEuros());
 
     assertEquals(30L, configuration.getBackup().getFreeTierMediaDays());
     final BackupLevelConfiguration backupLevel =
@@ -88,41 +88,41 @@ public class ProductConfigurationGrpcServiceTest extends
     assertEquals(40L, backupLevel.getMediaTtlDays());
 
     final CurrencyConfiguration usd = configuration.getCurrenciesOrThrow("usd");
-    assertEquals("2.50", usd.getMinimum());
+    assertEquals(250, usd.getMinimum());
     assertEquals(List.of(PaymentMethod.PAYMENT_METHOD_CARD, PaymentMethod.PAYMENT_METHOD_PAYPAL),
         usd.getSupportedPaymentMethodsList());
-    assertEquals(List.of("5.50", "6", "7", "8", "9", "10"), usd.getOneTimeOrThrow(1L).getAmountsList());
-    assertEquals(List.of("20"), usd.getOneTimeOrThrow(100L).getAmountsList());
-    assertEquals(Map.of(5L, "5", 15L, "15", 35L, "35"), usd.getSubscriptionMap());
-    assertEquals(Map.of(201L, "5"), usd.getBackupSubscriptionMap());
+    assertEquals(List.of(550L, 600L, 700L, 800L, 900L, 1000L), usd.getOneTimeOrThrow(1L).getAmountsList());
+    assertEquals(List.of(2000L), usd.getOneTimeOrThrow(100L).getAmountsList());
+    assertEquals(Map.of(5L, 500L, 15L, 1500L, 35L, 3500L), usd.getSubscriptionMap());
+    assertEquals(Map.of(201L, 500L), usd.getBackupSubscriptionMap());
 
     final CurrencyConfiguration jpy = configuration.getCurrenciesOrThrow("jpy");
-    assertEquals("250", jpy.getMinimum());
+    assertEquals(250L, jpy.getMinimum());
     assertEquals(List.of(PaymentMethod.PAYMENT_METHOD_CARD, PaymentMethod.PAYMENT_METHOD_PAYPAL),
         jpy.getSupportedPaymentMethodsList());
-    assertEquals(List.of("550", "600", "700", "800", "900", "1000"), jpy.getOneTimeOrThrow(1L).getAmountsList());
-    assertEquals(List.of("2000"), jpy.getOneTimeOrThrow(100L).getAmountsList());
-    assertEquals(Map.of(5L, "500", 15L, "1500", 35L, "3500"), jpy.getSubscriptionMap());
-    assertEquals(Map.of(201L, "500"), jpy.getBackupSubscriptionMap());
+    assertEquals(List.of(550L, 600L, 700L, 800L, 900L, 1000L), jpy.getOneTimeOrThrow(1L).getAmountsList());
+    assertEquals(List.of(2000L), jpy.getOneTimeOrThrow(100L).getAmountsList());
+    assertEquals(Map.of(5L, 500L, 15L, 1500L, 35L, 3500L), jpy.getSubscriptionMap());
+    assertEquals(Map.of(201L, 500L), jpy.getBackupSubscriptionMap());
 
     final CurrencyConfiguration bif = configuration.getCurrenciesOrThrow("bif");
-    assertEquals("2500", bif.getMinimum());
+    assertEquals(2500L, bif.getMinimum());
     assertEquals(List.of(PaymentMethod.PAYMENT_METHOD_CARD), bif.getSupportedPaymentMethodsList());
-    assertEquals(List.of("5500", "6000", "7000", "8000", "9000", "10000"), bif.getOneTimeOrThrow(1L).getAmountsList());
-    assertEquals(List.of("20000"), bif.getOneTimeOrThrow(100L).getAmountsList());
-    assertEquals(Map.of(5L, "5000", 15L, "15000", 35L, "35000"), bif.getSubscriptionMap());
-    assertEquals(Map.of(201L, "5000"), bif.getBackupSubscriptionMap());
+    assertEquals(List.of(5500L, 6000L, 7000L, 8000L, 9000L, 10000L), bif.getOneTimeOrThrow(1L).getAmountsList());
+    assertEquals(List.of(20000L), bif.getOneTimeOrThrow(100L).getAmountsList());
+    assertEquals(Map.of(5L, 5000L, 15L, 15000L, 35L, 35000L), bif.getSubscriptionMap());
+    assertEquals(Map.of(201L, 5000L), bif.getBackupSubscriptionMap());
 
     final CurrencyConfiguration eur = configuration.getCurrenciesOrThrow("eur");
-    assertEquals("3", eur.getMinimum());
+    assertEquals(300L, eur.getMinimum());
     assertEquals(
         List.of(PaymentMethod.PAYMENT_METHOD_CARD, PaymentMethod.PAYMENT_METHOD_SEPA_DEBIT,
             PaymentMethod.PAYMENT_METHOD_IDEAL),
         eur.getSupportedPaymentMethodsList());
-    assertEquals(List.of("5", "10", "20", "30", "50", "100"), eur.getOneTimeOrThrow(1L).getAmountsList());
-    assertEquals(List.of("5"), eur.getOneTimeOrThrow(100L).getAmountsList());
-    assertEquals(Map.of(5L, "5", 15L, "15", 35L, "35"), eur.getSubscriptionMap());
-    assertEquals(Map.of(201L, "5"), eur.getBackupSubscriptionMap());
+    assertEquals(List.of(500L, 1000L, 2000L, 3000L, 5000L, 10000L), eur.getOneTimeOrThrow(1L).getAmountsList());
+    assertEquals(List.of(500L), eur.getOneTimeOrThrow(100L).getAmountsList());
+    assertEquals(Map.of(5L, 500L, 15L, 1500L, 35L, 3500L), eur.getSubscriptionMap());
+    assertEquals(Map.of(201L, 500L), eur.getBackupSubscriptionMap());
 
     assertEquals("B1", configuration.getBadgeLevelsOrThrow(5L).getBadgeId());
     assertEquals(0L, configuration.getBadgeLevelsOrThrow(5L).getBadgeDurationSeconds());

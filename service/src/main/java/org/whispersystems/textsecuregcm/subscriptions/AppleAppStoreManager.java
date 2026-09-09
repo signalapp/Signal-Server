@@ -14,7 +14,6 @@ import com.apple.itunes.storekit.model.Type;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -219,10 +218,10 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor, OneTi
   }
 
   private SubscriptionPrice getSubscriptionPrice(final AppleAppStoreDecodedTransaction tx) {
-    final BigDecimal amount = new BigDecimal(tx.transaction().getPrice()).scaleByPowerOfTen(-3);
     return new SubscriptionPrice(
         tx.transaction().getCurrency().toUpperCase(Locale.ROOT),
-        SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(tx.transaction().getCurrency(), amount));
+        SubscriptionCurrencyUtil.convertAppleMoneyToMinorUnits(
+            tx.transaction().getCurrency(), tx.transaction().getPrice()));
   }
 
   private ReceiptLevel getLevel(final JWSTransactionDecodedPayload tx) {

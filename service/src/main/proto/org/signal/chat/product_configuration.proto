@@ -31,29 +31,31 @@ message GetConfigurationResponse {
   map<uint64, LevelConfiguration> badge_levels = 2;
   // Configuration for backup subscription options
   BackupConfiguration backup = 3;
-  // Maximum value of a one-time SEPA donation
-  string sepa_maximum_euros = 4;
+  // Maximum value of a one-time SEPA donation, in EUR [minor units](https://docs.stripe.com/currencies#minor-units)
+  uint64 sepa_maximum_euros = 4;
   // Configuration for one-time Signal Login purchases
   LoginConfiguration login = 5;
 }
 
 message AmountList {
-  // NOTE: this is a string instead of a numeric type because it is intended
-  // for display purposes only
-  repeated string amounts = 1;
+  // Amount in the currency's minor unit. Unless otherwise noted, currencies are
+  // two-decimal: divide by 100 to get the value in the specified currency.
+  // Some currencies are [zero-decimal](https://docs.stripe.com/currencies#zero-decimal);
+  // for zero-decimal currencies no multiplication is required.
+  repeated uint64 amounts = 1;
 }
 
 message CurrencyConfiguration {
-  // Minimum one-time donation
-  // NOTE: this is a string instead of a numeric type because it is intended
-  // for display purposes only
-  string minimum = 1;
+  // Minimum one-time donation in the currency's minor unit
+  uint64 minimum = 1;
   // Map of one-time donation level IDs to suggested amounts
   map<uint64, AmountList> one_time = 2;
-  // Map of subscription level IDs to the amount charged
-  map<uint64, string> subscription = 3;
-  // Map of backup subscription level IDs to the amount charged
-  map<uint64, string> backup_subscription = 4;
+  // Map of subscription level IDs to the amount charged in the currency's minor
+  // unit
+  map<uint64, uint64> subscription = 3;
+  // Map of backup subscription level IDs to the amount charged in the
+  // currency's minor unit
+  map<uint64, uint64> backup_subscription = 4;
   repeated PaymentMethod supported_payment_methods = 5;
 }
 

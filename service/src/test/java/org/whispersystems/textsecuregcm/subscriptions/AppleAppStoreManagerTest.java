@@ -28,7 +28,6 @@ import com.apple.itunes.storekit.model.Type;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -74,7 +73,7 @@ class AppleAppStoreManagerTest {
     assertThat(info.level()).isEqualTo(ReceiptLevel.BACKUP_PAID.getValue());
     assertThat(info.cancelAtPeriodEnd()).isFalse();
     assertThat(info.status()).isEqualTo(SubscriptionStatus.ACTIVE);
-    assertThat(info.price().amount().compareTo(new BigDecimal("150"))).isEqualTo(0); // 150 cents
+    assertThat(info.price().amount()).isEqualTo(150L);
   }
 
   @Test
@@ -149,7 +148,7 @@ class AppleAppStoreManagerTest {
     }
     final SubscriptionInformation info = appleAppStoreManager.getSubscriptionInformation(ORIGINAL_TX_ID);
 
-    assertThat(info.price().amount().compareTo(new BigDecimal("100"))).isEqualTo(0);
+    assertThat(info.price().amount()).isEqualTo(100L);
 
   }
 

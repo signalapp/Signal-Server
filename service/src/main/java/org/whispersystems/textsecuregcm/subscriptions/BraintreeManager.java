@@ -306,12 +306,8 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     };
   }
 
-  private BigDecimal convertApiAmountToBraintreeAmount(final String currency, final long amount) {
-    return switch (currency.toLowerCase(Locale.ROOT)) {
-      // JPY is the only supported zero-decimal currency
-      case "jpy" -> BigDecimal.valueOf(amount);
-      default -> BigDecimal.valueOf(amount).scaleByPowerOfTen(-2);
-    };
+  private BigDecimal convertApiAmountToBraintreeAmount(final String currency, final long amountMinorUnits) {
+    return SubscriptionCurrencyUtil.convertMinorToPrimaryUnits(currency, amountMinorUnits);
   }
 
   public record PayPalOneTimePaymentApprovalDetails(String approvalUrl, String paymentId) {
@@ -480,7 +476,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
 
     return new SubscriptionInformation(
         new SubscriptionPrice(plan.getCurrencyIsoCode().toUpperCase(Locale.ROOT),
-            SubscriptionCurrencyUtil.convertBraintreeAmountToApiAmount(plan.getCurrencyIsoCode(), plan.getPrice())),
+            SubscriptionCurrencyUtil.convertBraintreeAmountToMinorUnits(plan.getCurrencyIsoCode(), plan.getPrice())),
         level,
         anchor,
         endOfCurrentPeriod,

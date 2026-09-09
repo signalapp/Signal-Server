@@ -270,7 +270,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor, O
     final Money price = lineItem.getAutoRenewingPlan().getRecurringPrice();
     return new SubscriptionPrice(
         price.getCurrencyCode().toUpperCase(Locale.ROOT),
-        SubscriptionCurrencyUtil.convertGoogleMoneyToApiAmount(price));
+        SubscriptionCurrencyUtil.convertGoogleMoneyToMinorUnits(price));
   }
 
   @Override

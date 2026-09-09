@@ -199,7 +199,7 @@ public class OneTimeDonationController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), stripeManager);
+    validateRequestCurrencyAmount(request, request.amount, stripeManager);
     final PaymentIntent paymentIntent = stripeManager.createPaymentIntent(request.currency, request.amount,
         request.level,
         getClientPlatform(userAgent));
@@ -212,7 +212,7 @@ public class OneTimeDonationController {
    *
    * @throws BadRequestException indicates validation failed. Inspect {@code response.error} for details
    */
-  private void validateRequestCurrencyAmount(final CreateBoostRequest request, final BigDecimal amount,
+  private void validateRequestCurrencyAmount(final CreateBoostRequest request, final long amount,
       final CustomerAwareSubscriptionPaymentProcessor manager) {
 
     final Map<String, String> errorBody = switch (OneTimeDonationUtil.validateOneTimeDonationRequest(request.currency,
@@ -222,11 +222,9 @@ public class OneTimeDonationController {
       case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.UnsupportedCurrency _ ->
           Map.of("error", "unsupported_currency");
       case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountBelowMinimum(final BigDecimal min) ->
-          Map.of("error", "amount_below_currency_minimum",
-              "minimum", min.toString());
+          Map.of("error", "amount_below_currency_minimum", "minimum", min.toString());
       case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountAboveSepaLimit(final BigDecimal max) ->
-          Map.of("error", "amount_above_sepa_limit",
-              "maximum", max.toString());
+          Map.of("error", "amount_above_sepa_limit", "maximum", max.toString());
       case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.Success _ -> Collections.emptyMap();
     };
 
@@ -265,7 +263,7 @@ public class OneTimeDonationController {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
-    validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager);
+    validateRequestCurrencyAmount(request, request.amount, braintreeManager);
     final List<Locale> acceptableLanguages =
         HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
     final OneTimeDonationUtil.LocalizedPayPalDonationLineItem localizedLineItem = OneTimeDonationUtil.localizePayPalDonationLineItem(
@@ -307,7 +305,7 @@ public class OneTimeDonationController {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
-    validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager);
+    validateRequestCurrencyAmount(request, request.amount, braintreeManager);
     final BraintreeManager.PayPalChargeSuccessDetails chargeSuccessDetails = braintreeManager.captureOneTimePayment(
         request.payerId, request.paymentId,
         request.paymentToken, request.currency, request.amount, request.level, getClientPlatform(userAgent));

@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -20,17 +19,15 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
+import io.grpc.Status;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import io.grpc.Status;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -532,7 +529,7 @@ public class SubscriptionsGrpcServiceTest extends
   void getSubscriptionInformation()
       throws SubscriptionNotFoundException, SubscriptionForbiddenException, RateLimitExceededException {
     final SubscriptionInformation info = new SubscriptionInformation(
-        new SubscriptionPrice(CURRENCY, BigDecimal.valueOf(500)),
+        new SubscriptionPrice(CURRENCY, 500),
         LEVEL,
         Instant.ofEpochSecond(100),
         Instant.ofEpochSecond(1000),

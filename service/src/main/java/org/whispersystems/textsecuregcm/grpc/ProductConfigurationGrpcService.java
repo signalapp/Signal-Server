@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.grpc;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +19,7 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 
 public class ProductConfigurationGrpcService extends SimpleProductConfigurationGrpc.ProductConfigurationImplBase {
   private final GetConfigurationResponse configurationResponse;
@@ -32,7 +32,8 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
       final long backupMediaStorageAllowanceBytes) {
     this.configurationResponse = GetConfigurationResponse.newBuilder()
         .setBackup(buildBackupConfiguration(subscriptionConfiguration, backupMediaStorageAllowanceBytes))
-        .setSepaMaximumEuros(oneTimeDonationConfiguration.sepaMaximumEuros().toString())
+        .setSepaMaximumEuros(SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(
+            OneTimeDonationUtil.EURO_CURRENCY_CODE, oneTimeDonationConfiguration.sepaMaximumEuros()))
         .putAllCurrencies(buildCurrencyConfigurations(subscriptionConfiguration, oneTimeDonationConfiguration, paymentProcessors))
         .putAllBadgeLevels(buildLevelConfigurations(subscriptionConfiguration, oneTimeDonationConfiguration))
         .setLogin(buildLoginConfiguration(loginPurchaseConfiguration))
@@ -104,18 +105,20 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
       final String currency,
       final org.whispersystems.textsecuregcm.subscriptions.CurrencyConfiguration config) {
     final CurrencyConfiguration.Builder builder = CurrencyConfiguration.newBuilder()
-        .setMinimum(config.minimum().toString())
+        .setMinimum(SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(currency, config.minimum()))
         .addAllSupportedPaymentMethods(config.supportedPaymentMethods().stream()
             .map(PaymentMethod::toProtoPaymentMethod)
             .toList());
     config.oneTime().forEach((levelId, amounts) ->
         builder.putOneTime(levelId, AmountList.newBuilder()
-            .addAllAmounts(amounts.stream().map(BigDecimal::toString).toList())
+            .addAllAmounts(amounts.stream()
+                .map(amount -> SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(currency, amount))
+                .toList())
             .build()));
     config.subscription()
-        .forEach((levelId, amount) -> builder.putSubscription(levelId, amount.toString()));
+        .forEach((levelId, amount) -> builder.putSubscription(levelId, SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(currency, amount)));
     config.backupSubscription()
-        .forEach((levelId, amount) -> builder.putBackupSubscription(levelId, amount.toString()));
+        .forEach((levelId, amount) -> builder.putBackupSubscription(levelId, SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(currency, amount)));
     return builder.build();
   }
 }

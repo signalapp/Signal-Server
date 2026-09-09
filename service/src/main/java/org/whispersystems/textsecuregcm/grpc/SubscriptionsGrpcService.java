@@ -420,7 +420,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
     final GetSubscriptionInformationResponse.Subscription.Builder subscription = GetSubscriptionInformationResponse.Subscription.newBuilder()
         .setLevel(info.level()).setEndOfCurrentPeriod(info.endOfCurrentPeriod().getEpochSecond())
         .setActive(info.active()).setCancelAtPeriodEnd(info.cancelAtPeriodEnd()).setCurrency(info.price().currency())
-        .setAmount(info.price().amount().longValue()).setStatus(toProtoSubscriptionStatus(info.status()))
+        .setAmount(info.price().amount()).setStatus(toProtoSubscriptionStatus(info.status()))
         .setProcessor(info.paymentProvider().toProto()).setPaymentMethod(info.paymentMethod().toProtoPaymentMethod())
         .setPaymentProcessing(info.paymentProcessing());
     if (info.billingCycleAnchor() != null) {
