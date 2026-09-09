@@ -1316,6 +1316,16 @@ public class Accounts {
             .map(Accounts::fromItem)));
   }
 
+  boolean accountExists(final UUID aci) {
+    final GetItemResponse response = dynamoDbClient.getItem(GetItemRequest.builder()
+        .tableName(accountsTableName)
+        .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(aci)))
+        .projectionExpression(KEY_ACCOUNT_UUID)
+        .consistentRead(true)
+        .build());
+    return response.hasItem() && !response.item().isEmpty();
+  }
+
   private TransactWriteItem buildPutDeletedAccount(final UUID aci, final UUID pni) {
     return TransactWriteItem.builder()
         .put(Put.builder()

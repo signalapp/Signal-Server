@@ -26,10 +26,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -100,11 +97,9 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
     // Assume that a subset of accounts are deleted
     final Set<AciServiceIdentifier> deletedAccounts = new HashSet<>(accounts.subList(0, 3));
 
-    when(accountsManager.getByAccountIdentifierAsync(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(mock(Account.class))));
+    when(accountsManager.accountExists(any())).thenReturn(true);
     for (final AciServiceIdentifier deletedAccount : deletedAccounts) {
-      when(accountsManager.getByAccountIdentifierAsync(deletedAccount.uuid()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+      when(accountsManager.accountExists(deletedAccount)).thenReturn(false);
     }
 
     final ClearOrphanedFoundationDbQueuesCommand command = new ClearOrphanedFoundationDbQueuesCommand();
@@ -155,11 +150,9 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
     foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage())).join();
     foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage())).join();
 
-    // Stub that the initial existence check returns empty, but the second check under the ACI lock returns present i.e the ACI has been re-used
+    // Stub that the initial existence check returns absent, but the second check under the ACI lock returns present i.e the ACI has been re-used
     // since the initial check
-    when(accountsManager.getByAccountIdentifierAsync(aci.uuid()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-    when(accountsManager.getByAccountIdentifier(aci.uuid())).thenReturn(Optional.of(mock(Account.class)));
+    when(accountsManager.accountExists(aci)).thenReturn(false, true);
 
     final ClearOrphanedFoundationDbQueuesCommand command = new ClearOrphanedFoundationDbQueuesCommand();
     command.clearOrphanedQueues(

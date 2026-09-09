@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,6 +46,8 @@ import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbUtil;
 import org.whispersystems.textsecuregcm.util.ManagedExecutors;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 
 public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithDependencies {
@@ -153,10 +154,11 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
   void clearOrphanedQueues(final Stream<FaultTolerantDatabase> databases, final AccountsManager accountsManager,
       final int concurrency, final boolean dryRun, final int maxAcisPerTransaction, final long transactionRetryLimit,
       final Duration transactionTimeout, final int numChunks, final AccountLockManager accountLockManager,
-      final Executor executor) {
+      final ExecutorService executor) {
+    final Scheduler scheduler = Schedulers.fromExecutorService(executor);
     Flux.fromStream(databases)
         .flatMap(database -> crawlAcisInShard(database, accountsManager, concurrency, dryRun, maxAcisPerTransaction,
-            transactionRetryLimit, transactionTimeout, numChunks, accountLockManager, executor))
+            transactionRetryLimit, transactionTimeout, numChunks, accountLockManager, scheduler))
         .then()
         .block();
   }
@@ -164,19 +166,19 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
   private Mono<Void> crawlAcisInShard(final FaultTolerantDatabase database, final AccountsManager accountsManager,
       final int concurrency, final boolean dryRun, final int maxAcisPerTransaction, final long transactionRetryLimit,
       final Duration transactionTimeout, final int numChunks, final AccountLockManager accountLockManager,
-      final Executor executor) {
+      final Scheduler scheduler) {
     return getAcisInShard(database, maxAcisPerTransaction, transactionRetryLimit, transactionTimeout, numChunks)
         .doOnNext(_ -> Metrics.counter(ACCOUNTS_CRAWLED_COUNTER, "dryRun", String.valueOf(dryRun)).increment())
-        .flatMap(aci -> Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(aci.uuid()))
-                .flatMap(maybeAccount -> {
-                  if (maybeAccount.isEmpty()) {
-                    return Mono.just(aci);
-                  }
-                  return Mono.empty();
+        .flatMap(aci -> Mono.fromCallable(() -> accountsManager.accountExists(aci))
+                .subscribeOn(scheduler)
+                .flatMap(exists -> {
+                  // This looks odd, but we want to delete accounts that don't exist i.e deleted accounts, so only
+                  // pass the ACI downstream if the account does not exist.
+                  return exists ? Mono.empty() : Mono.just(aci);
                 })
                 .retryWhen(Retry.backoff(2, Duration.ofSeconds(1)))
                 .onErrorResume(t -> {
-                  logger.warn("Failed to fetch account by ACI", t);
+                  logger.warn("Failed to check account existence by ACI", t);
                   return Mono.empty();
                 })
             , concurrency)
@@ -186,7 +188,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
             return Mono.just(true);
           }
           return clearQueueWithAciLock(database, aci, transactionRetryLimit, transactionTimeout, accountsManager,
-              accountLockManager, executor)
+              accountLockManager, scheduler)
               .thenReturn(true)
               .onErrorResume(t -> {
                 logger.error("Failed to clear orphaned queue for ACI: {}", aci.uuid(), t);
@@ -202,16 +204,16 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
   private Mono<Void> clearQueueWithAciLock(final FaultTolerantDatabase database, final AciServiceIdentifier aci,
       final long transactionRetryLimit, final Duration transactionTimeout, final AccountsManager accountsManager,
       final AccountLockManager accountLockManager,
-      final Executor executor) {
-    return Mono.fromFuture(
-        () -> CompletableFuture.runAsync(() -> accountLockManager.withLock(Set.of(aci.uuid()), () -> {
-          if (accountsManager.getByAccountIdentifier(aci.uuid()).isPresent()) {
+      final Scheduler scheduler) {
+    return Mono.<Void>fromRunnable(() -> accountLockManager.withLock(Set.of(aci.uuid()), () -> {
+          if (accountsManager.accountExists(aci)) {
             logger.info("ACI re-used after we checked for existence, not clearing its queues: {}", aci.uuid());
             return null;
           }
           clearQueue(database, aci, transactionRetryLimit, transactionTimeout);
           return null;
-        }), executor));
+        }))
+        .subscribeOn(scheduler);
   }
 
   private void clearQueue(final FaultTolerantDatabase database, final AciServiceIdentifier aci, final long transactionRetryLimit,

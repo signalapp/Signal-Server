@@ -2300,6 +2300,18 @@ class AccountsTest {
     assertEquals(originalUsernameConstraints, regeneratedUsernameConstraints);
   }
 
+  @Test
+  void accountExists() {
+    final UUID existingUuid = UUID.randomUUID();
+    final Account account =
+        generateAccount("+14151112222", existingUuid, UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
+
+    createAccount(account);
+
+    assertThat(accounts.accountExists(existingUuid)).isTrue();
+    assertThat(accounts.accountExists(UUID.randomUUID())).isFalse();
+  }
+
   private void writeAccountRecordWithoutConstraints(final Account account) {
     final AttributeValue accountData;
 

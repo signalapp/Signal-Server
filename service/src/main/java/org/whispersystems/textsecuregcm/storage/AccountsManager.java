@@ -78,6 +78,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveResult;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
@@ -1494,6 +1495,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     } finally {
       sample.stop(deleteTimer);
     }
+  }
+
+  public boolean accountExists(final AciServiceIdentifier accountIdentifier) {
+    return accounts.accountExists(accountIdentifier.uuid());
   }
 
   private void delete(final Account account) {
