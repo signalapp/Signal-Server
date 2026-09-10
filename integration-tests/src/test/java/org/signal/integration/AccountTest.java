@@ -74,11 +74,12 @@ public class AccountTest {
   public void testRecoverWithTotp()
       throws VerificationFailedException, InvalidInputException, NoSuchAlgorithmException, InvalidKeyException {
     final Operations.Receipt receipt = Operations.getPrescribedReceipt();
-    final TestUser originalUser = Operations.registerNumberlessUser(receipt.credential());
+    TestUser user = Operations.registerNumberlessUser(receipt.credential());
+    final UUID originalAci = user.aciUuid();
 
     try {
       final GenerateTotpKeyResponse generateTotpKeyResponse =
-          getAccountsStubForUser(originalUser).generateTotpKey(GenerateTotpKeyRequest.getDefaultInstance());
+          getAccountsStubForUser(user).generateTotpKey(GenerateTotpKeyRequest.getDefaultInstance());
       assertEquals(GenerateTotpKeyResponse.ResponseCase.KEY_GENERATED, generateTotpKeyResponse.getResponseCase());
 
       final TotpParameters totpParameters = generateTotpKeyResponse.getKeyGenerated().getTotpParameters();
@@ -93,7 +94,7 @@ public class AccountTest {
 
       final byte[] totpMetadata = Operations.randomBytes(160);
 
-      final ConfirmTotpKeyResponse confirmTotpKeyResponse = getAccountsStubForUser(originalUser)
+      final ConfirmTotpKeyResponse confirmTotpKeyResponse = getAccountsStubForUser(user)
           .confirmTotpKey(ConfirmTotpKeyRequest.newBuilder()
               .setOneTimePassword(totpGenerator.generateOneTimePassword(totpKey, Instant.now()))
               .setMetadataCiphertext(ByteString.copyFrom(totpMetadata))
@@ -101,14 +102,13 @@ public class AccountTest {
       assertEquals(ConfirmTotpKeyResponse.ResponseCase.KEY_CONFIRMED, confirmTotpKeyResponse.getResponseCase());
       final int keyId = confirmTotpKeyResponse.getKeyConfirmed().getKeyId();
 
-      final TestUser recoveredUser =
-          Operations.recoverNumberlessUser(originalUser, totpGenerator.generateOneTimePassword(totpKey, Instant.now()));
+      user = Operations.recoverNumberlessUser(user, totpGenerator.generateOneTimePassword(totpKey, Instant.now()));
 
-      assertEquals(originalUser.aciUuid(), recoveredUser.aciUuid());
+      assertEquals(user.aciUuid(), originalAci);
 
       // MFA key should remain set after re-registration
       final Map<Integer, ListMfaKeysResponse.MfaKeyMetadata> mfaKeys =
-          getAccountsStubForUser(recoveredUser).listMfaKeys(ListMfaKeysRequest.getDefaultInstance()).getKeysMap();
+          getAccountsStubForUser(user).listMfaKeys(ListMfaKeysRequest.getDefaultInstance()).getKeysMap();
 
       assertEquals(1, mfaKeys.size());
       assertTrue(mfaKeys.containsKey(keyId));
@@ -117,7 +117,7 @@ public class AccountTest {
 
     } finally {
       Operations.deleteReceipt(receipt.serial());
-      Operations.deleteUser(originalUser);
+      Operations.deleteUser(user);
     }
   }
 
