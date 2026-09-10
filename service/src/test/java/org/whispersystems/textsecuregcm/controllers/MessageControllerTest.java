@@ -725,7 +725,7 @@ class MessageControllerTest {
     when(account.getNumber()).thenReturn(Optional.of(senderNumber));
     when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(senderPni));
 
-    when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(senderAci))).thenReturn(Optional.of(account));
     when(phoneNumberIdentifiers.getPhoneNumber(senderPni)).thenReturn(CompletableFuture.completedFuture(List.of(senderNumber)));
 
     try (final Response response =
@@ -738,7 +738,7 @@ class MessageControllerTest {
 
       assertThat(response.getStatus(), is(equalTo(202)));
 
-      verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
+      verify(reportMessageManager).report(Optional.of(senderNumber), senderAci, Optional.of(senderPni),
           messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent, false);
       verify(accountsManager, never()).findRecentlyDeletedPhoneNumberIdentifier(any(UUID.class));
       verify(phoneNumberIdentifiers, never()).getPhoneNumber(any());
@@ -772,7 +772,7 @@ class MessageControllerTest {
 
       assertThat(response.getStatus(), is(equalTo(202)));
 
-      verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
+      verify(reportMessageManager).report(Optional.of(senderNumber), senderAci, Optional.of(senderPni),
           messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent, true);
     }
   }
@@ -790,7 +790,7 @@ class MessageControllerTest {
     when(account.getNumber()).thenReturn(Optional.of(senderNumber));
     when(account.getPhoneNumberIdentifier()).thenReturn(Optional.of(senderPni));
 
-    when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(senderAci))).thenReturn(Optional.of(account));
     when(accountsManager.findRecentlyDeletedPhoneNumberIdentifier(senderAci)).thenReturn(Optional.of(senderPni));
     when(phoneNumberIdentifiers.getPhoneNumber(senderPni)).thenReturn(CompletableFuture.completedFuture(List.of(senderNumber)));
 
@@ -805,7 +805,7 @@ class MessageControllerTest {
 
       assertThat(response.getStatus(), is(equalTo(202)));
       verify(reportMessageManager).report(eq(Optional.of(senderNumber)),
-          eq(Optional.of(senderAci)),
+          eq(senderAci),
           eq(Optional.of(senderPni)),
           eq(messageGuid),
           eq(AuthHelper.VALID_UUID),
@@ -816,11 +816,13 @@ class MessageControllerTest {
       verify(phoneNumberIdentifiers, never()).getPhoneNumber(any());
     }
 
-    when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(senderAci))).thenReturn(Optional.empty());
 
     messageGuid = UUID.randomUUID();
 
-    entity = Entity.entity(new SpamReport(new byte[5]), "application/json");
+    final byte[] reportSpamToken = new byte[5];
+
+    entity = Entity.entity(new SpamReport(reportSpamToken), "application/json");
 
     try (final Response response =
         resources.getJerseyTest()
@@ -831,11 +833,11 @@ class MessageControllerTest {
 
       assertThat(response.getStatus(), is(equalTo(202)));
       verify(reportMessageManager).report(eq(Optional.of(senderNumber)),
-          eq(Optional.of(senderAci)),
+          eq(senderAci),
           eq(Optional.of(senderPni)),
           eq(messageGuid),
           eq(AuthHelper.VALID_UUID),
-          argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[5])).orElse(false)),
+          argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, reportSpamToken)).orElse(false)),
           any(),
           eq(true));
     }

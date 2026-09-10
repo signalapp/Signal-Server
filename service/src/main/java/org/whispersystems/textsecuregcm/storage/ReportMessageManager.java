@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import javax.annotation.Nullable;
 
 public class ReportMessageManager {
 
@@ -61,17 +62,17 @@ public class ReportMessageManager {
     }
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public void report(final Optional<String> sourceNumber,
-      final Optional<UUID> sourceAci,
+      final UUID sourceAci,
       final Optional<UUID> sourcePni,
       final UUID messageGuid,
       final UUID reporterUuid,
       final Optional<byte[]> reportSpamToken,
-      final String reporterUserAgent,
+      @Nullable final String reporterUserAgent,
       final boolean sourceAccountDeleted) {
 
-    final boolean found = sourceAci.map(uuid -> reportMessageDynamoDb.remove(hash(messageGuid, uuid.toString())))
-        .orElse(false);
+    final boolean found = reportMessageDynamoDb.remove(hash(messageGuid, sourceAci.toString()));
 
     Metrics.counter(REPORT_MESSAGE_COUNTER_NAME,
             Tags.of(FOUND_MESSAGE_TAG, String.valueOf(found),
@@ -87,11 +88,11 @@ public class ReportMessageManager {
           connection.sync().expire(reportedSenderKey, counterTtl.toSeconds());
         });
 
-        sourceAci.ifPresent(aci -> {
-          final String reportedSenderKey = getReportedSenderAciKey(aci);
+        {
+          final String reportedSenderKey = getReportedSenderAciKey(sourceAci);
           connection.sync().pfadd(reportedSenderKey, reporterUuid.toString());
           connection.sync().expire(reportedSenderKey, counterTtl.toSeconds());
-        });
+        }
       });
 
       reportedMessageListeners.forEach(listener -> {
