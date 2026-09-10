@@ -48,8 +48,8 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.signal.chat.credentials.CredentialsGrpc;
 import org.signal.chat.credentials.ExternalServiceType;
-import org.signal.chat.credentials.GetCreateCallLinkCredentialsRequest;
-import org.signal.chat.credentials.GetCreateCallLinkCredentialsResponse;
+import org.signal.chat.credentials.GetCreateCallLinkCredentialRequest;
+import org.signal.chat.credentials.GetCreateCallLinkCredentialResponse;
 import org.signal.chat.credentials.GetDeliveryCertificateRequest;
 import org.signal.chat.credentials.GetDeliveryCertificateResponse;
 import org.signal.chat.credentials.GetExternalServiceCredentialsRequest;
@@ -348,8 +348,8 @@ public class CredentialsGrpcServiceTest
 
     for (int i = 0; i < redemptionEndOffsetDays; i++) {
       final Instant redemptionTime = startOfDay.plus(Duration.ofDays(i));
-      assertEquals(redemptionTime.getEpochSecond(), response.getGroupCredentials(i).getRedemptionTimeSeconds());
-      assertEquals(redemptionTime.getEpochSecond(), response.getCallLinkAuthCredentials(i).getRedemptionTimeSeconds());
+      assertEquals(redemptionTime.getEpochSecond(), response.getGroupCredentials(i).getRedemptionTime());
+      assertEquals(redemptionTime.getEpochSecond(), response.getCallLinkAuthCredentials(i).getRedemptionTime());
 
       final int index = i;
 
@@ -406,14 +406,13 @@ public class CredentialsGrpcServiceTest
 
     final byte[] roomId = TestRandomUtil.nextBytes(32);
 
-    final GetCreateCallLinkCredentialsResponse response =
-        authenticatedServiceStub().getCreateCallLinkCredentials(GetCreateCallLinkCredentialsRequest.newBuilder()
+    final GetCreateCallLinkCredentialResponse response =
+        authenticatedServiceStub().getCreateCallLinkCredential(GetCreateCallLinkCredentialRequest.newBuilder()
             .setCredentialRequest(
                 ByteString.copyFrom(CreateCallLinkCredentialRequestContext.forRoom(roomId).getRequest().serialize()))
             .build());
 
     assertFalse(response.getCredential().isEmpty());
-    assertEquals(CLOCK.instant().truncatedTo(ChronoUnit.DAYS).getEpochSecond(), response.getRedemptionTimeSeconds());
   }
 
   @Test
@@ -427,7 +426,7 @@ public class CredentialsGrpcServiceTest
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
-        () -> authenticatedServiceStub().getCreateCallLinkCredentials(GetCreateCallLinkCredentialsRequest.newBuilder()
+        () -> authenticatedServiceStub().getCreateCallLinkCredential(GetCreateCallLinkCredentialRequest.newBuilder()
             .setCredentialRequest(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
             .build()));
   }
@@ -437,7 +436,7 @@ public class CredentialsGrpcServiceTest
     when(rateLimiters.getCreateCallLinkLimiter()).thenReturn(mock(RateLimiter.class));
 
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
-        () -> authenticatedServiceStub().getCreateCallLinkCredentials(GetCreateCallLinkCredentialsRequest.newBuilder()
+        () -> authenticatedServiceStub().getCreateCallLinkCredential(GetCreateCallLinkCredentialRequest.newBuilder()
             .setCredentialRequest(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))
             .build()));
   }

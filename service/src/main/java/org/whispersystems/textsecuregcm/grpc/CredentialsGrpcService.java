@@ -12,9 +12,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.signal.chat.common.ZkCredential;
 import org.signal.chat.credentials.ExternalServiceType;
-import org.signal.chat.credentials.GetCreateCallLinkCredentialsRequest;
-import org.signal.chat.credentials.GetCreateCallLinkCredentialsResponse;
+import org.signal.chat.credentials.GetCreateCallLinkCredentialRequest;
+import org.signal.chat.credentials.GetCreateCallLinkCredentialResponse;
 import org.signal.chat.credentials.GetDeliveryCertificateRequest;
 import org.signal.chat.credentials.GetDeliveryCertificateResponse;
 import org.signal.chat.credentials.GetExternalServiceCredentialsRequest;
@@ -138,14 +139,14 @@ public class CredentialsGrpcService extends SimpleCredentialsGrpc.CredentialsImp
                       .orElseThrow(
                           () -> new IllegalStateException("account without PNI must have auth credential salt")),
                   redemption));
-      responseBuilder.addGroupCredentials(GetGroupCredentialsResponse.CredentialAndRedemptionTime.newBuilder()
-          .setRedemptionTimeSeconds(redemption.getEpochSecond())
+      responseBuilder.addGroupCredentials(ZkCredential.newBuilder()
+          .setRedemptionTime(redemption.getEpochSecond())
           .setCredential(ByteString.copyFrom(
               authCredentialWithPniResponse.serialize()))
           .build());
 
-      responseBuilder.addCallLinkAuthCredentials(GetGroupCredentialsResponse.CredentialAndRedemptionTime.newBuilder()
-          .setRedemptionTimeSeconds(redemption.getEpochSecond())
+      responseBuilder.addCallLinkAuthCredentials(ZkCredential.newBuilder()
+          .setRedemptionTime(redemption.getEpochSecond())
           .setCredential(ByteString.copyFrom(
               CallLinkAuthCredentialResponse.issueCredential(aci, redemption, serverSecretParams).serialize()))
           .build());
@@ -155,7 +156,7 @@ public class CredentialsGrpcService extends SimpleCredentialsGrpc.CredentialsImp
   }
 
   @Override
-  public GetCreateCallLinkCredentialsResponse getCreateCallLinkCredentials(final GetCreateCallLinkCredentialsRequest request)
+  public GetCreateCallLinkCredentialResponse getCreateCallLinkCredential(final GetCreateCallLinkCredentialRequest request)
       throws RateLimitExceededException {
 
     final UUID accountIdentifier = AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier();
@@ -167,8 +168,7 @@ public class CredentialsGrpcService extends SimpleCredentialsGrpc.CredentialsImp
       final CreateCallLinkCredentialRequest createCallLinkCredentialRequest =
           new CreateCallLinkCredentialRequest(request.getCredentialRequest().toByteArray());
 
-      return GetCreateCallLinkCredentialsResponse.newBuilder()
-          .setRedemptionTimeSeconds(truncatedDayTimestamp.getEpochSecond())
+      return GetCreateCallLinkCredentialResponse.newBuilder()
           .setCredential(ByteString.copyFrom(createCallLinkCredentialRequest.issueCredential(
                   new ServiceId.Aci(accountIdentifier),
                   truncatedDayTimestamp,
