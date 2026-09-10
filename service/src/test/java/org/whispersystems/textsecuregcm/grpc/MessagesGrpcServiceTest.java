@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -30,6 +31,7 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.stub.BlockingClientCall;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +40,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -56,6 +57,7 @@ import org.signal.chat.messages.GetMessagesResponse;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
 import org.signal.chat.messages.MessagesGrpc;
 import org.signal.chat.messages.MismatchedDevices;
+import org.signal.chat.messages.ReportMessageRequest;
 import org.signal.chat.messages.SendAuthenticatedSenderMessageRequest;
 import org.signal.chat.messages.SendMessageAuthenticatedSenderResponse;
 import org.signal.chat.messages.SendMessageType;
@@ -66,7 +68,7 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -80,6 +82,8 @@ import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
+import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -91,6 +95,12 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
 
   @Mock
   private AccountsManager accountsManager;
+
+  @Mock
+  private ReportMessageManager reportMessageManager;
+
+  @Mock
+  private PhoneNumberIdentifiers phoneNumberIdentifiers;
 
   @Mock
   private RateLimiters rateLimiters;
@@ -140,6 +150,8 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
   @Override
   protected MessagesGrpcService createServiceBeforeEachTest() {
     return new MessagesGrpcService(accountsManager,
+        reportMessageManager,
+        phoneNumberIdentifiers,
         rateLimiters,
         messageSender,
         messageByteLimitEstimator,
@@ -378,7 +390,6 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .setType(SendMessageType.DOUBLE_RATCHET)
               .build());
 
-      //noinspection ResultOfMethodCallIgnored
       assertRateLimitExceeded(retryDuration,
           () -> authenticatedServiceStub().sendMessage(
               generateRequest(serviceIdentifier, false, true, messages)));
@@ -682,7 +693,6 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .setType(SendMessageType.DOUBLE_RATCHET)
               .build());
 
-      //noinspection ResultOfMethodCallIgnored
       assertRateLimitExceeded(retryDuration, () ->
           authenticatedServiceStub().sendSyncMessage(generateRequest(true, messages)));
 
@@ -719,7 +729,6 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
     @Test
     void messageDeliveryNotAllowed()
         throws MessageTooLargeException, MessageDeliveryNotAllowedException, MismatchedDevicesException {
-      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(AUTHENTICATED_ACI);
       final byte[] payload = TestRandomUtil.nextBytes(128);
 
       final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
@@ -783,7 +792,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
     @ParameterizedTest
     @MethodSource
     void invalidAckMessages(final GetMessagesRequest request)
-        throws StatusException, InterruptedException, TimeoutException {
+        throws StatusException, InterruptedException {
       doAnswer(invocation -> {
         Flux<UUID> ackArg = invocation.getArgument(4);
         // use mapNotNull instead of `then` because there is an interaction between the blocking client and
@@ -793,7 +802,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       }).when(messageDispatcher).getMessages(anyBoolean(), any(), any(), any(), any());
 
       final BlockingClientCall<GetMessagesRequest, GetMessagesResponse> blockingCall = authenticatedServiceStub().getMessages();
-      final CompletableFuture<StatusException> reader = CompletableFuture.supplyAsync(() ->  assertThrows(StatusException.class, () -> blockingCall.read()));
+      final CompletableFuture<StatusException> reader = CompletableFuture.supplyAsync(() ->  assertThrows(StatusException.class, blockingCall::read));
 
       blockingCall.write(GetMessagesRequest.newBuilder().setOptions(GetMessagesRequest.GetMessageOptions.getDefaultInstance()).build());
       blockingCall.write(request);
@@ -811,6 +820,55 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       blockingCall.write(GetMessagesRequest.newBuilder().setOptions(GetMessagesRequest.GetMessageOptions.getDefaultInstance()).build());
       assertTrue(blockingCall.read().hasEnvelope());
       assertTrue(blockingCall.read().hasQueueEmpty());
+    }
+  }
+
+  @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+  @Nested
+  class ReportMessage {
+
+    @Test
+    void reportMessage() throws StatusException {
+      final AciServiceIdentifier sourceServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      final UUID messageGuid = UUID.randomUUID();
+      final byte[] reportSpamToken = TestRandomUtil.nextBytes(128);
+
+      //noinspection ResultOfMethodCallIgnored
+      authenticatedServiceStub().reportMessage(ReportMessageRequest.newBuilder()
+              .setSourceServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(sourceServiceIdentifier))
+              .setMessageGuid(UUIDUtil.toByteString(messageGuid))
+              .setReportSpamToken(ByteString.copyFrom(reportSpamToken))
+          .build());
+
+      verify(reportMessageManager).report(eq(Optional.empty()),
+          eq(sourceServiceIdentifier.uuid()),
+          eq(Optional.empty()),
+          eq(messageGuid),
+          eq(AUTHENTICATED_ACI),
+          argThat(maybeToken -> maybeToken.map(token -> Arrays.equals(token, reportSpamToken)).orElse(false)),
+          any(),
+          eq(true));
+    }
+
+    @Test
+    void reportMessageNoToken() throws StatusException {
+      final AciServiceIdentifier sourceServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      final UUID messageGuid = UUID.randomUUID();
+
+      //noinspection ResultOfMethodCallIgnored
+      authenticatedServiceStub().reportMessage(ReportMessageRequest.newBuilder()
+          .setSourceServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(sourceServiceIdentifier))
+          .setMessageGuid(UUIDUtil.toByteString(messageGuid))
+          .build());
+
+      verify(reportMessageManager).report(eq(Optional.empty()),
+          eq(sourceServiceIdentifier.uuid()),
+          eq(Optional.empty()),
+          eq(messageGuid),
+          eq(AUTHENTICATED_ACI),
+          eq(Optional.empty()),
+          any(),
+          eq(true));
     }
   }
 

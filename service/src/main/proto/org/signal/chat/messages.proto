@@ -49,6 +49,9 @@ service Messages {
   // a STREAM_CLOSED error reason. A GetMessagesStreamClosed message will be
   // present in the error details.
   rpc GetMessages(stream GetMessagesRequest) returns (stream GetMessagesResponse) {}
+
+  // Reports a message as spam.
+  rpc ReportMessage(ReportMessageRequest) returns (ReportMessageResponse) {}
 }
 
 message GetMessagesRequest {
@@ -434,4 +437,19 @@ message ChallengeRequired {
   // resolved by simply waiting. May not be set if the challenge cannot be
   // resolved by waiting.
   optional uint64 retry_after_seconds = 3;
+}
+
+message ReportMessageRequest {
+  // The service identifier of the party that sent the offending message
+  common.ServiceIdentifier source_service_identifier = 1;
+
+  // The GUID of the offending message
+  bytes message_guid = 2 [(require.exactlySize) = 16];
+
+  // The spam-reporting token attached to the offending message
+  bytes report_spam_token = 3;
+}
+
+
+message ReportMessageResponse {
 }

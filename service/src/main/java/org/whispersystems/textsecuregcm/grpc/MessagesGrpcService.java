@@ -20,6 +20,8 @@ import org.signal.chat.errors.NotFound;
 import org.signal.chat.messages.GetMessagesRequest;
 import org.signal.chat.messages.GetMessagesResponse;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
+import org.signal.chat.messages.ReportMessageRequest;
+import org.signal.chat.messages.ReportMessageResponse;
 import org.signal.chat.messages.SendAuthenticatedSenderMessageRequest;
 import org.signal.chat.messages.SendMessageAuthenticatedSenderResponse;
 import org.signal.chat.messages.SendMessageType;
@@ -44,6 +46,9 @@ import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
+import org.whispersystems.textsecuregcm.storage.ReportMessageHelper;
+import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.publisher.Flux;
@@ -52,6 +57,8 @@ import javax.annotation.Nullable;
 public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
 
   private final AccountsManager accountsManager;
+  private final ReportMessageManager reportMessageManager;
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final RateLimiters rateLimiters;
   private final MessageSender messageSender;
   private final CardinalityEstimator messageByteLimitEstimator;
@@ -63,6 +70,8 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
       SendMessageAuthenticatedSenderResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build();
 
   public MessagesGrpcService(final AccountsManager accountsManager,
+      final ReportMessageManager reportMessageManager,
+      final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final RateLimiters rateLimiters,
       final MessageSender messageSender,
       final CardinalityEstimator messageByteLimitEstimator,
@@ -71,6 +80,8 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
       final Clock clock) {
 
     this.accountsManager = accountsManager;
+    this.reportMessageManager = reportMessageManager;
+    this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.rateLimiters = rateLimiters;
     this.messageSender = messageSender;
     this.messageByteLimitEstimator = messageByteLimitEstimator;
@@ -260,5 +271,23 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
       case UNSPECIFIED, UNRECOGNIZED ->
           throw GrpcExceptions.invalidArguments("unrecognized envelope type");
     };
+  }
+
+  @Override
+  public ReportMessageResponse reportMessage(final ReportMessageRequest request) {
+    final ServiceIdentifier sourceServiceIdentifier =
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getSourceServiceIdentifier());
+
+    ReportMessageHelper.reportMessage(
+        sourceServiceIdentifier,
+        new AciServiceIdentifier(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier()),
+        UUIDUtil.fromByteString(request.getMessageGuid()),
+        request.getReportSpamToken().isEmpty() ? null : request.getReportSpamToken().toByteArray(),
+        RequestAttributesUtil.getUserAgent().orElse(null),
+        accountsManager,
+        phoneNumberIdentifiers,
+        reportMessageManager);
+
+    return ReportMessageResponse.getDefaultInstance();
   }
 }
