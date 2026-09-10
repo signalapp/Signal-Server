@@ -30,7 +30,7 @@ class VersionstampClockTest {
     FOUNDATION_DB_EXTENSION.getDatabases()[0].run(transaction -> {
       transaction.clear(VersionstampClock.SUBSPACE.range());
       return null;
-    });
+    }, FaultTolerantDatabase.Context.TEST);
   }
 
   @Test

@@ -338,7 +338,7 @@ class FoundationDbMessagePublisher {
 
                 return keyValues;
               });
-        }, FoundationDbUtil.Context.GET_MESSAGES_BATCH)
+        }, FaultTolerantDatabase.Context.GET_MESSAGES_BATCH)
         .thenApply(keyValues -> {
           if (keyValues.size() < maxMessages) {
             transitionStateOnEvent(Event.FETCHED_ALL_AVAILABLE_MESSAGES);
@@ -491,7 +491,7 @@ class FoundationDbMessagePublisher {
     return database.runAsync(transaction -> {
       transaction.set(presenceKey, FoundationDbMessageStore.getPresenceValue(clock.instant(), streamId));
       return CompletableFuture.completedFuture(null);
-    }, FoundationDbUtil.Context.SET_PRESENCE);
+    }, FaultTolerantDatabase.Context.SET_PRESENCE);
   }
 
   @VisibleForTesting
@@ -504,7 +504,7 @@ class FoundationDbMessagePublisher {
                 if (!isPresenceContested(presenceValue)) {
                   transaction.clear(presenceKey);
                 }
-              }), FoundationDbUtil.Context.CLEAR_PRESENCE)
+              }), FaultTolerantDatabase.Context.CLEAR_PRESENCE)
               .whenComplete((_, throwable) -> {
                 if (throwable != null) {
                   LOGGER.warn("Failed to clear presence on disposal", throwable);

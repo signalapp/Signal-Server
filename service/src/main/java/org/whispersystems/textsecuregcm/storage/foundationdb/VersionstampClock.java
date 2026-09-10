@@ -53,7 +53,7 @@ public class VersionstampClock {
               Tuple.from(Versionstamp.incomplete()).packWithVersionstamp());
 
           return transaction.getVersionstamp();
-        })
+        }, FaultTolerantDatabase.Context.RECORD_VERSIONSTAMP_AND_TIME)
         .thenApply(Versionstamp::complete)
         .join();
   }
@@ -76,7 +76,7 @@ public class VersionstampClock {
       }
 
       return Optional.empty();
-    });
+    }, FaultTolerantDatabase.Context.READ_VERSIONSTAMP);
   }
 
   /// Remove any entries from the versionstamp-clock namespace that are strictly older than the given timestamp
@@ -86,7 +86,7 @@ public class VersionstampClock {
     database.run(transaction -> {
       transaction.clear(SUBSPACE.getKey(), getTimestampKey(oldestRetainedEntryTimestamp));
       return null;
-    });
+    }, FaultTolerantDatabase.Context.CLEAR_EXPIRED_VERSIONSTAMPS);
   }
 
   private byte[] getTimestampKey(final Instant timestamp) {

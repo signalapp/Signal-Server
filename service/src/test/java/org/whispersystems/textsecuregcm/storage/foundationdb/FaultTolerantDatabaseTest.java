@@ -47,20 +47,20 @@ public class FaultTolerantDatabaseTest {
     when(database.read(any())).thenThrow(new FDBException("error", 1031));
 
     assertThrows(FDBException.class, () -> ftDatabase.read(t ->
-        t.get("test_key".getBytes())));
+        t.get("test_key".getBytes()), FaultTolerantDatabase.Context.TEST));
 
     assertThrows(FDBException.class, () -> ftDatabase.read(t ->
-        t.get("test_key".getBytes())));
+        t.get("test_key".getBytes()), FaultTolerantDatabase.Context.TEST));
 
     assertThrows(CallNotPermittedException.class, () -> ftDatabase.read(t ->
-        t.get("test_key".getBytes())));
+        t.get("test_key".getBytes()), FaultTolerantDatabase.Context.TEST));
 
     Thread.sleep(1001);
 
     assertThrows(FDBException.class, () -> ftDatabase.read(t ->
-        t.get("test_key".getBytes())));
+        t.get("test_key".getBytes()), FaultTolerantDatabase.Context.TEST));
 
     assertThrows(CallNotPermittedException.class, () -> ftDatabase.read(t ->
-        t.get("test_key".getBytes())));
+        t.get("test_key".getBytes()), FaultTolerantDatabase.Context.TEST));
   }
 }

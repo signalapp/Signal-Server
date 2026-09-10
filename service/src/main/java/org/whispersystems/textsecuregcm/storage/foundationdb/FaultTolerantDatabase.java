@@ -5,8 +5,6 @@
 
 package org.whispersystems.textsecuregcm.storage.foundationdb;
 
-import static org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbUtil.TRANSACTION_ERRORS_COUNTER;
-
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.ReadTransaction;
@@ -16,10 +14,12 @@ import io.micrometer.core.instrument.Metrics;
 import jakarta.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 public class FaultTolerantDatabase {
+  private static final String TRANSACTION_ERRORS_COUNTER = MetricsUtil.name(FaultTolerantDatabase.class, "transactionErrors");
   private final Database database;
   private final CircuitBreaker circuitBreaker;
 
@@ -33,8 +33,18 @@ public class FaultTolerantDatabase {
         : ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName);
   }
 
-  public <T> T run(final Function<? super Transaction, T> retryable) {
-    return circuitBreaker.executeSupplier(() -> database.run(retryable));
+  public <T> T run(final Function<? super Transaction, T> retryable, final Context context) {
+    try {
+      return circuitBreaker.executeSupplier(() -> database.run(retryable));
+    } catch (final Exception e) {
+      if (e instanceof final FDBException fdbException) {
+        Metrics.counter(TRANSACTION_ERRORS_COUNTER,
+            "context", context.getName(),
+            "code", String.valueOf(fdbException.getCode())
+        ).increment();
+      }
+      throw e;
+    }
   }
 
   /// Returns a cancellation-safe version of the result from [Database#runAsync(Function)]. Since the final stage
@@ -46,7 +56,7 @@ public class FaultTolerantDatabase {
   /// @param <T>       the return type of retryable
   /// @return a cancellation-safe version of the future returned from [Database#runAsync(Function)]
   public <T> CompletableFuture<T> runAsync(final Function<? super Transaction, ? extends CompletableFuture<T>> retryable,
-      final FoundationDbUtil.Context context) {
+      final Context context) {
     return circuitBreaker.executeCompletionStage(() -> database.runAsync(retryable)
             .whenComplete((_, throwable) -> {
               if (throwable != null && ExceptionUtils.unwrap(throwable) instanceof final FDBException fdbException) {
@@ -60,13 +70,65 @@ public class FaultTolerantDatabase {
         .toCompletableFuture();
   }
 
-  public <T> T read(final Function<? super ReadTransaction, T> retryable) {
-    return circuitBreaker.executeSupplier(() -> database.read(retryable));
+  public <T> T read(final Function<? super ReadTransaction, T> retryable, final Context context) {
+    try {
+      return circuitBreaker.executeSupplier(() -> database.read(retryable));
+    } catch (final Exception e) {
+      if (e instanceof final FDBException fdbException) {
+        Metrics.counter(TRANSACTION_ERRORS_COUNTER,
+            "context", context.getName(),
+            "code", String.valueOf(fdbException.getCode())
+        ).increment();
+      }
+      throw e;
+    }
   }
 
   public <T> CompletableFuture<T> readAsync(
-      final Function<? super ReadTransaction, ? extends CompletableFuture<T>> retryable) {
-    return circuitBreaker.executeCompletionStage(() -> database.readAsync(retryable))
+      final Function<? super ReadTransaction, ? extends CompletableFuture<T>> retryable,
+      final Context context) {
+    return circuitBreaker.executeCompletionStage(() -> database.readAsync(retryable)
+            .whenComplete((_, throwable) -> {
+              if (throwable != null && ExceptionUtils.unwrap(throwable) instanceof final FDBException fdbException) {
+                Metrics.counter(TRANSACTION_ERRORS_COUNTER,
+                    "context", context.getName(),
+                    "code", String.valueOf(fdbException.getCode())
+                ).increment();
+              }
+            }))
         .toCompletableFuture();
+  }
+
+  public enum Context {
+    INSERT_MESSAGE_BATCH("insertMessageBatch"),
+    GET_MESSAGES_BATCH("getMessagesBatch"),
+    SET_PRESENCE("setPresence"),
+    GET_PRESENCE("getPresence"),
+    CLEAR_PRESENCE("clearPresence"),
+    CLEAR_ACCOUNT_SUBSPACE("clearAccountSubspace"),
+    CLEAR_DEVICE_SUBSPACE("clearDeviceSubspace"),
+    CLEAR_EXPIRED_MESSAGES("clearExpiredMessages"),
+    CLEAR_EXPIRED_VERSIONSTAMPS("clearExpiredVersionstamps"),
+    GET_END_OF_QUEUE("getEndOfQueue"),
+    ESTIMATE_QUEUE_SIZE("estimateQueueSize"),
+    ESTIMATE_QUEUE_SIZE_AND_RANGE_SPLITS("estimateQueueSizeAndRangeSplits"),
+    GET_RANGE_SPLITS("getRangeSplits"),
+    TRIM_QUEUE("trimQueue"),
+    DELETE_MESSAGE("deleteMessage"),
+    READ_ACIS("readAcis"),
+    READ_STATUS("readStatus"),
+    READ_VERSIONSTAMP("readVersionstamp"),
+    RECORD_VERSIONSTAMP_AND_TIME("recordVersionstampAndTime"),
+    TEST("test");
+
+    private final String name;
+
+    Context(final String name) {
+      this.name = name;
+    }
+
+    public String getName() {
+      return name;
+    }
   }
 }

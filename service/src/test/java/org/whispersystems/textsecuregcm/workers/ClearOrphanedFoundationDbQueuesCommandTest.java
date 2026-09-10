@@ -136,7 +136,7 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
             new byte[]{43});
       });
       return null;
-    });
+    }, FaultTolerantDatabase.Context.TEST);
     final List<AciServiceIdentifier> fetchedAcis = command.getAcisInShard(database, 2, 3, Duration.ofSeconds(2), 5)
         .collectList()
         .block();
@@ -173,7 +173,7 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
 
     for (final FaultTolerantDatabase database : FOUNDATION_DB_EXTENSION.getDatabases()) {
       final List<KeyValue> keyValues = database.readAsync(transaction ->
-          AsyncUtil.collect(transaction.getRange(accountRange, 1))).join();
+          AsyncUtil.collect(transaction.getRange(accountRange, 1)), FaultTolerantDatabase.Context.TEST).join();
 
       if (!keyValues.isEmpty()) {
         return true;

@@ -576,7 +576,8 @@ class FoundationDbMessageStoreTest {
     final List<KeyValue> keyValues = foundationDbMessageStore.getShardForAci(deletedAccountIdentifier, DEFAULT_EPOCH)
         .readAsync(transaction ->
             AsyncUtil.collect(
-                transaction.getRange(deletedAccountSubspace.range().begin, deletedAccountSubspace.range().end, 1)))
+                transaction.getRange(deletedAccountSubspace.range().begin, deletedAccountSubspace.range().end, 1)),
+            FaultTolerantDatabase.Context.TEST)
         .join();
     assertEquals(0, keyValues.size());
 
@@ -840,7 +841,7 @@ class FoundationDbMessageStoreTest {
 
     while (!presenceCleared && Instant.now().isBefore(deadline)) {
       presenceCleared = foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).runAsync(transaction ->
-              transaction.get(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID)), FoundationDbUtil.Context.GET_PRESENCE)
+              transaction.get(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID)), FaultTolerantDatabase.Context.TEST)
           .thenApply(Objects::isNull)
           .join();
     }
@@ -894,7 +895,7 @@ class FoundationDbMessageStoreTest {
           foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).run(transaction -> {
             transaction.set(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID), presenceValue);
             return null;
-          });
+          }, FaultTolerantDatabase.Context.TEST);
         })
         .thenCancel()
         .verify();
@@ -905,7 +906,7 @@ class FoundationDbMessageStoreTest {
     while (!presenceCleared && Instant.now().isBefore(deadline)) {
       presenceCleared = foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).runAsync(transaction ->
               transaction.get(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID)),
-              FoundationDbUtil.Context.GET_PRESENCE)
+              FaultTolerantDatabase.Context.TEST)
           .thenApply(Objects::isNull)
           .join();
     }
@@ -917,7 +918,7 @@ class FoundationDbMessageStoreTest {
   private boolean isPresent(final AciServiceIdentifier aci, final byte deviceId) {
     return foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).run(transaction ->
             transaction.get(FoundationDbMessageStore.getPresenceKey(aci, deviceId))
-                .thenApply(foundationDbMessageStore::isClientPresent))
+                .thenApply(foundationDbMessageStore::isClientPresent), FaultTolerantDatabase.Context.TEST)
         .join();
   }
 
@@ -1309,7 +1310,7 @@ class FoundationDbMessageStoreTest {
       final byte[] key = FoundationDbMessageStore.getDeviceQueueSubspace(aci, deviceId)
           .pack(Tuple.from(versionstamp));
       return transaction.get(key);
-    }).join();
+    }, FaultTolerantDatabase.Context.TEST).join();
   }
 
   private Optional<Versionstamp> getMessagesAvailableWatch(final AciServiceIdentifier aci) {
@@ -1320,7 +1321,7 @@ class FoundationDbMessageStoreTest {
     return foundationDbMessageStore.getShardForAci(aci, epoch)
         .read(transaction -> transaction.get(FoundationDbMessageStore.getMessagesAvailableWatchKey(aci))
             .thenApply(value -> value == null ? null : Tuple.fromBytes(value).getVersionstamp(0))
-            .thenApply(Optional::ofNullable))
+            .thenApply(Optional::ofNullable), FaultTolerantDatabase.Context.TEST)
         .join();
   }
 
@@ -1333,7 +1334,7 @@ class FoundationDbMessageStoreTest {
       final byte[] presenceValue = FoundationDbMessageStore.getPresenceValue(CLOCK.instant().minusSeconds(secondsBeforeCurrentTime), STREAM_ID);
       transaction.set(presenceKey, presenceValue);
       return null;
-    });
+    }, FaultTolerantDatabase.Context.TEST);
   }
 
   private AciServiceIdentifier generateRandomAciForShard(final int shardNumber) {
@@ -1356,7 +1357,8 @@ class FoundationDbMessageStoreTest {
 
   private List<KeyValue> getItemsInDeviceQueue(final AciServiceIdentifier aci, final byte deviceId, final int epoch) {
     return foundationDbMessageStore.getShardForAci(aci, epoch).readAsync(transaction ->
-            AsyncUtil.collect(transaction.getRange(FoundationDbMessageStore.getDeviceQueueSubspace(aci, deviceId).range())))
+            AsyncUtil.collect(transaction.getRange(FoundationDbMessageStore.getDeviceQueueSubspace(aci, deviceId).range())),
+            FaultTolerantDatabase.Context.TEST)
         .join();
   }
 }

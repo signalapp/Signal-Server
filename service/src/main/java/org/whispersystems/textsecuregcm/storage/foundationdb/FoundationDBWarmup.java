@@ -51,7 +51,7 @@ public class FoundationDBWarmup implements Managed {
     final Timer.Sample sample = Timer.start();
     while (true) {
       try {
-        database.readAsync(transaction -> transaction.get(STATUS_JSON_KEY)).join();
+        database.readAsync(transaction -> transaction.get(STATUS_JSON_KEY), FaultTolerantDatabase.Context.READ_STATUS).join();
         sample.stop(WARMUP_TIMER);
         return;
       } catch (final Exception e) {

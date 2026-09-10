@@ -304,7 +304,7 @@ public class FoundationDbMessageStore {
                 }
                 return CompletableFuture.completedFuture(Optional.<Versionstamp>empty());
               });
-        }, FoundationDbUtil.Context.INSERT_MESSAGE_BATCH)
+        }, FaultTolerantDatabase.Context.INSERT_MESSAGE_BATCH)
         .thenCompose(Function.identity())
         .thenApply(maybeVersionstamp -> insertFuturesByAci.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
@@ -395,7 +395,7 @@ public class FoundationDbMessageStore {
     return databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].runAsync(transaction -> {
           transaction.clear(messageKey);
           return CompletableFuture.completedFuture(null);
-        }, FoundationDbUtil.Context.DELETE_MESSAGE)
+        }, FaultTolerantDatabase.Context.DELETE_MESSAGE)
         .thenRun(() -> {
           sample.stop(DELETE_MESSAGE_TIMER);
           DELETE_MESSAGE_COUNTER.increment();
@@ -419,7 +419,7 @@ public class FoundationDbMessageStore {
                   }
                   transaction.clear(messageKey);
                   return Optional.of(value);
-                }), FoundationDbUtil.Context.DELETE_MESSAGE)
+                }), FaultTolerantDatabase.Context.DELETE_MESSAGE)
         .whenComplete((_, _) -> sample.stop(DELETE_MESSAGE_TIMER))
         .thenApply(maybeValue -> maybeValue.map(value -> {
           DELETE_MESSAGE_COUNTER.increment();
@@ -435,14 +435,14 @@ public class FoundationDbMessageStore {
     doForAllDatabasesWithMessages(aci, database -> database.run(transaction -> {
       transaction.clear(getAccountSubspace(aci).range());
       return null;
-    }));
+    }, FaultTolerantDatabase.Context.CLEAR_ACCOUNT_SUBSPACE));
   }
 
   public void clearAll(final AciServiceIdentifier aci, final byte deviceId) {
     doForAllDatabasesWithMessages(aci, database -> database.run(transaction -> {
       transaction.clear(getDeviceSubspace(aci, deviceId).range());
       return null;
-    }));
+    }, FaultTolerantDatabase.Context.CLEAR_DEVICE_SUBSPACE));
   }
 
   private void doForAllDatabasesWithMessages(final AciServiceIdentifier aci, final Consumer<FaultTolerantDatabase> action) {
@@ -545,7 +545,7 @@ public class FoundationDbMessageStore {
                   new Range(queueSubspace.getKey(), queueSubspace.pack(Tuple.from(cutoffVersionstamp))));
             }
             return null;
-          }));
+          }, FaultTolerantDatabase.Context.CLEAR_EXPIRED_MESSAGES));
     });
   }
 
@@ -619,7 +619,7 @@ public class FoundationDbMessageStore {
     final Range deviceQueueRange = getDeviceQueueSubspace(aci, deviceId).range();
 
     return getDistinctDatabasesForAci(aci)
-        .flatMap(database -> Mono.fromFuture(() -> database.runAsync(transaction -> transaction.getEstimatedRangeSizeBytes(deviceQueueRange), FoundationDbUtil.Context.ESTIMATE_QUEUE_SIZE)))
+        .flatMap(database -> Mono.fromFuture(() -> database.runAsync(transaction -> transaction.getEstimatedRangeSizeBytes(deviceQueueRange), FaultTolerantDatabase.Context.ESTIMATE_QUEUE_SIZE)))
         .reduce(0L, Long::sum);
   }
 
@@ -654,7 +654,7 @@ public class FoundationDbMessageStore {
 
       final CompletableFuture<KeyArrayResult> rangeSplitPointsFuture = transaction.getRangeSplitPoints(deviceQueueRange, rangeSplitChunkSize);
       return estimatedQueueSizeFuture.thenCombine(rangeSplitPointsFuture, Pair::new);
-    }, FoundationDbUtil.Context.ESTIMATE_QUEUE_SIZE_AND_RANGE_SPLITS);
+    }, FaultTolerantDatabase.Context.ESTIMATE_QUEUE_SIZE_AND_RANGE_SPLITS);
   }
 
   public Mono<Void> trimQueue(final AciServiceIdentifier aci,
@@ -743,7 +743,7 @@ public class FoundationDbMessageStore {
       transaction.options().setRetryLimit(batchPriorityTransactionRetryLimit);
       transaction.clear(range);
       return CompletableFuture.completedFuture(null);
-    }, FoundationDbUtil.Context.TRIM_QUEUE);
+    }, FaultTolerantDatabase.Context.TRIM_QUEUE);
   }
 
   @VisibleForTesting

@@ -42,7 +42,6 @@ import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
-import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbUtil;
 import org.whispersystems.textsecuregcm.util.ManagedExecutors;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -224,7 +223,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
       transaction.options().setTimeout(transactionTimeout.toMillis());
       transaction.clear(getAccountSubspace(messagesSubspace, aci).range());
       return null;
-    });
+    }, FaultTolerantDatabase.Context.CLEAR_ACCOUNT_SUBSPACE);
   }
 
   @VisibleForTesting
@@ -247,7 +246,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
             .thenCompose(rangeSize -> {
               final long chunkSize = Math.ceilDiv(rangeSize, numChunks);
               return transaction.getRangeSplitPoints(messagesSubspace.range(), chunkSize);
-            }), FoundationDbUtil.Context.GET_RANGE_SPLITS)
+            }), FaultTolerantDatabase.Context.GET_RANGE_SPLITS)
         .thenApply(result -> splitPointsToRanges(result.getKeys()));
   }
 
@@ -314,7 +313,7 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
                     });
                   })
                   .thenApply(_ -> acis);
-            })
+            }, FaultTolerantDatabase.Context.READ_ACIS)
             .thenApply(acis -> new BatchReadResult(acis, cursor.get()))
     );
   }
