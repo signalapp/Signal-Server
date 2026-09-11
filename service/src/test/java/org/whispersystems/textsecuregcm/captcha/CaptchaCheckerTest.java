@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.captcha;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,7 +16,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.captcha.CaptchaChecker.SEPARATOR;
 
-import jakarta.ws.rs.BadRequestException;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
@@ -23,9 +23,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class CaptchaCheckerTest {
 
@@ -72,6 +77,19 @@ public class CaptchaCheckerTest {
     return captchaClient;
   }
 
+  private static DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigurationManager(final boolean failOpen) {
+    final DynamicCaptchaConfiguration dynamicCaptchaConfiguration = mock(DynamicCaptchaConfiguration.class);
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getCaptchaConfiguration()).thenReturn(dynamicCaptchaConfiguration);
+    when(dynamicCaptchaConfiguration.isFailOpen()).thenReturn(failOpen);
+
+    return dynamicConfigurationManager;
+  }
 
   @ParameterizedTest
   @MethodSource
@@ -81,7 +99,7 @@ public class CaptchaCheckerTest {
       final String siteKey,
       final Action expectedAction) throws IOException, InvalidCaptchaArgumentException {
     final CaptchaClient captchaClient = mockClient(PREFIX);
-    new CaptchaChecker(null, PREFIX -> captchaClient).verify(Optional.empty(), expectedAction, input, null, USER_AGENT);
+    new CaptchaChecker(null, _ -> captchaClient, mockDynamicConfigurationManager(false)).verify(Optional.empty(), expectedAction, input, null, USER_AGENT);
     verify(captchaClient, times(1)).verify(any(), eq(siteKey), eq(expectedAction), eq(expectedToken), any(), eq(USER_AGENT));
   }
 
@@ -110,10 +128,10 @@ public class CaptchaCheckerTest {
     final CaptchaClient b = mockClient(PREFIX_B);
     final Map<String, CaptchaClient> captchaClientMap = Map.of(PREFIX_A, a, PREFIX_B, b);
 
-    new CaptchaChecker(null, captchaClientMap::get).verify(Optional.of(ACI), Action.CHALLENGE, ainput, null, USER_AGENT);
+    new CaptchaChecker(null, captchaClientMap::get, mockDynamicConfigurationManager(false)).verify(Optional.of(ACI), Action.CHALLENGE, ainput, null, USER_AGENT);
     verify(a, times(1)).verify(any(), any(), any(), any(), any(), any());
 
-    new CaptchaChecker(null, captchaClientMap::get).verify(Optional.of(ACI), Action.CHALLENGE, binput, null, USER_AGENT);
+    new CaptchaChecker(null, captchaClientMap::get, mockDynamicConfigurationManager(false)).verify(Optional.of(ACI), Action.CHALLENGE, binput, null, USER_AGENT);
     verify(b, times(1)).verify(any(), any(), any(), any(), any(), any());
   }
 
@@ -135,7 +153,7 @@ public class CaptchaCheckerTest {
   public void badArgs(final String input) throws IOException {
     final CaptchaClient cc = mockClient(PREFIX);
     assertThrows(InvalidCaptchaArgumentException.class,
-        () -> new CaptchaChecker(null, prefix -> PREFIX.equals(prefix) ? cc : null).verify(Optional.of(ACI), Action.CHALLENGE, input, null, USER_AGENT));
+        () -> new CaptchaChecker(null, prefix -> PREFIX.equals(prefix) ? cc : null, mockDynamicConfigurationManager(false)).verify(Optional.of(ACI), Action.CHALLENGE, input, null, USER_AGENT));
 
   }
 
@@ -145,8 +163,28 @@ public class CaptchaCheckerTest {
     final ShortCodeExpander retriever = mock(ShortCodeExpander.class);
     when(retriever.retrieve("abc")).thenReturn(Optional.of(TOKEN));
     final String input = String.join(SEPARATOR, PREFIX + "-short", REG_SITE_KEY, "registration", "abc");
-    new CaptchaChecker(retriever, ignored -> captchaClient).verify(Optional.of(ACI), Action.REGISTRATION, input, null, USER_AGENT);
+    new CaptchaChecker(retriever, _ -> captchaClient, mockDynamicConfigurationManager(false)).verify(Optional.of(ACI), Action.REGISTRATION, input, null, USER_AGENT);
     verify(captchaClient, times(1)).verify(any(), eq(REG_SITE_KEY), eq(Action.REGISTRATION), eq(TOKEN), any(), any());
 
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void failOpen(final boolean failOpen) throws IOException {
+    final CaptchaClient captchaClient = mockClient(PREFIX);
+    final String input = String.join(SEPARATOR, PREFIX, CHALLENGE_SITE_KEY, "challenge", TOKEN);
+
+    final Exception exception = new IOException();
+
+    when(captchaClient.verify(any(), any(), any(), any(), any(), any())).thenThrow(exception);
+
+    final Executable executable =
+        () -> new CaptchaChecker(null, _ -> captchaClient, mockDynamicConfigurationManager(failOpen)).verify(Optional.of(ACI), Action.CHALLENGE, input, null, USER_AGENT);
+
+    if (failOpen) {
+      assertDoesNotThrow(executable);
+    } else {
+      assertThrows(exception.getClass(), executable);
+    }
   }
 }

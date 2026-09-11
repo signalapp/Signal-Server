@@ -9,7 +9,6 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
-import jakarta.ws.rs.BadRequestException;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Optional;
@@ -19,6 +18,8 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class CaptchaChecker {
   private static final Logger logger = LoggerFactory.getLogger(CaptchaChecker.class);
@@ -33,12 +34,15 @@ public class CaptchaChecker {
 
   private final ShortCodeExpander shortCodeExpander;
   private final Function<String, CaptchaClient> captchaClientSupplier;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   public CaptchaChecker(
       final ShortCodeExpander shortCodeRetriever,
-      final Function<String, CaptchaClient> captchaClientSupplier) {
+      final Function<String, CaptchaClient> captchaClientSupplier,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.shortCodeExpander = shortCodeRetriever;
     this.captchaClientSupplier = captchaClientSupplier;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
 
@@ -105,12 +109,21 @@ public class CaptchaChecker {
       throw new InvalidCaptchaArgumentException("invalid captcha site-key");
     }
 
-    final AssessmentResult result = client.verify(maybeAci, siteKey, parsedAction, token, ip, userAgent);
-    Metrics.counter(ASSESSMENTS_COUNTER_NAME,
-            "action", action,
-            "score", result.getScoreString(),
-            "provider", provider)
-        .increment();
-    return result;
+    try {
+      final AssessmentResult result = client.verify(maybeAci, siteKey, parsedAction, token, ip, userAgent);
+      Metrics.counter(ASSESSMENTS_COUNTER_NAME,
+              "action", action,
+              "score", result.getScoreString(),
+              "provider", provider)
+          .increment();
+      return result;
+    } catch (final IOException | RuntimeException e) {
+      if (dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration().isFailOpen()) {
+        logger.warn("Failed to verify captcha; failing open", e);
+        return AssessmentResult.alwaysValid();
+      }
+
+      throw e;
+    }
   }
 }

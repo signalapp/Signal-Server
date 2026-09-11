@@ -35,6 +35,9 @@ public class DynamicCaptchaConfiguration {
   @NotNull
   private Map<Action, BigDecimal> scoreFloorByAction = Collections.emptyMap();
 
+  @JsonProperty
+  private boolean failOpen = false;
+
   public BigDecimal getScoreFloor() {
     return scoreFloor;
   }
@@ -66,4 +69,11 @@ public class DynamicCaptchaConfiguration {
     this.hCaptchaSiteKeys = hCaptchaSiteKeys;
   }
 
+  public boolean isFailOpen() {
+    return failOpen;
+  }
+
+  public void setFailOpen(final boolean failOpen) {
+    this.failOpen = failOpen;
+  }
 }
