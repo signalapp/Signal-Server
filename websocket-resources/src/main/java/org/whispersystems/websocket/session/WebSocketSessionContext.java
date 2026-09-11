@@ -72,7 +72,7 @@ public class WebSocketSessionContext {
   }
 
   public interface WebSocketEventListener {
-    public void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason);
+    void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason);
   }
 
 

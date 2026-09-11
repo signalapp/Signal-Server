@@ -25,13 +25,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.jetty.util.StaticException;
+import org.eclipse.jetty.util.ConstantThrowable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
@@ -329,6 +328,6 @@ public class WebSocketConnection {
     return throwable instanceof java.nio.channels.ClosedChannelException ||
         throwable == WebSocketResourceProvider.CONNECTION_CLOSED_EXCEPTION ||
         throwable instanceof org.eclipse.jetty.io.EofException ||
-        (throwable instanceof StaticException staticException && "Closed".equals(staticException.getMessage()));
+        (throwable instanceof ConstantThrowable constantThrowable && "Closed".equals(constantThrowable.getMessage()));
   }
 }

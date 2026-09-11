@@ -130,10 +130,9 @@ public class ProvisioningTimeoutIntegrationTest {
     when(testApplication.scheduler.schedule(any(Runnable.class), anyLong(), any()))
         .thenReturn(mock(ScheduledFuture.class));
 
-    final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest();
-    try (Session ignored = client.connect(testWebsocketListener,
-        URI.create(String.format("ws://127.0.0.1:%d/websocket", DROPWIZARD_APP_EXTENSION.getLocalPort())),
-        upgradeRequest).join()) {
+    final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest(
+        URI.create(String.format("ws://127.0.0.1:%d/websocket", DROPWIZARD_APP_EXTENSION.getLocalPort())));
+    try (Session ignored = client.connect(testWebsocketListener, upgradeRequest).join()) {
 
       assertThat(testWebsocketListener.provisioningAddressFuture.join()).isNotNull();
       assertThat(testWebsocketListener.closeFuture()).isNotDone();
@@ -156,10 +155,9 @@ public class ProvisioningTimeoutIntegrationTest {
     @SuppressWarnings("unchecked") final ScheduledFuture<Void> scheduled = mock(ScheduledFuture.class);
     doReturn(scheduled).when(testApplication.scheduler).schedule(any(Runnable.class), anyLong(), any());
 
-    final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest();
-    final Session session = client.connect(testWebsocketListener,
-        URI.create(String.format("ws://127.0.0.1:%d/websocket", DROPWIZARD_APP_EXTENSION.getLocalPort())),
-        upgradeRequest).join();
+    final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest(
+        URI.create(String.format("ws://127.0.0.1:%d/websocket", DROPWIZARD_APP_EXTENSION.getLocalPort())));
+    final Session session = client.connect(testWebsocketListener, upgradeRequest).join();
 
     // Close the websocket, make sure the timeout is cancelled.
     session.close();

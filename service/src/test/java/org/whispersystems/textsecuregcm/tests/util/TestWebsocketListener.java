@@ -4,18 +4,17 @@
  */
 package org.whispersystems.textsecuregcm.tests.util;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.eclipse.jetty.websocket.api.Callback;
 import org.eclipse.jetty.websocket.api.Session;
 import org.slf4j.Logger;
@@ -50,8 +49,9 @@ public class TestWebsocketListener implements Session.Listener.AutoDemanding {
   }
 
   @Override
-  public void onWebSocketClose(int statusCode, String reason) {
+  public void onWebSocketClose(int statusCode, String reason, Callback callback) {
     closed.complete(statusCode);
+    callback.succeed();
   }
 
   public CompletableFuture<Integer> closeFuture() {
