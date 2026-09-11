@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.signal.chat.backup.GetBackupAuthCredentialsRequest;
 import org.signal.chat.backup.GetBackupAuthCredentialsResponse;
+import org.signal.chat.backup.GetBackupIdLimitsResponse;
 import org.signal.chat.backup.RedeemReceiptRequest;
 import org.signal.chat.backup.RedeemReceiptResponse;
 import org.signal.chat.backup.SetBackupIdRequest;
@@ -136,6 +137,16 @@ public class BackupsGrpcService extends SimpleBackupsGrpc.BackupsImplBase {
       // Return an empty response to indicate that the authenticated account had no associated blinded backup-id
       return GetBackupAuthCredentialsResponse.getDefaultInstance();
     }
+  }
+
+  @Override
+  public GetBackupIdLimitsResponse getBackupIdLimits(final Empty request) {
+    final Account account = authenticatedAccount();
+    final BackupAuthManager.BackupIdRotationLimit limit = backupAuthManager.checkBackupIdRotationLimit(account);
+    return GetBackupIdLimitsResponse.newBuilder()
+        .setHasPermitsRemaining(limit.hasPermitsRemaining())
+        .setRetryAfterSeconds(limit.nextPermitAvailable().getSeconds())
+        .build();
   }
 
   @Override

@@ -59,6 +59,9 @@ service Backups {
   // Clients must validate the receipt level on the credential matches a known
   // receipt level before using it.
   rpc GetBackupAuthCredentials(GetBackupAuthCredentialsRequest) returns (GetBackupAuthCredentialsResponse) {}
+
+  // Retrieve backup ID rotation limits
+  rpc GetBackupIdLimits(google.protobuf.Empty) returns (GetBackupIdLimitsResponse) {}
 }
 
 message SetBackupIdRequest {
@@ -123,6 +126,13 @@ message GetBackupAuthCredentialsResponse {
   // The requested credentials. If absent, there was no existing blinded
   // backup id associated with the provided account.
   Credentials credentials = 1;
+}
+
+message GetBackupIdLimitsResponse {
+  // If true, a call to SetBackupId may succeed without waiting
+  bool hasPermitsRemaining = 1;
+  // How long to wait before a permit becomes available, in seconds
+  uint64 retryAfterSeconds = 2;
 }
 
 // Service for backup operations with anonymous credentials

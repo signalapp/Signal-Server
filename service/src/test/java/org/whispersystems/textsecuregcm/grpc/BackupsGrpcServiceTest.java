@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import io.grpc.Status;
 import java.time.Clock;
 import java.time.Duration;
@@ -35,6 +36,7 @@ import org.mockito.Mock;
 import org.signal.chat.backup.BackupsGrpc;
 import org.signal.chat.backup.GetBackupAuthCredentialsRequest;
 import org.signal.chat.backup.GetBackupAuthCredentialsResponse;
+import org.signal.chat.backup.GetBackupIdLimitsResponse;
 import org.signal.chat.backup.RedeemReceiptRequest;
 import org.signal.chat.backup.RedeemReceiptResponse;
 import org.signal.chat.backup.SetBackupIdRequest;
@@ -261,6 +263,24 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
 
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().getBackupAuthCredentials(builder.build()));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "true, 0",
+      "false, 3600"
+  })
+  void getBackupIdLimits(final boolean hasPermitsRemaining, final long retryAfterSeconds) {
+    when(backupAuthManager.checkBackupIdRotationLimit(account))
+        .thenReturn(new BackupAuthManager.BackupIdRotationLimit(
+            hasPermitsRemaining, Duration.ofSeconds(retryAfterSeconds)));
+
+    final GetBackupIdLimitsResponse response =
+        authenticatedServiceStub().getBackupIdLimits(Empty.getDefaultInstance());
+
+    assertThat(response.getHasPermitsRemaining()).isEqualTo(hasPermitsRemaining);
+    assertThat(response.getRetryAfterSeconds()).isEqualTo(retryAfterSeconds);
+    verify(backupAuthManager).checkBackupIdRotationLimit(account);
   }
 
 }
