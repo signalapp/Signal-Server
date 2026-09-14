@@ -71,7 +71,8 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(ScheduledExecutorService.class),
         Clock.systemUTC(),
         "link-device-secret".getBytes(StandardCharsets.UTF_8),
-        AccountsManager.TOTP.getTimeStep().dividedBy(2));
+        AccountsManager.TOTP.getTimeStep().dividedBy(2),
+        null);
 
     accountsManager.start();
   }

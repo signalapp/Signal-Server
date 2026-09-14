@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.signal.chat.account.Capabilities;
 import org.signal.chat.account.ChangeNumberRequest;
 import org.signal.chat.account.ChangeNumberResponse;
@@ -41,6 +42,8 @@ import org.signal.chat.account.DeleteUsernameHashResponse;
 import org.signal.chat.account.DeleteUsernameLinkRequest;
 import org.signal.chat.account.DeleteUsernameLinkResponse;
 import org.signal.chat.account.ExternalServiceCredentials;
+import org.signal.chat.account.FinishWebAuthnRegistrationRequest;
+import org.signal.chat.account.FinishWebAuthnRegistrationResponse;
 import org.signal.chat.account.GenerateTotpKeyRequest;
 import org.signal.chat.account.GenerateTotpKeyResponse;
 import org.signal.chat.account.GetAccountDataReportRequest;
@@ -61,18 +64,21 @@ import org.signal.chat.account.ReserveUsernameHashRequest;
 import org.signal.chat.account.ReserveUsernameHashResponse;
 import org.signal.chat.account.SetDiscoverableByPhoneNumberRequest;
 import org.signal.chat.account.SetDiscoverableByPhoneNumberResponse;
+import org.signal.chat.account.SetMfaKeyMetadataRequest;
+import org.signal.chat.account.SetMfaKeyMetadataResponse;
 import org.signal.chat.account.SetRegistrationLockRequest;
 import org.signal.chat.account.SetRegistrationLockResponse;
 import org.signal.chat.account.SetRegistrationRecoveryPasswordRequest;
 import org.signal.chat.account.SetRegistrationRecoveryPasswordResponse;
-import org.signal.chat.account.SetMfaKeyMetadataRequest;
-import org.signal.chat.account.SetMfaKeyMetadataResponse;
 import org.signal.chat.account.SetUsernameLinkRequest;
 import org.signal.chat.account.SetUsernameLinkResponse;
 import org.signal.chat.account.SetZkCredentialKeyRequest;
 import org.signal.chat.account.SetZkCredentialKeyResponse;
 import org.signal.chat.account.SimpleAccountsGrpc;
 import org.signal.chat.account.StaleDevices;
+import org.signal.chat.account.StartWebAuthnRegistrationRequest;
+import org.signal.chat.account.StartWebAuthnRegistrationResponse;
+import org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters;
 import org.signal.chat.account.TotpParameters;
 import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
@@ -91,6 +97,7 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnverifiedRegistrationSessionException;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
+import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyParameters;
 import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -107,6 +114,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.AnnotatedMfaKey;
 import org.whispersystems.textsecuregcm.storage.AnnotatedTotpKey;
+import org.whispersystems.textsecuregcm.storage.AnnotatedWebAuthnCredential;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
@@ -121,7 +129,6 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
-import javax.annotation.Nullable;
 
 public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
@@ -617,6 +624,58 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   }
 
   @Override
+  public StartWebAuthnRegistrationResponse startWebAuthnRegistration(final StartWebAuthnRegistrationRequest request) {
+
+    final Account account = getAuthenticatedAccount();
+    if (account.getNumber().isPresent()) {
+      throw GrpcExceptions.invalidArguments("WebAuthn keys may not be set for an account with a number");
+    }
+
+    try {
+      final RegistrationCeremonyParameters registrationParameters =
+        accountsManager.startWebAuthnRegistration(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier());
+
+      return StartWebAuthnRegistrationResponse.newBuilder()
+          .setParams(WebAuthnCreateParameters.newBuilder()
+              .setUserHandle(ByteString.copyFrom(registrationParameters.userHandle()))
+              .addAllAllowedAlgorithms(registrationParameters.allowedAlgorithms())
+              .addAllExcludeCredentialIds(
+                  registrationParameters.excludedCredentialIds().stream().map(ByteString::copyFrom).toList()))
+          .build();
+    } catch (TooManyMfaKeysException _) {
+      return StartWebAuthnRegistrationResponse.newBuilder()
+          .setTooManyMfaKeys(FailedPrecondition.getDefaultInstance())
+          .build();
+    }
+  }
+
+  @Override
+  public FinishWebAuthnRegistrationResponse finishWebAuthnRegistration(final FinishWebAuthnRegistrationRequest request) {
+    final Account account = getAuthenticatedAccount();
+    if (account.getNumber().isPresent()) {
+      throw GrpcExceptions.invalidArguments("WebAuthn keys may not be set for an account with a number");
+    }
+
+    try {
+      final Optional<Byte> maybeKeyId = accountsManager.finishWebAuthnRegistration(
+          AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
+          request.getAttestationObject().toByteArray(),
+          request.getCollectedClientDataJson(),
+          request.getMetadataCiphertext().toByteArray());
+
+      return maybeKeyId.map(
+          keyId -> FinishWebAuthnRegistrationResponse.newBuilder()
+              .setKeyConfirmed(FinishWebAuthnRegistrationResponse.KeyConfirmed.newBuilder().setKeyId(keyId)))
+          .orElseGet(() -> FinishWebAuthnRegistrationResponse.newBuilder().setKeyNotConfirmed(FailedPrecondition.getDefaultInstance()))
+          .build();
+    } catch (TooManyMfaKeysException _) {
+      return FinishWebAuthnRegistrationResponse.newBuilder()
+          .setTooManyMfaKeys(FailedPrecondition.getDefaultInstance())
+          .build();
+    }
+  }
+
+  @Override
   public ListMfaKeysResponse listMfaKeys(final ListMfaKeysRequest request) {
     final ListMfaKeysResponse.Builder responseBuilder = ListMfaKeysResponse.newBuilder();
 
@@ -628,7 +687,8 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
           ListMfaKeysResponse.MfaKeyMetadata.newBuilder()
               .setMetadataCiphertext(ByteString.copyFrom(mfaKey.metadataCiphertext()))
               .setType(switch (mfaKey) {
-                  case AnnotatedTotpKey _ -> MfaKeyType.MFA_KEY_TYPE_TOTP;
+                case AnnotatedTotpKey _ -> MfaKeyType.MFA_KEY_TYPE_TOTP;
+                case AnnotatedWebAuthnCredential _ -> MfaKeyType.MFA_KEY_TYPE_WEBAUTHN;
               }).build());
     });
 
@@ -654,7 +714,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
       });
 
       return SetMfaKeyMetadataResponse.newBuilder()
-          .setMetadataUpdated(SetMfaKeyMetadataResponse.MetadataUpdated.getDefaultInstance())
+          .setSuccess(SetMfaKeyMetadataResponse.MetadataUpdated.getDefaultInstance())
           .build();
     } catch (final MfaKeyNotFoundException _) {
       return SetMfaKeyMetadataResponse.newBuilder()

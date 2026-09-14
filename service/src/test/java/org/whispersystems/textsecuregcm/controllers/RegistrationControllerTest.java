@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -22,6 +23,7 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.storage.ReceiptCredentialTestUtil.receiptPresentation;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -40,8 +42,10 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -54,11 +58,13 @@ import org.apache.http.HttpStatus;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -78,6 +84,7 @@ import org.whispersystems.textsecuregcm.auth.RecoveryPasswordVerificationFailedE
 import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.UnverifiedRegistrationSessionException;
+import org.whispersystems.textsecuregcm.auth.webauthn.AuthenticationCeremonyParameters;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicLoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -93,11 +100,15 @@ import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.MfaFailureExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.AnnotatedMfaKey;
+import org.whispersystems.textsecuregcm.storage.AnnotatedTotpKey;
+import org.whispersystems.textsecuregcm.storage.AnnotatedWebAuthnCredential;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceIdentityInfo;
@@ -105,6 +116,7 @@ import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ReceiptAlreadyRedeemedException;
 import org.whispersystems.textsecuregcm.storage.ReceiptCredentialTestUtil;
+import org.whispersystems.textsecuregcm.storage.TotpKey;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -147,6 +159,7 @@ class RegistrationControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
+      .addProvider(new MfaFailureExceptionMapper())
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new RegistrationController(accountsManager, phoneVerificationTokenManager,
@@ -157,7 +170,7 @@ class RegistrationControllerTest {
   @BeforeEach
   void setUp() throws Exception {
     when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
-    when(rateLimiters.getCheckTotpLimiter()).thenReturn(totpLimiter);
+    when(rateLimiters.getCheckMfaLimiter()).thenReturn(totpLimiter);
 
     when(accountsManager.update(any(UUID.class), any())).thenAnswer(invocation -> {
       final Account account = invocation.getArgument(0);
@@ -419,6 +432,7 @@ class RegistrationControllerTest {
   void totpInvalid() {
     final Account existingAccount = mock(Account.class);
     when(existingAccount.getNumber()).thenReturn(Optional.of(NUMBER));
+    when(existingAccount.getMfaKeys()).thenReturn(Map.of((byte) 1, new AnnotatedTotpKey(mock(TotpKey.class), new byte[0])));
 
     when(accountsManager.getByE164(any())).thenReturn(Optional.of(existingAccount));
     when(accountsManager.verifyTotp(any(), any(), any())).thenReturn(false);
@@ -432,30 +446,6 @@ class RegistrationControllerTest {
       assertEquals(441, response.getStatus());
     }
 
-    verify(accountsManager, never()).create(any(), any(), any(), any(), any(), any());
-  }
-
-  @Test
-  void totpRateLimited() throws RateLimitExceededException {
-    final Account existingAccount = mock(Account.class);
-    when(existingAccount.getAccountIdentifier()).thenReturn(UUID.randomUUID());
-    when(existingAccount.getNumber()).thenReturn(Optional.of(NUMBER));
-
-    when(accountsManager.getByE164(any())).thenReturn(Optional.of(existingAccount));
-
-    doThrow(new RateLimitExceededException(Duration.ofSeconds(5)))
-        .when(totpLimiter).validate(any(UUID.class));
-
-    final Invocation.Builder request = resources.getJerseyTest()
-        .target("/v1/registration")
-        .request()
-        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
-
-    try (Response response = request.post(Entity.json(requestJson("sessionId", new byte[0], false, 1, 2)))) {
-      assertEquals(429, response.getStatus());
-    }
-
-    verify(accountsManager, never()).verifyTotp(any(), any(), any());
     verify(accountsManager, never()).create(any(), any(), any(), any(), any(), any());
   }
 
@@ -534,7 +524,9 @@ class RegistrationControllerTest {
             new RegistrationRequest("session-id",
                 new byte[0],
                 null,
-                null, fetchesMessagesAccountAttributes,
+                null,
+                null,
+                fetchesMessagesAccountAttributes,
                 true,
                 aciIdentityKey,
                 pniIdentityKey,
@@ -548,6 +540,7 @@ class RegistrationControllerTest {
         Arguments.argumentSet("\"Fetches messages\" is true, but an FCM (GCM) token is provided",
             new RegistrationRequest("session-id",
                 new byte[0],
+                null,
                 null,
                 null,
                 fetchesMessagesAccountAttributes,
@@ -564,6 +557,7 @@ class RegistrationControllerTest {
         Arguments.argumentSet("\"Fetches messages\" is false, but multiple types of push tokens are provided",
             new RegistrationRequest("session-id",
                 new byte[0],
+                null,
                 null,
                 null,
                 pushAccountAttributes,
@@ -621,6 +615,7 @@ class RegistrationControllerTest {
                 new byte[0],
                 null,
                 null,
+                null,
                 accountAttributes,
                 true,
                 aciIdentityKey,
@@ -635,6 +630,7 @@ class RegistrationControllerTest {
         Arguments.argumentSet("Signed ACI EC pre-key is missing",
             new RegistrationRequest("session-id",
                 new byte[0],
+                null,
                 null,
                 null,
                 accountAttributes,
@@ -653,6 +649,7 @@ class RegistrationControllerTest {
                 new byte[0],
                 null,
                 null,
+                null,
                 accountAttributes,
                 true,
                 aciIdentityKey,
@@ -667,6 +664,7 @@ class RegistrationControllerTest {
         Arguments.argumentSet("Signed ACI KEM pre-key is missing",
             new RegistrationRequest("session-id",
                 new byte[0],
+                null,
                 null,
                 null,
                 accountAttributes,
@@ -685,6 +683,7 @@ class RegistrationControllerTest {
                 new byte[0],
                 null,
                 null,
+                null,
                 accountAttributes,
                 true,
                 null,
@@ -699,6 +698,7 @@ class RegistrationControllerTest {
         Arguments.argumentSet("All signed pre-keys are present, but PNI identity key is missing",
             new RegistrationRequest("session-id",
                 new byte[0],
+                null,
                 null,
                 null,
                 accountAttributes,
@@ -781,6 +781,7 @@ class RegistrationControllerTest {
         new byte[0],
         receiptCredentialPresentation.serialize(),
         null,
+        null,
         accountAttributes,
         true,
         aciIdentityKey,
@@ -858,6 +859,7 @@ class RegistrationControllerTest {
         new byte[0],
         receiptCredentialPresentation.serialize(),
         null,
+        null,
         accountAttributes,
         true,
         aciIdentityKey,
@@ -901,6 +903,7 @@ class RegistrationControllerTest {
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         new byte[0],
         receiptCredentialPresentation,
+        null,
         null,
         accountAttributes,
         true,
@@ -965,6 +968,7 @@ class RegistrationControllerTest {
         new byte[0],
         receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), 1).serialize(),
         null,
+        null,
         accountAttributes,
         true,
         aciIdentityKey,
@@ -1009,6 +1013,7 @@ class RegistrationControllerTest {
         recoveryPassword,
         receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), 1).serialize(),
         null,
+        null,
         accountAttributes,
         true,
         aciIdentityKey,
@@ -1047,6 +1052,7 @@ class RegistrationControllerTest {
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         new byte[0],
         receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), ReceiptLevel.LOGIN.getValue()).serialize(),
+        null,
         null,
         accountAttributes,
         true,
@@ -1097,6 +1103,7 @@ class RegistrationControllerTest {
         new byte[0],
         receiptCredentialPresentation.serialize(),
         null,
+        null,
         accountAttributes,
         true,
         aciIdentityKey,
@@ -1132,6 +1139,7 @@ class RegistrationControllerTest {
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         new byte[0],
         receiptPresentation(CLOCK.instant().plus(Duration.ofDays(30)), ReceiptLevel.LOGIN.getValue()).serialize(),
+        null,
         null,
         accountAttributes,
         true,
@@ -1180,6 +1188,7 @@ class RegistrationControllerTest {
     final RegistrationRequest registrationRequest = new RegistrationRequest(
         Base64.getEncoder().encodeToString("session-id".getBytes(StandardCharsets.UTF_8)),
         new byte[0],
+        null,
         null,
         null,
         accountAttributes,
@@ -1258,6 +1267,7 @@ class RegistrationControllerTest {
 
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         existingRecoveryPassword,
+        null,
         null,
         null,
         accountAttributes,
@@ -1388,6 +1398,7 @@ class RegistrationControllerTest {
                 null,
                 null,
                 null,
+                null,
                 accountAttributes,
                 true,
                 aciIdentityKey,
@@ -1404,6 +1415,7 @@ class RegistrationControllerTest {
             existingAccount,
             existingAccount.getAccountIdentifier(),
             new RegistrationRequest("session-id",
+                null,
                 null,
                 null,
                 null,
@@ -1426,6 +1438,7 @@ class RegistrationControllerTest {
                 null,
                 TestRandomUtil.nextBytes(16),
                 null,
+                null,
                 accountAttributes,
                 true,
                 aciIdentityKey,
@@ -1443,6 +1456,7 @@ class RegistrationControllerTest {
             existingAccount.getAccountIdentifier(),
             new RegistrationRequest(null,
                 existingRecoveryPassword,
+                null,
                 null,
                 null,
                 accountAttributes,
@@ -1464,6 +1478,7 @@ class RegistrationControllerTest {
                 existingRecoveryPassword,
                 null,
                 null,
+                null,
                 accountAttributes,
                 true,
                 aciIdentityKey,
@@ -1481,6 +1496,7 @@ class RegistrationControllerTest {
             existingAccount.getAccountIdentifier(),
             new RegistrationRequest(null,
                 TestRandomUtil.nextBytes(32),
+                null,
                 null,
                 null,
                 accountAttributes,
@@ -1502,6 +1518,7 @@ class RegistrationControllerTest {
                 existingRecoveryPassword,
                 null,
                 null,
+                null,
                 accountAttributes,
                 false,
                 aciIdentityKey,
@@ -1514,151 +1531,6 @@ class RegistrationControllerTest {
                     Optional.empty())),
             409)
     );
-  }
-
-  @Test
-  void recoverAccountInvalidTotp() {
-    final IdentityKey aciIdentityKey;
-    final IdentityKey pniIdentityKey;
-    final ECSignedPreKey aciSignedPreKey;
-    final ECSignedPreKey pniSignedPreKey;
-    final KEMSignedPreKey aciPqLastResortPreKey;
-    final KEMSignedPreKey pniPqLastResortPreKey;
-    {
-      final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
-      final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
-
-      aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
-      pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
-      aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
-      pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
-      aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
-      pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
-    }
-
-    final byte[] deviceName = "test".getBytes(StandardCharsets.UTF_8);
-    final int registrationId = 1;
-    final int pniRegistrationId = 2;
-
-    final byte[] newRecoveryPassword = TestRandomUtil.nextBytes(32);
-
-    final Set<DeviceCapability> deviceCapabilities = DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES;
-
-    final AccountAttributes accountAttributes =
-        new AccountAttributes(true, registrationId, pniRegistrationId, deviceName, null, false, deviceCapabilities, newRecoveryPassword)
-            .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
-
-    final byte[] existingRecoveryPassword = TestRandomUtil.nextBytes(32);
-
-    final Account existingAccount = new Account();
-    existingAccount.setAccountIdentifier(UUID.randomUUID());
-    existingAccount.setAccountRecoveryPassword(existingRecoveryPassword);
-
-    when(accountsManager.getByAccountIdentifier(existingAccount.getAccountIdentifier()))
-        .thenReturn(Optional.of(existingAccount));
-
-    final Invocation.Builder request = resources.getJerseyTest()
-        .target("/v1/registration")
-        .request()
-        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(existingAccount.getAccountIdentifier().toString(), PASSWORD));
-
-    when(accountsManager.verifyTotp(any(), any(), any()))
-        .thenReturn(false);
-
-    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
-        existingRecoveryPassword,
-        null,
-        null,
-        accountAttributes,
-        true,
-        aciIdentityKey,
-        pniIdentityKey,
-        new DeviceActivationRequest(aciSignedPreKey,
-            Optional.of(pniSignedPreKey),
-            aciPqLastResortPreKey,
-            Optional.of(pniPqLastResortPreKey),
-            Optional.empty(),
-            Optional.empty()));
-
-    try (final Response response = request.post(Entity.json(requestToJson(registrationRequest)))) {
-      assertEquals(441, response.getStatus());
-    }
-
-    verify(accountsManager, never()).recover(any(), any(), any(), any(), any(), any());
-    verifyNoInteractions(phoneVerificationTokenManager);
-  }
-
-  @Test
-  void recoverAccountTotpRateLimited() throws RateLimitExceededException {
-    final IdentityKey aciIdentityKey;
-    final IdentityKey pniIdentityKey;
-    final ECSignedPreKey aciSignedPreKey;
-    final ECSignedPreKey pniSignedPreKey;
-    final KEMSignedPreKey aciPqLastResortPreKey;
-    final KEMSignedPreKey pniPqLastResortPreKey;
-    {
-      final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
-      final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
-
-      aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
-      pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
-      aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
-      pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
-      aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
-      pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
-    }
-
-    final byte[] deviceName = "test".getBytes(StandardCharsets.UTF_8);
-    final int registrationId = 1;
-    final int pniRegistrationId = 2;
-
-    final byte[] newRecoveryPassword = TestRandomUtil.nextBytes(32);
-
-    final Set<DeviceCapability> deviceCapabilities = DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES;
-
-    final AccountAttributes accountAttributes =
-        new AccountAttributes(true, registrationId, pniRegistrationId, deviceName, null, false, deviceCapabilities, newRecoveryPassword)
-            .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
-
-    final byte[] existingRecoveryPassword = TestRandomUtil.nextBytes(32);
-
-    final Account existingAccount = new Account();
-    existingAccount.setAccountIdentifier(UUID.randomUUID());
-    existingAccount.setAccountRecoveryPassword(existingRecoveryPassword);
-
-    when(accountsManager.getByAccountIdentifier(existingAccount.getAccountIdentifier()))
-        .thenReturn(Optional.of(existingAccount));
-
-    final Invocation.Builder request = resources.getJerseyTest()
-        .target("/v1/registration")
-        .request()
-        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(existingAccount.getAccountIdentifier().toString(), PASSWORD));
-
-    doThrow(new RateLimitExceededException(Duration.ofSeconds(5)))
-        .when(totpLimiter).validate(any(UUID.class));
-
-    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
-        existingRecoveryPassword,
-        null,
-        null,
-        accountAttributes,
-        true,
-        aciIdentityKey,
-        pniIdentityKey,
-        new DeviceActivationRequest(aciSignedPreKey,
-            Optional.of(pniSignedPreKey),
-            aciPqLastResortPreKey,
-            Optional.of(pniPqLastResortPreKey),
-            Optional.empty(),
-            Optional.empty()));
-
-    try (final Response response = request.post(Entity.json(requestToJson(registrationRequest)))) {
-      assertEquals(429, response.getStatus());
-    }
-
-    verify(accountsManager, never()).verifyTotp(any(), any(), any());
-    verify(accountsManager, never()).recover(any(), any(), any(), any(), any(), any());
-    verifyNoInteractions(phoneVerificationTokenManager);
   }
 
   private static boolean accountAttributesEqual(final AccountAttributes a, final AccountAttributes b) {
@@ -1755,6 +1627,7 @@ class RegistrationControllerTest {
                 new byte[0],
                 null,
                 null,
+                null,
                 fetchesMessagesAccountAttributes,
                 true,
                 aciIdentityKey,
@@ -1784,6 +1657,7 @@ class RegistrationControllerTest {
                 new byte[0],
                 null,
                 null,
+                null,
                 pushAccountAttributes,
                 true,
                 aciIdentityKey,
@@ -1810,6 +1684,7 @@ class RegistrationControllerTest {
         Arguments.argumentSet("Has GCM token",
             new RegistrationRequest("session-id",
                 new byte[0],
+                null,
                 null,
                 null,
                 pushAccountAttributes,
@@ -1858,6 +1733,7 @@ class RegistrationControllerTest {
     return new RegistrationRequest(
         Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8)),
         recoveryPassword,
+        null,
         null,
         null,
         accountAttributes,
@@ -1930,5 +1806,300 @@ class RegistrationControllerTest {
           "sessionId": []
         }
         """;
+  }
+
+  @Nested
+  class Mfa {
+
+    private static final String WEBAUTHN_RESPONSE = "{\"id\":\"credential\"}";
+    private static final int TOTP = 123456;
+
+    private static AnnotatedTotpKey totpKey() {
+      return new AnnotatedTotpKey(mock(TotpKey.class), new byte[0]);
+    }
+
+    private static AnnotatedWebAuthnCredential webAuthnCredential() {
+      return mock(AnnotatedWebAuthnCredential.class);
+    }
+
+    enum RegistrationPath {
+      REREGISTER_WITH_NUMBER(true),
+      RECOVER_NUMBERED(true),
+      RECOVER_NUMBERLESS(false);
+
+      private final boolean hasPhoneNumber;
+
+      RegistrationPath(final boolean hasPhoneNumber) {
+        this.hasPhoneNumber = hasPhoneNumber;
+      }
+
+      boolean isRecovery() {
+        return this != REREGISTER_WITH_NUMBER;
+      }
+
+      boolean hasPhoneNumber() {
+        return hasPhoneNumber;
+      }
+    }
+
+    private static final byte[] EXISTING_RECOVERY_PASSWORD = TestRandomUtil.nextBytes(32);
+
+    private static String mfaRequestJson(final RegistrationControllerTest.Mfa.RegistrationPath path,
+        @Nullable final Integer totp,
+        @Nullable final String webAuthnResponse) {
+
+      final boolean isRecovery = path.isRecovery();
+
+      final RegistrationRequest request = request(
+          isRecovery ? "" : "sessionId",
+          isRecovery ? Mfa.EXISTING_RECOVERY_PASSWORD : new byte[0],
+          true, 1, 2, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
+
+      final AccountAttributes accountAttributes = request.accountAttributes();
+
+      if (path.isRecovery()) {
+        // PNI-based registration recovery password isn't meaningfully different from re-registration via session
+        accountAttributes.setRecoveryPassword(TestRandomUtil.nextBytes(32));
+      }
+
+      return requestToJson(new RegistrationRequest(
+          request.sessionId(),
+          request.recoveryPassword(),
+          request.receiptCredentialPresentation(),
+          totp,
+          webAuthnResponse,
+          accountAttributes,
+          request.skipDeviceTransfer(),
+          request.aciIdentityKey(),
+          request.pniIdentityKey(),
+          request.deviceActivationRequest()));
+    }
+
+    private Account existingAccount(final boolean hasTotp, final boolean hasWebAuthn, final RegistrationPath path) {
+
+      final Map<Byte, AnnotatedMfaKey> mfaKeys = new HashMap<>();
+
+      if (hasTotp) {
+        mfaKeys.put((byte) 1, totpKey());
+      }
+
+      if (hasWebAuthn) {
+        mfaKeys.put((byte) 2, webAuthnCredential());
+      }
+
+      final Account account = new Account();
+      account.setAccountIdentifier(UUID.randomUUID());
+      account.setMfaKeys(mfaKeys);
+
+      if (path.hasPhoneNumber()) {
+        account.setNumber(NUMBER, UUID.randomUUID());
+      }
+
+      // a minimal, non-null, stub to return
+      final Account registeredAccount = mock(Account.class);
+      when(registeredAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+
+      if (path.isRecovery()) {
+        account.setAccountRecoveryPassword(EXISTING_RECOVERY_PASSWORD);
+
+        when(accountsManager.getByAccountIdentifier(account.getAccountIdentifier()))
+            .thenReturn(Optional.of(account));
+
+        when(accountsManager.recover(any(), any(), any(), any(), any(), any())).thenReturn(registeredAccount);
+      } else {
+        when(accountsManager.create(any(), any(), any(), any(), any(), any())).thenReturn(registeredAccount);
+        when(accountsManager.getByE164(any())).thenReturn(Optional.of(account));
+      }
+
+      return account;
+    }
+
+    private Response register(final Account existingAccount,
+        final RegistrationPath path,
+        @Nullable final Integer totp,
+        @Nullable final String webAuthnResponse) {
+
+      final String authHeader = path.isRecovery()
+          ? AuthHelper.getAuthHeader(existingAccount.getAccountIdentifier(), PASSWORD)
+          : AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD);
+
+      return resources.getJerseyTest()
+          .target("/v1/registration")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION, authHeader)
+          .post(Entity.json(mfaRequestJson(path, totp, webAuthnResponse)));
+    }
+
+    static Stream<Arguments> checkMfa() {
+      record MfaCase(String name,
+                     boolean hasTotp,
+                     boolean hasWebAuthn,
+                     @Nullable Integer totp,
+                     @Nullable String webAuthnResponse,
+                     boolean totpVerifies,
+                     boolean webAuthnVerifies,
+                     int expectedStatus) {
+      }
+
+      final List<MfaCase> cases = List.of(
+          // No MFA
+          new MfaCase("no mfa configured, none submitted, success", false, false, null, null, false, false, 200),
+          new MfaCase("no mfa configured, totp submitted, fails verification", false, false, TOTP, null, false, false, 441),
+          new MfaCase("no mfa configured, webauthn submitted, fails verification", false, false, null, WEBAUTHN_RESPONSE, false, false, 441),
+
+          // TOTP only
+          new MfaCase("has totp, totp submitted, success", true, false, TOTP, null, true, false, 200),
+          new MfaCase("has totp, totp submitted, fails verification", true, false, TOTP, null, false, false, 441),
+          new MfaCase("has totp, none submitted, fails", true, false, null, null, false, false, 441),
+          new MfaCase("has totp, webauthn submitted, fails", true, false, null, WEBAUTHN_RESPONSE, false, true, 441),
+
+          // WebAuthn only
+          new MfaCase("has webauthn, webauthn submitted, success", false, true, null, WEBAUTHN_RESPONSE, false, true, 200),
+          new MfaCase("has webauthn, webauthn submitted, fails verification", false, true, null, WEBAUTHN_RESPONSE, false, false, 441),
+          new MfaCase("has webauthn, none submitted, fails verification", false, true, null, null, false, false, 441),
+          new MfaCase("has webauthn, totp submitted, fails", false, true, TOTP, null, true, false, 441),
+
+          // Both
+          new MfaCase("both mfa configured, totp submitted, success", true, true, TOTP, null, true, false, 200),
+          new MfaCase("both mfa configured, webauthn submitted, success", true, true, null, WEBAUTHN_RESPONSE, false, true, 200),
+          new MfaCase("both mfa configured, totp submitted, fails verification", true, true, TOTP, null, false, false, 441),
+          new MfaCase("both mfa configured, webauth submitted, fails verification", true, true, null, WEBAUTHN_RESPONSE, false, false, 441),
+          new MfaCase("both mfa configured, none submitted, fails", true, true, null, null, false, false, 441));
+
+      return Arrays.stream(RegistrationPath.values())
+          .flatMap(path -> cases.stream()
+              .map(mfaCase -> Arguments.of(path,
+                  mfaCase.hasTotp(),
+                  mfaCase.hasWebAuthn(),
+                  mfaCase.totp(),
+                  mfaCase.webAuthnResponse(),
+                  mfaCase.totpVerifies(),
+                  mfaCase.webAuthnVerifies(),
+                  mfaCase.expectedStatus())));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void checkMfa(final RegistrationPath path,
+        final boolean hasTotp,
+        final boolean hasWebAuthn,
+        @Nullable final Integer totp,
+        @Nullable final String webAuthnResponse,
+        final boolean totpVerifies,
+        final boolean webAuthnVerifies,
+        final int expectedStatus) throws Exception {
+
+      final Account existingAccount = existingAccount(hasTotp, hasWebAuthn, path);
+
+      when(accountsManager.verifyTotp(any(), any(), any())).thenReturn(totpVerifies);
+      when(accountsManager.verifyWebAuthnAuthentication(any(), any()))
+          .thenReturn(webAuthnVerifies ? Optional.of(existingAccount) : Optional.empty());
+      final byte[] challenge = TestRandomUtil.nextBytes(16);
+      when(accountsManager.startWebAuthnAuthentication(any())).thenReturn(hasWebAuthn
+          ? Optional.of(new AuthenticationCeremonyParameters(challenge, Duration.ofMinutes(2),
+          List.of(TestRandomUtil.nextBytes(32))))
+          : Optional.empty());
+
+      final JsonNode entity;
+      try (final Response response = register(existingAccount, path, totp, webAuthnResponse)) {
+        assertEquals(expectedStatus, response.getStatus());
+        entity = SystemMapper.jsonMapper().readTree(response.readEntity(String.class));
+      }
+
+      if (expectedStatus == 200) {
+        if (path.isRecovery()) {
+          verify(accountsManager).recover(any(), any(), any(), any(), any(), any());
+        } else {
+          verify(accountsManager).create(any(), any(), any(), any(), any(), any());
+        }
+      } else {
+        assertEquals(hasTotp, entity.get("hasTotpKey").asBoolean());
+        assertEquals(hasWebAuthn, entity.hasNonNull("webAuthnParameters"));
+
+        if (entity.hasNonNull("webAuthnParameters")) {
+          assertArrayEquals(challenge,
+              Base64.getDecoder().decode(entity.get("webAuthnParameters").get("challenge").asText()));
+          assertEquals(Duration.ofMinutes(2).toSeconds(),
+              entity.get("webAuthnParameters").get("timeoutSeconds").asLong());
+        }
+
+        verify(accountsManager, never()).create(any(), any(), any(), any(), any(), any());
+        verify(accountsManager, never()).recover(any(), any(), any(), any(), any(), any());
+
+      }
+
+      if (path.isRecovery()) {
+        verifyNoInteractions(phoneVerificationTokenManager);
+      }
+    }
+
+    @ParameterizedTest
+    @EnumSource(RegistrationPath.class)
+    void rateLimitedBeforeVerification(final RegistrationPath path) throws RateLimitExceededException {
+      final Account existingAccount = existingAccount(true, false, path);
+
+      doThrow(new RateLimitExceededException(Duration.ofSeconds(5)))
+          .when(totpLimiter).validate(any(UUID.class));
+
+      try (final Response response = register(existingAccount, path, TOTP, null)) {
+        assertEquals(429, response.getStatus());
+      }
+
+      verify(accountsManager, never()).verifyWebAuthnAuthentication(any(), any());
+      verify(accountsManager, never()).create(any(), any(), any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(RegistrationPath.class)
+    void bothFactorsPresentIsInvalid(final RegistrationPath path) {
+      final Account existingAccount = existingAccount(true, true, path);
+
+      try (final Response response = register(existingAccount, path, TOTP, WEBAUTHN_RESPONSE)) {
+        assertEquals(422, response.getStatus());
+      }
+    }
+
+    @ParameterizedTest
+    @EnumSource(RegistrationPath.class)
+    void oversizedWebAuthnResponseIsInvalid(final RegistrationPath path) {
+      final Account existingAccount = existingAccount(false, true, path);
+
+      try (final Response response = register(existingAccount, path, null, "x".repeat(8193))) {
+        assertEquals(422, response.getStatus());
+      }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "true, 429",
+        "false, 441"
+    })
+    void totpRateLimited(final boolean hasTotp, final int expectedStatus) throws RateLimitExceededException {
+      final Account existingAccount = mock(Account.class);
+      when(existingAccount.getAccountIdentifier()).thenReturn(UUID.randomUUID());
+      when(existingAccount.getNumber()).thenReturn(Optional.of(NUMBER));
+
+      when(accountsManager.getByE164(any())).thenReturn(Optional.of(existingAccount));
+      when(existingAccount.getMfaKeys()).thenReturn(
+          Map.of((byte) 1, new AnnotatedTotpKey(mock(TotpKey.class), new byte[0])));
+
+      doThrow(new RateLimitExceededException(Duration.ofSeconds(5)))
+          .when(totpLimiter).validate(any(UUID.class));
+
+      final Integer totp = hasTotp ? 987654 : null;
+
+      final Invocation.Builder request = resources.getJerseyTest()
+          .target("/v1/registration")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
+      try (Response response = request.post(Entity.json(mfaRequestJson(RegistrationPath.REREGISTER_WITH_NUMBER, totp, null)))) {
+        assertEquals(expectedStatus, response.getStatus());
+      }
+
+      verify(accountsManager, never()).verifyTotp(any(), any(), any());
+      verify(accountsManager, never()).create(any(), any(), any(), any(), any(), any());
+    }
   }
 }

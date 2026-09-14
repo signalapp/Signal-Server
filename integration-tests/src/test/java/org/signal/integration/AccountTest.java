@@ -12,6 +12,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import com.google.protobuf.ByteString;
+import com.webauthn4j.data.AttestationConveyancePreference;
+import com.webauthn4j.data.AuthenticatorAttestationResponse;
+import com.webauthn4j.data.AuthenticatorSelectionCriteria;
+import com.webauthn4j.data.PublicKeyCredential;
+import com.webauthn4j.data.PublicKeyCredentialCreationOptions;
+import com.webauthn4j.data.PublicKeyCredentialParameters;
+import com.webauthn4j.data.PublicKeyCredentialRpEntity;
+import com.webauthn4j.data.PublicKeyCredentialType;
+import com.webauthn4j.data.PublicKeyCredentialUserEntity;
+import com.webauthn4j.data.ResidentKeyRequirement;
+import com.webauthn4j.data.UserVerificationRequirement;
+import com.webauthn4j.data.attestation.statement.COSEAlgorithmIdentifier;
+import com.webauthn4j.data.client.Origin;
+import com.webauthn4j.data.client.challenge.DefaultChallenge;
+import com.webauthn4j.test.EmulatorUtil;
+import com.webauthn4j.test.authenticator.webauthn.WebAuthnAuthenticatorAdaptor;
+import com.webauthn4j.test.client.ClientPlatform;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -31,11 +48,16 @@ import org.junit.jupiter.api.Test;
 import org.signal.chat.account.AccountsGrpc;
 import org.signal.chat.account.ConfirmTotpKeyRequest;
 import org.signal.chat.account.ConfirmTotpKeyResponse;
+import org.signal.chat.account.FinishWebAuthnRegistrationRequest;
+import org.signal.chat.account.FinishWebAuthnRegistrationResponse;
 import org.signal.chat.account.GenerateTotpKeyRequest;
 import org.signal.chat.account.GenerateTotpKeyResponse;
 import org.signal.chat.account.ListMfaKeysRequest;
 import org.signal.chat.account.ListMfaKeysResponse;
+import org.signal.chat.account.StartWebAuthnRegistrationRequest;
+import org.signal.chat.account.StartWebAuthnRegistrationResponse;
 import org.signal.chat.account.TotpParameters;
+import org.signal.integration.config.WebAuthnConfiguration;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
@@ -102,7 +124,7 @@ public class AccountTest {
       assertEquals(ConfirmTotpKeyResponse.ResponseCase.KEY_CONFIRMED, confirmTotpKeyResponse.getResponseCase());
       final int keyId = confirmTotpKeyResponse.getKeyConfirmed().getKeyId();
 
-      user = Operations.recoverNumberlessUser(user, totpGenerator.generateOneTimePassword(totpKey, Instant.now()));
+      user = Operations.recoverNumberlessUserWithTotp(user, totpGenerator.generateOneTimePassword(totpKey, Instant.now()));
 
       assertEquals(user.aciUuid(), originalAci);
 
@@ -114,6 +136,69 @@ public class AccountTest {
       assertTrue(mfaKeys.containsKey(keyId));
       assertEquals(ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType.MFA_KEY_TYPE_TOTP, mfaKeys.get(keyId).getType());
       assertArrayEquals(totpMetadata, mfaKeys.get(keyId).getMetadataCiphertext().toByteArray());
+
+    } finally {
+      Operations.deleteReceipt(receipt.serial());
+      Operations.deleteUser(user);
+    }
+  }
+
+  @Test
+  public void testRecoverWithWebAuthn() throws VerificationFailedException, InvalidInputException {
+    final WebAuthnConfiguration webAuthnConfiguration = Operations.getWebAuthnConfiguration();
+    final ClientPlatform clientPlatform = new ClientPlatform(new Origin(webAuthnConfiguration.origin()), new WebAuthnAuthenticatorAdaptor(EmulatorUtil.NONE_ATTESTATION_AUTHENTICATOR));
+    final COSEAlgorithmIdentifier algorithm = COSEAlgorithmIdentifier.ES256;
+
+    final Operations.Receipt receipt = Operations.getPrescribedReceipt();
+    TestUser user = Operations.registerNumberlessUser(receipt.credential());
+    final UUID originalAci = user.aciUuid();
+
+    try {
+      final StartWebAuthnRegistrationResponse startWebAuthnRegistrationResponse =
+          getAccountsStubForUser(user).startWebAuthnRegistration(StartWebAuthnRegistrationRequest.getDefaultInstance());
+      assertEquals(StartWebAuthnRegistrationResponse.ResponseCase.PARAMS, startWebAuthnRegistrationResponse.getResponseCase());
+
+      final StartWebAuthnRegistrationResponse.WebAuthnCreateParameters webAuthnCreateParameters = startWebAuthnRegistrationResponse.getParams();
+
+      assertTrue(
+          webAuthnCreateParameters.getAllowedAlgorithmsList().contains(algorithm.getValue()));
+
+      final PublicKeyCredential<AuthenticatorAttestationResponse, ?> credential =
+          clientPlatform.create(new PublicKeyCredentialCreationOptions(
+              new PublicKeyCredentialRpEntity(webAuthnConfiguration.relyingPartyId(), "test"),
+              new PublicKeyCredentialUserEntity(webAuthnCreateParameters.getUserHandle().toByteArray(), "test", "test"),
+              new DefaultChallenge(),
+              List.of(new PublicKeyCredentialParameters(PublicKeyCredentialType.PUBLIC_KEY, algorithm)),
+              null,
+              List.of(),
+              new AuthenticatorSelectionCriteria(
+                  null, false, ResidentKeyRequirement.DISCOURAGED, UserVerificationRequirement.DISCOURAGED),
+              AttestationConveyancePreference.NONE,
+              null));
+
+      final byte[] metadataCiphertext = Operations.randomBytes(160);
+
+      final FinishWebAuthnRegistrationResponse finishWebAuthnRegistrationResponse = getAccountsStubForUser(user)
+          .finishWebAuthnRegistration(FinishWebAuthnRegistrationRequest.newBuilder()
+              .setAttestationObject(ByteString.copyFrom(credential.getResponse().getAttestationObject()))
+              .setCollectedClientDataJsonBytes(ByteString.copyFrom(credential.getResponse().getClientDataJSON()))
+              .setMetadataCiphertext(ByteString.copyFrom(metadataCiphertext))
+              .build());
+      assertEquals(FinishWebAuthnRegistrationResponse.ResponseCase.KEY_CONFIRMED, finishWebAuthnRegistrationResponse.getResponseCase());
+      final int keyId = finishWebAuthnRegistrationResponse.getKeyConfirmed().getKeyId();
+
+      user = Operations.recoverNumberlessUserWithWebAuthn(user, clientPlatform, credential.getRawId(), webAuthnConfiguration.relyingPartyId());
+
+      assertEquals(originalAci, user.aciUuid());
+
+      // MFA key should remain set after re-registration
+      final Map<Integer, ListMfaKeysResponse.MfaKeyMetadata> mfaKeys =
+          getAccountsStubForUser(user).listMfaKeys(ListMfaKeysRequest.getDefaultInstance()).getKeysMap();
+
+      assertEquals(1, mfaKeys.size());
+      assertTrue(mfaKeys.containsKey(keyId));
+      assertEquals(ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType.MFA_KEY_TYPE_WEBAUTHN, mfaKeys.get(keyId).getType());
+      assertArrayEquals(metadataCiphertext, mfaKeys.get(keyId).getMetadataCiphertext().toByteArray());
 
     } finally {
       Operations.deleteReceipt(receipt.serial());

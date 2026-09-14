@@ -577,3 +577,9 @@ foundationDbMessages:
   epochs:
     0:
       - messages-0
+
+registrationWebAuthn:
+  relyingPartyId: example.org
+  origin: https://example.org
+  challengeTtl: PT2M
+  userHandleBlindingSecret: secret://registrationWebAuthn.userHandleBlindingSecret

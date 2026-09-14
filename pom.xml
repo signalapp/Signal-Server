@@ -90,6 +90,7 @@
     <stripe.version>33.4.0</stripe.version>
     <swagger.version>2.2.54</swagger.version>
     <testcontainers.version>2.0.5</testcontainers.version>
+    <webauthn4j.version>0.31.9.RELEASE</webauthn4j.version>
 
     <!-- images to use in tests via testcontainers  -->
     <dynamodb.image>amazon/dynamodb-local:3.3.1@sha256:ff89bd48ff32cd8d9be5fee8873b65b8854dc408f1afe881be6eb00247bc0dab</dynamodb.image>

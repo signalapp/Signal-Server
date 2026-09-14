@@ -67,6 +67,7 @@ import org.whispersystems.textsecuregcm.configuration.TotpConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.VirtualThreadConfiguration;
+import org.whispersystems.textsecuregcm.configuration.WebAuthnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
@@ -390,6 +391,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private TotpConfiguration registrationTotp = TotpConfiguration.DEFAULT;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private WebAuthnConfiguration registrationWebAuthn;
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -652,5 +658,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public TotpConfiguration getRegistrationTotpConfiguration() {
     return registrationTotp;
+  }
+
+  public WebAuthnConfiguration getRegistrationWebAuthnConfiguration() {
+    return registrationWebAuthn;
   }
 }

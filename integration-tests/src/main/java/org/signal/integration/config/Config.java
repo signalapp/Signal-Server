@@ -18,5 +18,6 @@ public record Config(@NotBlank String domain,
                      @NotBlank String prescribedRegistrationCode,
                      @NotBlank String prescribedReceiptSerial,
                      @NotBlank String prescribedReceiptCredential,
-                     @NotBlank String serverZkPublicParams) {
+                     @NotBlank String serverZkPublicParams,
+                     @NotNull @Valid WebAuthnConfiguration webAuthn) {
 }

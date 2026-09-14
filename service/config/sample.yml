@@ -572,3 +572,9 @@ foundationDbMessages:
       - messages-1
       - messages-2
       - messages-3
+
+registrationWebAuthn:
+  relyingPartyId: example.org
+  origin: https://example.org
+  challengeTtl: PT2M
+  userHandleBlindingSecret: secret://registrationWebAuthn.userHandleBlindingSecret

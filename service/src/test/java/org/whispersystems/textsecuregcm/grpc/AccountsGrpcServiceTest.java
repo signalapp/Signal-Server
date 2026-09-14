@@ -25,6 +25,10 @@ import static org.mockito.Mockito.when;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
+import com.webauthn4j.data.attestation.authenticator.AAGUID;
+import com.webauthn4j.data.attestation.authenticator.AttestedCredentialData;
+import com.webauthn4j.data.attestation.statement.COSEAlgorithmIdentifier;
+import com.webauthn4j.test.TestDataUtil;
 import io.grpc.Status;
 import java.io.IOException;
 import java.time.Duration;
@@ -63,6 +67,8 @@ import org.signal.chat.account.DeleteAccountResponse;
 import org.signal.chat.account.DeleteUsernameHashRequest;
 import org.signal.chat.account.DeleteUsernameLinkRequest;
 import org.signal.chat.account.ExternalServiceCredentials;
+import org.signal.chat.account.FinishWebAuthnRegistrationRequest;
+import org.signal.chat.account.FinishWebAuthnRegistrationResponse;
 import org.signal.chat.account.GenerateTotpKeyRequest;
 import org.signal.chat.account.GenerateTotpKeyResponse;
 import org.signal.chat.account.GetAccountDataReportRequest;
@@ -75,24 +81,25 @@ import org.signal.chat.account.GetEntitlementsRequest;
 import org.signal.chat.account.GetEntitlementsResponse;
 import org.signal.chat.account.ListMfaKeysRequest;
 import org.signal.chat.account.ListMfaKeysResponse;
+import org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType;
 import org.signal.chat.account.RegistrationLockFailure;
 import org.signal.chat.account.RemoveMfaKeyRequest;
 import org.signal.chat.account.ReserveUsernameHashRequest;
 import org.signal.chat.account.ReserveUsernameHashResponse;
 import org.signal.chat.account.SetDiscoverableByPhoneNumberRequest;
+import org.signal.chat.account.SetMfaKeyMetadataRequest;
+import org.signal.chat.account.SetMfaKeyMetadataResponse;
 import org.signal.chat.account.SetRegistrationLockRequest;
 import org.signal.chat.account.SetRegistrationLockResponse;
 import org.signal.chat.account.SetRegistrationRecoveryPasswordRequest;
-import org.signal.chat.account.SetMfaKeyMetadataRequest;
-import org.signal.chat.account.SetMfaKeyMetadataResponse;
 import org.signal.chat.account.SetUsernameLinkRequest;
 import org.signal.chat.account.SetUsernameLinkResponse;
 import org.signal.chat.account.SetZkCredentialKeyRequest;
 import org.signal.chat.account.SetZkCredentialKeyResponse;
 import org.signal.chat.account.StaleDevices;
-import org.signal.chat.account.TotpParameters;
+import org.signal.chat.account.StartWebAuthnRegistrationRequest;
+import org.signal.chat.account.StartWebAuthnRegistrationResponse;
 import org.signal.chat.account.UsernameNotAvailable;
-import org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType;
 import org.signal.chat.common.AccountIdentifiers;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
@@ -108,6 +115,7 @@ import org.whispersystems.textsecuregcm.auth.RegistrationLockFailureException;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.auth.UnverifiedRegistrationSessionException;
+import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyParameters;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
@@ -123,16 +131,18 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
+import org.whispersystems.textsecuregcm.storage.AccountNotFoundException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.AnnotatedMfaKey;
 import org.whispersystems.textsecuregcm.storage.AnnotatedTotpKey;
+import org.whispersystems.textsecuregcm.storage.AnnotatedWebAuthnCredential;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsManager;
-import org.whispersystems.textsecuregcm.storage.TooManyTotpKeysException;
 import org.whispersystems.textsecuregcm.storage.TooManyMfaKeysException;
+import org.whispersystems.textsecuregcm.storage.TooManyTotpKeysException;
 import org.whispersystems.textsecuregcm.storage.TotpKey;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
@@ -1230,7 +1240,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void confirmTotpKeyTooManyNonTotpKeys() throws TooManyTotpKeysException, TooManyMfaKeysException {
+  void confirmTotpKeyTooManyNonTotpKeys() throws TooManyMfaKeysException {
     final Account account = mock(Account.class);
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
@@ -1266,15 +1276,15 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
             .build()));
   }
 
-
   @Test
-  void listTotpKeys() {
-    final Map<Byte, AnnotatedMfaKey> totpKeys = Map.of(
+  void listMfaKeys() {
+    final Map<Byte, AnnotatedMfaKey> mfaKeys = Map.of(
         (byte) 1, generateRandomAnnotatedTotpKey(),
-        (byte) 2, generateRandomAnnotatedTotpKey());
+        (byte) 2, generateRandomAnnotatedTotpKey(),
+        (byte) 3, generateRandomAnnotatedWebAuthnCredential());
 
     final Account account = mock(Account.class);
-    when(account.getMfaKeys()).thenReturn(totpKeys);
+    when(account.getMfaKeys()).thenReturn(mfaKeys);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
@@ -1282,13 +1292,22 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final ListMfaKeysResponse response =
         authenticatedServiceStub().listMfaKeys(ListMfaKeysRequest.getDefaultInstance());
 
-    final Map<Integer, ListMfaKeysResponse.MfaKeyMetadata> expectedTotpKeys = totpKeys.entrySet().stream()
-        .collect(Collectors.toMap(entry -> entry.getKey().intValue(), entry -> ListMfaKeysResponse.MfaKeyMetadata.newBuilder()
-            .setType(MfaKeyType.MFA_KEY_TYPE_TOTP)
-            .setMetadataCiphertext(ByteString.copyFrom(entry.getValue().metadataCiphertext()))
-            .build()));
+    final Map<Integer, ListMfaKeysResponse.MfaKeyMetadata> expectedMfaKeys = mfaKeys.entrySet().stream()
+        .collect(Collectors.toMap(entry -> entry.getKey().intValue(), entry -> {
+          final ListMfaKeysResponse.MfaKeyMetadata.Builder builder = ListMfaKeysResponse.MfaKeyMetadata.newBuilder()
+              .setMetadataCiphertext(ByteString.copyFrom(entry.getValue().metadataCiphertext()));
 
-    assertEquals(expectedTotpKeys, response.getKeysMap());
+          if (entry.getValue() instanceof AnnotatedTotpKey) {
+            builder.setType(MfaKeyType.MFA_KEY_TYPE_TOTP);
+          } else if (entry.getValue() instanceof AnnotatedWebAuthnCredential c) {
+            builder.setType(MfaKeyType.MFA_KEY_TYPE_WEBAUTHN);
+          }
+
+          return builder.build();
+        }));
+
+
+    assertEquals(expectedMfaKeys, response.getKeysMap());
   }
 
   @Test
@@ -1309,7 +1328,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
             .setMetadataCiphertext(ByteString.copyFrom(updatedMetadata))
             .build());
 
-    assertEquals(SetMfaKeyMetadataResponse.ResponseCase.METADATA_UPDATED, response.getResponseCase());
+    assertEquals(SetMfaKeyMetadataResponse.ResponseCase.SUCCESS, response.getResponseCase());
     verify(account).setMfaKeys(Map.of(keyId, existingTotpKey.withMetadataCiphertext(updatedMetadata)));
   }
 
@@ -1383,4 +1402,138 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     return new AnnotatedTotpKey(new TotpKey(TOTP_PARAMETERS, TestRandomUtil.nextBytes(32)),
         TestRandomUtil.nextBytes(MFA_KEY_METADATA_SIZE));
   }
+
+  @Test
+  void startWebAuthnRegistration() throws TooManyMfaKeysException {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
+    final byte[] userHandle = TestRandomUtil.nextBytes(32);
+    final byte[] excludedCredentialId = TestRandomUtil.nextBytes(32);
+
+    when(accountsManager.startWebAuthnRegistration(AUTHENTICATED_ACI))
+        .thenReturn(new RegistrationCeremonyParameters(
+            userHandle, List.of(COSEAlgorithmIdentifier.ES256.getValue(), COSEAlgorithmIdentifier.Ed25519.getValue()), List.of(excludedCredentialId)));
+
+    final StartWebAuthnRegistrationResponse response =
+        authenticatedServiceStub().startWebAuthnRegistration(StartWebAuthnRegistrationRequest.getDefaultInstance());
+
+    assertEquals(StartWebAuthnRegistrationResponse.ResponseCase.PARAMS, response.getResponseCase());
+    assertArrayEquals(userHandle, response.getParams().getUserHandle().toByteArray());
+    assertEquals(List.of(COSEAlgorithmIdentifier.ES256.getValue(), COSEAlgorithmIdentifier.Ed25519.getValue()), response.getParams().getAllowedAlgorithmsList());
+    assertEquals(List.of(ByteString.copyFrom(excludedCredentialId)),
+        response.getParams().getExcludeCredentialIdsList());
+  }
+
+  @Test
+  void startWebAuthnRegistrationTooManyMfaKeys() throws TooManyMfaKeysException {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
+    when(accountsManager.startWebAuthnRegistration(AUTHENTICATED_ACI)).thenThrow(TooManyMfaKeysException.class);
+
+    final StartWebAuthnRegistrationResponse response =
+        authenticatedServiceStub().startWebAuthnRegistration(StartWebAuthnRegistrationRequest.getDefaultInstance());
+
+    assertEquals(StartWebAuthnRegistrationResponse.ResponseCase.TOO_MANY_MFA_KEYS, response.getResponseCase());
+  }
+
+  @Test
+  void startWebAuthnRegistrationAccountNotFound() throws TooManyMfaKeysException {
+    when(accountsManager.startWebAuthnRegistration(AUTHENTICATED_ACI)).thenThrow(AccountNotFoundException.class);
+
+    GrpcTestUtils.assertStatusException(Status.UNAUTHENTICATED,
+        () -> authenticatedServiceStub().startWebAuthnRegistration(StartWebAuthnRegistrationRequest.getDefaultInstance()));
+  }
+
+  @Test
+  void finishWebAuthnRegistration() throws TooManyMfaKeysException {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
+    final byte keyId = 42;
+    final byte[] attestationObject = TestRandomUtil.nextBytes(128);
+    final byte[] metadataCiphertext = TestRandomUtil.nextBytes(MFA_KEY_METADATA_SIZE);
+    final String collectedClientDataJson = "{\"type\":\"webauthn.create\"}";
+
+    when(accountsManager.finishWebAuthnRegistration(
+        eq(AUTHENTICATED_ACI), any(), eq(collectedClientDataJson), any()))
+        .thenReturn(Optional.of(keyId));
+
+    final FinishWebAuthnRegistrationResponse response =
+        authenticatedServiceStub().finishWebAuthnRegistration(FinishWebAuthnRegistrationRequest.newBuilder()
+            .setAttestationObject(ByteString.copyFrom(attestationObject))
+            .setCollectedClientDataJson(collectedClientDataJson)
+            .setMetadataCiphertext(ByteString.copyFrom(metadataCiphertext))
+            .build());
+
+    assertEquals(FinishWebAuthnRegistrationResponse.ResponseCase.KEY_CONFIRMED, response.getResponseCase());
+    assertEquals(keyId, response.getKeyConfirmed().getKeyId());
+
+    verify(accountsManager).finishWebAuthnRegistration(
+        AUTHENTICATED_ACI, attestationObject, collectedClientDataJson, metadataCiphertext);
+  }
+
+  @Test
+  void finishWebAuthnRegistrationKeyNotConfirmed() throws TooManyMfaKeysException {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
+    when(accountsManager.finishWebAuthnRegistration(any(), any(), any(), any())).thenReturn(Optional.empty());
+
+    final FinishWebAuthnRegistrationResponse response =
+        authenticatedServiceStub().finishWebAuthnRegistration(FinishWebAuthnRegistrationRequest.newBuilder()
+            .setAttestationObject(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+            .setCollectedClientDataJson("{}")
+            .setMetadataCiphertext(ByteString.copyFrom(TestRandomUtil.nextBytes(MFA_KEY_METADATA_SIZE)))
+            .build());
+
+    assertEquals(FinishWebAuthnRegistrationResponse.ResponseCase.KEY_NOT_CONFIRMED, response.getResponseCase());
+  }
+
+  @Test
+  void finishWebAuthnRegistrationTooManyMfaKeys() throws TooManyMfaKeysException {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+    when(account.getNumber()).thenReturn(Optional.empty());
+
+    when(accountsManager.finishWebAuthnRegistration(any(), any(), any(), any()))
+        .thenThrow(TooManyMfaKeysException.class);
+
+    final FinishWebAuthnRegistrationResponse response =
+        authenticatedServiceStub().finishWebAuthnRegistration(FinishWebAuthnRegistrationRequest.newBuilder()
+            .setAttestationObject(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+            .setCollectedClientDataJson("{}")
+            .setMetadataCiphertext(ByteString.copyFrom(TestRandomUtil.nextBytes(MFA_KEY_METADATA_SIZE)))
+            .build());
+
+    assertEquals(FinishWebAuthnRegistrationResponse.ResponseCase.TOO_MANY_MFA_KEYS, response.getResponseCase());
+  }
+
+  @Test
+  void finishWebAuthnRegistrationIncorrectMetadataSize() {
+    GrpcTestUtils.assertStatusInvalidArgument(
+        () -> authenticatedServiceStub().finishWebAuthnRegistration(FinishWebAuthnRegistrationRequest.newBuilder()
+            .setAttestationObject(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+            .setCollectedClientDataJson("{}")
+            .setMetadataCiphertext(ByteString.copyFrom(TestRandomUtil.nextBytes(MFA_KEY_METADATA_SIZE + 1)))
+            .build()));
+  }
+
+  private static AnnotatedWebAuthnCredential generateRandomAnnotatedWebAuthnCredential() {
+    return new AnnotatedWebAuthnCredential(
+        new AttestedCredentialData(AAGUID.ZERO, TestRandomUtil.nextBytes(32), TestDataUtil.createEC2COSEPublicKey()),
+        0,
+        TestRandomUtil.nextBytes(MFA_KEY_METADATA_SIZE));
+  }
+
 }

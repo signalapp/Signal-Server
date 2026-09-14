@@ -97,6 +97,7 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.auth.IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
+import org.whispersystems.textsecuregcm.auth.webauthn.WebAuthnCeremonyManager;
 import org.whispersystems.textsecuregcm.auth.grpc.ProhibitAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.auth.grpc.RequireAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
@@ -213,6 +214,7 @@ import org.whispersystems.textsecuregcm.mappers.IllegalStateExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.JsonMappingExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.MfaFailureExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ObsoletePhoneNumberFormatExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -811,12 +813,19 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         changeNumberWaitingPeriods, config.getChangeNumber().postRegistrationWaitingPeriod(), clock);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    final WebAuthnCeremonyManager webAuthnCeremonyManager = new WebAuthnCeremonyManager(
+        config.getRegistrationWebAuthnConfiguration().relyingPartyId(),
+        config.getRegistrationWebAuthnConfiguration().origin(),
+        config.getRegistrationWebAuthnConfiguration().challengeTtl(),
+        config.getRegistrationWebAuthnConfiguration().userHandleBlindingSecret().value(),
+        rateLimitersCluster);
     final AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keysManager, messagesManager, profilesManager,
         changeNumberWaitingPeriodManager, secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         phoneNumberRecoveryPasswordsManager, messagePollExecutor,
         retryExecutor, clock, config.getLinkDeviceSecretConfiguration().secret().value(),
-        config.getRegistrationTotpConfiguration().maxValidationDelay());
+        config.getRegistrationTotpConfiguration().maxValidationDelay(),
+            webAuthnCeremonyManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs, config.getRemoteConfigConfiguration().globalConfig());
     APNSender apnSender = new APNSender(apnSenderExecutor, Clock.systemUTC(), config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
@@ -1389,7 +1398,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new SubscriptionExceptionMapper(),
         new BackupExceptionMapper(),
         new JsonMappingExceptionMapper(),
-        new RegistrationLockFailureExceptionMapper()
+        new RegistrationLockFailureExceptionMapper(),
+        new MfaFailureExceptionMapper()
     ).forEach(exceptionMapper -> {
       environment.jersey().register(exceptionMapper);
       webSocketEnvironment.jersey().register(exceptionMapper);

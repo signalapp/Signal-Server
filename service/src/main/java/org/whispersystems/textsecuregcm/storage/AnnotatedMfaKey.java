@@ -9,8 +9,10 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 @JsonTypeInfo(use=JsonTypeInfo.Id.NAME, property = "type")
-@JsonSubTypes({@JsonSubTypes.Type(value=AnnotatedTotpKey.class, name = "totp")})
-public sealed interface AnnotatedMfaKey permits AnnotatedTotpKey {
+@JsonSubTypes({
+    @JsonSubTypes.Type(value=AnnotatedTotpKey.class, name = "totp"),
+    @JsonSubTypes.Type(value=AnnotatedWebAuthnCredential.class, name = "webauthn")})
+public sealed interface AnnotatedMfaKey permits AnnotatedTotpKey, AnnotatedWebAuthnCredential {
   byte[] metadataCiphertext();
   AnnotatedMfaKey withMetadataCiphertext(byte[] newCiphertext);
 }

@@ -91,6 +91,16 @@ service Accounts {
   // TOTP keys may only be generated for accounts without phone numbers.
   rpc ConfirmTotpKey(ConfirmTotpKeyRequest) returns (ConfirmTotpKeyResponse) {}
 
+  // Returns parameters for initiating a WebAuthn registration ceremony
+  //
+  // WebAuthn credentials may only be registered for accounts without phone numbers
+  rpc StartWebAuthnRegistration(StartWebAuthnRegistrationRequest) returns (StartWebAuthnRegistrationResponse) {}
+
+  // Concludes a WebAuthn registration ceremony to add a passkey to the authenticated account
+  //
+  // WebAuthn credentials may only be registered for accounts without phone numbers
+  rpc FinishWebAuthnRegistration(FinishWebAuthnRegistrationRequest) returns (FinishWebAuthnRegistrationResponse) {}
+
   // Returns a list of confirmed MFA keys for the authenticated account
   rpc ListMfaKeys(ListMfaKeysRequest) returns (ListMfaKeysResponse) {}
 
@@ -575,6 +585,70 @@ message ConfirmTotpKeyResponse {
   }
 }
 
+message StartWebAuthnRegistrationRequest {
+}
+
+message StartWebAuthnRegistrationResponse {
+  message WebAuthnCreateParameters {
+    // The "user handle" (user.id) that should be handed to the authenticator
+    bytes user_handle = 1;
+
+    // The COSE IDs (https://www.iana.org/assignments/cose#algorithms) of
+    // acceptable algorithms for the created key
+    repeated int64 allowed_algorithms = 2;
+
+    // A list of the credential IDs already registered for this account; these
+    // can be passed to candidate authenticators to tell them not to create a
+    // new key if they already have a private key matching one of these
+    repeated bytes exclude_credential_ids = 3;
+  }
+
+  oneof response {
+    // The parameters to use for a WebAuthn registration ceremony
+    WebAuthnCreateParameters params = 1;
+
+    // The authenticated account already has too many MFA keys, and the
+    // caller must remove one before adding one
+    errors.FailedPrecondition too_many_mfa_keys = 2 [(tag.reason) = "too_many_mfa_keys"];
+  }
+}
+
+message FinishWebAuthnRegistrationRequest {
+  // The attestation object from a completed registration ceremony, serialized
+  // as specified in https://www.w3.org/TR/webauthn/#attestation-object
+  bytes attestation_object = 1;
+
+  // The "collected client data" map used in the registration ceremony, as the
+  // exact JSON map that was hashed for the authenticator
+  string collected_client_data_json = 2;
+
+  // The ciphertext of user-provided metadata (presumably including a
+  // human-readable name and creation timestamp) to be attached to the
+  // newly-confirmed key
+  bytes metadata_ciphertext = 3 [(require.exactlySize) = 160];
+}
+
+message FinishWebAuthnRegistrationResponse {
+  message KeyConfirmed {
+    // An account-specific identifier for the new WebAuthn key
+    uint32 key_id = 1 [(require.range) = {min: 0, max: 127}];
+  }
+
+  oneof response {
+    // The provided public key has been registered for the account
+    KeyConfirmed key_confirmed = 1;
+
+    // The registration response was not verified successfully for any reason
+    errors.FailedPrecondition key_not_confirmed = 2 [(tag.reason) = "registration_ceremony_unsuccessful"];
+
+    // The authenticated account already has too many MFA keys, and the
+    // caller must remove one before adding one (this can be true even if it
+    // was not when starting the request, since there is nothing to prevent
+    // multiple registrations from occurring in parallel)
+    errors.FailedPrecondition too_many_mfa_keys = 3 [(tag.reason) = "too_many_mfa_keys"];
+  }
+}
+
 message ListMfaKeysRequest {}
 
 message ListMfaKeysResponse {
@@ -582,12 +656,13 @@ message ListMfaKeysResponse {
     enum MfaKeyType {
       MFA_KEY_TYPE_UNSPECIFIED = 0;
       MFA_KEY_TYPE_TOTP = 1;
+      MFA_KEY_TYPE_WEBAUTHN = 2;
     }
 
-    /// The user-provided ciphertext for metadata associated with this MFA key
+    // The user-provided ciphertext for metadata associated with this MFA key
     bytes metadata_ciphertext = 1 [(require.exactlySize) = 160];
 
-    /// The type of MFA factor this key is for
+    // The type of MFA factor this key is for
     MfaKeyType type = 2;
   }
 
@@ -608,8 +683,8 @@ message SetMfaKeyMetadataResponse {
   }
 
   oneof response {
-    // New metadata was stored for the identified TOTP key
-    MetadataUpdated metadata_updated = 1;
+    // New metadata was stored for the identified key
+    MetadataUpdated success = 1;
 
     // No TOTP was found with the given ID
     errors.NotFound key_not_found = 2 [(tag.reason) = "key_not_found"];

@@ -10,6 +10,14 @@ import static java.util.Objects.requireNonNull;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.io.Resources;
 import com.google.common.net.HttpHeaders;
+import com.webauthn4j.data.AuthenticatorAssertionResponse;
+import com.webauthn4j.data.PublicKeyCredential;
+import com.webauthn4j.data.PublicKeyCredentialDescriptor;
+import com.webauthn4j.data.PublicKeyCredentialRequestOptions;
+import com.webauthn4j.data.PublicKeyCredentialType;
+import com.webauthn4j.data.UserVerificationRequirement;
+import com.webauthn4j.data.client.challenge.DefaultChallenge;
+import com.webauthn4j.test.client.ClientPlatform;
 import io.dropwizard.configuration.ConfigurationValidationException;
 import io.dropwizard.jersey.validation.Validators;
 import io.grpc.ChannelCredentials;
@@ -33,6 +41,7 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -53,6 +62,7 @@ import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.signal.integration.config.Config;
+import org.signal.integration.config.WebAuthnConfiguration;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
@@ -76,6 +86,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
+import org.whispersystems.textsecuregcm.mappers.MfaFailureExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.CertificateUtil;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -113,6 +124,10 @@ public final class Operations {
     );
   }
 
+  public static WebAuthnConfiguration getWebAuthnConfiguration() {
+    return CONFIG.webAuthn();
+  }
+
   public static TestUser registerNumberlessUser(final ReceiptCredential receiptCredential)
       throws InvalidInputException, VerificationFailedException {
     final String accountPassword = Base64.getEncoder().encodeToString(randomBytes(32));
@@ -126,6 +141,7 @@ public final class Operations {
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         null,
         receiptCredentialPresentation.serialize(),
+        null,
         null,
         user.accountAttributes(),
         true,
@@ -147,7 +163,7 @@ public final class Operations {
     return user;
   }
 
-  public static TestUser recoverNumberlessUser(final TestUser testUser, @Nullable final Integer totp) {
+  public static TestUser recoverNumberlessUserWithTotp(final TestUser testUser, @Nullable final Integer totp) {
     final String accountPassword = Base64.getEncoder().encodeToString(randomBytes(32));
     final TestUser recoveredUser = TestUser.createNumberlessForRecovery(accountPassword, testUser.registrationPassword());
 
@@ -157,6 +173,79 @@ public final class Operations {
         testUser.registrationPassword(),
         null,
         totp,
+        null,
+        recoveredUser.accountAttributes(),
+        true,
+        new IdentityKey(aciIdentityKeyPair.getPublicKey()),
+        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+        new DeviceActivationRequest(generateSignedECPreKey(1, aciIdentityKeyPair),
+            Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
+            generateSignedKEMPreKey(3, aciIdentityKeyPair),
+            Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
+            Optional.empty(),
+            Optional.empty()));
+
+    final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
+        // For a numberless account recovery, the username is the ACI
+        .authorized(testUser.aciUuid().toString(), accountPassword)
+        .executeExpectSuccess(AccountIdentityResponse.class);
+
+    recoveredUser.setAciUuid(registrationResponse.uuid());
+    return recoveredUser;
+  }
+
+  public static TestUser recoverNumberlessUserWithWebAuthn(final TestUser testUser,
+      final ClientPlatform clientPlatform,
+      final byte[] credentialId,
+      final String relyingPartyId) {
+    final String accountPassword = Base64.getEncoder().encodeToString(randomBytes(32));
+    final TestUser recoveredUser = TestUser.createNumberlessForRecovery(accountPassword, testUser.registrationPassword());
+
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final RegistrationRequest initialRequest = new RegistrationRequest(null,
+        testUser.registrationPassword(),
+        null,
+        null,
+        null,
+        recoveredUser.accountAttributes(),
+        true,
+        new IdentityKey(aciIdentityKeyPair.getPublicKey()),
+        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+        new DeviceActivationRequest(generateSignedECPreKey(1, aciIdentityKeyPair),
+            Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
+            generateSignedKEMPreKey(3, aciIdentityKeyPair),
+            Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
+            Optional.empty(),
+            Optional.empty()));
+
+    final Pair<Integer, MfaFailureExceptionMapper.MfaFailureResponse> initialResponse = apiPost("/v1/registration", initialRequest)
+        // For a numberless account recovery, the username is the ACI
+        .authorized(testUser.aciUuid().toString(), accountPassword)
+        .execute(MfaFailureExceptionMapper.MfaFailureResponse.class);
+
+    // we expect (and need) failure with status 441, which will contain the WebAuthn challenge
+    assert initialResponse.getLeft() == 441;
+
+    final MfaFailureExceptionMapper.MfaFailureResponse mfaFailureResponse = initialResponse.getRight();
+    assert mfaFailureResponse.webAuthnParameters().allowedCredentialIds()
+        .stream()
+        .anyMatch(allowedId -> Arrays.equals(allowedId, credentialId));
+
+    final PublicKeyCredential<AuthenticatorAssertionResponse, ?> credential =
+        clientPlatform.get(new PublicKeyCredentialRequestOptions(
+            new DefaultChallenge(mfaFailureResponse.webAuthnParameters().challenge()),
+            null,
+            relyingPartyId,
+            List.of(new PublicKeyCredentialDescriptor(PublicKeyCredentialType.PUBLIC_KEY, credentialId, null)),
+            UserVerificationRequirement.DISCOURAGED,
+            null));
+
+    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
+        testUser.registrationPassword(),
+        null,
+        null,
+        webAuthnVerificationResponseJson(credential),
         recoveredUser.accountAttributes(),
         true,
         new IdentityKey(aciIdentityKeyPair.getPublicKey()),
@@ -190,6 +279,7 @@ public final class Operations {
     // register account
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         registrationPassword,
+        null,
         null,
         null,
         accountAttributes,
@@ -536,5 +626,35 @@ public final class Operations {
     } catch (final JsonProcessingException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /// Serializes an assertion into the [specification](https://www.w3.org/TR/webauthn/#dictdef-authenticationresponsejson) format.
+  static String webAuthnVerificationResponseJson(final PublicKeyCredential<AuthenticatorAssertionResponse, ?> credential) {
+    final AuthenticatorAssertionResponse response = credential.getResponse();
+
+    return """
+        {
+          "id": "%s",
+          "rawId": "%s",
+          "type": "public-key",
+          "clientExtensionResults": {},
+          "response": {
+            "clientDataJSON": "%s",
+            "authenticatorData": "%s",
+            "signature": "%s",
+            "userHandle": %s
+          }
+        }
+        """.formatted(
+        base64Url(credential.getRawId()),
+        base64Url(credential.getRawId()),
+        base64Url(response.getClientDataJSON()),
+        base64Url(response.getAuthenticatorData()),
+        base64Url(response.getSignature()),
+        response.getUserHandle() == null ? "null" : "\"" + base64Url(response.getUserHandle()) + "\"");
+  }
+
+  private static String base64Url(@Nullable final byte[] bytes) {
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
   }
 }

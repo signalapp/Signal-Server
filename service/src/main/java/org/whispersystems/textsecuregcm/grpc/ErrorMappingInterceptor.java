@@ -12,12 +12,13 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
-import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.storage.AccountNotFoundException;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 
 /**
  * This interceptor observes responses from the service and if the response status is {@link Status#UNKNOWN}
@@ -52,6 +53,7 @@ public class ErrorMappingInterceptor implements ServerInterceptor {
 
         final StatusRuntimeException statusException = switch (cause) {
           case ConvertibleToGrpcStatus e -> e.toStatusRuntimeException();
+          case AccountNotFoundException _ -> GrpcExceptions.invalidCredentials("invalid credentials");
           case UncheckedIOException e -> {
             log.warn("RPC {} encountered UncheckedIOException", call.getMethodDescriptor().getFullMethodName(), e.getCause());
             yield GrpcExceptions.unavailable();

@@ -22,7 +22,6 @@
     <!-- *all* opentelemetry-logback-appender versions are "alpha" despite the advanced version number -->
     <opentelemetry-logback-appender-1.0.version>2.31.1-alpha</opentelemetry-logback-appender-1.0.version>
     <storekit.version>5.2.0</storekit.version>
-    <webauthn4j.version>0.31.9.RELEASE</webauthn4j.version>
   </properties>
 
   <dependencies>
@@ -56,6 +55,11 @@
     <dependency>
       <groupId>com.webauthn4j</groupId>
       <artifactId>webauthn4j-appattest</artifactId>
+      <version>${webauthn4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.webauthn4j</groupId>
+      <artifactId>webauthn4j-core</artifactId>
       <version>${webauthn4j.version}</version>
     </dependency>
     <dependency>
@@ -569,6 +573,13 @@
     <dependency>
       <groupId>com.redis</groupId>
       <artifactId>testcontainers-redis</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.webauthn4j</groupId>
+      <artifactId>webauthn4j-test</artifactId>
+      <version>${webauthn4j.version}</version>
       <scope>test</scope>
     </dependency>
 

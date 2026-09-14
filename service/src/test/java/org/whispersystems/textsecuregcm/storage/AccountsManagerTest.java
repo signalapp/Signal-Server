@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -34,6 +35,14 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.webauthn4j.data.AuthenticationData;
+import com.webauthn4j.data.attestation.authenticator.AAGUID;
+import com.webauthn4j.data.attestation.authenticator.AttestedCredentialData;
+import com.webauthn4j.data.attestation.statement.COSEAlgorithmIdentifier;
+import com.webauthn4j.test.TestDataUtil;
+import com.webauthn4j.util.exception.WebAuthnException;
+import com.webauthn4j.verifier.exception.BadChallengeException;
+import com.webauthn4j.verifier.exception.VerificationException;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
@@ -88,6 +97,10 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
+import org.whispersystems.textsecuregcm.auth.webauthn.AuthenticationCeremonyParameters;
+import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyParameters;
+import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyResult;
+import org.whispersystems.textsecuregcm.auth.webauthn.WebAuthnCeremonyManager;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -148,6 +161,7 @@ class AccountsManagerTest {
   private RedisAdvancedClusterAsyncCommands<String, String> asyncClusterCommands;
   private AccountsManager accountsManager;
   private SecureValueRecoveryClient svr2Client;
+  private WebAuthnCeremonyManager webAuthnCeremonyManager;
 
   private static final Answer<?> ACCOUNT_UPDATE_ANSWER = (answer) -> {
     // it is implicit in the update() contract is that a successful call will
@@ -236,6 +250,8 @@ class AccountsManagerTest {
 
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
 
+    webAuthnCeremonyManager = mock(WebAuthnCeremonyManager.class);
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -254,7 +270,8 @@ class AccountsManagerTest {
         mock(ScheduledExecutorService.class),
         CLOCK,
         LINK_DEVICE_SECRET,
-        MAX_TOTP_VALIDATION_DELAY);
+        MAX_TOTP_VALIDATION_DELAY,
+        webAuthnCeremonyManager);
   }
 
   @ParameterizedTest
@@ -2204,5 +2221,377 @@ class AccountsManagerTest {
   private static Instant totpWindowStart(final Instant instant) {
     return Instant.ofEpochMilli((instant.toEpochMilli() / AccountsManager.TOTP.getTimeStep().toMillis()) *
         AccountsManager.TOTP.getTimeStep().toMillis());
+  }
+
+  @Nested
+  class WebAuthn {
+
+    /// Creates an [AnnotatedWebAuthnCredential] with the given `credentialId` and a sign counter of 1
+    private static AnnotatedWebAuthnCredential createWebAuthnCredential(byte[] credentialId) {
+      return new AnnotatedWebAuthnCredential(
+          new AttestedCredentialData(
+              AAGUID.ZERO,
+              credentialId,
+              TestDataUtil.createEC2COSEPublicKey()),
+          1,
+          TestRandomUtil.nextBytes(160));
+    }
+
+    private static AnnotatedTotpKey createTotpKey() {
+      return new AnnotatedTotpKey(new TotpKey(TOTP_PARAMETERS, TestRandomUtil.nextBytes(16)),
+          TestRandomUtil.nextBytes(16));
+    }
+
+    private Account retrievableAccount(final Map<Byte, AnnotatedMfaKey> mfaKeys, final boolean hasPhoneNumber) {
+      final Account account = new Account();
+      account.setAccountIdentifier(UUID.randomUUID());
+      if (hasPhoneNumber) {
+        final String number = PhoneNumberUtil.getInstance().format(PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+        account.setNumber(number, UUID.randomUUID());
+      }
+      account.setMfaKeys(mfaKeys);
+
+      addRetrievableAccount(account);
+      doAnswer(ACCOUNT_UPDATE_ANSWER).when(accounts).update(any());
+
+      return account;
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void startWebAuthnRegistration(final boolean hasPhoneNumber) throws TooManyMfaKeysException {
+      final AnnotatedWebAuthnCredential existingCredential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+
+      final Account account = retrievableAccount(Map.of(
+              (byte) 1, existingCredential,
+              (byte) 2, createTotpKey()),
+          hasPhoneNumber);
+
+      final RegistrationCeremonyParameters expectedParameters =
+          new RegistrationCeremonyParameters(TestRandomUtil.nextBytes(32), List.of(-7L), List.of());
+
+      when(webAuthnCeremonyManager.startRegistration(any(), any())).thenReturn(expectedParameters);
+
+      assertEquals(expectedParameters, accountsManager.startWebAuthnRegistration(account.getAccountIdentifier()));
+
+      verify(webAuthnCeremonyManager).startRegistration(account.getAccountIdentifier(), List.of(existingCredential));
+    }
+
+    @CartesianTest
+    void startWebAuthnRegistrationTooManyMfaKeys(
+        @CartesianTest.Values(booleans = {true, false}) final boolean hasPhoneNumber,
+        @CartesianTest.Values(ints = {0, AccountsManager.MAX_MFA_KEYS - 1, AccountsManager.MAX_MFA_KEYS}) final int currentMfaKeyCount) {
+      final Account account = retrievableAccount(IntStream.range(0, currentMfaKeyCount)
+          .boxed()
+              .collect(Collectors.toMap(Integer::byteValue, _ -> createWebAuthnCredential(TestRandomUtil.nextBytes(16)))),
+          hasPhoneNumber);
+
+      when(webAuthnCeremonyManager.startRegistration(any(), any())).thenReturn(
+          new RegistrationCeremonyParameters(TestRandomUtil.nextBytes(32),
+              List.of(COSEAlgorithmIdentifier.ES256.getValue()), List.of()));
+
+      if (currentMfaKeyCount >= AccountsManager.MAX_MFA_KEYS) {
+        assertThrows(TooManyMfaKeysException.class,
+            () -> accountsManager.startWebAuthnRegistration(account.getAccountIdentifier()));
+
+        verifyNoInteractions(webAuthnCeremonyManager);
+      } else {
+
+        assertDoesNotThrow(() -> accountsManager.startWebAuthnRegistration(account.getAccountIdentifier()));
+      }
+    }
+
+    @Test
+    void startWebAuthnRegistrationAccountNotFound() {
+      final UUID accountIdentifier = UUID.randomUUID();
+
+      when(accounts.getByAccountIdentifier(accountIdentifier)).thenReturn(Optional.empty());
+
+      assertThrows(AccountNotFoundException.class,
+          () -> accountsManager.startWebAuthnRegistration(accountIdentifier));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void finishWebAuthnRegistration(final boolean hasPhoneNumber) throws TooManyMfaKeysException {
+      final Account account = retrievableAccount(Map.of((byte) 0, createTotpKey()), hasPhoneNumber);
+
+      final AnnotatedWebAuthnCredential newCredential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+      final byte[] metadataCiphertext = newCredential.metadataCiphertext();
+
+      when(webAuthnCeremonyManager.verifyRegistration(any(), any())).thenReturn(
+          new RegistrationCeremonyResult(
+              newCredential.getAttestedCredentialData(), newCredential.getClientData(), 7));
+
+      final Optional<Byte> maybeKeyId = accountsManager.finishWebAuthnRegistration(
+          account.getAccountIdentifier(), TestRandomUtil.nextBytes(64), "{}", metadataCiphertext);
+
+      assertEquals(Optional.of((byte) 1), maybeKeyId);
+
+      final AnnotatedMfaKey storedKey = account.getMfaKeys().get((byte) 1);
+
+      assertInstanceOf(AnnotatedWebAuthnCredential.class, storedKey);
+      assertEquals(7, ((AnnotatedWebAuthnCredential) storedKey).getCounter());
+      assertArrayEquals(metadataCiphertext, storedKey.metadataCiphertext());
+
+      assertInstanceOf(AnnotatedTotpKey.class, account.getMfaKeys().get((byte) 0), "pre-existing TOTP key is unaffected");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void finishWebAuthnRegistrationAlreadyRegistered(final boolean hasPhoneNumber) throws TooManyMfaKeysException {
+      final AnnotatedWebAuthnCredential existingCredential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+      final byte existingKeyId = (byte) 3;
+      final Account account = retrievableAccount(Map.of(existingKeyId, existingCredential), hasPhoneNumber);
+
+      when(webAuthnCeremonyManager.verifyRegistration(any(), any())).thenReturn(
+          new RegistrationCeremonyResult(
+              existingCredential.getAttestedCredentialData(), existingCredential.getClientData(), 0));
+
+      final Optional<Byte> maybeKeyId = accountsManager.finishWebAuthnRegistration(
+          account.getAccountIdentifier(), TestRandomUtil.nextBytes(64), "{}", TestRandomUtil.nextBytes(160));
+
+      // Re-registering the same credential returns the existing key ID and leaves the stored credential untouched
+      assertEquals(Optional.of(existingKeyId), maybeKeyId);
+      assertEquals(Map.of(existingKeyId, existingCredential), account.getMfaKeys());
+
+      verify(accounts, never()).update(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void finishWebAuthnRegistrationVerificationFailed(final boolean hasPhoneNumber) throws TooManyMfaKeysException {
+      final Account account = retrievableAccount(Map.of(), hasPhoneNumber);
+
+      when(webAuthnCeremonyManager.verifyRegistration(any(), any())).thenThrow(new WebAuthnException("bad registration"));
+
+      assertTrue(accountsManager.finishWebAuthnRegistration(
+              account.getAccountIdentifier(), TestRandomUtil.nextBytes(64), "{}", TestRandomUtil.nextBytes(160))
+          .isEmpty());
+
+      assertEquals(Map.of(), account.getMfaKeys());
+      verify(accounts, never()).update(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void finishWebAuthnRegistrationTooManyMfaKeys(final boolean hasPhoneNumber) {
+      // The setup is a little confusing, but the scenario is:
+      // - client calls startWebAuthnRegistration() more than MAX_MFA_KEYS times (there's no stored state to prevent this)
+      // - client proceeds to verifyRegistration() with each of them
+      final Account account = retrievableAccount(IntStream.range(0, AccountsManager.MAX_MFA_KEYS)
+              .boxed()
+              .collect(Collectors.toMap(Integer::byteValue, _ -> createWebAuthnCredential(TestRandomUtil.nextBytes(16)))),
+          hasPhoneNumber);
+
+      final AnnotatedWebAuthnCredential newCredential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+
+      when(webAuthnCeremonyManager.verifyRegistration(any(), any())).thenReturn(
+          new RegistrationCeremonyResult(
+              newCredential.getAttestedCredentialData(), newCredential.getClientData(), 0));
+
+      assertThrows(TooManyMfaKeysException.class, () -> accountsManager.finishWebAuthnRegistration(
+          account.getAccountIdentifier(), TestRandomUtil.nextBytes(64), "{}", TestRandomUtil.nextBytes(160)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void startWebAuthnAuthentication(final boolean hasPhoneNumber) {
+      final AnnotatedWebAuthnCredential credential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+      final Account account = retrievableAccount(Map.of((byte) 1, credential, (byte) 2, createTotpKey()), hasPhoneNumber);
+
+      final AuthenticationCeremonyParameters expectedParameters =
+          new AuthenticationCeremonyParameters(
+              TestRandomUtil.nextBytes(16), Duration.ofMinutes(2), List.of(credential.getCredentialId()));
+
+      when(webAuthnCeremonyManager.startAuthentication(any(), any())).thenReturn(expectedParameters);
+
+      assertEquals(Optional.of(expectedParameters), accountsManager.startWebAuthnAuthentication(account));
+
+      verify(webAuthnCeremonyManager).startAuthentication(account.getAccountIdentifier(), List.of(credential));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void startWebAuthnAuthenticationNoWebAuthnCredentials(final boolean hasPhoneNumber) {
+      final Account account = retrievableAccount(Map.of((byte) 1, createTotpKey()), hasPhoneNumber);
+
+      assertEquals(Optional.empty(), accountsManager.startWebAuthnAuthentication(account));
+
+      verifyNoInteractions(webAuthnCeremonyManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void verifyWebAuthnAuthentication(final boolean hasPhoneNumber) throws VerificationException {
+      final Account account;
+      final AnnotatedWebAuthnCredential credential;
+      final AuthenticationData authenticationData;
+      final byte webAuthnKeyId = (byte) 1;
+      final byte totpKeyId = (byte) 2;
+      {
+        final AnnotatedWebAuthnCredential storedCredential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+        final AnnotatedTotpKey totpKey = createTotpKey();
+        final Account storedAccount = retrievableAccount(
+            Map.of(webAuthnKeyId, storedCredential, totpKeyId, totpKey),
+            hasPhoneNumber);
+
+        // The account the caller uses and the account re-read from storage inside update() are distinct objects
+        // deserialized separately, so they hold distinct (but equal) credential instances to start
+        account = new Account();
+        account.setAccountIdentifier(storedAccount.getAccountIdentifier());
+        if (hasPhoneNumber) {
+          account.setNumber("+18005550123", storedAccount.getPhoneNumberIdentifier().orElseThrow());
+        }
+        credential = new AnnotatedWebAuthnCredential(
+            storedCredential.getAttestedCredentialData(),
+            storedCredential.getCounter(),
+            storedCredential.metadataCiphertext().clone());
+        account.setMfaKeys(
+            Map.of(webAuthnKeyId, credential,
+                totpKeyId, new AnnotatedTotpKey(totpKey.totpKey(),
+                totpKey.metadataCiphertext().clone())));
+
+        authenticationData = mock(AuthenticationData.class);
+        when(authenticationData.getCredentialId()).thenReturn(storedCredential.getCredentialId());
+      }
+
+      when(webAuthnCeremonyManager.parseAuthenticationResponse(any())).thenReturn(authenticationData);
+
+      // webauthn4j updates the credential record's counter in place while verifying
+      doAnswer(invocation -> {
+        invocation.getArgument(1, AnnotatedWebAuthnCredential.class).setCounter(42);
+        return null;
+      }).when(webAuthnCeremonyManager).verifyAuthentication(any(), any(), any());
+
+      assertTrue(accountsManager.verifyWebAuthnAuthentication(account, "{}").isPresent());
+
+      verify(webAuthnCeremonyManager).verifyAuthentication(account.getAccountIdentifier(), credential, authenticationData);
+
+      // The account object from the caller has its counter updated, since it gets used by the mock
+      assertEquals(42, ((AnnotatedWebAuthnCredential) account.getMfaKeys().get(webAuthnKeyId)).getCounter());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void verifyWebAuthnAuthenticationUnrecognizedCredentialId(final boolean hasPhoneNumber) {
+      final Account account = retrievableAccount(Map.of((byte) 1, createWebAuthnCredential(TestRandomUtil.nextBytes(16))),
+          hasPhoneNumber);
+
+      final AuthenticationData authenticationData = mock(AuthenticationData.class);
+      when(authenticationData.getCredentialId()).thenReturn(TestRandomUtil.nextBytes(32));
+
+      when(webAuthnCeremonyManager.parseAuthenticationResponse(any())).thenReturn(authenticationData);
+
+      assertFalse(accountsManager.verifyWebAuthnAuthentication(account, "{}").isPresent());
+
+      verify(accounts, never()).update(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void verifyWebAuthnAuthenticationNoWebAuthnCredentials(final boolean hasPhoneNumber) {
+      final Account account = retrievableAccount(Map.of((byte) 1, createTotpKey()), hasPhoneNumber);
+
+      final AuthenticationData authenticationData = mock(AuthenticationData.class);
+      when(authenticationData.getCredentialId()).thenReturn(TestRandomUtil.nextBytes(32));
+
+      when(webAuthnCeremonyManager.parseAuthenticationResponse(any())).thenReturn(authenticationData);
+
+      assertFalse(accountsManager.verifyWebAuthnAuthentication(account, "{}").isPresent());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void verifyWebAuthnAuthenticationMalformedResponse(final boolean hasPhoneNumber) {
+      final Account account = retrievableAccount(Map.of((byte) 1, createWebAuthnCredential(TestRandomUtil.nextBytes(16))),
+          hasPhoneNumber);
+
+      when(webAuthnCeremonyManager.parseAuthenticationResponse(any())).thenThrow(new WebAuthnException("malformed"));
+
+      assertFalse(accountsManager.verifyWebAuthnAuthentication(account, "not json").isPresent());
+
+      verify(accounts, never()).update(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void verifyWebAuthnAuthenticationVerificationFailed(final boolean hasPhoneNumber) throws VerificationException {
+      final AnnotatedWebAuthnCredential credential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+      final Account account = retrievableAccount(Map.of((byte) 1, credential), hasPhoneNumber);
+
+      final AuthenticationData authenticationData = mock(AuthenticationData.class);
+      when(authenticationData.getCredentialId()).thenReturn(credential.getCredentialId());
+
+      when(webAuthnCeremonyManager.parseAuthenticationResponse(any())).thenReturn(authenticationData);
+      doThrow(new BadChallengeException("expired")).when(webAuthnCeremonyManager).verifyAuthentication(any(), any(), any());
+
+      assertFalse(accountsManager.verifyWebAuthnAuthentication(account, "{}").isPresent());
+
+      verify(accounts, never()).update(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void verifyWebAuthnAuthenticationCounterChangedConcurrently(final boolean hasPhoneNumber)
+        throws VerificationException {
+
+      final AnnotatedWebAuthnCredential credential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+      final Account account = retrievableAccount(Map.of((byte) 1, credential), hasPhoneNumber);
+
+      final AuthenticationData authenticationData = mock(AuthenticationData.class);
+      when(authenticationData.getCredentialId()).thenReturn(credential.getCredentialId());
+
+      when(webAuthnCeremonyManager.parseAuthenticationResponse(any())).thenReturn(authenticationData);
+
+      // Simulate a concurrent verification
+      final Account concurrentlyUpdatedAccount = new Account();
+      concurrentlyUpdatedAccount.setAccountIdentifier(account.getAccountIdentifier());
+      if (hasPhoneNumber) {
+        concurrentlyUpdatedAccount.setNumber(account.getNumber().orElseThrow(), UUID.randomUUID());
+      }
+      concurrentlyUpdatedAccount.setMfaKeys(Map.of((byte) 1,
+          new AnnotatedWebAuthnCredential(credential.getAttestedCredentialData(),
+              credential.getCounter() + 7, credential.metadataCiphertext())));
+
+      addRetrievableAccount(concurrentlyUpdatedAccount);
+
+      assertFalse(accountsManager.verifyWebAuthnAuthentication(account, "{}").isPresent());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void verifyWebAuthnAuthenticationKeyIdChangedConcurrently(final boolean hasPhoneNumber)
+        throws VerificationException {
+
+      final AnnotatedWebAuthnCredential credential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+      final Account account = retrievableAccount(Map.of((byte) 1, credential), hasPhoneNumber);
+
+      final AuthenticationData authenticationData = mock(AuthenticationData.class);
+      when(authenticationData.getCredentialId()).thenReturn(credential.getCredentialId());
+
+      when(webAuthnCeremonyManager.parseAuthenticationResponse(any())).thenReturn(authenticationData);
+
+      // Simulate a concurrent verification
+      final Account concurrentlyUpdatedAccount = new Account();
+      concurrentlyUpdatedAccount.setAccountIdentifier(account.getAccountIdentifier());
+      if (hasPhoneNumber) {
+        concurrentlyUpdatedAccount.setNumber(account.getNumber().orElseThrow(), UUID.randomUUID());
+      }
+
+      // This credential was concurrently inserted. It (somehow) took the original credential’s key ID and has the same counter
+      // value
+      final AnnotatedWebAuthnCredential verySimilarInsertedCredential = createWebAuthnCredential(TestRandomUtil.nextBytes(16));
+
+      concurrentlyUpdatedAccount.setMfaKeys(Map.of((byte) 1,
+          new AnnotatedWebAuthnCredential(verySimilarInsertedCredential.getAttestedCredentialData(), credential.getCounter(),
+              verySimilarInsertedCredential.metadataCiphertext()),
+          (byte) 2, new AnnotatedWebAuthnCredential(credential.getAttestedCredentialData(),
+              credential.getCounter(), credential.metadataCiphertext())));
+
+      addRetrievableAccount(concurrentlyUpdatedAccount);
+
+      assertFalse(accountsManager.verifyWebAuthnAuthentication(account, "{}").isPresent());
+    }
   }
 }

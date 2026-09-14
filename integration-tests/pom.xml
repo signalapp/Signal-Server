@@ -36,6 +36,12 @@
       <groupId>org.eclipse.jetty.http2</groupId>
       <artifactId>jetty-http2-client-transport</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>com.webauthn4j</groupId>
+      <artifactId>webauthn4j-test</artifactId>
+      <version>${webauthn4j.version}</version>
+    </dependency>
   </dependencies>
 
   <build>

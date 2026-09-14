@@ -12,6 +12,8 @@ import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
+import com.webauthn4j.data.AuthenticationData;
+import com.webauthn4j.util.exception.WebAuthnException;
 import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
@@ -43,6 +45,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
@@ -59,6 +62,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
@@ -70,6 +74,10 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
+import org.whispersystems.textsecuregcm.auth.webauthn.AuthenticationCeremonyParameters;
+import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyParameters;
+import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyResult;
+import org.whispersystems.textsecuregcm.auth.webauthn.WebAuthnCeremonyManager;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -148,6 +156,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final Duration maxTotpValidationDelay;
 
   private final KeyGenerator totpKeyGenerator;
+  private final WebAuthnCeremonyManager webAuthnCeremonyManager;
 
   private final Key verificationTokenKey;
 
@@ -283,6 +292,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   private static class UncheckedTooManyMfaKeysException extends NoStackTraceRuntimeException {
+}
+
+  private static class UncheckedWebAuthnMismatchException extends NoStackTraceRuntimeException {
   }
 
   public AccountsManager(final Accounts accounts,
@@ -302,7 +314,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final ScheduledExecutorService retryExecutor,
       final Clock clock,
       final byte[] linkDeviceSecret,
-      final Duration maxTotpValidationDelay) {
+      final Duration maxTotpValidationDelay,
+      final WebAuthnCeremonyManager webAuthnCeremonyManager) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
@@ -342,6 +355,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       throw new AssertionError("Every implementation of the Java platform is required to support the HmacSHA256 KeyGenerator algorithm", e);
     }
 
+    this.webAuthnCeremonyManager = webAuthnCeremonyManager;
     this.pubSubConnection = pubSubRedisClient.createPubSubConnection();
   }
 
@@ -1037,7 +1051,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           return true;
         },
         a -> accounts.changeNumber(a, targetNumber, targetPhoneNumberIdentifier, maybeDisplacedUuid, keyWriteItems),
-        () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
+        () -> accounts.getByAccountIdentifier(uuid).orElseThrow(AccountNotFoundException::new),
         AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
   }
 
@@ -1140,7 +1154,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         _ -> true,
         a -> reservedUsernameHash.set(
             checkAndReserveNextUsernameHash(a, new ArrayDeque<>(requestedUsernameHashes))),
-        () -> accounts.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow(),
+        () -> accounts.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow(AccountNotFoundException::new),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
 
     redisDelete(updatedAccount);
@@ -1199,7 +1213,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final Account updatedAccount = updateWithRetries(
         _ -> true,
         a -> accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername),
-        () -> accounts.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow(),
+        () -> accounts.getByAccountIdentifier(account.getAccountIdentifier()).orElseThrow(AccountNotFoundException::new),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
 
     redisDelete(updatedAccount);
@@ -1210,7 +1224,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   public Account clearUsernameHash(final UUID accountIdentifier) {
     final Account updatedAccount = updateWithRetries(_ -> true,
         accounts::clearUsernameHash,
-        () -> accounts.getByAccountIdentifier(accountIdentifier).orElseThrow(),
+        () -> accounts.getByAccountIdentifier(accountIdentifier).orElseThrow(AccountNotFoundException::new),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
 
     redisDelete(updatedAccount);
@@ -1325,7 +1339,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
       final Account updatedAccount = updateWithRetries(updater,
           persister,
-          () -> accounts.getByAccountIdentifier(accountIdentifier).orElseThrow(),
+          () -> accounts.getByAccountIdentifier(accountIdentifier).orElseThrow(AccountNotFoundException::new),
           AccountChangeValidator.GENERAL_CHANGE_VALIDATOR);
 
       redisSet(updatedAccount);
@@ -2169,10 +2183,159 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
   private boolean verifyTotp(final SecretKey totpKey, final Instant validationTimestamp, final int oneTimePassword) throws InvalidKeyException {
     for (final Instant timestamp : new Instant[]{validationTimestamp, validationTimestamp.minus(maxTotpValidationDelay)}) {
-        if (TOTP.validateOneTimePassword(totpKey, timestamp, oneTimePassword)) {
-          return true;
-        }
+      if (TOTP.validateOneTimePassword(totpKey, timestamp, oneTimePassword)) {
+        return true;
+      }
     }
     return false;
+  }
+
+  /// Returns server-generated parameters needed to initiate a WebAuthn registration ceremony for the given account.
+  ///
+  /// @param accountIdentifier the ACI of the account
+  ///
+  /// @throws TooManyMfaKeysException if the account already has too many MFA keys registered
+  public RegistrationCeremonyParameters startWebAuthnRegistration(final UUID accountIdentifier)
+      throws TooManyMfaKeysException {
+    final Account account = getByAccountIdentifier(accountIdentifier).orElseThrow(AccountNotFoundException::new);
+
+    if (account.getMfaKeys().size() >= MAX_MFA_KEYS) {
+      throw new TooManyMfaKeysException();
+    }
+
+    return webAuthnCeremonyManager.startRegistration(accountIdentifier, getWebAuthnCredentials(account));
+  }
+
+  /// Verifies that the authenticator response for a WebAuthn registration ceremony is valid, then
+  /// stores the resulting credential in the account.
+  ///
+  /// @param accountIdentifier the account with which to associate the new credential
+  /// @param serializedAttestationObject the "attestation object" from the authenticator response, serialized as specified in the WebAuthn TR
+  /// @param collectedClientDataJson the "collected client data" structure from the authenticator response, serialized as specified in the WebAuthn TR
+  /// @param metadataCiphertext encrypted user-provided metadata
+  /// @return the ID of the credential
+  public Optional<Byte> finishWebAuthnRegistration(
+      final UUID accountIdentifier,
+      final byte[] serializedAttestationObject,
+      final String collectedClientDataJson,
+      final byte[] metadataCiphertext) throws TooManyMfaKeysException {
+
+    try {
+
+      final RegistrationCeremonyResult registrationData = webAuthnCeremonyManager.verifyRegistration(
+          serializedAttestationObject, collectedClientDataJson);
+
+      final AnnotatedWebAuthnCredential newCredential = new AnnotatedWebAuthnCredential(
+          registrationData.attestedCredentialData(),
+          registrationData.signCount(),
+          metadataCiphertext);
+
+      final AtomicInteger keyId = new AtomicInteger();
+      update(
+          accountIdentifier,
+          account -> {
+            final Map<Byte, AnnotatedMfaKey> updatedMfaKeys = new HashMap<>(account.getMfaKeys());
+
+            final Optional<Byte> existingId = updatedMfaKeys.entrySet().stream()
+                .flatMap(idAndMfaKey -> {
+                  if (idAndMfaKey.getValue() instanceof AnnotatedWebAuthnCredential credential) {
+                    return Stream.of(new Pair<>(idAndMfaKey.getKey(), credential));
+                  }
+                  return Stream.empty();
+                })
+                .filter(idAndCredential -> WebAuthnCeremonyManager.isSameCredential(idAndCredential.second(), newCredential))
+                .map(Pair::first)
+                .findFirst();
+
+            if (existingId.isPresent()) {
+              keyId.set(existingId.get());
+              return false;
+            }
+
+            if (updatedMfaKeys.size() >= MAX_MFA_KEYS) {
+              throw new UncheckedTooManyMfaKeysException();
+            }
+
+            keyId.set(account.getNextMfaKeyId());
+            updatedMfaKeys.put((byte) keyId.get(), newCredential);
+            account.setMfaKeys(updatedMfaKeys);
+            return true;
+          });
+
+      return Optional.of((byte) keyId.get());
+
+    } catch (UncheckedTooManyMfaKeysException _) {
+      throw new TooManyMfaKeysException();
+    } catch (WebAuthnException _) {
+      return Optional.empty();
+    }
+  }
+
+  /// @return if a WebAuthn credential is registered to the account, parameters to start an authentication ceremony. Otherwise, empty.
+  public Optional<AuthenticationCeremonyParameters> startWebAuthnAuthentication(final Account account) {
+    final List<AnnotatedWebAuthnCredential> existingCredentials = getWebAuthnCredentials(account);
+
+    if (existingCredentials.isEmpty()) {
+      return Optional.empty();
+    }
+
+    return Optional.of(webAuthnCeremonyManager.startAuthentication(account.getAccountIdentifier(), existingCredentials));
+  }
+
+  /// @return the updated [Account], if verification succeeded. Otherwise, empty.
+  public Optional<Account> verifyWebAuthnAuthentication(final Account account, final String authenticationResponseJson) {
+    try {
+      final AuthenticationData authenticationData = webAuthnCeremonyManager.parseAuthenticationResponse(authenticationResponseJson);
+
+      final Map.Entry<Byte, AnnotatedMfaKey> matchingRecord = account.getMfaKeys().entrySet().stream()
+          .filter(mfaKey -> {
+            if (mfaKey.getValue() instanceof AnnotatedWebAuthnCredential credential) {
+              return Arrays.equals(authenticationData.getCredentialId(), credential.getCredentialId());
+            }
+            return false;
+          })
+          .findFirst()
+          .orElseThrow();
+
+      final AnnotatedWebAuthnCredential matchingCredential = (AnnotatedWebAuthnCredential) matchingRecord.getValue();
+
+      // The credential record's sign counter is updated in place as part of verification, and the stored challenge
+      // is consumed by the first call. To guard against concurrent updates, we have to both store the expected counter
+      // and verifyAuthentication() outside the idempotent update() consumer.
+      final long expectedCounter = matchingCredential.getCounter();
+      webAuthnCeremonyManager.verifyAuthentication(account.getAccountIdentifier(), matchingCredential, authenticationData);
+
+      final Account updatedAccount = update(account.getAccountIdentifier(), a -> {
+        final Map<Byte, AnnotatedMfaKey> updatedMfaKeys = new HashMap<>(a.getMfaKeys());
+
+        if (updatedMfaKeys.get(matchingRecord.getKey()) instanceof AnnotatedWebAuthnCredential credential
+            && WebAuthnCeremonyManager.isSameCredential(credential, matchingCredential)
+            && credential.getCounter() == expectedCounter) {
+
+          // Just in case there was a concurrent metadata update, use the stored credential's
+          final AnnotatedWebAuthnCredential mergedCredential = matchingCredential.withMetadataCiphertext(
+              credential.metadataCiphertext());
+
+          updatedMfaKeys.put(matchingRecord.getKey(), mergedCredential);
+          a.setMfaKeys(updatedMfaKeys);
+        } else {
+          // the counter changed or the key referenced by the ID changed. We could try to accommodate the latter,
+          // but it's an unlikely scenario, and we should just restart the ceremony.
+          throw new UncheckedWebAuthnMismatchException();
+        }
+      });
+
+      return Optional.of(updatedAccount);
+
+    } catch (WebAuthnException | NoSuchElementException | UncheckedWebAuthnMismatchException _) {
+      return Optional.empty();
+    }
+  }
+
+  private static List<AnnotatedWebAuthnCredential> getWebAuthnCredentials(final Account account) {
+    return account.getMfaKeys().values().stream()
+        .filter(AnnotatedWebAuthnCredential.class::isInstance)
+        .map(AnnotatedWebAuthnCredential.class::cast)
+        .toList();
   }
 }

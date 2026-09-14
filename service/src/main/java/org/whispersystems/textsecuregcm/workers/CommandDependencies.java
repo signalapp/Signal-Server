@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.WhisperServerService.ScheduledExecutorSe
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.webauthn.WebAuthnCeremonyManager;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupsDb;
 import org.whispersystems.textsecuregcm.backup.Cdn3BackupCredentialGenerator;
@@ -367,12 +368,19 @@ public record CommandDependencies(
         configuration.getDynamoDbTables().getChangeNumberWaitingPeriods().getTableName(), dynamoDbClient);
     final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = new ChangeNumberWaitingPeriodManager(
         changeNumberWaitingPeriods, configuration.getChangeNumber().postRegistrationWaitingPeriod(), clock);
+    final WebAuthnCeremonyManager webAuthnCeremonyManager = new WebAuthnCeremonyManager(
+        configuration.getRegistrationWebAuthnConfiguration().relyingPartyId(),
+        configuration.getRegistrationWebAuthnConfiguration().origin(),
+        configuration.getRegistrationWebAuthnConfiguration().challengeTtl(),
+        configuration.getRegistrationWebAuthnConfiguration().userHandleBlindingSecret().value(),
+        rateLimitersCluster);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
         changeNumberWaitingPeriodManager, secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         phoneNumberRecoveryPasswordsManager, messagePollExecutor,
         retryExecutor, clock, configuration.getLinkDeviceSecretConfiguration().secret().value(),
-        configuration.getRegistrationTotpConfiguration().maxValidationDelay());
+        configuration.getRegistrationTotpConfiguration().maxValidationDelay(),
+        webAuthnCeremonyManager);
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster, retryExecutor);
     final BackupsDb backupsDb =
         new BackupsDb(dynamoDbAsyncClient, configuration.getDynamoDbTables().getBackups().getTableName(), clock);

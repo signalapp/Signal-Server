@@ -27,6 +27,9 @@ import com.eatthepath.otp.HmacOneTimePasswordGenerator;
 import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.webauthn4j.data.attestation.authenticator.AAGUID;
+import com.webauthn4j.data.attestation.authenticator.AttestedCredentialData;
+import com.webauthn4j.test.TestDataUtil;
 import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -627,6 +630,37 @@ class AccountsTest {
     final Account reclaimed = accounts.getByAccountIdentifier(existingUuid).orElseThrow();
 
     assertThat(reclaimed.getMfaKeys()).isEqualTo(existingAccount.getMfaKeys());
+  }
+
+
+  @Test
+  void testMfaKeysRoundTrip() {
+    final UUID existingUuid = UUID.randomUUID();
+    final byte[] accountRecoveryPassword = TestRandomUtil.nextBytes(16);
+    final Account existingAccount = generateAccount("+14151112222", existingUuid, UUID.randomUUID(),
+        List.of(generateDevice(DEVICE_ID_1)), accountRecoveryPassword);
+
+    final AnnotatedWebAuthnCredential webAuthnCredential = new AnnotatedWebAuthnCredential(
+        new AttestedCredentialData(AAGUID.ZERO, TestRandomUtil.nextBytes(32), TestDataUtil.createEC2COSEPublicKey()),
+        42,
+        TestRandomUtil.nextBytes(160));
+
+    final AnnotatedTotpKey totpKey = new AnnotatedTotpKey(new TotpKey(
+        new TotpParameters(
+            TimeBasedOneTimePasswordGenerator.TOTP_ALGORITHM_HMAC_SHA1,
+            HmacOneTimePasswordGenerator.DEFAULT_PASSWORD_LENGTH,
+            TimeBasedOneTimePasswordGenerator.DEFAULT_TIME_STEP),
+        TestRandomUtil.nextBytes(16)),
+        TestRandomUtil.nextBytes(16));
+
+    final Map<Byte, AnnotatedMfaKey> mfaKeys = Map.of((byte) 1, webAuthnCredential, (byte) 2, totpKey);
+    existingAccount.setMfaKeys(mfaKeys);
+
+    createAccount(existingAccount);
+
+    final Account retrieved = accounts.getByAccountIdentifier(existingUuid).orElseThrow();
+
+    assertThat(retrieved.getMfaKeys()).isEqualTo(mfaKeys);
   }
 
   @ParameterizedTest

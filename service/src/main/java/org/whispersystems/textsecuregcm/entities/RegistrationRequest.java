@@ -14,10 +14,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import org.apache.commons.lang3.ArrayUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
@@ -59,6 +60,15 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   @PositiveOrZero
                                   @Nullable
                                   Integer totp,
+
+                                  @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, description = """
+                                      A JSON-serialized assertion response from a completed authentication ceremony.
+                                      See https://www.w3.org/TR/webauthn/#authenticatorassertionresponse.
+                                      """)
+                                  @Nullable
+                                  // There is no documented max size, but 8kiB should be enough
+                                  @Size(min = 1, max = 8192)
+                                  String webAuthnResponse,
 
                                   @NotNull
                                   @Valid
@@ -150,6 +160,13 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
   @AssertTrue
   @Schema(hidden = true)
   boolean isMfaAbsentWhenUsingReceipt() {
-    return ArrayUtils.isEmpty(receiptCredentialPresentation) || totp == null;
+    return ArrayUtils.isEmpty(receiptCredentialPresentation) || (totp == null && webAuthnResponse == null);
+  }
+
+  @VisibleForTesting
+  @AssertTrue
+  @Schema(hidden = true)
+  boolean isAtMostOneMfaPresent() {
+    return totp == null || webAuthnResponse == null;
   }
 }

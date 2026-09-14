@@ -53,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.InvalidRegistrationSessionException;
+import org.whispersystems.textsecuregcm.auth.MfaFailureException;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RecoveryPasswordVerificationFailedException;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockFailureException;
@@ -66,10 +67,13 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.mappers.MfaFailureExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.AnnotatedTotpKey;
+import org.whispersystems.textsecuregcm.storage.AnnotatedWebAuthnCredential;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceIdentityInfo;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
@@ -149,7 +153,12 @@ public class RegistrationController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  @ApiResponse(responseCode = "441", description = "A valid one-time password (TOTP) is required, but either no password was provided or it was incorrect")
+  @ApiResponse(responseCode = "441",
+      description = """
+          Second factor authentication failed. Either the account has one or more factors configured, and the request’s
+          factor was incorrect or absent, or the account has no factors, but the request included a factor.
+          """,
+      content = @Content(schema = @Schema(implementation = MfaFailureExceptionMapper.MfaFailureResponse.class)))
   @ApiResponse(responseCode = "499", description = "Client must support post-quantum ratchet")
   public AccountCreationResponse register(
       @Parameter(
@@ -171,7 +180,7 @@ public class RegistrationController {
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @Valid final RegistrationRequest registrationRequest,
       @Context final ContainerRequestContext requestContext)
-      throws RateLimitExceededException, InterruptedException, RegistrationLockFailureException {
+      throws RateLimitExceededException, InterruptedException, RegistrationLockFailureException, MfaFailureException {
 
     if (!registrationRequest.isEverySignedKeyValid(userAgent)) {
       throw new WebApplicationException("Invalid signature", 422);
@@ -219,7 +228,7 @@ public class RegistrationController {
       final ContainerRequestContext requestContext,
       final String userAgent,
       final String signalAgent)
-      throws RateLimitExceededException, InterruptedException, RegistrationLockFailureException {
+      throws RateLimitExceededException, InterruptedException, RegistrationLockFailureException, MfaFailureException {
 
     if (registrationRequest.pniIdentityKey() == null) {
       // RegistrationRequest checks that either all phone number-associated information is present or all is absent
@@ -249,7 +258,7 @@ public class RegistrationController {
 
     // There can be at most one existing account for a set of numbers in the same equivalence class, so it's sufficient
     // to find the first one.
-    final Optional<Account> existingAccount = Util.getAlternateForms(number)
+    Optional<Account> existingAccount = Util.getAlternateForms(number)
         .stream()
         .map(accounts::getByE164)
         .filter(Optional::isPresent)
@@ -274,7 +283,7 @@ public class RegistrationController {
           registrationRequest.accountAttributes().getRegistrationLock(),
           userAgent, RegistrationLockVerificationManager.Flow.REGISTRATION, verificationType);
 
-      checkTotp(existingAccount.get(), registrationRequest.totp());
+      existingAccount = Optional.of(checkMfa(existingAccount.get(), registrationRequest.webAuthnResponse(), registrationRequest.totp()));
     }
 
     final Account account = accounts.create(number,
@@ -394,7 +403,7 @@ public class RegistrationController {
       final String password,
       final RegistrationRequest registrationRequest,
       final String userAgent,
-      final String signalAgent) throws RegistrationLockFailureException, RateLimitExceededException {
+      final String signalAgent) throws RegistrationLockFailureException, RateLimitExceededException, MfaFailureException {
 
     if (!dynamicConfigurationManager.getConfiguration().getLoginPurchaseConfiguration().enabled()) {
       throw new BadRequestException("login purchases are not enabled");
@@ -412,7 +421,7 @@ public class RegistrationController {
       throw new BadRequestException("Must specify a PNI-associated identity key when recovering an account by identifier");
     }
 
-    final Account existingAccount = accounts.getByAccountIdentifier(accountIdentifier)
+    Account existingAccount = accounts.getByAccountIdentifier(accountIdentifier)
             .orElseThrow(ForbiddenException::new);
 
     final boolean passwordVerified = existingAccount.getAccountRecoveryPassword()
@@ -423,7 +432,7 @@ public class RegistrationController {
       throw new ForbiddenException();
     }
 
-    checkTotp(existingAccount, registrationRequest.totp());
+    existingAccount = checkMfa(existingAccount, registrationRequest.webAuthnResponse(), registrationRequest.totp());
 
     if (!registrationRequest.skipDeviceTransfer() && existingAccount.hasCapability(DeviceCapability.TRANSFER)) {
       // If a device transfer is possible, clients must explicitly opt out of a transfer (i.e. after prompting the user)
@@ -508,11 +517,39 @@ public class RegistrationController {
         userAgent);
   }
 
-  private void checkTotp(final Account account, @Nullable final Integer totp) throws RateLimitExceededException {
-    rateLimiters.getCheckTotpLimiter().validate(account.getAccountIdentifier());
+  /// @return the maybe-updated [Account] reference. Callers must use it to avoid stale reads and updates.
+  private Account checkMfa(final Account account, @Nullable final String webAuthn, @Nullable final Integer totp) throws RateLimitExceededException, MfaFailureException {
 
-    if (!accounts.verifyTotp(account, clock.instant(), totp)) {
-      throw new WebApplicationException(441);
+    final boolean hasTotp = account.getMfaKeys().values().stream().anyMatch(k -> k instanceof AnnotatedTotpKey);
+    final boolean hasWebAuthn = account.getMfaKeys().values().stream().anyMatch(k -> k instanceof AnnotatedWebAuthnCredential);
+
+    if (!hasTotp && !hasWebAuthn) {
+      if (totp != null || webAuthn != null) {
+        throw new MfaFailureException(null, false);
+      }
+      return account;
     }
+
+    if (totp != null || webAuthn != null) {
+      rateLimiters.getCheckMfaLimiter().validate(account.getAccountIdentifier());
+    }
+
+    final Optional<Account> updatedAccount;
+    if (hasWebAuthn && webAuthn != null) {
+      updatedAccount = accounts.verifyWebAuthnAuthentication(account, webAuthn);
+    } else {
+      updatedAccount = Optional.empty();
+    }
+
+    final boolean webAuthnVerified = updatedAccount.isPresent();
+
+    final boolean totpVerified = hasTotp && totp != null
+        && accounts.verifyTotp(account, clock.instant(), totp);
+
+    if (webAuthnVerified || totpVerified) {
+      return updatedAccount.orElse(account);
+    }
+
+    throw new MfaFailureException(accounts.startWebAuthnAuthentication(account).orElse(null), hasTotp);
   }
 }

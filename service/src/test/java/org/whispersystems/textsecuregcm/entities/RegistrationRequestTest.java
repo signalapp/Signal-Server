@@ -92,6 +92,7 @@ class RegistrationRequestTest {
         null,
         null,
         null,
+        null,
         true,
         aciIdentityKey,
         pniIdentityKey,
@@ -136,6 +137,7 @@ class RegistrationRequestTest {
         null,
         null,
         null,
+        null,
         new AccountAttributes(fetchesMessages, 1, 2, null, null, false, Collections.emptySet(), null),
         true,
         null,
@@ -163,6 +165,7 @@ class RegistrationRequestTest {
         null,
         null,
         null,
+        null,
         new AccountAttributes(true, 1, pniRegistrationIdPresent ? 2 : null, null, null, false, Collections.emptySet(), null),
         true,
         null,
@@ -183,12 +186,14 @@ class RegistrationRequestTest {
 
   @CartesianTest
   void isMfaAbsentWhenUsingReceipt(
+      @CartesianTest.Values(booleans = {false, true}) boolean hasWebAuthn,
       @CartesianTest.Values(booleans = {false, true}) boolean hasTotp,
       @CartesianTest.Values(booleans = {false, true}) boolean hasReceipt) {
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
         null,
         hasReceipt ? TestRandomUtil.nextBytes(32) : null,
         hasTotp ? 12345 : null,
+        hasWebAuthn ? "{}" : null,
         new AccountAttributes(true, 1, null, null, null, false, Collections.emptySet(), null),
         true,
         null,
@@ -200,7 +205,31 @@ class RegistrationRequestTest {
             Optional.empty(),
             Optional.empty()));
 
-    final boolean expectFailure = hasReceipt && hasTotp;
+    final boolean expectFailure = hasReceipt && (hasWebAuthn || hasTotp);
     assertEquals(!expectFailure, registrationRequest.isMfaAbsentWhenUsingReceipt());
+  }
+
+  @CartesianTest
+  void atMostOneMfaPresent(
+      @CartesianTest.Values(booleans = {false, true}) boolean hasWebAuthn,
+      @CartesianTest.Values(booleans = {false, true}) boolean hasTotp) {
+    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
+        null,
+        null,
+        hasTotp ? 12345 : null,
+        hasWebAuthn ? "{}" : null,
+        new AccountAttributes(true, 1, null, null, null, false, Collections.emptySet(), null),
+        true,
+        null,
+        null,
+        new DeviceActivationRequest(null,
+            Optional.empty(),
+            null,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty()));
+
+    final boolean expectFailure = hasWebAuthn && hasTotp;
+    assertEquals(!expectFailure, registrationRequest.isAtMostOneMfaPresent());
   }
 }
