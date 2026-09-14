@@ -299,6 +299,24 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.account.FinishWebAuthnRegistrationRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>FinishWebAuthnRegistrationRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.FinishWebAuthnRegistrationResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>FinishWebAuthnRegistrationResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.account.GenerateTotpKeyRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>GenerateTotpKeyRequest</code> 
@@ -408,6 +426,15 @@
       
       <p>
         <a href="#message-org.signal.chat.account.ConfirmTotpKeyResponse.KeyConfirmed">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>KeyConfirmed</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.FinishWebAuthnRegistrationResponse.KeyConfirmed">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>KeyConfirmed</code> 
         </a>
@@ -663,6 +690,24 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.account.StartWebAuthnRegistrationRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>StartWebAuthnRegistrationRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.StartWebAuthnRegistrationResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>StartWebAuthnRegistrationResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.account.TotpParameters">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>TotpParameters</code> 
@@ -675,6 +720,15 @@
         <a href="#message-org.signal.chat.account.UsernameNotAvailable">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>UsernameNotAvailable</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>WebAuthnCreateParameters</code> 
         </a>
       </p>
       
@@ -1082,7 +1136,8 @@ via the Contact Discovery Service (CDS).</p></p>
   
   <div class="block">
     <p><p>Generates and stores a pending TOTP key for the authenticated account.
-To "activate" the key, callers must call the <code>ConfirmTotpKey</code> endpoint.</p></p>
+To "activate" the key, callers must call the <code>ConfirmTotpKey</code> endpoint.</p>
+<p>TOTP keys may only be generated for accounts without phone numbers.</p></p>
   </div>
   
 </div>
@@ -1104,7 +1159,50 @@ To "activate" the key, callers must call the <code>ConfirmTotpKey</code> endpoin
   <div class="block">
     <p><p>Confirms that the caller has stored and can derive one-time passwords from
 a pending TOTP key generated via <code>GenerateTotpKey</code> and stores/activates the
-key for the caller's account</p></p>
+key for the caller's account</p>
+<p>TOTP keys may only be generated for accounts without phone numbers.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-StartWebAuthnRegistration">
+      <a href="#service-org.signal.chat.account.Accounts-StartWebAuthnRegistration">
+        rpc <code>StartWebAuthnRegistration</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.StartWebAuthnRegistrationRequest"><span title="org.signal.chat.account.StartWebAuthnRegistrationRequest">org.signal.chat.account.StartWebAuthnRegistrationRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.StartWebAuthnRegistrationResponse"><span title="org.signal.chat.account.StartWebAuthnRegistrationResponse">org.signal.chat.account.StartWebAuthnRegistrationResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns parameters for initiating a WebAuthn registration ceremony</p>
+<p>WebAuthn credentials may only be registered for accounts without phone numbers</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-FinishWebAuthnRegistration">
+      <a href="#service-org.signal.chat.account.Accounts-FinishWebAuthnRegistration">
+        rpc <code>FinishWebAuthnRegistration</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.FinishWebAuthnRegistrationRequest"><span title="org.signal.chat.account.FinishWebAuthnRegistrationRequest">org.signal.chat.account.FinishWebAuthnRegistrationRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.FinishWebAuthnRegistrationResponse"><span title="org.signal.chat.account.FinishWebAuthnRegistrationResponse">org.signal.chat.account.FinishWebAuthnRegistrationResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Concludes a WebAuthn registration ceremony to add a passkey to the authenticated account</p>
+<p>WebAuthn credentials may only be registered for accounts without phone numbers</p></p>
   </div>
   
 </div>
@@ -2896,6 +2994,199 @@ another caller.</p></td>
       <div class="block">
         
 
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.FinishWebAuthnRegistrationRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.FinishWebAuthnRegistrationRequest" title="org.signal.chat.account.FinishWebAuthnRegistrationRequest">message FinishWebAuthnRegistrationRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        attestation_object
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The attestation object from a completed registration ceremony, serialized
+as specified in https://www.w3.org/TR/webauthn/#attestation-object</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        collected_client_data_json
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The "collected client data" map used in the registration ceremony, as the
+exact JSON map that was hashed for the authenticator</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        metadata_ciphertext
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The ciphertext of user-provided metadata (presumably including a
+human-readable name and creation timestamp) to be attached to the
+newly-confirmed key</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.FinishWebAuthnRegistrationResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.FinishWebAuthnRegistrationResponse" title="org.signal.chat.account.FinishWebAuthnRegistrationResponse">message FinishWebAuthnRegistrationResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            key_confirmed
+          </td>
+          <td>
+            <code title="org.signal.chat.account.FinishWebAuthnRegistrationResponse.KeyConfirmed">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.FinishWebAuthnRegistrationResponse.KeyConfirmed"><span title="org.signal.chat.account.FinishWebAuthnRegistrationResponse.KeyConfirmed">org.signal.chat.account.FinishWebAuthnRegistrationResponse.KeyConfirmed</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided public key has been registered for the account</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            key_not_confirmed
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The registration response was not verified successfully for any reason</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            too_many_mfa_keys
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The authenticated account already has too many MFA keys, and the
+caller must remove one before adding one (this can be true even if it
+was not when starting the request, since there is nothing to prevent
+multiple registrations from occurring in parallel)</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
 <h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GenerateTotpKeyRequest">
   <span>
     <a href="#message-org.signal.chat.account.GenerateTotpKeyRequest" title="org.signal.chat.account.GenerateTotpKeyRequest">message GenerateTotpKeyRequest</a>
@@ -3675,6 +3966,59 @@ the caller must remove one before adding more</p></td>
       <div class="block">
         
 
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.FinishWebAuthnRegistrationResponse.KeyConfirmed">
+  <span>
+    <a href="#message-org.signal.chat.account.FinishWebAuthnRegistrationResponse.KeyConfirmed" title="org.signal.chat.account.FinishWebAuthnRegistrationResponse.KeyConfirmed">message KeyConfirmed</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.FinishWebAuthnRegistrationResponse"><span title="org.signal.chat.account.FinishWebAuthnRegistrationResponse">org.signal.chat.account.FinishWebAuthnRegistrationResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        key_id
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>An account-specific identifier for the new WebAuthn key</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
 <h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GenerateTotpKeyResponse.KeyGenerated">
   <span>
     <a href="#message-org.signal.chat.account.GenerateTotpKeyResponse.KeyGenerated" title="org.signal.chat.account.GenerateTotpKeyResponse.KeyGenerated">message KeyGenerated</a>
@@ -4179,7 +4523,7 @@ the caller must remove one before adding more</p></td>
           <span>bytes</span>
         </code>
       </td>
-      <td class="content"><p>/ The user-provided ciphertext for metadata associated with this MFA key</p></td>
+      <td class="content"><p>The user-provided ciphertext for metadata associated with this MFA key</p></td>
       
     </tr>
     
@@ -4195,7 +4539,7 @@ the caller must remove one before adding more</p></td>
     </a>
         </code>
       </td>
-      <td class="content"><p>/ The type of MFA factor this key is for</p></td>
+      <td class="content"><p>The type of MFA factor this key is for</p></td>
       
     </tr>
     
@@ -4697,7 +5041,7 @@ identified key</p></td>
             1
           </td>
           <td>
-            metadata_updated
+            success
           </td>
           <td>
             <code title="org.signal.chat.account.SetMfaKeyMetadataResponse.MetadataUpdated">
@@ -4706,7 +5050,7 @@ identified key</p></td>
     </a>
             </code>
           </td>
-          <td class="content"><p>New metadata was stored for the identified TOTP key</p></td>
+          <td class="content"><p>New metadata was stored for the identified key</p></td>
           
         </tr>
       
@@ -5219,6 +5563,128 @@ device).</p>
       <div class="block">
         
 
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.StartWebAuthnRegistrationRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.StartWebAuthnRegistrationRequest" title="org.signal.chat.account.StartWebAuthnRegistrationRequest">message StartWebAuthnRegistrationRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.StartWebAuthnRegistrationResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.StartWebAuthnRegistrationResponse" title="org.signal.chat.account.StartWebAuthnRegistrationResponse">message StartWebAuthnRegistrationResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            params
+          </td>
+          <td>
+            <code title="org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters"><span title="org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters">org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The parameters to use for a WebAuthn registration ceremony</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            too_many_mfa_keys
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The authenticated account already has too many MFA keys, and the
+caller must remove one before adding one</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
 <h4 class="title is-4 type-heading" id="message-org.signal.chat.account.TotpParameters">
   <span>
     <a href="#message-org.signal.chat.account.TotpParameters" title="org.signal.chat.account.TotpParameters">message TotpParameters</a>
@@ -5331,6 +5797,96 @@ by the TOTP generator</p></td>
       </div>
       
     
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters">
+  <span>
+    <a href="#message-org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters" title="org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters">message WebAuthnCreateParameters</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.StartWebAuthnRegistrationResponse"><span title="org.signal.chat.account.StartWebAuthnRegistrationResponse">org.signal.chat.account.StartWebAuthnRegistrationResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        user_handle
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The "user handle" (user.id) that should be handed to the authenticator</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        allowed_algorithms
+      </td>
+      <td>
+        <code title="int64">
+          
+            repeated
+          
+          <span>int64</span>
+        </code>
+      </td>
+      <td class="content"><p>The COSE IDs (https://www.iana.org/assignments/cose#algorithms) of
+acceptable algorithms for the created key</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        exclude_credential_ids
+      </td>
+      <td>
+        <code title="bytes">
+          
+            repeated
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A list of the credential IDs already registered for this account; these
+can be passed to candidate authenticators to tell them not to create a
+new key if they already have a private key matching one of these</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
 
   
 
@@ -5370,6 +5926,12 @@ by the TOTP generator</p></td>
     <tr>
       <td><code>MFA_KEY_TYPE_TOTP</code></td>
       <td>1</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>MFA_KEY_TYPE_WEBAUTHN</code></td>
+      <td>2</td>
       <td class="content"></td>
     </tr>
     

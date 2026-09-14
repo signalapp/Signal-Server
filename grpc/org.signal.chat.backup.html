@@ -214,6 +214,15 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.backup.GetBackupIdLimitsResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetBackupIdLimitsResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.backup.GetBackupInfoRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>GetBackupInfoRequest</code> 
@@ -597,6 +606,25 @@ expires at some point in the provided redemption window, credentials with
 redemption times after the expiration may be on a lower backup level.</p>
 <p>Clients must validate the receipt level on the credential matches a known
 receipt level before using it.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.Backups-GetBackupIdLimits">
+      <a href="#service-org.signal.chat.backup.Backups-GetBackupIdLimits">
+        rpc <code>GetBackupIdLimits</code>
+      </a>
+    </h5>
+    Request: <code><span>google.protobuf.Empty</span></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetBackupIdLimitsResponse"><span title="org.signal.chat.backup.GetBackupIdLimitsResponse">org.signal.chat.backup.GetBackupIdLimitsResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieve backup ID rotation limits</p></p>
   </div>
   
 </div>
@@ -1905,6 +1933,71 @@ redemptionEnd must not exceed 7 days.</p></td>
       </td>
       <td class="content"><p>The requested credentials. If absent, there was no existing blinded
 backup id associated with the provided account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetBackupIdLimitsResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetBackupIdLimitsResponse" title="org.signal.chat.backup.GetBackupIdLimitsResponse">message GetBackupIdLimitsResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        hasPermitsRemaining
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If true, a call to SetBackupId may succeed without waiting</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        retryAfterSeconds
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>How long to wait before a permit becomes available, in seconds</p></td>
       
     </tr>
     

@@ -3174,8 +3174,13 @@ paths:
                 \ of seconds before a subsequent attempt could succeed"
               style: simple
         "441":
-          description: "A valid one-time password (TOTP) is required, but either no\
-            \ password was provided or it was incorrect"
+          description: |
+            Second factor authentication failed. Either the account has one or more factors configured, and the request’s
+            factor was incorrect or absent, or the account has no factors, but the request included a factor.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MfaFailureResponse"
         "499":
           description: Client must support post-quantum ratchet
   /v2/config:
@@ -6322,6 +6327,36 @@ components:
           type: string
           description: The MIME base64-encoded body of the provisioning message to
             send to the destination device
+    MfaFailureResponse:
+      type: object
+      properties:
+        webAuthnParameters:
+          $ref: "#/components/schemas/WebAuthnAuthenticationParameters"
+        hasTotpKey:
+          type: boolean
+          description: Whether the account has a TOTP key configured
+      description: |
+        Information about the account's MFA status.
+    WebAuthnAuthenticationParameters:
+      type: object
+      properties:
+        challenge:
+          type: string
+          description: The authentication ceremony challenge.
+          format: byte
+        timeoutSeconds:
+          type: integer
+          description: The number of seconds the challenge will be valid.
+          format: int64
+        allowedCredentialIds:
+          type: array
+          description: A list of authenticators previously registered to the account.
+          items:
+            type: string
+            description: A list of authenticators previously registered to the account.
+            format: byte
+      description: "If the account has a WebAuthn credential, this field contains\
+        \ parameters for an authentication ceremony."
     AccountCreationResponse:
       type: object
       properties:
@@ -6405,6 +6440,14 @@ components:
             A TOTP one-time password; required if recovering an account that has TOTP keys. Must
             not be provided if `receiptCredentialPresentation` is provided.
           format: int32
+          nullable: true
+        webAuthnResponse:
+          maxLength: 8192
+          minLength: 1
+          type: string
+          description: |
+            A JSON-serialized assertion response from a completed authentication ceremony.
+            See https://www.w3.org/TR/webauthn/#authenticatorassertionresponse.
           nullable: true
         accountAttributes:
           $ref: "#/components/schemas/AccountAttributes"
