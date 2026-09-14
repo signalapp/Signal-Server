@@ -20,7 +20,7 @@ class H2FrameProxyHandlerTest {
   @Test
   void proxyWritabilityChanged() {
     final EmbeddedChannel target = new EmbeddedChannel();
-    final EmbeddedChannel source = new EmbeddedChannel(new H2FrameProxyHandler(target, "test"));
+    final EmbeddedChannel source = new EmbeddedChannel(new H2FrameProxyHandler(target, "test", "test-backend"));
 
     // Set a tiny watermark to guarantee an unflushed write sets to unwritable, and then buffer some data
     final byte[] bufferedData = "8 bytes!".getBytes(StandardCharsets.UTF_8);

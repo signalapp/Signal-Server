@@ -145,7 +145,7 @@ public class OmnibusH2StreamHandler extends ChannelInboundHandlerAdapter {
           // Connected, open a new H2 stream to the backend so we can proxy the client's frames
           logger.trace("Opening a HTTP/2 stream to the backend {}", target);
           final Channel backendConnection = connectFuture.channel();
-          createBackendProxyStream(ctx, backendConnection, headersFrame);
+          createBackendProxyStream(ctx, backendConnection, headersFrame, backendTag);
         });
   }
 
@@ -155,13 +155,15 @@ public class OmnibusH2StreamHandler extends ChannelInboundHandlerAdapter {
   /// @param backendConnection An established H2 connection [Channel], on which a new h2 stream will be opened
   /// @param headersFrame      The first `headersFrame` from the client h2 stream that should be forwarded to the new
   ///                          backend stream
+  /// @param backendTag        The backend this stream targets, for metrics
   private void createBackendProxyStream(
       final ChannelHandlerContext clientStreamCtx,
       final Channel backendConnection,
-      final Http2HeadersFrame headersFrame) {
+      final Http2HeadersFrame headersFrame,
+      final String backendTag) {
     new Http2StreamChannelBootstrap(backendConnection)
         // Forwards response frames from the backend back to the client stream
-        .handler(new H2FrameProxyHandler(clientStreamCtx.channel(), "responseStream"))
+        .handler(new H2FrameProxyHandler(clientStreamCtx.channel(), "responseStream", backendTag))
         .open()
         .addListener((io.netty.util.concurrent.Future<Http2StreamChannel> streamFuture) -> {
           if (!streamFuture.isSuccess()) {
@@ -194,7 +196,7 @@ public class OmnibusH2StreamHandler extends ChannelInboundHandlerAdapter {
             clientStreamCtx.pipeline().replace(
                 OmnibusH2StreamHandler.this,
                 "backend-to-client-proxy",
-                new H2FrameProxyHandler(backendStream, "requestStream"));
+                new H2FrameProxyHandler(backendStream, "requestStream", backendTag));
             clientStreamCtx.channel().pipeline().fireChannelRead(headersFrame);
 
             // Resume inbound reads, which should now be forwarded

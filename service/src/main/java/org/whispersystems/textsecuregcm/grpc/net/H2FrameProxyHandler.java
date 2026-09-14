@@ -20,9 +20,11 @@ public class H2FrameProxyHandler extends ChannelInboundHandlerAdapter {
 
   private static final Logger logger = LoggerFactory.getLogger(H2FrameProxyHandler.class);
   private static final String WRITABILITY_CHANGED_COUNTER_NAME = MetricsUtil.name(H2FrameProxyHandler.class, "writabilityChanged");
+  private static final String BACKEND_TAG_NAME = "backend";
 
   private final Channel peerStream;
   private final String proxyNameTag;
+  private final String backendNameTag;
 
   // If we fail to write to the peerStream, we want to close the inbound channel. Rather than allocate a new listener
   // that captures the inbound ChannelHandlerContext on every message, we capture the ChannelHandlerContext in
@@ -30,9 +32,10 @@ public class H2FrameProxyHandler extends ChannelInboundHandlerAdapter {
   // one channel, but we already have a designated peerStream so this handler is fundamentally single-channel.
   private ChannelFutureListener closeInboundOnPeerFailure = null;
 
-  public H2FrameProxyHandler(final Channel peerStream, final String proxyNameTag) {
+  public H2FrameProxyHandler(final Channel peerStream, final String proxyNameTag, final String backendNameTag) {
     this.peerStream = peerStream;
     this.proxyNameTag = proxyNameTag;
+    this.backendNameTag = backendNameTag;
   }
 
   @Override
@@ -50,8 +53,9 @@ public class H2FrameProxyHandler extends ChannelInboundHandlerAdapter {
       @Override
       public void channelWritabilityChanged(final ChannelHandlerContext peerCtx) throws Exception {
         Metrics.counter(WRITABILITY_CHANGED_COUNTER_NAME,
-            "isWritable", Boolean.toString(peerCtx.channel().isWritable()),
-                "proxy", proxyNameTag)
+                "isWritable", Boolean.toString(peerCtx.channel().isWritable()),
+                "proxy", proxyNameTag,
+                BACKEND_TAG_NAME, backendNameTag)
             .increment();
         ctx.channel().config().setAutoRead(peerStream.isWritable());
         super.channelWritabilityChanged(peerCtx);
