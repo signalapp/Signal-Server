@@ -1,9 +1,12 @@
 package org.whispersystems.textsecuregcm.grpc.net;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.dropwizard.util.DataSize;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -61,13 +64,16 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -91,7 +97,19 @@ class OmnibusH2ServerTest {
   // URIs targeting PATH should go to the path backend, everything else to default.
   private static final String PATH_BACKEND_IDENTITY = "path-backend";
   private static final String PATH = "/v1/path/";
+
+  /// The default backend implements dynamic behavior for various test scenarios, such as
+  ///
+  /// - resets
+  /// - GOAWAY
+  /// - echo
+  /// - etc.
+  ///
+  /// @see TestHandler#channelRead
   private static final String DEFAULT_BACKEND_IDENTITY = "default-backend";
+  /// Requests to default backend at `/fixed-response/<n>/<b>` get an `n`-byte response body from the backend
+  /// filled with the byte `b`
+  private static final String FIXED_RESPONSE_PATH_PREFIX = "/fixed-response/";
 
   private static NioEventLoopGroup nioEventLoopGroup;
   private static DefaultEventLoopGroup localEventLoopGroup;
@@ -100,6 +118,7 @@ class OmnibusH2ServerTest {
 
   private List<Channel> backendChannelsToShutDown;
   private List<OmnibusH2Server> omnibusH2ServersToShutDown;
+  private List<EventLoopGroup> groupsToShutDown;
   private AtomicReference<DynamicOmnibusConfiguration> dynamicConfiguration;
 
   @BeforeAll
@@ -133,6 +152,7 @@ class OmnibusH2ServerTest {
   void setUp() {
     backendChannelsToShutDown = new ArrayList<>();
     omnibusH2ServersToShutDown = new ArrayList<>();
+    groupsToShutDown = new ArrayList<>();
     dynamicConfiguration = new AtomicReference<>(new DynamicOmnibusConfiguration(BigDecimal.ZERO));
   }
 
@@ -140,6 +160,7 @@ class OmnibusH2ServerTest {
   void tearDown() {
     omnibusH2ServersToShutDown.forEach(OmnibusH2Server::stop);
     backendChannelsToShutDown.forEach(c -> c.close().syncUninterruptibly());
+    groupsToShutDown.forEach(g -> g.shutdownGracefully(0, 1000, TimeUnit.MILLISECONDS).syncUninterruptibly());
   }
 
   @AfterAll
@@ -277,9 +298,9 @@ class OmnibusH2ServerTest {
   void queuedDataFrames(final boolean localChannel) throws Exception {
     final OmnibusH2Server server = startOmnibusServer(startBackendServer(localChannel, DEFAULT_BACKEND_IDENTITY));
     final Channel h2Connection = connectToOmnibus(server);
-    final CompletableFuture<String> responseFuture = new CompletableFuture<>();
+    final CompletableFuture<byte[]> responseFuture = new CompletableFuture<>();
     final Http2StreamChannel stream = new Http2StreamChannelBootstrap(h2Connection)
-        .handler(new ResponseCollectorHandler(responseFuture))
+        .handler(new BodyCollectorHandler(responseFuture))
         .open()
         .syncUninterruptibly()
         .getNow();
@@ -305,7 +326,7 @@ class OmnibusH2ServerTest {
     stream.flush();
     final String expected = expectedBuilder.toString();
 
-    final String response = responseFuture.get(10, TimeUnit.SECONDS);
+    final String response = responseFuture.thenApply(OmnibusH2ServerTest::stringFromUtfBytes).get(10, TimeUnit.SECONDS);
     assertEquals(expected, response);
 
     h2Connection.close().syncUninterruptibly();
@@ -321,7 +342,7 @@ class OmnibusH2ServerTest {
 
     final Http2StreamChannelBootstrap streamBootstrap = new Http2StreamChannelBootstrap(h2Connection);
     final Http2StreamChannel stream = streamBootstrap
-        .handler(new ResponseCollectorHandler(new CompletableFuture<>()))
+        .handler(new BodyCollectorHandler(new CompletableFuture<>()))
         .open()
         .syncUninterruptibly()
         .getNow();
@@ -345,9 +366,9 @@ class OmnibusH2ServerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void backpressure(final boolean localChannel) throws Exception {
+  void requestBackpressure(final boolean localChannel) throws Exception {
     final AtomicReference<Channel> backendStreamChannel = new AtomicReference<>();
-    final Channel backendServer = startBackendServer(localChannel, "backpressure", _ -> {
+    final Channel backendServer = startBackendServer(localChannel, "request-backpressure", _ -> {
     }, ch -> {
       ch.config().setAutoRead(false);
       backendStreamChannel.set(ch);
@@ -417,6 +438,62 @@ class OmnibusH2ServerTest {
     h2Connection.close().syncUninterruptibly();
   }
 
+  @CartesianTest
+  void responseBackpressure(@CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
+      @CartesianTest.Values(ints = {193, 512, 2048}) final int responseSizeKib) throws Exception {
+
+    final int responseSize = Math.toIntExact(DataSize.kibibytes(responseSizeKib).toBytes());
+
+    // various windows and buffers (it appears to be 3 * 64kiB) in the stack mean the backend only reaches the backpressure point for
+    // large-ish responses
+    assertTrue(responseSize > DataSize.kibibytes(192).toBytes());
+
+    final CountDownLatch backendStreamInitialized = new CountDownLatch(1);
+    final CountDownLatch backendStreamUnwritable = new CountDownLatch(1);
+    final AtomicLong pendingWhenUnwritable = new AtomicLong();
+
+    final OmnibusH2Server server = startOmnibusServer(startBackendServer(localChannel, "response-backpressure",
+        _ -> {}, ch -> {
+          ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+            @Override
+            public void channelWritabilityChanged(final ChannelHandlerContext backendStreamCtx) {
+              if (!backendStreamCtx.channel().isWritable() && backendStreamUnwritable.getCount() > 0) {
+                // A change in writability on the backend stream means we introduced backpressure
+                pendingWhenUnwritable.set(backendStreamCtx.channel().bytesBeforeWritable());
+                backendStreamUnwritable.countDown();
+              }
+              backendStreamCtx.fireChannelWritabilityChanged();
+            }
+          });
+          backendStreamInitialized.countDown();
+        }));
+    final Channel h2Connection = connectToOmnibus(server);
+
+    final AtomicReference<Http2StreamChannel> clientStream = new AtomicReference<>();
+    final CompletableFuture<byte[]> response = request(h2Connection, responseSize, (byte) 1, ch -> {
+      ch.config().setAutoRead(false);
+      clientStream.set(ch);
+    });
+
+    assertTrue(backendStreamInitialized.await(1, TimeUnit.SECONDS));
+
+    assertTrue(backendStreamUnwritable.await(3, TimeUnit.SECONDS), "failed to introduce backpressure within 3 seconds");
+
+    final long pendingWhilePaused = pendingWhenUnwritable.get();
+    assertTrue(pendingWhilePaused > 0);
+    assertTrue(pendingWhilePaused < responseSize, "only a partial write is expected");
+
+    assertFalse(response.isDone(), "response is blocked while the client stream is not reading");
+
+    // Restarting reads on the client stream will, in turn, re-enable auto-read on the backend stream and complete
+    // the response
+    clientStream.get().config().setAutoRead(true);
+
+    assertArrayEquals(expectedBody(responseSize, (byte) 1), response.get(5, TimeUnit.SECONDS));
+
+    h2Connection.close().syncUninterruptibly();
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void idleTest(final boolean localChannel) throws Exception {
@@ -469,12 +546,120 @@ class OmnibusH2ServerTest {
     assertEquals(OmnibusLoadShedHandler.LOAD_SHED_ERROR_CODE, frame.errorCode());
   }
 
+  /// This is a regression test for issues observed for responses >64 kiB (the HTTP/2 window size):
+  /// - stalls, fixed by [netty/netty#17279](https://github.com/netty/netty/pull/17279)
+  /// - response truncations, fixed by ensuring `setAutoRead()` always happens on the channel's event loop
+  ///
+  /// In this test, concurrency refers to both a single connection with multiple streams and multiple connections with
+  /// one more streams, as the issues occurred on both. The failures aren't totally deterministic, so tests
+  /// are repeated.
+  @CartesianTest(name = "localChannel={0}, connections={1}, streams={2}, size={3}")
+  void concurrentResponses(
+      @CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
+      @CartesianTest.Values(ints = {1, 8}) final int connections,
+      @CartesianTest.Values(ints = {1,2,4}) final int streamsPerConnection,
+      // 64kiB is the critical threshold, as it's the flow control window size
+      @CartesianTest.Values(ints = {8, 65, 256}) final int responseSizeKib,
+      // @RepeatedTest can't be combined with @CartesianTest, and this needs a few runs to ensure the concurrency
+      // conditions are met
+      @CartesianTest.Values(ints = {10}) final int repetitions) throws Exception {
+
+    // Use two threads to make sure that our connections are working concurrently
+    final NioEventLoopGroup nioEventLoopGroup = new NioEventLoopGroup(2);
+    final DefaultEventLoopGroup localEventLoopGroup = new DefaultEventLoopGroup(2);
+
+    groupsToShutDown.add(nioEventLoopGroup);
+    groupsToShutDown.add(localEventLoopGroup);
+
+    final List<Channel> clientConnections = new ArrayList<>();
+
+    try {
+      final int responseSize = Math.toIntExact(DataSize.kibibytes(responseSizeKib).toBytes());
+
+      final OmnibusH2Server server = startOmnibusServer(nioEventLoopGroup, localEventLoopGroup,
+          Collections.emptyMap(),
+          startBackendServer(localChannel ? localEventLoopGroup : nioEventLoopGroup, localChannel,
+              DEFAULT_BACKEND_IDENTITY, _ -> {}, _ -> {}),
+          Duration.ofMinutes(1));
+
+      for (int i = 0; i < connections; i++) {
+        clientConnections.add(connectToOmnibus(server));
+      }
+
+      record RequestAndExpected(CompletableFuture<byte[]> request, byte[] expected) {}
+
+      for (int i = 0; i <= repetitions; i++) {
+
+        final List<RequestAndExpected> responseFutures = new ArrayList<>();
+        clientConnections.forEach(c -> {
+          for (int stream = 0; stream < streamsPerConnection; stream++) {
+            final byte streamId = (byte) (stream + 1);
+            responseFutures.add(new RequestAndExpected(request(c, responseSize, streamId, _ -> {}),
+                expectedBody(responseSize, streamId)));
+          }
+        });
+
+        responseFutures.forEach(r -> {
+          assertDoesNotThrow(() -> r.request().get(5, TimeUnit.SECONDS));
+          assertArrayEquals(r.expected(), r.request().resultNow());
+        });
+      }
+    } finally {
+      clientConnections.forEach(c -> c.close().syncUninterruptibly());
+    }
+  }
+
+  /// Opens a stream asking the default backend for a `responseSize`-byte response body
+  /// @return a future that yields the response body
+  private CompletableFuture<byte[]> request(final Channel h2Connection, final int responseSize, final byte contentByte, final Consumer<Http2StreamChannel> streamInit) {
+
+    final CompletableFuture<byte[]> responseFuture = new CompletableFuture<>();
+
+    final BodyCollectorHandler collector = new BodyCollectorHandler(responseFuture);
+    final Http2StreamChannel stream = new Http2StreamChannelBootstrap(h2Connection)
+        .handler(new ChannelInitializer<Http2StreamChannel>() {
+          @Override
+          protected void initChannel(final Http2StreamChannel ch) {
+            streamInit.accept(ch);
+            ch.pipeline().addLast(collector);
+          }
+        })
+        .open()
+        .syncUninterruptibly()
+        .getNow();
+
+    final Http2Headers headers = new DefaultHttp2Headers()
+        .method("POST")
+        .path(FIXED_RESPONSE_PATH_PREFIX + responseSize + "/" + contentByte)
+        .scheme("https")
+        .authority("localhost");
+
+    stream.writeAndFlush(new DefaultHttp2HeadersFrame(headers, true));
+    return responseFuture;
+  }
+
+  /// A deterministic body of a given size
+  private static byte[] expectedBody(final int size, final byte contentByte) {
+    final byte[] body = new byte[size];
+    Arrays.fill(body, contentByte);
+    return body;
+  }
+
   /// Start an OmnibusH2Server. The returned server and provided backends will be torn down in [#tearDown()]
   ///
   /// @param routes A map of prefixes and the corresponding backend server channels the omnibus will target
   /// @param defaultBackend The target backend if no prefix routes match the request path
   /// @param timeout The omnibus idle timeout
   private OmnibusH2Server startOmnibusServer(final Map<String, Channel> routes, final Channel defaultBackend, final Duration timeout) throws Exception {
+    return startOmnibusServer(nioEventLoopGroup, localEventLoopGroup, routes, defaultBackend, timeout);
+  }
+
+  private OmnibusH2Server startOmnibusServer(
+      final NioEventLoopGroup nioEventLoopGroup,
+      final DefaultEventLoopGroup localEventLoopGroup,
+      final Map<String, Channel> routes,
+      final Channel defaultBackend,
+      final Duration timeout) throws Exception {
     backendChannelsToShutDown.addAll(routes.values());
     backendChannelsToShutDown.add(defaultBackend);
 
@@ -509,7 +694,12 @@ class OmnibusH2ServerTest {
   /// @param h2ChannelInit a Consumer that will be called every time a new HTTP/2 connection is made to this server
   /// @param h2StreamInit a Consumer that will be called every time a new HTTP/2 stream is created on this server
   private Channel startBackendServer(final boolean localChannel, final String identity, Consumer<Channel> h2ChannelInit, Consumer<Channel> h2StreamInit)  {
-    final EventLoopGroup eventLoopGroup = localChannel ? localEventLoopGroup : nioEventLoopGroup;
+    return startBackendServer(localChannel ? localEventLoopGroup : nioEventLoopGroup,
+        localChannel, identity, h2ChannelInit, h2StreamInit);
+  }
+
+  private Channel startBackendServer(final EventLoopGroup eventLoopGroup, final boolean localChannel,
+      final String identity, Consumer<Channel> h2ChannelInit, Consumer<Channel> h2StreamInit)  {
     return new ServerBootstrap()
         .group(eventLoopGroup, eventLoopGroup)
         .channel(localChannel ? LocalServerChannel.class : NioServerSocketChannel.class)
@@ -587,10 +777,10 @@ class OmnibusH2ServerTest {
   }
 
   private String sendRequestThroughOmnibus(final Channel h2Connection, final String path) {
-    final CompletableFuture<String> responseFuture = new CompletableFuture<>();
+    final CompletableFuture<byte[]> responseFuture = new CompletableFuture<>();
     final Http2StreamChannelBootstrap streamBootstrap = new Http2StreamChannelBootstrap(h2Connection);
     final Http2StreamChannel stream = streamBootstrap
-        .handler(new ResponseCollectorHandler(responseFuture))
+        .handler(new BodyCollectorHandler(responseFuture))
         .open()
         .syncUninterruptibly()
         .getNow();
@@ -603,7 +793,7 @@ class OmnibusH2ServerTest {
 
     stream.writeAndFlush(new DefaultHttp2HeadersFrame(headers, true));
 
-    return responseFuture.join();
+    return responseFuture.thenApply(OmnibusH2ServerTest::stringFromUtfBytes).join();
   }
 
   /// A backend that either echos the request body, returns an identity, or disconnects based on the request
@@ -634,6 +824,10 @@ class OmnibusH2ServerTest {
               .map(CharSequence::toString)
               .orElse("");
           writeResponse(ctx, Unpooled.copiedBuffer(xForwardedFor, StandardCharsets.UTF_8));
+        } else if (path.startsWith(FIXED_RESPONSE_PATH_PREFIX)) {
+          final int size = Integer.parseInt(path.substring(FIXED_RESPONSE_PATH_PREFIX.length(), path.lastIndexOf("/")));
+          final byte contentByte = Byte.parseByte(path.substring(path.lastIndexOf("/") + 1));
+          writeResponse(ctx, Unpooled.wrappedBuffer(expectedBody(size, contentByte)));
         } else if (headers.isEndStream()) {
           writeResponse(ctx, Unpooled.copiedBuffer(identity, StandardCharsets.UTF_8));
         }
@@ -653,21 +847,43 @@ class OmnibusH2ServerTest {
     }
   }
 
-  /// Completes the provided future with the first [Http2DataFrame] received
-  private static class ResponseCollectorHandler extends ChannelInboundHandlerAdapter {
+  private static String stringFromUtfBytes(final byte[] bytes) {
+    return new String(bytes, StandardCharsets.UTF_8);
+  }
 
-    private final CompletableFuture<String> responseFuture;
+  /// Accumulates all [Http2DataFrame]s on a stream and completes once the stream ends
+  private static class BodyCollectorHandler extends ChannelInboundHandlerAdapter {
 
-    ResponseCollectorHandler(final CompletableFuture<String> responseFuture) {
+    private final CompletableFuture<byte[]> responseFuture;
+    private final ByteArrayOutputStream accumulated = new ByteArrayOutputStream();
+
+    BodyCollectorHandler(final CompletableFuture<byte[]> responseFuture) {
       this.responseFuture = responseFuture;
     }
 
     @Override
     public void channelRead(final ChannelHandlerContext ctx, final Object msg) {
-      if (msg instanceof Http2DataFrame dataFrame) {
-        responseFuture.complete(dataFrame.content().toString(StandardCharsets.UTF_8));
+      try {
+        if (msg instanceof Http2DataFrame dataFrame) {
+          final ByteBuf content = dataFrame.content();
+          final byte[] chunk = new byte[content.readableBytes()];
+          content.getBytes(content.readerIndex(), chunk);
+          accumulated.writeBytes(chunk);
+          if (dataFrame.isEndStream()) {
+            responseFuture.complete(accumulated.toByteArray());
+          }
+        }
+      } finally {
+        ReferenceCountUtil.release(msg);
       }
-      ReferenceCountUtil.release(msg);
+    }
+
+    @Override
+    public void channelInactive(final ChannelHandlerContext ctx) {
+      if (!responseFuture.isDone()) {
+        responseFuture.completeExceptionally(
+            new IllegalStateException("stream closed after " + accumulated.size() + " bytes"));
+      }
     }
 
     @Override
