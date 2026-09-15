@@ -44,6 +44,7 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.logging.ImpossibleEvents;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 import software.amazon.awssdk.core.SdkBytes;
@@ -1800,7 +1801,8 @@ public class Accounts {
 
       final String attributeNumber = AttributeValues.getString(item, ATTR_ACCOUNT_E164, null);
       if (!account.getNumber().equals(Optional.ofNullable(attributeNumber))) {
-        log.error("Mismatched phone numbers for account {}. From JSON: {}; from attribute: {}",
+        ImpossibleEvents.logImpossible(log,
+            "Mismatched phone numbers for account {}. From JSON: {}; from attribute: {}",
             accountIdentifier, account.getNumber(), attributeNumber);
       }
 
