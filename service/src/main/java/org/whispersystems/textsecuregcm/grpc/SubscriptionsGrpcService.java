@@ -441,7 +441,8 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
     try {
       final SubscriptionManager.ReceiptResult result = subscriptionManager.createReceiptCredentials(
           subscriberCredentials, request.getReceiptCredentialRequest().toByteArray(),
-          r -> SubscriptionsUtil.receiptExpirationWithGracePeriod(subscriptionConfiguration, r));
+          r -> SubscriptionsUtil.receiptExpirationWithGracePeriod(subscriptionConfiguration, r),
+          RequestAttributesUtil.getUserAgent().orElse(null));
       Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
               Tags.of(
                   Tag.of(PROCESSOR_TAG_NAME, result.paymentProvider().toString()),

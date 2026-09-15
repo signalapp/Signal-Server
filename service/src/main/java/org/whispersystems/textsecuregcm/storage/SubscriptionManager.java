@@ -4,6 +4,9 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
@@ -15,17 +18,21 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriberIdCreationNotPermittedException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionForbiddenException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInformation;
@@ -52,6 +59,9 @@ import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
  * functionality as an argument to the method.
  */
 public class SubscriptionManager {
+
+  private static final String RECEIPT_ALREADY_REDEEMED_COUNTER_NAME = MetricsUtil.name(SubscriptionManager.class,
+      "receiptAlreadyRedeemed");
 
   private final Subscriptions subscriptions;
   private final EnumMap<PaymentProvider, SubscriptionPaymentProcessor> processors;
@@ -177,6 +187,7 @@ public class SubscriptionManager {
    * @param expiration                    A function that takes a
    *                                      {@link CustomerAwareSubscriptionPaymentProcessor.ReceiptItem} and returns the
    *                                      expiration time of the receipt
+   * @param userAgent                     The requesting client's user agent
    * @return the requested ZK receipt credential
    * @throws SubscriptionForbiddenException                      if the subscriber credentials were incorrect
    * @throws SubscriptionNotFoundException                       if the subscriber did not exist or did not have a
@@ -193,7 +204,8 @@ public class SubscriptionManager {
   public ReceiptResult createReceiptCredentials(
       final SubscriberCredentials subscriberCredentials,
       final byte[] receiptCredentialRequestBytes,
-      final Function<CustomerAwareSubscriptionPaymentProcessor.ReceiptItem, Instant> expiration)
+      final Function<CustomerAwareSubscriptionPaymentProcessor.ReceiptItem, Instant> expiration,
+      @Nullable final String userAgent)
       throws SubscriptionForbiddenException, SubscriptionNotFoundException, SubscriptionInvalidArgumentsException, SubscriptionPaymentRequiredException, RateLimitExceededException, SubscriptionReceiptRequestedForOpenPaymentException, SubscriptionReceiptAlreadyRedeemedException {
     final Subscriptions.Record record = getSubscriber(subscriberCredentials);
     if (record.subscriptionId == null) {
@@ -222,6 +234,12 @@ public class SubscriptionManager {
     } catch (final VerificationFailedException e) {
       throw new SubscriptionInvalidArgumentsException("receipt credential request failed verification", e);
     } catch (final WriteConflictException _) {
+      Metrics.counter(RECEIPT_ALREADY_REDEEMED_COUNTER_NAME, Tags.of(
+              Tag.of("receiptLevel", ReceiptLevel.lookupLevel(receipt.level())
+                  .map(ReceiptLevel::name)
+                  .orElse("n/a")),
+              UserAgentTagUtil.getPlatformTag(userAgent)))
+          .increment();
       throw new SubscriptionReceiptAlreadyRedeemedException();
     }
     return new ReceiptResult(receiptCredentialResponse, receipt, processor);

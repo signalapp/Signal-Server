@@ -756,7 +756,8 @@ public class SubscriptionController {
     try {
       final SubscriptionManager.ReceiptResult receiptCredential = subscriptionManager.createReceiptCredentials(
           subscriberCredentials, request.receiptCredentialRequest(),
-          r -> SubscriptionsUtil.receiptExpirationWithGracePeriod(subscriptionConfiguration, r));
+          r -> SubscriptionsUtil.receiptExpirationWithGracePeriod(subscriptionConfiguration, r),
+          userAgent);
 
       final ReceiptCredentialResponse receiptCredentialResponse = receiptCredential.receiptCredentialResponse();
       final CustomerAwareSubscriptionPaymentProcessor.ReceiptItem receipt = receiptCredential.receiptItem();

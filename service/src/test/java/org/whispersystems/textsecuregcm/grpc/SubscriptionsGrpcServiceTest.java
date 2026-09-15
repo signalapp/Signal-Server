@@ -576,7 +576,7 @@ public class SubscriptionsGrpcServiceTest extends
     final ReceiptCredentialResponse receiptCredentialResponse = mock(ReceiptCredentialResponse.class);
     final byte[] responseBytes = TestRandomUtil.nextBytes(16);
     when(receiptCredentialResponse.serialize()).thenReturn(responseBytes);
-    when(subscriptionManager.createReceiptCredentials(any(), any(), any()))
+    when(subscriptionManager.createReceiptCredentials(any(), any(), any(), any()))
         .thenReturn(new SubscriptionManager.ReceiptResult(receiptCredentialResponse, new SubscriptionPaymentProcessor.ReceiptItem("test-item-id", null, 5), PaymentProvider.STRIPE));
     final GetReceiptCredentialsResponse response = unauthenticatedServiceStub().getReceiptCredentials(
         GetReceiptCredentialsRequest.newBuilder()
@@ -602,7 +602,7 @@ public class SubscriptionsGrpcServiceTest extends
   @MethodSource
   void getReceiptCredentialsExceptions(final SubscriptionException exception,
       final GetReceiptCredentialsResponse.ResponseCase expectedCase) throws Exception {
-    doThrow(exception).when(subscriptionManager).createReceiptCredentials(any(), any(), any());
+    doThrow(exception).when(subscriptionManager).createReceiptCredentials(any(), any(), any(), any());
     final GetReceiptCredentialsResponse response = unauthenticatedServiceStub().getReceiptCredentials(
         GetReceiptCredentialsRequest.newBuilder()
             .setSubscriberId(SUBSCRIBER_ID)
@@ -615,7 +615,7 @@ public class SubscriptionsGrpcServiceTest extends
   void getReceiptCredentialsChargeFailure() throws Exception {
     doThrow(new SubscriptionChargeFailurePaymentRequiredException(PaymentProvider.STRIPE,
         new ChargeFailure("card_declined", "Insufficient funds", null, null, null)))
-        .when(subscriptionManager).createReceiptCredentials(any(), any(), any());
+        .when(subscriptionManager).createReceiptCredentials(any(), any(), any(), any());
     final GetReceiptCredentialsResponse response = unauthenticatedServiceStub().getReceiptCredentials(
         GetReceiptCredentialsRequest.newBuilder()
             .setSubscriberId(SUBSCRIBER_ID)
