@@ -57,10 +57,24 @@ public class H2FrameProxyHandler extends ChannelInboundHandlerAdapter {
                 "proxy", proxyNameTag,
                 BACKEND_TAG_NAME, backendNameTag)
             .increment();
-        ctx.channel().config().setAutoRead(peerStream.isWritable());
+        setAutoRead(ctx.channel(), peerStream.isWritable());
         super.channelWritabilityChanged(peerCtx);
       }
     });
+  }
+
+  /// Set auto-read on `channel`, ensuring the call happens on the channel’s event loop.
+  ///
+  /// [io.netty.channel.ChannelConfig#setAutoRead] implementations appear to handle calls from outside the event
+  /// loop, but without conservatively ensuring the call happens on the event loop, proxied responses are sometimes
+  /// truncated.
+  private static void setAutoRead(final Channel channel, final boolean autoRead) {
+    if (!channel.eventLoop().inEventLoop()) {
+      channel.eventLoop().execute(() -> setAutoRead(channel, autoRead));
+      return;
+    }
+
+    channel.config().setAutoRead(autoRead);
   }
 
   @Override
