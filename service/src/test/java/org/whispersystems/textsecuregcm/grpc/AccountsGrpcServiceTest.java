@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -67,6 +68,8 @@ import org.signal.chat.account.DeleteAccountResponse;
 import org.signal.chat.account.DeleteUsernameHashRequest;
 import org.signal.chat.account.DeleteUsernameLinkRequest;
 import org.signal.chat.account.ExternalServiceCredentials;
+import org.signal.chat.account.FinishMfaVerificationRequest;
+import org.signal.chat.account.FinishMfaVerificationResponse;
 import org.signal.chat.account.FinishWebAuthnRegistrationRequest;
 import org.signal.chat.account.FinishWebAuthnRegistrationResponse;
 import org.signal.chat.account.GenerateTotpKeyRequest;
@@ -97,6 +100,8 @@ import org.signal.chat.account.SetUsernameLinkResponse;
 import org.signal.chat.account.SetZkCredentialKeyRequest;
 import org.signal.chat.account.SetZkCredentialKeyResponse;
 import org.signal.chat.account.StaleDevices;
+import org.signal.chat.account.StartMfaVerificationRequest;
+import org.signal.chat.account.StartMfaVerificationResponse;
 import org.signal.chat.account.StartWebAuthnRegistrationRequest;
 import org.signal.chat.account.StartWebAuthnRegistrationResponse;
 import org.signal.chat.account.UsernameNotAvailable;
@@ -115,6 +120,7 @@ import org.whispersystems.textsecuregcm.auth.RegistrationLockFailureException;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.auth.UnverifiedRegistrationSessionException;
+import org.whispersystems.textsecuregcm.auth.webauthn.AuthenticationCeremonyParameters;
 import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyParameters;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
@@ -190,7 +196,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(rateLimiters.getUsernameReserveLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameSetLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameLinkOperationLimiter()).thenReturn(rateLimiter);
-
+    when(rateLimiters.getCheckMfaLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getSetZkCredentialKeyLimiter()).thenReturn(rateLimiter);
 
     return new AccountsGrpcService(accountsManager,
@@ -1527,6 +1533,173 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
             .setCollectedClientDataJson("{}")
             .setMetadataCiphertext(ByteString.copyFrom(TestRandomUtil.nextBytes(MFA_KEY_METADATA_SIZE + 1)))
             .build()));
+  }
+
+  @Test
+  void startMfaVerification_totp() {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    when(account.getMfaKeys()).thenReturn(Map.of((byte) 1, mock(AnnotatedTotpKey.class)));
+    when(accountsManager.startWebAuthnAuthentication(account)).thenReturn(Optional.empty());
+
+    final StartMfaVerificationResponse response = authenticatedServiceStub().startMfaVerification(StartMfaVerificationRequest.getDefaultInstance());
+
+    assertTrue(response.getHasTotp());
+    assertFalse(response.hasWebauthnAuthenticationParameters());
+  }
+
+  @Test
+  void startMfaVerification_webAuthn() {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    when(account.getMfaKeys()).thenReturn(
+        Map.of((byte) 1, mock(AnnotatedWebAuthnCredential.class),
+            (byte) 2, mock(AnnotatedWebAuthnCredential.class)));
+
+    when(accountsManager.startWebAuthnAuthentication(account)).thenReturn(
+        Optional.of(
+            new AuthenticationCeremonyParameters("challenge".getBytes(), Duration.ofSeconds(30), List.of("id1".getBytes(), "id2".getBytes()))));
+
+    final StartMfaVerificationResponse response = authenticatedServiceStub().startMfaVerification(StartMfaVerificationRequest.getDefaultInstance());
+
+    assertFalse(response.getHasTotp());
+    assertTrue(response.hasWebauthnAuthenticationParameters());
+    assertArrayEquals("challenge".getBytes(), response.getWebauthnAuthenticationParameters().getChallenge().toByteArray());
+    assertEquals(30, response.getWebauthnAuthenticationParameters().getTimeoutSeconds());
+    assertEquals(2, response.getWebauthnAuthenticationParameters().getAllowedCredentialIdsCount());
+    assertArrayEquals("id1".getBytes(), response.getWebauthnAuthenticationParameters().getAllowedCredentialIds(0).toByteArray());
+    assertArrayEquals("id2".getBytes(), response.getWebauthnAuthenticationParameters().getAllowedCredentialIds(1).toByteArray());
+  }
+
+  @Test
+  void startMfaVerification_totpAndWebAuthn() {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    when(account.getMfaKeys()).thenReturn(
+        Map.of((byte) 1, mock(AnnotatedTotpKey.class),
+            (byte) 2, mock(AnnotatedWebAuthnCredential.class),
+            (byte) 3, mock(AnnotatedWebAuthnCredential.class)));
+
+    when(accountsManager.startWebAuthnAuthentication(account)).thenReturn(
+        Optional.of(
+            new AuthenticationCeremonyParameters("challenge".getBytes(), Duration.ofSeconds(30), List.of("id1".getBytes(), "id2".getBytes()))));
+
+    final StartMfaVerificationResponse response = authenticatedServiceStub().startMfaVerification(StartMfaVerificationRequest.getDefaultInstance());
+
+    assertTrue(response.getHasTotp());
+    assertTrue(response.hasWebauthnAuthenticationParameters());
+    assertArrayEquals("challenge".getBytes(), response.getWebauthnAuthenticationParameters().getChallenge().toByteArray());
+    assertEquals(30, response.getWebauthnAuthenticationParameters().getTimeoutSeconds());
+    assertEquals(2, response.getWebauthnAuthenticationParameters().getAllowedCredentialIdsCount());
+    assertArrayEquals("id1".getBytes(), response.getWebauthnAuthenticationParameters().getAllowedCredentialIds(0).toByteArray());
+    assertArrayEquals("id2".getBytes(), response.getWebauthnAuthenticationParameters().getAllowedCredentialIds(1).toByteArray());
+  }
+
+  @Test
+  void startMfaVerification_noMfa() {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    when(account.getMfaKeys()).thenReturn(Map.of());
+    when(accountsManager.startWebAuthnAuthentication(account)).thenReturn(Optional.empty());
+
+    final StartMfaVerificationResponse response = authenticatedServiceStub().startMfaVerification(StartMfaVerificationRequest.getDefaultInstance());
+
+    assertFalse(response.getHasTotp());
+    assertFalse(response.hasWebauthnAuthenticationParameters());
+  }
+
+  @Test
+  void finishMfaVerification_totp() {
+    final int oneTimePassword = 123456;
+
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    when(accountsManager.verifyTotp(any(), eq(testClock.instant()), eq(oneTimePassword))).thenReturn(true);
+
+    final FinishMfaVerificationResponse response = authenticatedServiceStub().finishMfaVerification(
+        FinishMfaVerificationRequest.newBuilder()
+            .setTotpPassword(oneTimePassword)
+            .build());
+
+    assertTrue(response.getSuccess());
+  }
+
+  @Test
+  void finishMfaVerification_totpFailed() {
+    final int oneTimePassword = 123456;
+
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    when(accountsManager.verifyTotp(any(), eq(testClock.instant()), eq(oneTimePassword))).thenReturn(false);
+
+    final FinishMfaVerificationResponse response = authenticatedServiceStub().finishMfaVerification(
+        FinishMfaVerificationRequest.newBuilder()
+            .setTotpPassword(oneTimePassword)
+            .build());
+
+    assertFalse(response.getSuccess());
+  }
+
+  @Test
+  void finishMfaVerification_totpRateLimited() throws RateLimitExceededException {
+    final int oneTimePassword = 123456;
+
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    doThrow(new RateLimitExceededException(Duration.ofSeconds(1))).when(rateLimiter).validate(AUTHENTICATED_ACI);
+
+    GrpcTestUtils.assertRateLimitExceeded(Duration.ofSeconds(1),
+        () -> authenticatedServiceStub().finishMfaVerification(
+        FinishMfaVerificationRequest.newBuilder()
+            .setTotpPassword(oneTimePassword)
+            .build()),
+        accountsManager);
+  }
+
+  @Test
+  void finishMfaVerification_webAuthn() {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    when(accountsManager.verifyWebAuthnAuthentication(any(), eq("good auth json"))).thenReturn(Optional.of(account));
+
+    final FinishMfaVerificationResponse response = authenticatedServiceStub().finishMfaVerification(
+        FinishMfaVerificationRequest.newBuilder()
+            .setWebauthnAuthenticationResponseJson("good auth json")
+            .build());
+
+    assertTrue(response.getSuccess());
+  }
+
+  @Test
+  void finishMfaVerification_webAuthnFailed() {
+    final Account account = mock(Account.class);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    when(accountsManager.verifyWebAuthnAuthentication(any(), eq("bad auth json"))).thenReturn(Optional.empty());
+
+    final FinishMfaVerificationResponse response = authenticatedServiceStub().finishMfaVerification(
+        FinishMfaVerificationRequest.newBuilder()
+            .setWebauthnAuthenticationResponseJson("bad auth json")
+            .build());
+
+    assertFalse(response.getSuccess());
   }
 
   private static AnnotatedWebAuthnCredential generateRandomAnnotatedWebAuthnCredential() {

@@ -42,6 +42,8 @@ import org.signal.chat.account.DeleteUsernameHashResponse;
 import org.signal.chat.account.DeleteUsernameLinkRequest;
 import org.signal.chat.account.DeleteUsernameLinkResponse;
 import org.signal.chat.account.ExternalServiceCredentials;
+import org.signal.chat.account.FinishMfaVerificationRequest;
+import org.signal.chat.account.FinishMfaVerificationResponse;
 import org.signal.chat.account.FinishWebAuthnRegistrationRequest;
 import org.signal.chat.account.FinishWebAuthnRegistrationResponse;
 import org.signal.chat.account.GenerateTotpKeyRequest;
@@ -57,6 +59,7 @@ import org.signal.chat.account.GetEntitlementsResponse;
 import org.signal.chat.account.ListMfaKeysRequest;
 import org.signal.chat.account.ListMfaKeysResponse;
 import org.signal.chat.account.ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType;
+import org.signal.chat.account.StartMfaVerificationResponse.WebAuthnAuthenticationParameters;
 import org.signal.chat.account.RegistrationLockFailure;
 import org.signal.chat.account.RemoveMfaKeyRequest;
 import org.signal.chat.account.RemoveMfaKeyResponse;
@@ -76,6 +79,8 @@ import org.signal.chat.account.SetZkCredentialKeyRequest;
 import org.signal.chat.account.SetZkCredentialKeyResponse;
 import org.signal.chat.account.SimpleAccountsGrpc;
 import org.signal.chat.account.StaleDevices;
+import org.signal.chat.account.StartMfaVerificationRequest;
+import org.signal.chat.account.StartMfaVerificationResponse;
 import org.signal.chat.account.StartWebAuthnRegistrationRequest;
 import org.signal.chat.account.StartWebAuthnRegistrationResponse;
 import org.signal.chat.account.StartWebAuthnRegistrationResponse.WebAuthnCreateParameters;
@@ -97,6 +102,7 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnverifiedRegistrationSessionException;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
+import org.whispersystems.textsecuregcm.auth.webauthn.AuthenticationCeremonyParameters;
 import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyParameters;
 import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
@@ -737,6 +743,36 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     return RemoveMfaKeyResponse.getDefaultInstance();
   }
 
+  @Override
+  public StartMfaVerificationResponse startMfaVerification(final StartMfaVerificationRequest request) {
+    final Account account = getAuthenticatedAccount();
+
+    final StartMfaVerificationResponse.Builder builder = StartMfaVerificationResponse.newBuilder()
+        .setHasTotp(account.getMfaKeys().values().stream().anyMatch(AnnotatedTotpKey.class::isInstance));
+
+    accountsManager.startWebAuthnAuthentication(account)
+        .map(AccountsGrpcService::toGrpcWebAuthnAuthenticationParameters)
+        .ifPresent(builder::setWebauthnAuthenticationParameters);
+
+    return builder.build();
+  }
+
+  @Override
+  public FinishMfaVerificationResponse finishMfaVerification(final FinishMfaVerificationRequest request) throws RateLimitExceededException {
+    rateLimiters.getCheckMfaLimiter().validate(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier());
+
+    final Account account = getAuthenticatedAccount();
+
+    final boolean success = switch (request.getCredentialCase()) {
+      case TOTP_PASSWORD -> accountsManager.verifyTotp(account, clock.instant(), request.getTotpPassword());
+      case WEBAUTHN_AUTHENTICATION_RESPONSE_JSON ->
+        accountsManager.verifyWebAuthnAuthentication(account, request.getWebauthnAuthenticationResponseJson()).isPresent();
+      case CREDENTIAL_NOT_SET -> false;
+    };
+
+    return FinishMfaVerificationResponse.newBuilder().setSuccess(success).build();
+  }
+
   private byte validateMfaKeyId(final int keyId) {
     if (keyId < 0 || keyId > Account.MAX_MFA_KEY_ID) {
       throw GrpcExceptions.invalidArguments("MFA key ID out of range");
@@ -750,6 +786,14 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
         .setAlgorithm(totpParameters.algorithm())
         .setPasswordLength(totpParameters.passwordLength())
         .setTimeStepSeconds(Math.toIntExact(totpParameters.timeStep().toSeconds()))
+        .build();
+  }
+
+  private static WebAuthnAuthenticationParameters toGrpcWebAuthnAuthenticationParameters(final AuthenticationCeremonyParameters parameters) {
+    return WebAuthnAuthenticationParameters.newBuilder()
+        .setChallenge(ByteString.copyFrom(parameters.challenge()))
+        .setTimeoutSeconds((int) parameters.timeout().toSeconds())
+        .addAllAllowedCredentialIds(parameters.allowedCredentialIds().stream().map(ByteString::copyFrom).toList())
         .build();
   }
 

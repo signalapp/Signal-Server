@@ -110,6 +110,12 @@ service Accounts {
 
   // Removes an MFA key from the authenticated account
   rpc RemoveMfaKey(RemoveMfaKeyRequest) returns (RemoveMfaKeyResponse) {}
+
+  // Requests the parameters needed to verify with an MFA factor associated with this account.
+  rpc StartMfaVerification(StartMfaVerificationRequest) returns (StartMfaVerificationResponse) {}
+
+  // Attemps to verify an MFA factor associated with this account.
+  rpc FinishMfaVerification(FinishMfaVerificationRequest) returns (FinishMfaVerificationResponse) {}
 }
 
 // Provides methods for looking up Signal accounts. Callers must not provide
@@ -697,4 +703,41 @@ message RemoveMfaKeyRequest {
 }
 
 message RemoveMfaKeyResponse {
+}
+
+message StartMfaVerificationRequest {
+}
+
+message StartMfaVerificationResponse {
+  /// If true, a TOTP password will be accepted for verification
+  bool has_totp = 1;
+
+  message WebAuthnAuthenticationParameters {
+    /// A random challenge that must be included in the authenticator response, to prevent replay attacks
+    bytes challenge = 1;
+
+    /// The estimated amount of time, in seconds, after which an otherwise-valid response will be rejected
+    uint32 timeout_seconds = 2;
+
+    /// A list of credential IDs associated with this account
+    repeated bytes allowed_credential_ids = 3;
+  }
+
+  /// If present, information required to complete a WebAuthn authentication
+  optional WebAuthnAuthenticationParameters webauthn_authentication_parameters = 2;
+}
+
+message FinishMfaVerificationRequest {
+  oneof credential {
+    /// A 6-digit TOTP password to validate
+    uint32 totp_password = 1;
+
+    /// A WebAuthn-compatible JSON-serialized authentication response
+    string webauthn_authentication_response_json = 2;
+  }
+}
+
+message FinishMfaVerificationResponse {
+  /// If true, the selected authentication factor was verified correctly.
+  bool success = 1;
 }
