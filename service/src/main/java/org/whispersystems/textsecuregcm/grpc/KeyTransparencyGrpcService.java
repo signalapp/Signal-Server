@@ -6,22 +6,19 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.grpc.Status;
-import org.signal.keytransparency.client.AciMonitorRequest;
-import org.signal.keytransparency.client.ConsistencyParameters;
+import com.google.protobuf.Any;
+import com.google.rpc.ErrorInfo;
+import com.google.rpc.Status;
+import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.StatusProto;
 import org.signal.keytransparency.client.DistinguishedRequest;
 import org.signal.keytransparency.client.DistinguishedResponse;
-import org.signal.keytransparency.client.E164MonitorRequest;
 import org.signal.keytransparency.client.E164SearchRequest;
 import org.signal.keytransparency.client.MonitorRequest;
-import org.signal.keytransparency.client.MonitorResponse;
 import org.signal.keytransparency.client.MonitorResponseV2;
 import org.signal.keytransparency.client.SearchRequest;
-import org.signal.keytransparency.client.SearchResponse;
 import org.signal.keytransparency.client.SearchResponseV2;
 import org.signal.keytransparency.client.SimpleKeyTransparencyQueryServiceGrpc;
-import org.signal.keytransparency.client.UsernameHashMonitorRequest;
-import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
@@ -87,5 +84,29 @@ public class KeyTransparencyGrpcService extends
     }
 
     return request;
+  }
+
+  @Override
+  public Throwable mapException(final Throwable throwable) {
+    // Reconstruct the exception so that we can override the backing service domain with chat's own domain.
+    if (throwable instanceof StatusRuntimeException s) {
+      final ErrorInfo.Builder errInfoBuilder = ErrorInfo.newBuilder()
+          .setDomain(GrpcExceptions.DOMAIN);
+
+      final Status statusProto = StatusProto.fromStatusAndTrailers(s.getStatus(), s.getTrailers());
+
+      ErrorUtil.errorInfo(statusProto)
+          .map(ErrorInfo::getReason)
+          .ifPresent(errInfoBuilder::setReason);
+
+      return StatusProto.toStatusRuntimeException(Status.newBuilder()
+          // See https://github.com/signalapp/key-transparency-server/blob/30b7a2a40604fbe04545d47f26e4c5a35f5d3161/cmd/kt-server/errors.go#L32
+          // for a list of error codes that the key transparency service can generate.
+          .setCode(statusProto.getCode())
+          .setMessage(statusProto.getMessage())
+          .addDetails(Any.pack(errInfoBuilder.build()))
+          .build());
+    }
+    return throwable;
   }
 }

@@ -127,7 +127,7 @@ public class MetricServerInterceptor implements ServerInterceptor {
     @Override
     public void close(final Status status, final Metadata responseHeaders) {
       if (!status.isOk()) {
-        reason = errorInfo(StatusProto.fromStatusAndTrailers(status, responseHeaders))
+        reason = ErrorUtil.errorInfo(StatusProto.fromStatusAndTrailers(status, responseHeaders))
             .map(ErrorInfo::getReason)
             .orElse(DEFAULT_ERROR_REASON);
       }
@@ -232,16 +232,4 @@ public class MetricServerInterceptor implements ServerInterceptor {
     }
   }
 
-  private static Optional<ErrorInfo> errorInfo(final com.google.rpc.Status statusProto) {
-    return statusProto.getDetailsList().stream()
-        .filter(any -> any.is(ErrorInfo.class))
-        .map(errorInfo -> {
-          try {
-            return errorInfo.unpack(ErrorInfo.class);
-          } catch (final InvalidProtocolBufferException e) {
-            throw new UncheckedIOException(e);
-          }
-        })
-        .findFirst();
-  }
 }

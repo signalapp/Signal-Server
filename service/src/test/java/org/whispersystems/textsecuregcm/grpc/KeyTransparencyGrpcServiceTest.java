@@ -5,10 +5,14 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.rpc.ErrorInfo;
 import io.grpc.Channel;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.StatusProto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -32,7 +36,6 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.List;
@@ -40,6 +43,8 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -54,6 +59,7 @@ import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyContro
 import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyControllerTest.USERNAME_HASH;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimitExceeded;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.extractErrorInfo;
 import static org.whispersystems.textsecuregcm.grpc.KeyTransparencyGrpcService.COMMITMENT_INDEX_LENGTH;
 
 @SuppressWarnings({"OptionalUsedAsFieldOrParameterType", "ResultOfMethodCallIgnored"})
@@ -62,6 +68,9 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
   private KeyTransparencyServiceClient keyTransparencyServiceClient;
   @Mock
   private RateLimiter rateLimiter;
+
+  // The key transparency service uses a different domain from the chat server.
+  private static final String KEY_TRANSPARENCY_DOMAIN = "key-transparency";
 
   @Override
   protected KeyTransparencyGrpcService createServiceBeforeEachTest() {
@@ -79,9 +88,8 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
   }
 
   @Test
-  void searchSuccess() throws RateLimitExceededException {
+  void searchSuccess() {
     when(keyTransparencyServiceClient.search(any())).thenReturn(SearchResponseV2.getDefaultInstance());
-    Mockito.doNothing().when(rateLimiter).validate(any(String.class));
     final SearchRequest request = SearchRequest.newBuilder()
         .setAci(ByteString.copyFrom(ACI.toCompactByteArray()))
         .setAciIdentityKey(ByteString.copyFrom(ACI_IDENTITY_KEY.serialize()))
@@ -157,10 +165,37 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
   }
 
   @Test
+  void overrideBackingServiceErrorDomain() {
+    final StatusRuntimeException keyTransparencyException = StatusProto.toStatusRuntimeException(
+        com.google.rpc.Status.newBuilder()
+            .setCode(Status.Code.UNAVAILABLE.value())
+            .addDetails(Any.pack(ErrorInfo.newBuilder()
+                .setDomain(KEY_TRANSPARENCY_DOMAIN)
+                .setReason("UNAVAILABLE")
+                .build()))
+            .build());
+
+    when(keyTransparencyServiceClient.search(any())).thenThrow(keyTransparencyException);
+
+    final SearchRequest request = SearchRequest.newBuilder()
+        .setAci(ByteString.copyFrom(ACI.toCompactByteArray()))
+        .setAciIdentityKey(ByteString.copyFrom(ACI_IDENTITY_KEY.serialize()))
+        .setConsistency(ConsistencyParameters.newBuilder()
+            .setDistinguished(10)
+            .build())
+        .build();
+
+    final StatusRuntimeException exception =
+        assertThrows(StatusRuntimeException.class, () -> unauthenticatedServiceStub().searchV2(request));
+
+    assertEquals(GrpcExceptions.DOMAIN, extractErrorInfo(exception).getDomain(),
+        "errors from the key transparency service must report the chat server's error domain");
+  }
+
+  @Test
   void monitorSuccess() {
     when(keyTransparencyServiceClient.monitor(any())).thenReturn(MonitorResponseV2.getDefaultInstance());
-    when(rateLimiter.validateReactive(any(String.class)))
-        .thenReturn(Mono.empty());
+
     final AciMonitorRequest aciMonitorRequest = AciMonitorRequest.newBuilder()
         .setAci(ByteString.copyFrom(ACI.toCompactByteArray()))
         .setCommitmentIndex(ByteString.copyFrom(new byte[COMMITMENT_INDEX_LENGTH]))
@@ -250,8 +285,6 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
   @Test
   void distinguishedSuccess() {
     when(keyTransparencyServiceClient.distinguished(any())).thenReturn(DistinguishedResponse.getDefaultInstance());
-    when(rateLimiter.validateReactive(any(String.class)))
-        .thenReturn(Mono.empty());
     final DistinguishedRequest request = DistinguishedRequest.newBuilder().build();
 
     assertDoesNotThrow(() -> unauthenticatedServiceStub().distinguishedV2(request));
