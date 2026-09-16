@@ -115,6 +115,33 @@
       </p>
       
     
+      
+      <p>
+        <a href="#message-org.signal.chat.challenge.RequestPushChallengeRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RequestPushChallengeRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.challenge.RequestPushChallengeResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RequestPushChallengeResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.challenge.RequestPushChallengeResponse.SentPushChallenge">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SentPushChallenge</code> 
+        </a>
+      </p>
+      
+    
 
     
   </div>
@@ -146,9 +173,9 @@
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.challenge.Challenge-HandleChallengeResponse">
-      <a href="#service-org.signal.chat.challenge.Challenge-HandleChallengeResponse">
-        rpc <code>HandleChallengeResponse</code>
+    <h5 class="title is-5" id="service-org.signal.chat.challenge.Challenge-AnswerChallenge">
+      <a href="#service-org.signal.chat.challenge.Challenge-AnswerChallenge">
+        rpc <code>AnswerChallenge</code>
       </a>
     </h5>
     Request: <code><a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.AnswerChallengeRequest"><span title="org.signal.chat.challenge.AnswerChallengeRequest">org.signal.chat.challenge.AnswerChallengeRequest</span>
@@ -159,10 +186,47 @@
 
   
   <div class="block">
-    <p><p>Some server endpoints (the "send message" endpoint, for example) may return
- a response indicating the client must complete a challenge before continuing.
- Clients may use this endpoint to provide proof of a completed challenge.
- If successful, the client may then continue their original operation.</p></p>
+    <p><p>Submit proof of a challenge completion.</p>
+<p>Some server endpoints (the "send message" endpoint, for example) may return
+a response indicating the client must complete a challenge before continuing.
+Clients may use this endpoint to provide proof of a completed challenge.
+If successful, the client may then continue their original operation.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.challenge.Challenge-RequestPushChallenge">
+      <a href="#service-org.signal.chat.challenge.Challenge-RequestPushChallenge">
+        rpc <code>RequestPushChallenge</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.RequestPushChallengeRequest"><span title="org.signal.chat.challenge.RequestPushChallengeRequest">org.signal.chat.challenge.RequestPushChallengeRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.RequestPushChallengeResponse"><span title="org.signal.chat.challenge.RequestPushChallengeResponse">org.signal.chat.challenge.RequestPushChallengeResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Requests that a challenge value be sent to the authenticated account's
+primary device via push notification. Once received, callers may present
+the challenge value via the HandleChallengeResponse RPC.</p>
+<p>APNs challenge payloads will be formatted as follows:</p>
+<pre><code>{
+    &quot;aps&quot;: {
+        &quot;sound&quot;: &quot;default&quot;,
+        &quot;alert&quot;: {
+            &quot;loc-key&quot;: &quot;APN_Message&quot;
+        }
+    },
+    &quot;rateLimitChallenge&quot;: &quot;{CHALLENGE_TOKEN}&quot;
+}
+</code></pre>
+<p>FCM challenge payloads will be formatted as follows:</p>
+<pre><code>{&quot;rateLimitChallenge&quot;: &quot;{CHALLENGE_TOKEN}&quot;}
+</code></pre></p>
   </div>
   
 </div>
@@ -431,6 +495,165 @@ server endpoint that requested the challenge</p></td>
       <td class="content"><p>The challenge string provided to the client via a push payload</p></td>
       
     </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.challenge.RequestPushChallengeRequest">
+  <span>
+    <a href="#message-org.signal.chat.challenge.RequestPushChallengeRequest" title="org.signal.chat.challenge.RequestPushChallengeRequest">message RequestPushChallengeRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.challenge.RequestPushChallengeResponse">
+  <span>
+    <a href="#message-org.signal.chat.challenge.RequestPushChallengeResponse" title="org.signal.chat.challenge.RequestPushChallengeResponse">message RequestPushChallengeResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            sent_push_challenge
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The server attempted to send a challenge value to the authenticated
+account's primary device via a push notification.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            no_push_token
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The authenticated account's primary device does not have a push token.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.challenge.RequestPushChallengeResponse.SentPushChallenge">
+  <span>
+    <a href="#message-org.signal.chat.challenge.RequestPushChallengeResponse.SentPushChallenge" title="org.signal.chat.challenge.RequestPushChallengeResponse.SentPushChallenge">message SentPushChallenge</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.RequestPushChallengeResponse"><span title="org.signal.chat.challenge.RequestPushChallengeResponse">org.signal.chat.challenge.RequestPushChallengeResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
     
     
   </tbody>
