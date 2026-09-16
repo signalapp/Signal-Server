@@ -9,7 +9,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -41,13 +40,15 @@ public class RedisDynamoDbMessageStream implements MessageStream {
       final MessagesCache messagesCache,
       final RedisMessageAvailabilityManager redisMessageAvailabilityManager,
       final UUID accountIdentifier,
-      final Device device) {
+      final Device device,
+      final boolean terminateOnQueueEmpty) {
 
     this(messagesDynamoDb, messagesCache, accountIdentifier, device, new RedisDynamoDbMessagePublisher(messagesDynamoDb,
         messagesCache,
         redisMessageAvailabilityManager,
         accountIdentifier,
-        device));
+        device,
+        terminateOnQueueEmpty));
   }
 
   @VisibleForTesting

@@ -73,6 +73,9 @@ public class MessagesManager {
   @VisibleForTesting
   static final String MIRROR_READS_EXPERIMENT_NAME = "foundationDbMirrorReads";
 
+  @VisibleForTesting
+  static final String READ_LIVE_MESSAGES_FROM_FOUNDATIONDB_EXPERIMENT_NAME = "foundationDbReadLiveMessages";
+
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
   private final FoundationDbMessageStore foundationDbMessageStore;
@@ -287,9 +290,17 @@ public class MessagesManager {
   }
 
   public MessageStream getMessages(final UUID destinationUuid, final Device destinationDevice) {
+    if (experimentEnrollmentManager.isEnrolled(destinationUuid, READ_LIVE_MESSAGES_FROM_FOUNDATIONDB_EXPERIMENT_NAME)) {
+      return new ConcatenatingMessageStream(
+          new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
+              destinationUuid, destinationDevice, true),
+          foundationDbMessageStore.getMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId())
+      );
+    }
+
     final RedisDynamoDbMessageStream redisDynamoDbMessageStream =
         new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
-            destinationUuid, destinationDevice);
+            destinationUuid, destinationDevice, false);
 
     return new MirroringMessageStream(
         redisDynamoDbMessageStream,
