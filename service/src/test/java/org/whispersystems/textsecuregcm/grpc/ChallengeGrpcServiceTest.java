@@ -8,16 +8,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Optional;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
-import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
 import org.mockito.Mock;
 import org.signal.chat.challenge.AnswerChallengeRequest;
 import org.signal.chat.challenge.AnswerChallengeResponse;
@@ -58,21 +56,42 @@ public class ChallengeGrpcServiceTest extends
     );
   }
 
-  @CartesianTest
-  void handlePushChallengeResponse(
-      @Values(booleans = {true, false}) final boolean pushPermitted,
-      @Values(booleans = {true, false}) final boolean success) throws RateLimitExceededException {
-    when(challengeConstraintChecker.challengeConstraintsGrpc(account)).thenReturn(
-        new ChallengeConstraintChecker.ChallengeConstraints(pushPermitted, Optional.empty()));
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void handlePushChallengeResponse(final boolean success) throws RateLimitExceededException {
+    when(challengeConstraintChecker.challengeConstraintsGrpc(account))
+        .thenReturn(new ChallengeConstraintChecker.ChallengeConstraints(true, Optional.empty()));
     when(rateLimitChallengeManager.answerPushChallenge(account, "foo")).thenReturn(success);
-    final AnswerChallengeResponse response = authenticatedServiceStub().handleChallengeResponse(
+
+    final AnswerChallengeResponse response = authenticatedServiceStub().answerChallenge(
         AnswerChallengeRequest.newBuilder()
             .setToken("token")
             .setPush(AnswerChallengeRequest.AnswerPushChallengeRequest.newBuilder()
                 .setChallenge("foo")
                 .build())
             .build());
-    assertEquals(pushPermitted && success, response.getSuccess());
+
+    assertEquals(success, response.getSuccess());
+  }
+
+  @Test
+  void handlePushChallengeResponseNotPermitted() throws RateLimitExceededException {
+    when(challengeConstraintChecker.challengeConstraintsGrpc(account))
+        .thenReturn(new ChallengeConstraintChecker.ChallengeConstraints(false, Optional.empty()));
+    when(rateLimitChallengeManager.answerPushChallenge(account, "foo")).thenReturn(true);
+
+    final StatusRuntimeException statusRuntimeException = assertThrows(StatusRuntimeException.class,
+        () -> authenticatedServiceStub().answerChallenge(
+            AnswerChallengeRequest.newBuilder()
+                .setToken("token")
+                .setPush(AnswerChallengeRequest.AnswerPushChallengeRequest.newBuilder()
+                    .setChallenge("foo")
+                    .build())
+                .build()));
+
+    assertEquals(Status.RESOURCE_EXHAUSTED.getCode(), statusRuntimeException.getStatus().getCode());
+
+    verify(rateLimitChallengeManager, never()).answerPushChallenge(any(), any());
   }
 
   @Test
@@ -82,8 +101,10 @@ public class ChallengeGrpcServiceTest extends
     final Duration retryAfter = Duration.ofMinutes(1);
     doThrow(new RateLimitExceededException(retryAfter)).when(rateLimitChallengeManager)
         .answerPushChallenge(account, "foo");
+
+    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
-        () -> authenticatedServiceStub().handleChallengeResponse(AnswerChallengeRequest.newBuilder()
+        () -> authenticatedServiceStub().answerChallenge(AnswerChallengeRequest.newBuilder()
             .setToken("token")
             .setPush(AnswerChallengeRequest.AnswerPushChallengeRequest.newBuilder()
                 .setChallenge("foo")
@@ -99,7 +120,7 @@ public class ChallengeGrpcServiceTest extends
         new ChallengeConstraintChecker.ChallengeConstraints(true, Optional.empty()));
     when(rateLimitChallengeManager.answerCaptchaChallenge(any(), any(), any(), any(), any())).thenReturn(
         captchaSuccess);
-    final AnswerChallengeResponse response = authenticatedServiceStub().handleChallengeResponse(
+    final AnswerChallengeResponse response = authenticatedServiceStub().answerChallenge(
         AnswerChallengeRequest.newBuilder()
             .setToken("token")
             .setCaptcha(AnswerChallengeRequest.AnswerCaptchaChallengeRequest.newBuilder()
@@ -117,8 +138,10 @@ public class ChallengeGrpcServiceTest extends
     final Duration retryAfter = Duration.ofMinutes(1);
     doThrow(new RateLimitExceededException(retryAfter)).when(rateLimitChallengeManager)
         .answerCaptchaChallenge(any(), any(), any(), any(), any());
+
+    //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
-        () -> authenticatedServiceStub().handleChallengeResponse(AnswerChallengeRequest.newBuilder()
+        () -> authenticatedServiceStub().answerChallenge(AnswerChallengeRequest.newBuilder()
             .setToken("token")
             .setCaptcha(AnswerChallengeRequest.AnswerCaptchaChallengeRequest.newBuilder()
                 .setCaptcha("captcha")
@@ -131,7 +154,7 @@ public class ChallengeGrpcServiceTest extends
     when(challengeConstraintChecker.challengeConstraintsGrpc(account)).thenReturn(
         new ChallengeConstraintChecker.ChallengeConstraints(true, Optional.empty()));
     GrpcTestUtils.assertStatusInvalidArgument(
-        () -> authenticatedServiceStub().handleChallengeResponse(AnswerChallengeRequest.newBuilder().build()));
+        () -> authenticatedServiceStub().answerChallenge(AnswerChallengeRequest.newBuilder().build()));
   }
 
   @Test
@@ -139,7 +162,7 @@ public class ChallengeGrpcServiceTest extends
     when(challengeConstraintChecker.challengeConstraintsGrpc(account)).thenReturn(
         new ChallengeConstraintChecker.ChallengeConstraints(true, Optional.empty()));
     GrpcTestUtils.assertStatusInvalidArgument(
-        () -> authenticatedServiceStub().handleChallengeResponse(AnswerChallengeRequest.newBuilder()
+        () -> authenticatedServiceStub().answerChallenge(AnswerChallengeRequest.newBuilder()
             .setPush(AnswerChallengeRequest.AnswerPushChallengeRequest.newBuilder()
                 .build())
             .build()));
@@ -150,7 +173,7 @@ public class ChallengeGrpcServiceTest extends
     when(challengeConstraintChecker.challengeConstraintsGrpc(account)).thenReturn(
         new ChallengeConstraintChecker.ChallengeConstraints(true, Optional.empty()));
     GrpcTestUtils.assertStatusInvalidArgument(
-        () -> authenticatedServiceStub().handleChallengeResponse(AnswerChallengeRequest.newBuilder()
+        () -> authenticatedServiceStub().answerChallenge(AnswerChallengeRequest.newBuilder()
             .setToken("token")
             .setPush(AnswerChallengeRequest.AnswerPushChallengeRequest.newBuilder()
                 .build())
@@ -162,7 +185,7 @@ public class ChallengeGrpcServiceTest extends
     when(challengeConstraintChecker.challengeConstraintsGrpc(account)).thenReturn(
         new ChallengeConstraintChecker.ChallengeConstraints(true, Optional.empty()));
     GrpcTestUtils.assertStatusInvalidArgument(
-        () -> authenticatedServiceStub().handleChallengeResponse(AnswerChallengeRequest.newBuilder()
+        () -> authenticatedServiceStub().answerChallenge(AnswerChallengeRequest.newBuilder()
             .setToken("token")
             .setCaptcha(AnswerChallengeRequest.AnswerCaptchaChallengeRequest.newBuilder()
                 .build())

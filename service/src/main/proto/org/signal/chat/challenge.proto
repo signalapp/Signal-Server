@@ -16,13 +16,14 @@ import "org/signal/chat/tag.proto";
 
 service Challenge {
   option (require.auth) = AUTH_ONLY_AUTHENTICATED;
-  // Submit proof of a challenge completion
 
+  // Submit proof of a challenge completion.
+  //
   // Some server endpoints (the "send message" endpoint, for example) may return
   // a response indicating the client must complete a challenge before continuing.
   // Clients may use this endpoint to provide proof of a completed challenge.
   // If successful, the client may then continue their original operation.
-  rpc HandleChallengeResponse(AnswerChallengeRequest) returns (AnswerChallengeResponse) {}
+  rpc AnswerChallenge(AnswerChallengeRequest) returns (AnswerChallengeResponse) {}
 
   // Requests that a challenge value be sent to the authenticated account's
   // primary device via push notification. Once received, callers may present
@@ -71,7 +72,6 @@ message AnswerChallengeRequest {
     AnswerPushChallengeRequest push = 2;
     AnswerCaptchaChallengeRequest captcha = 3;
   }
-
 }
 
 message AnswerChallengeResponse {

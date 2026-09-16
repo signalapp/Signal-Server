@@ -32,7 +32,7 @@ public class ChallengeGrpcService extends SimpleChallengeGrpc.ChallengeImplBase 
   }
 
   @Override
-  public AnswerChallengeResponse handleChallengeResponse(final AnswerChallengeRequest request)
+  public AnswerChallengeResponse answerChallenge(final AnswerChallengeRequest request)
       throws RateLimitExceededException, IOException {
 
     final Account account = requireAuthenticatedAccount();
@@ -40,8 +40,13 @@ public class ChallengeGrpcService extends SimpleChallengeGrpc.ChallengeImplBase 
         challengeConstraintChecker.challengeConstraintsGrpc(account);
 
     final boolean success = switch (request.getRequestCase()) {
-      case PUSH -> constraints.pushPermitted() && rateLimitChallengeManager.answerPushChallenge(account,
-          request.getPush().getChallenge());
+      case PUSH -> {
+        if (!constraints.pushPermitted()) {
+          throw GrpcExceptions.rateLimitExceeded(null);
+        }
+
+        yield rateLimitChallengeManager.answerPushChallenge(account, request.getPush().getChallenge());
+      }
       case CAPTCHA -> {
         try {
           yield rateLimitChallengeManager.answerCaptchaChallenge(
@@ -50,7 +55,7 @@ public class ChallengeGrpcService extends SimpleChallengeGrpc.ChallengeImplBase 
               RequestAttributesUtil.getRemoteAddress().getHostAddress(),
               RequestAttributesUtil.getUserAgent().orElse(null),
               constraints.captchaScoreThreshold());
-        } catch (InvalidCaptchaArgumentException e) {
+        } catch (final InvalidCaptchaArgumentException e) {
           throw GrpcExceptions.invalidArguments(e.getMessage());
         }
       }
