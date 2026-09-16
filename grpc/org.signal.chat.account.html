@@ -299,6 +299,24 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.account.FinishMfaVerificationRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>FinishMfaVerificationRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.FinishMfaVerificationResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>FinishMfaVerificationResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.account.FinishWebAuthnRegistrationRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>FinishWebAuthnRegistrationRequest</code> 
@@ -690,6 +708,24 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.account.StartMfaVerificationRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>StartMfaVerificationRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.StartMfaVerificationResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>StartMfaVerificationResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.account.StartWebAuthnRegistrationRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>StartWebAuthnRegistrationRequest</code> 
@@ -720,6 +756,15 @@
         <a href="#message-org.signal.chat.account.UsernameNotAvailable">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>UsernameNotAvailable</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.StartMfaVerificationResponse.WebAuthnAuthenticationParameters">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>WebAuthnAuthenticationParameters</code> 
         </a>
       </p>
       
@@ -1264,6 +1309,46 @@ creation timestamp) for an existing, confirmed MFA key</p></p>
   
   <div class="block">
     <p><p>Removes an MFA key from the authenticated account</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-StartMfaVerification">
+      <a href="#service-org.signal.chat.account.Accounts-StartMfaVerification">
+        rpc <code>StartMfaVerification</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.StartMfaVerificationRequest"><span title="org.signal.chat.account.StartMfaVerificationRequest">org.signal.chat.account.StartMfaVerificationRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.StartMfaVerificationResponse"><span title="org.signal.chat.account.StartMfaVerificationResponse">org.signal.chat.account.StartMfaVerificationResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Requests the parameters needed to verify with an MFA factor associated with this account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-FinishMfaVerification">
+      <a href="#service-org.signal.chat.account.Accounts-FinishMfaVerification">
+        rpc <code>FinishMfaVerification</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.FinishMfaVerificationRequest"><span title="org.signal.chat.account.FinishMfaVerificationRequest">org.signal.chat.account.FinishMfaVerificationRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.FinishMfaVerificationResponse"><span title="org.signal.chat.account.FinishMfaVerificationResponse">org.signal.chat.account.FinishMfaVerificationResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Attemps to verify an MFA factor associated with this account.</p></p>
   </div>
   
 </div>
@@ -2980,6 +3065,140 @@ another caller.</p></td>
         </code>
       </td>
       <td class="content"><p>A password that can be presented to authenticate with the external service.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.FinishMfaVerificationRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.FinishMfaVerificationRequest" title="org.signal.chat.account.FinishMfaVerificationRequest">message FinishMfaVerificationRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof credential</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            totp_password
+          </td>
+          <td>
+            <code title="uint32">
+              
+              <span>uint32</span>
+            </code>
+          </td>
+          <td class="content"><p>/ A 6-digit TOTP password to validate</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            webauthn_authentication_response_json
+          </td>
+          <td>
+            <code title="string">
+              
+              <span>string</span>
+            </code>
+          </td>
+          <td class="content"><p>/ A WebAuthn-compatible JSON-serialized authentication response</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.FinishMfaVerificationResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.FinishMfaVerificationResponse" title="org.signal.chat.account.FinishMfaVerificationResponse">message FinishMfaVerificationResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        success
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>/ If true, the selected authentication factor was verified correctly.</p></td>
       
     </tr>
     
@@ -5563,6 +5782,109 @@ device).</p>
       <div class="block">
         
 
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.StartMfaVerificationRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.StartMfaVerificationRequest" title="org.signal.chat.account.StartMfaVerificationRequest">message StartMfaVerificationRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.StartMfaVerificationResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.StartMfaVerificationResponse" title="org.signal.chat.account.StartMfaVerificationResponse">message StartMfaVerificationResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        has_totp
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>/ If true, a TOTP password will be accepted for verification</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        webauthn_authentication_parameters
+      </td>
+      <td>
+        <code title="org.signal.chat.account.StartMfaVerificationResponse.WebAuthnAuthenticationParameters">
+          
+            optional
+          
+          <a href="org.signal.chat.account.html#message-org.signal.chat.account.StartMfaVerificationResponse.WebAuthnAuthenticationParameters"><span title="org.signal.chat.account.StartMfaVerificationResponse.WebAuthnAuthenticationParameters">org.signal.chat.account.StartMfaVerificationResponse.WebAuthnAuthenticationParameters</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>/ If present, information required to complete a WebAuthn authentication</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
 <h4 class="title is-4 type-heading" id="message-org.signal.chat.account.StartWebAuthnRegistrationRequest">
   <span>
     <a href="#message-org.signal.chat.account.StartWebAuthnRegistrationRequest" title="org.signal.chat.account.StartWebAuthnRegistrationRequest">message StartWebAuthnRegistrationRequest</a>
@@ -5789,6 +6111,91 @@ by the TOTP generator</p></td>
     </tr>
   </thead>
   <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.StartMfaVerificationResponse.WebAuthnAuthenticationParameters">
+  <span>
+    <a href="#message-org.signal.chat.account.StartMfaVerificationResponse.WebAuthnAuthenticationParameters" title="org.signal.chat.account.StartMfaVerificationResponse.WebAuthnAuthenticationParameters">message WebAuthnAuthenticationParameters</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.StartMfaVerificationResponse"><span title="org.signal.chat.account.StartMfaVerificationResponse">org.signal.chat.account.StartMfaVerificationResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        challenge
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>/ A random challenge that must be included in the authenticator response, to prevent replay attacks</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        timeout_seconds
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>/ The estimated amount of time, in seconds, after which an otherwise-valid response will be rejected</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        allowed_credential_ids
+      </td>
+      <td>
+        <code title="bytes">
+          
+            repeated
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>/ A list of credential IDs associated with this account</p></td>
+      
+    </tr>
     
     
   </tbody>
