@@ -30,6 +30,7 @@ class FoundationDbMessagesConfigurationTest {
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2,
         null,
+        null,
         null
     ).isEveryEpochClusterConfigured());
 
@@ -44,6 +45,7 @@ class FoundationDbMessagesConfigurationTest {
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2,
+        null,
         null,
         null
     ).isEveryEpochClusterConfigured());
@@ -63,6 +65,7 @@ class FoundationDbMessagesConfigurationTest {
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2,
         null,
+        null,
         null
     ).isEveryEpochFreeOfDuplicates());
 
@@ -77,6 +80,7 @@ class FoundationDbMessagesConfigurationTest {
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2,
+        null,
         null,
         null
     ).isEveryEpochFreeOfDuplicates());
@@ -96,6 +100,7 @@ class FoundationDbMessagesConfigurationTest {
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2,
         null,
+        null,
         null
     ).isActiveEpochConfigured());
 
@@ -110,6 +115,7 @@ class FoundationDbMessagesConfigurationTest {
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2,
+        null,
         null,
         null
     ).isActiveEpochConfigured());
@@ -129,6 +135,7 @@ class FoundationDbMessagesConfigurationTest {
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2,
         null,
+        null,
         null
     ).isCurrentVersionstampCipherKeyConfigured());
 
@@ -143,6 +150,7 @@ class FoundationDbMessagesConfigurationTest {
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT,
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_TIMEOUT.multipliedBy(2),
         FoundationDbMessagesConfiguration.DEFAULT_TRANSACTION_RETRY_LIMIT  * 2,
+        null,
         null,
         null
     ).isCurrentVersionstampCipherKeyConfigured());

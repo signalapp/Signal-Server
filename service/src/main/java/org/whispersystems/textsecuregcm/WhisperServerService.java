@@ -444,6 +444,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     config.getRetryConfigurations().forEach((name, configuration) ->
         ResilienceUtil.getRetryRegistry().addConfiguration(name, configuration.toRetryConfigBuilder().build()));
 
+    config.getBulkheadConfigurations().forEach((name, configuration) ->
+        ResilienceUtil.getBulkheadRegistry().addConfiguration(name, configuration.toBulkheadConfig().build()));
+
     ResilienceUtil.setGeneralRedisRetryConfiguration(config.getGeneralRedisRetryConfiguration());
 
     ScheduledExecutorService dynamicConfigurationExecutor = ScheduledExecutorServiceBuilder.of(environment, "dynamicConfiguration")
@@ -529,7 +532,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                           config.getFoundationDbMessagesConfiguration().transactionRetryLimit());
 
                       return new FaultTolerantDatabase(database, entry.getKey(),
-                          config.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName());
+                          config.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName(),
+                          config.getFoundationDbMessagesConfiguration().bulkheadConfigurationName());
                     } catch (final IOException e) {
                       throw new UncheckedIOException(e);
                     }

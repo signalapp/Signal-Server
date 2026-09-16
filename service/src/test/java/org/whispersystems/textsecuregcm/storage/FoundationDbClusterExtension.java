@@ -32,7 +32,7 @@ public class FoundationDbClusterExtension implements BeforeAllCallback, Extensio
                 : new TestcontainersFoundationDbDatabaseLifecycleManager();
         databaseLifecycleManager.initializeDatabase(FDB.selectAPIVersion(FoundationDbVersion.getFoundationDbApiVersion()));
         databaseLifecycleManagers[i] = databaseLifecycleManager;
-        databases[i] = new FaultTolerantDatabase(databaseLifecycleManager.getDatabase(), String.format("messages-%d", i), null);
+        databases[i] = new FaultTolerantDatabase(databaseLifecycleManager.getDatabase(), String.format("messages-%d", i), null, null);
       }
 
     }

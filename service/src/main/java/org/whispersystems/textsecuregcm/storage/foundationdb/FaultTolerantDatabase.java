@@ -9,6 +9,7 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
+import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
@@ -21,20 +22,29 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 public class FaultTolerantDatabase {
-  private static final String TRANSACTION_ERRORS_COUNTER = MetricsUtil.name(FaultTolerantDatabase.class, "transactionErrors");
   private final Database database;
+
   private final CircuitBreaker circuitBreaker;
+  private final Bulkhead bulkhead;
 
   private final LongAdder concurrentTransactionCount;
+
+  private static final String TRANSACTION_ERRORS_COUNTER = MetricsUtil.name(FaultTolerantDatabase.class, "transactionErrors");
 
   public FaultTolerantDatabase(
       final Database database,
       final String name,
-      @Nullable final String circuitBreakerConfigurationName) {
+      @Nullable final String circuitBreakerConfigurationName,
+      @Nullable final String bulkheadConfigurationName) {
     this.database = database;
+
     this.circuitBreaker = circuitBreakerConfigurationName != null
         ? ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name, circuitBreakerConfigurationName)
         : ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name);
+
+    this.bulkhead = bulkheadConfigurationName != null
+        ? ResilienceUtil.getBulkheadRegistry().bulkhead(name, bulkheadConfigurationName)
+        : ResilienceUtil.getBulkheadRegistry().bulkhead(name);
 
     this.concurrentTransactionCount =
         Metrics.gauge(MetricsUtil.name(getClass(), "concurrentTransactions"), Tags.of("name", name), new LongAdder());
@@ -43,7 +53,7 @@ public class FaultTolerantDatabase {
   public <T> T run(final Function<? super Transaction, T> retryable, final Context context) {
     try {
       concurrentTransactionCount.increment();
-      return circuitBreaker.executeSupplier(() -> database.run(retryable));
+      return bulkhead.executeSupplier(() -> circuitBreaker.executeSupplier(() -> database.run(retryable)));
     } catch (final Exception e) {
       if (e instanceof final FDBException fdbException) {
         Metrics.counter(TRANSACTION_ERRORS_COUNTER,
@@ -70,7 +80,7 @@ public class FaultTolerantDatabase {
 
     concurrentTransactionCount.increment();
 
-    final CompletableFuture<T> runAsyncFuture = circuitBreaker.executeCompletionStage(() -> database.runAsync(retryable)
+    final CompletableFuture<T> runAsyncFuture = bulkhead.executeCompletionStage(() -> circuitBreaker.executeCompletionStage(() -> database.runAsync(retryable)
             .whenComplete((_, throwable) -> {
               if (throwable != null && ExceptionUtils.unwrap(throwable) instanceof final FDBException fdbException) {
                 Metrics.counter(TRANSACTION_ERRORS_COUNTER,
@@ -79,7 +89,7 @@ public class FaultTolerantDatabase {
                 ).increment();
               }
             })
-            .thenApply(Function.identity()))
+            .thenApply(Function.identity())))
         .toCompletableFuture();
 
     runAsyncFuture.whenComplete((_, _) -> concurrentTransactionCount.decrement());
@@ -90,7 +100,7 @@ public class FaultTolerantDatabase {
   public <T> T read(final Function<? super ReadTransaction, T> retryable, final Context context) {
     try {
       concurrentTransactionCount.increment();
-      return circuitBreaker.executeSupplier(() -> database.read(retryable));
+      return bulkhead.executeSupplier(() -> circuitBreaker.executeSupplier(() -> database.read(retryable)));
     } catch (final Exception e) {
       if (e instanceof final FDBException fdbException) {
         Metrics.counter(TRANSACTION_ERRORS_COUNTER,
@@ -110,7 +120,7 @@ public class FaultTolerantDatabase {
 
     concurrentTransactionCount.increment();
 
-    final CompletableFuture<T> readAsyncFuture = circuitBreaker.executeCompletionStage(() -> database.readAsync(retryable)
+    final CompletableFuture<T> readAsyncFuture = bulkhead.executeCompletionStage(() -> circuitBreaker.executeCompletionStage(() -> database.readAsync(retryable)
             .whenComplete((_, throwable) -> {
               if (throwable != null && ExceptionUtils.unwrap(throwable) instanceof final FDBException fdbException) {
                 Metrics.counter(TRANSACTION_ERRORS_COUNTER,
@@ -118,7 +128,7 @@ public class FaultTolerantDatabase {
                     "code", String.valueOf(fdbException.getCode())
                 ).increment();
               }
-            }))
+            })))
         .toCompletableFuture();
 
     readAsyncFuture.whenComplete((_, _) -> concurrentTransactionCount.decrement());

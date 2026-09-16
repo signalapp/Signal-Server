@@ -81,8 +81,7 @@ class FoundationDbMessagePublisherTest {
   @BeforeEach
   void setUp() {
     database = mock(Database.class);
-    ftDatabase = new FaultTolerantDatabase(database, getClass().getSimpleName() + "-testCircuitBreaker",
-        null);
+    ftDatabase = new FaultTolerantDatabase(database, getClass().getSimpleName() + "-testCircuitBreaker", null, null);
     stateTransitions = new ArrayList<>();
 
     final byte[] messageGuidCodecKey = new byte[16];

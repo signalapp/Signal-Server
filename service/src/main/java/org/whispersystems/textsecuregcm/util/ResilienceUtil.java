@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.util;
 
+import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.BulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.retry.Retry;
@@ -23,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.whispersystems.textsecuregcm.configuration.BulkheadConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -35,15 +38,23 @@ public class ResilienceUtil {
   private static final RetryRegistry RETRY_REGISTRY =
       RetryRegistry.of(new RetryConfiguration().toRetryConfigBuilder().build());
 
+  private static final BulkheadRegistry BULKHEAD_REGISTRY =
+      BulkheadRegistry.of(new BulkheadConfiguration().toBulkheadConfig().build());
+
   private static final ConcurrentMap<String, Set<Meter.Id>> METER_IDS_BY_BREAKER_NAME = new ConcurrentHashMap<>();
   private static final ConcurrentMap<String, Set<Meter.Id>> METER_IDS_BY_RETRY_NAME = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<String, Set<Meter.Id>> METER_IDS_BY_BULKHEAD_NAME = new ConcurrentHashMap<>();
 
   private static final String BREAKER_CALL_COUNTER_NAME = MetricsUtil.name(ResilienceUtil.class, "breaker", "call");
   private static final String BREAKER_STATE_GAUGE_NAME = MetricsUtil.name(ResilienceUtil.class, "breaker", "state");
   private static final String RETRY_CALL_COUNTER_NAME = MetricsUtil.name(ResilienceUtil.class, "retry", "call");
+  private static final String BULKHEAD_CALL_COUNTER_NAME = MetricsUtil.name(ResilienceUtil.class, "bulkhead", "call");
+  private static final String BULKHEAD_AVAILABLE_CONCURRENT_CALLS_GAUGE_NAME =
+      MetricsUtil.name(ResilienceUtil.class, "bulkhead", "availableConcurrentCalls");
 
   private static final String BREAKER_NAME_TAG_NAME = "breakerName";
   private static final String RETRY_NAME_TAG = "retryName";
+  private static final String BULKHEAD_NAME_TAG = "bulkheadName";
   private static final String OUTCOME_TAG_NAME = "outcome";
 
   // Include a random suffix to avoid accidental collisions
@@ -68,6 +79,14 @@ public class ResilienceUtil {
           removeMetrics(event.getOldEntry());
           addMetrics(event.getNewEntry());
         });
+
+    BULKHEAD_REGISTRY.getEventPublisher()
+        .onEntryAdded(event -> addMetrics(event.getAddedEntry()))
+        .onEntryRemoved(event -> removeMetrics(event.getRemovedEntry()))
+        .onEntryReplaced(event -> {
+          removeMetrics(event.getOldEntry());
+          addMetrics(event.getNewEntry());
+        });
   }
 
   public static CircuitBreakerRegistry getCircuitBreakerRegistry() {
@@ -82,6 +101,10 @@ public class ResilienceUtil {
     RETRY_REGISTRY.addConfiguration(GENERAL_REDIS_CONFIGURATION_NAME, retryConfiguration.toRetryConfigBuilder()
         .retryOnException(throwable -> throwable instanceof RedisCommandTimeoutException)
         .build());
+  }
+
+  public static BulkheadRegistry getBulkheadRegistry() {
+    return BULKHEAD_REGISTRY;
   }
 
   /// Generates a standardized name for a `CircuitBreaker` or `Retry`.
@@ -191,12 +214,49 @@ public class ResilienceUtil {
     METER_IDS_BY_RETRY_NAME.put(retry.getName(), meterIds);
   }
 
+  private static void addMetrics(final Bulkhead bulkhead) {
+    final Set<Meter.Id> meterIds = new HashSet<>();
+    final List<Tag> additionalTags = toTags(bulkhead.getTags());
+
+    meterIds.add(Gauge.builder(BULKHEAD_AVAILABLE_CONCURRENT_CALLS_GAUGE_NAME, bulkhead,
+            b -> b.getMetrics().getAvailableConcurrentCalls())
+        .tag(BULKHEAD_NAME_TAG, bulkhead.getName())
+        .tags(additionalTags)
+        .register(Metrics.globalRegistry)
+        .getId());
+
+    final Counter permittedCallCounter = Counter.builder(BULKHEAD_CALL_COUNTER_NAME)
+        .tag(BULKHEAD_NAME_TAG, bulkhead.getName())
+        .tag(OUTCOME_TAG_NAME, "permitted")
+        .tags(additionalTags)
+        .register(Metrics.globalRegistry);
+
+    final Counter rejectedCallCounter = Counter.builder(BULKHEAD_CALL_COUNTER_NAME)
+        .tag(BULKHEAD_NAME_TAG, bulkhead.getName())
+        .tag(OUTCOME_TAG_NAME, "rejected")
+        .tags(additionalTags)
+        .register(Metrics.globalRegistry);
+
+    bulkhead.getEventPublisher()
+        .onCallPermitted(_ -> permittedCallCounter.increment())
+        .onCallRejected(_ -> rejectedCallCounter.increment());
+
+    meterIds.add(permittedCallCounter.getId());
+    meterIds.add(rejectedCallCounter.getId());
+
+    METER_IDS_BY_BULKHEAD_NAME.put(bulkhead.getName(), meterIds);
+  }
+
   private static void removeMetrics(final CircuitBreaker circuitBreaker) {
     removeMetrics(METER_IDS_BY_BREAKER_NAME.remove(circuitBreaker.getName()));
   }
 
   private static void removeMetrics(final Retry retry) {
     removeMetrics(METER_IDS_BY_RETRY_NAME.remove(retry.getName()));
+  }
+
+  private static void removeMetrics(final Bulkhead bulkhead) {
+    removeMetrics(METER_IDS_BY_BULKHEAD_NAME.remove(bulkhead.getName()));
   }
 
   private static void removeMetrics(@Nullable final Set<Meter.Id> meterIds) {

@@ -179,7 +179,8 @@ public record CommandDependencies(
                           configuration.getFoundationDbMessagesConfiguration().transactionRetryLimit());
 
                       return new FaultTolerantDatabase(database, entry.getKey(),
-                          configuration.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName());
+                          configuration.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName(),
+                          configuration.getFoundationDbMessagesConfiguration().bulkheadConfigurationName());
                     } catch (final IOException e) {
                       throw new UncheckedIOException("Failed to construct FoundationDB database", e);
                     }

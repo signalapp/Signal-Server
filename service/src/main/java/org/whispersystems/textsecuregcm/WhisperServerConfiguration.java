@@ -20,6 +20,7 @@ import org.whispersystems.textsecuregcm.configuration.AwsCredentialsProviderFact
 import org.whispersystems.textsecuregcm.configuration.BackupConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
+import org.whispersystems.textsecuregcm.configuration.BulkheadConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CallQualitySurveyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.Cdn3StorageManagerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
@@ -351,6 +352,9 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private Map<String, @Valid RetryConfiguration> retries = Collections.emptyMap();
 
+  @JsonProperty
+  private Map<String, @Valid BulkheadConfiguration> bulkheads = Collections.emptyMap();
+
   @Valid
   @NotNull
   @JsonProperty
@@ -626,6 +630,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public Map<String, RetryConfiguration> getRetryConfigurations() {
     return retries;
+  }
+
+  public Map<String, BulkheadConfiguration> getBulkheadConfigurations() {
+    return bulkheads;
   }
 
   public RetryConfiguration getGeneralRedisRetryConfiguration() {

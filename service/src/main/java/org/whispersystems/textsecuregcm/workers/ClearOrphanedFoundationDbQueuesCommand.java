@@ -134,7 +134,8 @@ public class ClearOrphanedFoundationDbQueuesCommand extends AbstractCommandWithD
         .map(entry -> {
           try {
             return new FaultTolerantDatabase(entry.getValue().build(fdb), entry.getKey(),
-                configuration.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName());
+                configuration.getFoundationDbMessagesConfiguration().circuitBreakerConfigurationName(),
+                configuration.getFoundationDbMessagesConfiguration().bulkheadConfigurationName());
           } catch (final IOException e) {
             throw new UncheckedIOException(e);
           }

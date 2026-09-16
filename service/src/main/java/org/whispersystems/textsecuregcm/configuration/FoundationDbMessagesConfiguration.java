@@ -36,6 +36,7 @@ public record FoundationDbMessagesConfiguration(@NotEmpty Map<String, @Valid Fou
                                                 @NotNull Duration batchPriorityTransactionTimeout,
                                                 @PositiveOrZero long batchPriorityTransactionRetryLimit,
                                                 @Nullable String circuitBreakerConfigurationName,
+                                                @Nullable String bulkheadConfigurationName,
                                                 @Nullable @Valid FoundationDbExternalClientConfiguration externalClientConfiguration) {
 
   public static final long DEFAULT_MAX_WATCHES_PER_CLIENT = 10_000;
