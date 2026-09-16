@@ -39,11 +39,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpStatus;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.signal.chat.account.AccountsGrpc;
 import org.signal.chat.account.ConfirmTotpKeyRequest;
@@ -80,26 +82,47 @@ public class AccountTest {
   public void testCreateNumberlessAccount()
       throws VerificationFailedException, InvalidInputException {
     final Operations.Receipt receipt = Operations.getPrescribedReceipt();
-    final TestUser user = Operations.registerNumberlessUser(receipt.credential());
+    Operations.deleteReceipt(receipt.serial());
+    TestUser user = null;
     try {
+      user = Operations.registerNumberlessUser(receipt.credential());
       final Pair<Integer, AccountIdentityResponse> execute = Operations.apiGet("/v1/accounts/whoami")
           .authorized(user)
           .execute(AccountIdentityResponse.class);
       assertEquals(HttpStatus.SC_OK, execute.getLeft());
     } finally {
       Operations.deleteReceipt(receipt.serial());
-      Operations.deleteUser(user);
+      if (user != null) {
+        Operations.deleteUser(user);
+      }
     }
   }
 
-  @Test
-  public void testRecoverWithTotp()
-      throws VerificationFailedException, InvalidInputException, NoSuchAlgorithmException, InvalidKeyException {
-    final Operations.Receipt receipt = Operations.getPrescribedReceipt();
-    TestUser user = Operations.registerNumberlessUser(receipt.credential());
-    final UUID originalAci = user.aciUuid();
+  @Nested
+  class RecoverWithMfa {
+    private TestUser user;
 
-    try {
+    @BeforeEach
+    void setup() throws InvalidInputException, VerificationFailedException {
+      final Operations.Receipt receipt = Operations.getPrescribedReceipt();
+
+      // Clear receipt state in case a previous run had an unclean failure
+      Operations.deleteReceipt(receipt.serial());
+      user = Operations.registerNumberlessUser(receipt.credential());
+    }
+
+    @AfterEach
+    void teardown() throws InvalidInputException {
+      final Operations.Receipt receipt = Operations.getPrescribedReceipt();
+      Operations.deleteReceipt(receipt.serial());
+      if (user != null) {
+        Operations.deleteUser(user);
+      }
+    }
+
+
+    @Test
+    public void testRecoverWithTotp() throws NoSuchAlgorithmException, InvalidKeyException {
       final GenerateTotpKeyResponse generateTotpKeyResponse =
           getAccountsStubForUser(user).generateTotpKey(GenerateTotpKeyRequest.getDefaultInstance());
       assertEquals(GenerateTotpKeyResponse.ResponseCase.KEY_GENERATED, generateTotpKeyResponse.getResponseCase());
@@ -124,39 +147,31 @@ public class AccountTest {
       assertEquals(ConfirmTotpKeyResponse.ResponseCase.KEY_CONFIRMED, confirmTotpKeyResponse.getResponseCase());
       final int keyId = confirmTotpKeyResponse.getKeyConfirmed().getKeyId();
 
-      user = Operations.recoverNumberlessUserWithTotp(user, totpGenerator.generateOneTimePassword(totpKey, Instant.now()));
+      final TestUser recoveredUser =
+          Operations.recoverNumberlessUserWithTotp(user, totpGenerator.generateOneTimePassword(totpKey, Instant.now()));
 
-      assertEquals(user.aciUuid(), originalAci);
+      assertEquals(user.aciUuid(), recoveredUser.aciUuid());
 
       // MFA key should remain set after re-registration
       final Map<Integer, ListMfaKeysResponse.MfaKeyMetadata> mfaKeys =
-          getAccountsStubForUser(user).listMfaKeys(ListMfaKeysRequest.getDefaultInstance()).getKeysMap();
+          getAccountsStubForUser(recoveredUser).listMfaKeys(ListMfaKeysRequest.getDefaultInstance()).getKeysMap();
 
       assertEquals(1, mfaKeys.size());
       assertTrue(mfaKeys.containsKey(keyId));
       assertEquals(ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType.MFA_KEY_TYPE_TOTP, mfaKeys.get(keyId).getType());
       assertArrayEquals(totpMetadata, mfaKeys.get(keyId).getMetadataCiphertext().toByteArray());
-
-    } finally {
-      Operations.deleteReceipt(receipt.serial());
-      Operations.deleteUser(user);
     }
-  }
 
-  @Test
-  public void testRecoverWithWebAuthn() throws VerificationFailedException, InvalidInputException {
-    final WebAuthnConfiguration webAuthnConfiguration = Operations.getWebAuthnConfiguration();
-    final ClientPlatform clientPlatform = new ClientPlatform(new Origin(webAuthnConfiguration.origin()), new WebAuthnAuthenticatorAdaptor(EmulatorUtil.NONE_ATTESTATION_AUTHENTICATOR));
-    final COSEAlgorithmIdentifier algorithm = COSEAlgorithmIdentifier.ES256;
+    @Test
+    public void testRecoverWithWebAuthn() {
+      final WebAuthnConfiguration webAuthnConfiguration = Operations.getWebAuthnConfiguration();
+      final ClientPlatform clientPlatform = new ClientPlatform(new Origin(webAuthnConfiguration.origin()), new WebAuthnAuthenticatorAdaptor(EmulatorUtil.NONE_ATTESTATION_AUTHENTICATOR));
+      final COSEAlgorithmIdentifier algorithm = COSEAlgorithmIdentifier.ES256;
 
-    final Operations.Receipt receipt = Operations.getPrescribedReceipt();
-    TestUser user = Operations.registerNumberlessUser(receipt.credential());
-    final UUID originalAci = user.aciUuid();
-
-    try {
       final StartWebAuthnRegistrationResponse startWebAuthnRegistrationResponse =
           getAccountsStubForUser(user).startWebAuthnRegistration(StartWebAuthnRegistrationRequest.getDefaultInstance());
-      assertEquals(StartWebAuthnRegistrationResponse.ResponseCase.PARAMS, startWebAuthnRegistrationResponse.getResponseCase());
+      assertEquals(StartWebAuthnRegistrationResponse.ResponseCase.PARAMS,
+          startWebAuthnRegistrationResponse.getResponseCase());
 
       final StartWebAuthnRegistrationResponse.WebAuthnCreateParameters webAuthnCreateParameters = startWebAuthnRegistrationResponse.getParams();
 
@@ -184,25 +199,23 @@ public class AccountTest {
               .setCollectedClientDataJsonBytes(ByteString.copyFrom(credential.getResponse().getClientDataJSON()))
               .setMetadataCiphertext(ByteString.copyFrom(metadataCiphertext))
               .build());
-      assertEquals(FinishWebAuthnRegistrationResponse.ResponseCase.KEY_CONFIRMED, finishWebAuthnRegistrationResponse.getResponseCase());
+      assertEquals(FinishWebAuthnRegistrationResponse.ResponseCase.KEY_CONFIRMED,
+          finishWebAuthnRegistrationResponse.getResponseCase());
       final int keyId = finishWebAuthnRegistrationResponse.getKeyConfirmed().getKeyId();
 
-      user = Operations.recoverNumberlessUserWithWebAuthn(user, clientPlatform, credential.getRawId(), webAuthnConfiguration.relyingPartyId());
+      final TestUser recoveredUser = Operations.recoverNumberlessUserWithWebAuthn(user, clientPlatform, credential.getRawId(),
+          webAuthnConfiguration.relyingPartyId());
 
-      assertEquals(originalAci, user.aciUuid());
+      assertEquals(user.aciUuid(), recoveredUser.aciUuid());
 
       // MFA key should remain set after re-registration
       final Map<Integer, ListMfaKeysResponse.MfaKeyMetadata> mfaKeys =
-          getAccountsStubForUser(user).listMfaKeys(ListMfaKeysRequest.getDefaultInstance()).getKeysMap();
+          getAccountsStubForUser(recoveredUser).listMfaKeys(ListMfaKeysRequest.getDefaultInstance()).getKeysMap();
 
       assertEquals(1, mfaKeys.size());
       assertTrue(mfaKeys.containsKey(keyId));
       assertEquals(ListMfaKeysResponse.MfaKeyMetadata.MfaKeyType.MFA_KEY_TYPE_WEBAUTHN, mfaKeys.get(keyId).getType());
       assertArrayEquals(metadataCiphertext, mfaKeys.get(keyId).getMetadataCiphertext().toByteArray());
-
-    } finally {
-      Operations.deleteReceipt(receipt.serial());
-      Operations.deleteUser(user);
     }
   }
 

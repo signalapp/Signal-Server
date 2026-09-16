@@ -164,8 +164,7 @@ public final class Operations {
   }
 
   public static TestUser recoverNumberlessUserWithTotp(final TestUser testUser, @Nullable final Integer totp) {
-    final String accountPassword = Base64.getEncoder().encodeToString(randomBytes(32));
-    final TestUser recoveredUser = TestUser.createNumberlessForRecovery(accountPassword, testUser.registrationPassword());
+    final TestUser recoveredUser = TestUser.createNumberlessForRecovery(testUser.accountPassword(), testUser.registrationPassword());
 
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
@@ -187,7 +186,7 @@ public final class Operations {
 
     final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
         // For a numberless account recovery, the username is the ACI
-        .authorized(testUser.aciUuid().toString(), accountPassword)
+        .authorized(testUser.aciUuid().toString(), testUser.accountPassword())
         .executeExpectSuccess(AccountIdentityResponse.class);
 
     recoveredUser.setAciUuid(registrationResponse.uuid());
@@ -198,8 +197,7 @@ public final class Operations {
       final ClientPlatform clientPlatform,
       final byte[] credentialId,
       final String relyingPartyId) {
-    final String accountPassword = Base64.getEncoder().encodeToString(randomBytes(32));
-    final TestUser recoveredUser = TestUser.createNumberlessForRecovery(accountPassword, testUser.registrationPassword());
+    final TestUser recoveredUser = TestUser.createNumberlessForRecovery(testUser.accountPassword(), testUser.registrationPassword());
 
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
@@ -221,7 +219,7 @@ public final class Operations {
 
     final Pair<Integer, MfaFailureExceptionMapper.MfaFailureResponse> initialResponse = apiPost("/v1/registration", initialRequest)
         // For a numberless account recovery, the username is the ACI
-        .authorized(testUser.aciUuid().toString(), accountPassword)
+        .authorized(testUser.aciUuid().toString(), testUser.accountPassword())
         .execute(MfaFailureExceptionMapper.MfaFailureResponse.class);
 
     // we expect (and need) failure with status 441, which will contain the WebAuthn challenge
@@ -259,7 +257,7 @@ public final class Operations {
 
     final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
         // For a numberless account recovery, the username is the ACI
-        .authorized(testUser.aciUuid().toString(), accountPassword)
+        .authorized(testUser.aciUuid().toString(), testUser.accountPassword())
         .executeExpectSuccess(AccountIdentityResponse.class);
 
     recoveredUser.setAciUuid(registrationResponse.uuid());
@@ -483,33 +481,39 @@ public final class Operations {
     }
 
     public Pair<Integer, Void> executeExpectSuccess() {
-      final Pair<Integer, Void> execute = execute();
+      final RawResponse response = executeRaw();
       Validate.isTrue(
-          HttpUtils.isSuccessfulResponse(execute.getLeft()),
-          "Unexpected response code: %d",
-          execute.getLeft());
-      return execute;
+          HttpUtils.isSuccessfulResponse(response.statusCode()),
+          "Unexpected response code: %d, body: %s",
+          response.statusCode(), response.body());
+      return Pair.of(response.statusCode(), null);
     }
 
     public <T> T executeExpectSuccess(final Class<T> expectedType) {
-      final Pair<Integer, T> execute = execute(expectedType);
+      final RawResponse response = executeRaw();
       Validate.isTrue(
-          HttpUtils.isSuccessfulResponse(execute.getLeft()),
-          "Unexpected response code: %d : %s",
-          execute.getLeft(), execute.getRight());
-      return requireNonNull(execute.getRight());
+          HttpUtils.isSuccessfulResponse(response.statusCode()),
+          "Unexpected response code: %d, body: %s",
+          response.statusCode(), response.body());
+      return requireNonNull(parseBody(response.body(), expectedType));
     }
 
     public void executeExpectStatusCode(final int expectedStatusCode) {
-      final Pair<Integer, Void> execute = execute(Void.class);
+      final RawResponse response = executeRaw();
       Validate.isTrue(
-          execute.getLeft() == expectedStatusCode,
-          "Unexpected response code: %d",
-          execute.getLeft()
-      );
+          response.statusCode() == expectedStatusCode,
+          "Unexpected response code: %d (expected %d), body: %s",
+          response.statusCode(), expectedStatusCode, response.body());
     }
 
     public <T> Pair<Integer, T> execute(final Class<T> expectedType) {
+      final RawResponse response = executeRaw();
+      return Pair.of(response.statusCode(), parseBody(response.body(), expectedType));
+    }
+
+    private record RawResponse(int statusCode, String body) {}
+
+    private RawResponse executeRaw() {
       builder.uri(serverUri(endpoint, queryParams))
           .header(HttpHeaders.USER_AGENT, USER_AGENT);
       return CLIENT.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
@@ -519,17 +523,22 @@ public final class Operations {
               error.printStackTrace();
             }
           })
-          .thenApply(response -> {
-            try {
-              final T result = expectedType.equals(Void.class)
-                  ? null
-                  : SystemMapper.jsonMapper().readValue(response.body(), expectedType);
-              return Pair.of(response.statusCode(), result);
-            } catch (final IOException e) {
-              throw new RuntimeException(e);
-            }
-          })
+          .thenApply(response -> new RawResponse(response.statusCode(), response.body()))
           .join();
+    }
+
+    @Nullable
+    private static <T> T parseBody(final String body, final Class<T> expectedType) {
+      if (expectedType.equals(Void.class)) {
+        return null;
+      }
+
+      try {
+        return SystemMapper.jsonMapper().readValue(body, expectedType);
+      } catch (final IOException e) {
+        throw new RuntimeException(
+            "Could not parse response body as %s, body: %s".formatted(expectedType.getSimpleName(), body), e);
+      }
     }
 
   }
