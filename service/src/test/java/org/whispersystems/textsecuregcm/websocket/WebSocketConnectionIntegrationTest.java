@@ -197,7 +197,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessages(final int persistedMessageCount, final int cachedMessageCount) {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class)),
+        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
@@ -271,7 +271,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessagesMultipleSegments() {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class)),
+        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
@@ -376,7 +376,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessagesClientClosed() {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class)),
+        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),

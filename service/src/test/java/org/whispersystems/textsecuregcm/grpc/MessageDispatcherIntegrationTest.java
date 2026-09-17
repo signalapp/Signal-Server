@@ -46,7 +46,6 @@ import org.signal.chat.messages.GetMessagesResponse;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -149,7 +148,7 @@ class MessageDispatcherIntegrationTest {
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager,
             mock(ReportMessageManager.class),
-            sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class)),
+            sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),

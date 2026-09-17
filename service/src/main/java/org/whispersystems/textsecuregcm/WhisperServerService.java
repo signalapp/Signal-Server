@@ -817,7 +817,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RedisMessageAvailabilityManager(messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
     MessagesManager messagesManager =
         new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager,
-            reportMessageManager, messageDeletionAsyncExecutor, Clock.systemUTC(), experimentEnrollmentManager);
+            reportMessageManager, messageDeletionAsyncExecutor, Clock.systemUTC());
     final ChangeNumberWaitingPeriods changeNumberWaitingPeriods = new ChangeNumberWaitingPeriods(
         config.getDynamoDbTables().getChangeNumberWaitingPeriods().getTableName(), dynamoDbClient);
     final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = new ChangeNumberWaitingPeriodManager(

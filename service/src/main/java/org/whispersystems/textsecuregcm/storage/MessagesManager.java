@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.apple.foundationdb.FDBException;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
@@ -17,7 +16,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,10 +31,8 @@ import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -57,14 +53,6 @@ public class MessagesManager {
   private static final Counter PERSIST_MESSAGE_BYTES_COUNTER = Metrics.counter(
       name(MessagesManager.class, "persistMessageBytes"));
 
-  private static final String PRESENCE_MATCH_COUNTER_NAME =
-      MetricsUtil.name(MessagesManager.class, "presenceMatch");
-
-  private static final String INSERT_FDB_EXCEPTIONS_COUNTER_NAME = name(MessagesManager.class, "insertExceptions");
-
-  @VisibleForTesting
-  static final String EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME = "foundationDbExclusiveInsert";
-
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
   private final FoundationDbMessageStore foundationDbMessageStore;
@@ -72,7 +60,6 @@ public class MessagesManager {
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService messageDeletionExecutor;
   private final Clock clock;
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   public MessagesManager(
       final MessagesDynamoDb messagesDynamoDb,
@@ -81,8 +68,7 @@ public class MessagesManager {
       final RedisMessageAvailabilityManager redisMessageAvailabilityManager,
       final ReportMessageManager reportMessageManager,
       final ExecutorService messageDeletionExecutor,
-      final Clock clock,
-      final ExperimentEnrollmentManager experimentEnrollmentManager) {
+      final Clock clock) {
 
     this.messagesDynamoDb = messagesDynamoDb;
     this.messagesCache = messagesCache;
@@ -91,7 +77,6 @@ public class MessagesManager {
     this.reportMessageManager = reportMessageManager;
     this.messageDeletionExecutor = messageDeletionExecutor;
     this.clock = clock;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   /**
@@ -109,81 +94,37 @@ public class MessagesManager {
   }
 
   private CompletableFuture<Map<Byte, Boolean>> insertAsync(final UUID accountIdentifier, final Map<Byte, Envelope> messagesByDeviceId) {
-    final Map<Byte, Boolean> devicePresenceById = new ConcurrentHashMap<>();
+    return foundationDbMessageStore.insert(new AciServiceIdentifier(accountIdentifier), messagesByDeviceId)
+        .thenApply(insertResultsByDeviceId -> {
+          messagesByDeviceId.forEach((deviceId, message) -> {
+            if (message.hasSourceServiceId()) {
+              final ServiceIdentifier sourceServiceIdentifier =
+                  ServiceIdentifier.fromByteString(message.getSourceServiceId());
 
-    // Multi-recipient messages will have both a "shared MRM key" and actual message content; we only need/want the
-    // latter for FoundationDB
-    final Map<Byte, Envelope> minimizedMessagesByDeviceId = messagesByDeviceId.entrySet().stream()
-        .collect(Collectors.toUnmodifiableMap(
-            Map.Entry::getKey,
-            entry -> entry.getValue().toBuilder().clearSharedMrmKey().build()));
-
-    final CompletableFuture<Map<Byte, FoundationDbMessageStore.InsertResult>> foundationDbInsertFuture =
-        foundationDbMessageStore.insert(new AciServiceIdentifier(accountIdentifier), minimizedMessagesByDeviceId)
-            .exceptionally(e -> {
-              if (ExceptionUtils.unwrap(e) instanceof final FDBException fdbException) {
-                Metrics.counter(INSERT_FDB_EXCEPTIONS_COUNTER_NAME, "code", String.valueOf(fdbException.getCode()))
-                    .increment();
-              } else {
-                if (!ExceptionUtils.isBreakerOpen(e)) {
-                  logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
-                      minimizedMessagesByDeviceId.size(),
-                      accountIdentifier,
-                      e);
-                }
-              }
-
-              throw ExceptionUtils.wrap(e);
-            });
-
-    return foundationDbInsertFuture.thenCompose(foundationDbInsertResults -> {
-      foundationDbInsertResults.forEach((deviceId, insertResult) ->
-          devicePresenceById.put(deviceId, insertResult.present()));
-
-      messagesByDeviceId.forEach((deviceId, message) -> {
-        if (message.hasSourceServiceId()) {
-          final ServiceIdentifier sourceServiceIdentifier =
-              ServiceIdentifier.fromByteString(message.getSourceServiceId());
-
-          if (!accountIdentifier.equals(sourceServiceIdentifier.uuid()) && message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
-            foundationDbInsertResults.get(deviceId).messageGuid().ifPresent(messageGuid -> {
-              // Note that this is an asynchronous, best-effort, fire-and-forget operation
-              reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
-            });
-          }
-        }
-      });
-
-      if (experimentEnrollmentManager.isEnrolled(accountIdentifier, EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME)) {
-        return CompletableFuture.completedFuture(null);
-      }
-
-      return CompletableFuture.allOf(messagesByDeviceId.entrySet().stream()
-          .map(deviceIdAndMessage -> {
-            final byte deviceId = deviceIdAndMessage.getKey();
-
-            // Multi-recipient messages will have both a "shared MRM key" and actual message content; we only
-            // need/want the former for Redis
-            final Envelope message = deviceIdAndMessage.getValue().hasSharedMrmKey()
-                ? deviceIdAndMessage.getValue().toBuilder().clearContent().build()
-                : deviceIdAndMessage.getValue();
-
-            final UUID messageGuid = Optional.ofNullable(foundationDbInsertResults.get(deviceId))
-                .flatMap(FoundationDbMessageStore.InsertResult::messageGuid)
-                .orElseGet(UUID::randomUUID);
-
-            return messagesCache.insert(messageGuid, accountIdentifier, deviceId, message)
-                .thenAccept(present -> {
-                  if (foundationDbInsertResults.containsKey(deviceId)) {
-                    Metrics.counter(PRESENCE_MATCH_COUNTER_NAME,
-                            "match", String.valueOf(present == foundationDbInsertResults.get(deviceId).present()))
-                        .increment();
-                  }
+              if (!accountIdentifier.equals(sourceServiceIdentifier.uuid()) && message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
+                insertResultsByDeviceId.get(deviceId).messageGuid().ifPresent(messageGuid -> {
+                  // Note that this is an asynchronous, best-effort, fire-and-forget operation
+                  reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
                 });
-          })
-          .toArray(CompletableFuture[]::new));
+              }
+            }
+          });
+
+          return insertResultsByDeviceId.entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().present()));
         })
-        .thenApply(ignored -> devicePresenceById);
+        .whenComplete((_, throwable) -> {
+          if (throwable == null) {
+            return;
+          }
+
+          if (!(ExceptionUtils.unwrap(throwable) instanceof FDBException) && !ExceptionUtils.isBreakerOpen(throwable)) {
+            logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
+                messagesByDeviceId.size(),
+                accountIdentifier,
+                throwable);
+          }
+        });
   }
 
   /**
@@ -213,53 +154,41 @@ public class MessagesManager {
 
     final long serverTimestamp = clock.millis();
 
-    // Don't insert shared payloads for recipients enrolled in the "only insert into FoundationDB" experiment
-    final Set<SealedSenderMultiRecipientMessage.Recipient> unenrolledResolvedRecipients = resolvedRecipients.entrySet().stream()
-        .filter(entry -> !experimentEnrollmentManager.isEnrolled(entry.getValue().getAccountIdentifier(), EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME))
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toSet());
+    final Envelope.Builder envelopeBuilder = Envelope.newBuilder()
+        .setType(Envelope.Type.UNIDENTIFIED_SENDER)
+        .setClientTimestamp(clientTimestamp == 0 ? serverTimestamp : clientTimestamp)
+        .setServerTimestamp(serverTimestamp)
+        .setEphemeral(isEphemeral)
+        .setUrgent(isUrgent);
 
-    return insertSharedMultiRecipientMessagePayload(multiRecipientMessage, unenrolledResolvedRecipients)
-        .thenCompose(maybeSharedMrmKey -> {
-          final Envelope.Builder envelopeBuilder = Envelope.newBuilder()
-              .setType(Envelope.Type.UNIDENTIFIED_SENDER)
-              .setClientTimestamp(clientTimestamp == 0 ? serverTimestamp : clientTimestamp)
-              .setServerTimestamp(serverTimestamp)
-              .setEphemeral(isEphemeral)
-              .setUrgent(isUrgent);
+    if (isStory) {
+      // Avoid sending this field if it's false.
+      envelopeBuilder.setStory(true);
+    }
 
-          maybeSharedMrmKey
-              .ifPresent(sharedMrmKey -> envelopeBuilder.setSharedMrmKey(ByteString.copyFrom(sharedMrmKey)));
+    final Envelope prototypeMessage = envelopeBuilder.build();
 
-          if (isStory) {
-            // Avoid sending this field if it's false.
-            envelopeBuilder.setStory(true);
-          }
+    final Map<Account, Map<Byte, Boolean>> clientPresenceByAccountAndDevice = new ConcurrentHashMap<>();
 
-          final Envelope prototypeMessage = envelopeBuilder.build();
+    return CompletableFuture.allOf(multiRecipientMessage.getRecipients().entrySet().stream()
+            .filter(serviceIdAndRecipient -> resolvedRecipients.containsKey(serviceIdAndRecipient.getValue()))
+            .map(serviceIdAndRecipient -> {
+              final ServiceIdentifier serviceIdentifier = ServiceIdentifier.fromLibsignal(serviceIdAndRecipient.getKey());
+              final SealedSenderMultiRecipientMessage.Recipient recipient = serviceIdAndRecipient.getValue();
+              final byte[] devices = recipient.getDevices();
 
-          final Map<Account, Map<Byte, Boolean>> clientPresenceByAccountAndDevice = new ConcurrentHashMap<>();
-
-          return CompletableFuture.allOf(multiRecipientMessage.getRecipients().entrySet().stream()
-                  .filter(serviceIdAndRecipient -> resolvedRecipients.containsKey(serviceIdAndRecipient.getValue()))
-                  .map(serviceIdAndRecipient -> {
-                    final ServiceIdentifier serviceIdentifier = ServiceIdentifier.fromLibsignal(serviceIdAndRecipient.getKey());
-                    final SealedSenderMultiRecipientMessage.Recipient recipient = serviceIdAndRecipient.getValue();
-                    final byte[] devices = recipient.getDevices();
-
-                    return insertAsync(resolvedRecipients.get(recipient).getAccountIdentifier(),
-                        IntStream.range(0, devices.length).mapToObj(i -> devices[i])
-                            .collect(Collectors.toMap(deviceId -> deviceId, _ -> prototypeMessage.toBuilder()
-                                .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(serviceIdAndRecipient.getValue())))
-                                .setDestinationServiceId(serviceIdentifier.toCompactByteString())
-                                .build())))
-                        .thenAccept(clientPresenceByDeviceId ->
-                            clientPresenceByAccountAndDevice.put(resolvedRecipients.get(recipient),
-                                clientPresenceByDeviceId));
-                  })
-                  .toArray(CompletableFuture[]::new))
-              .thenApply(ignored -> clientPresenceByAccountAndDevice);
-        });
+              return insertAsync(resolvedRecipients.get(recipient).getAccountIdentifier(),
+                  IntStream.range(0, devices.length).mapToObj(i -> devices[i])
+                      .collect(Collectors.toMap(deviceId -> deviceId, _ -> prototypeMessage.toBuilder()
+                          .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(serviceIdAndRecipient.getValue())))
+                          .setDestinationServiceId(serviceIdentifier.toCompactByteString())
+                          .build())))
+                  .thenAccept(clientPresenceByDeviceId ->
+                      clientPresenceByAccountAndDevice.put(resolvedRecipients.get(recipient),
+                          clientPresenceByDeviceId));
+            })
+            .toArray(CompletableFuture[]::new))
+        .thenApply(ignored -> clientPresenceByAccountAndDevice);
   }
 
   public CompletableFuture<Boolean> mayHavePersistedMessages(final UUID destinationUuid, final Device destinationDevice) {
@@ -378,23 +307,6 @@ public class MessagesManager {
         .map(epochMilli -> Optional.of(Instant.ofEpochMilli(epochMilli)))
         .switchIfEmpty(Mono.just(Optional.empty()))
         .toFuture();
-  }
-
-  /// Inserts the shared multi-recipient message payload to storage.
-  ///
-  /// @return a future that yields a key where the shared data is stored or empty if the resolved recipient set is empty
-  ///
-  /// @see MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript
-  private CompletableFuture<Optional<byte[]>> insertSharedMultiRecipientMessagePayload(
-      final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage,
-      final Set<SealedSenderMultiRecipientMessage.Recipient> resolvedRecipients) {
-
-    if (resolvedRecipients.isEmpty()) {
-      return CompletableFuture.completedFuture(Optional.empty());
-    }
-
-    return messagesCache.insertSharedMultiRecipientMessagePayload(sealedSenderMultiRecipientMessage, resolvedRecipients)
-        .thenApply(Optional::of);
   }
 
   /// Record versionstamps for the current time in the FoundationDB database(s).

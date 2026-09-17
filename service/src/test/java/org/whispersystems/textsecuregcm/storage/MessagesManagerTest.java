@@ -37,7 +37,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.InvalidVersionException;
@@ -45,7 +45,6 @@ import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.ServiceId;
 import org.testcontainers.shaded.org.checkerframework.checker.nullness.qual.Nullable;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
@@ -61,7 +60,6 @@ class MessagesManagerTest {
   private MessagesCache messagesCache;
   private FoundationDbMessageStore foundationDbMessageStore;
   private ReportMessageManager reportMessageManager;
-  private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private static final TestClock CLOCK = TestClock.pinned(Instant.now());
 
@@ -73,7 +71,6 @@ class MessagesManagerTest {
     messagesCache = mock(MessagesCache.class);
     foundationDbMessageStore = mock(FoundationDbMessageStore.class);
     reportMessageManager = mock(ReportMessageManager.class);
-    experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
     when(messagesCache.insert(any(), any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(true));
 
@@ -83,21 +80,17 @@ class MessagesManagerTest {
         mock(RedisMessageAvailabilityManager.class),
         reportMessageManager,
         Executors.newSingleThreadExecutor(),
-        CLOCK,
-        experimentEnrollmentManager);
+        CLOCK);
   }
 
-  @CartesianTest
-  void insert(@CartesianTest.Enum final Envelope.Type envelopeType,
-      @CartesianTest.Values(booleans = {true, false}) final boolean exclusiveFoundationDbWrite) {
+  @ParameterizedTest
+  @EnumSource(Envelope.Type.class)
+  void insert(final Envelope.Type envelopeType) {
     final UUID sourceAci = UUID.randomUUID();
     final Envelope message = Envelope.newBuilder()
         .setSourceServiceId(new AciServiceIdentifier(sourceAci).toCompactByteString())
         .setType(envelopeType)
         .build();
-
-    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(MessagesManager.EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME)))
-        .thenReturn(exclusiveFoundationDbWrite);
 
     when(foundationDbMessageStore.insert(any(), any()))
         .thenAnswer(invocation -> {
@@ -125,16 +118,7 @@ class MessagesManagerTest {
     verifyNoMoreInteractions(reportMessageManager);
 
     verify(foundationDbMessageStore, times(2)).insert(any(), any());
-
-    if (exclusiveFoundationDbWrite) {
-      verify(messagesCache, never()).insert(any(), any(), anyByte(), any());
-    } else {
-      verify(messagesCache, times(2))
-          .insert(argThat(messageGuid -> messageGuid.version() == 8),
-              eq(destinationUuid),
-              eq(Device.PRIMARY_ID),
-              any());
-    }
+    verify(messagesCache, never()).insert(any(), any(), anyByte(), any());
   }
 
   @Test
@@ -178,12 +162,8 @@ class MessagesManagerTest {
     return new UUID(mostSignificantBits, ThreadLocalRandom.current().nextLong());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void insertMultiRecipientMessage(final boolean exclusiveFoundationDbWrite) throws InvalidMessageException, InvalidVersionException {
-    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(MessagesManager.EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME)))
-        .thenReturn(exclusiveFoundationDbWrite);
-
+  @Test
+  void insertMultiRecipientMessage() throws InvalidMessageException, InvalidVersionException {
     when(foundationDbMessageStore.insert(any(), any()))
         .thenAnswer(invocation -> {
           final Map<Byte, Envelope> messagesByDeviceId = invocation.getArgument(1);
@@ -261,29 +241,7 @@ class MessagesManagerTest {
     assertEquals(expectedPresenceByAccountAndDeviceId,
         messagesManager.insertMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, clientTimestamp, isStory, isEphemeral, isUrgent).join());
 
-    if (exclusiveFoundationDbWrite) {
-      verify(messagesCache, never()).insert(any(), any(), anyByte(), any());
-    } else {
-      verify(messagesCache).insert(any(),
-          eq(singleDeviceAccountAciServiceIdentifier.uuid()),
-          eq(Device.PRIMARY_ID),
-          eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountAciServiceIdentifier.toCompactByteString()).build()));
-
-      verify(messagesCache).insert(any(),
-          eq(singleDeviceAccountAciServiceIdentifier.uuid()),
-          eq(Device.PRIMARY_ID),
-          eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountPniServiceIdentifier.toCompactByteString()).build()));
-
-      verify(messagesCache).insert(any(),
-          eq(multiDeviceAccountAciServiceIdentifier.uuid()),
-          eq((byte) (Device.PRIMARY_ID + 1)),
-          eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toCompactByteString()).build()));
-
-      verify(messagesCache, never()).insert(any(),
-          eq(unresolvedAccountAciServiceIdentifier.uuid()),
-          anyByte(),
-          any());
-    }
+    verify(messagesCache, never()).insert(any(), any(), anyByte(), any());
 
     final Envelope prototypeExpectedFoundationDbMessage = prototypeExpectedMessage.toBuilder().clearSharedMrmKey().build();
 

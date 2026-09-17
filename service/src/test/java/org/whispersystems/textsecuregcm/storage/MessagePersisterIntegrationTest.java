@@ -36,7 +36,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagePersisterConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
@@ -101,8 +100,7 @@ class MessagePersisterIntegrationTest {
         mock(RedisMessageAvailabilityManager.class),
         mock(ReportMessageManager.class),
         messageDeletionExecutorService,
-        Clock.systemUTC(),
-        mock(ExperimentEnrollmentManager.class));
+        Clock.systemUTC());
 
     websocketConnectionEventExecutor = Executors.newVirtualThreadPerTaskExecutor();
     asyncOperationQueueingExecutor = Executors.newSingleThreadExecutor();

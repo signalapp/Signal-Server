@@ -371,7 +371,7 @@ public record CommandDependencies(
         new RedisMessageAvailabilityManager(messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
     final MessagesManager messagesManager =
         new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager,
-            reportMessageManager, messageDeletionExecutor, Clock.systemUTC(), experimentEnrollmentManager);
+            reportMessageManager, messageDeletionExecutor, Clock.systemUTC());
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
