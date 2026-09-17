@@ -151,43 +151,54 @@ public class MessagesManager {
       foundationDbInsertFuture = CompletableFuture.completedFuture(Collections.emptyMap());
     }
 
-    return foundationDbInsertFuture.thenCompose(foundationDbInsertResults ->
-            CompletableFuture.allOf(messagesByDeviceId.entrySet().stream()
-                .map(deviceIdAndMessage -> {
-                  final byte deviceId = deviceIdAndMessage.getKey();
+    return foundationDbInsertFuture.thenCompose(foundationDbInsertResults -> {
+      final boolean useFoundationDbPresence =
+          experimentEnrollmentManager.isEnrolled(accountIdentifier, READ_LIVE_MESSAGES_FROM_FOUNDATIONDB_EXPERIMENT_NAME);
 
-                  // Multi-recipient messages will have both a "shared MRM key" and actual message content; we only
-                  // need/want the former for Redis
-                  final Envelope message = deviceIdAndMessage.getValue().hasSharedMrmKey()
-                      ? deviceIdAndMessage.getValue().toBuilder().clearContent().build()
-                      : deviceIdAndMessage.getValue();
+      if (useFoundationDbPresence) {
+        foundationDbInsertResults.forEach((deviceId, insertResult) ->
+            devicePresenceById.put(deviceId, insertResult.present()));
+      }
 
-                  final UUID messageGuid = Optional.ofNullable(foundationDbInsertResults.get(deviceId))
-                      .flatMap(FoundationDbMessageStore.InsertResult::messageGuid)
-                      .orElseGet(UUID::randomUUID);
+      return CompletableFuture.allOf(messagesByDeviceId.entrySet().stream()
+          .map(deviceIdAndMessage -> {
+            final byte deviceId = deviceIdAndMessage.getKey();
 
-                  return messagesCache.insert(messageGuid, accountIdentifier, deviceId, message)
-                      .thenAccept(present -> {
-                        if (message.hasSourceServiceId()) {
-                          final ServiceIdentifier sourceServiceIdentifier =
-                              ServiceIdentifier.fromByteString(message.getSourceServiceId());
+            // Multi-recipient messages will have both a "shared MRM key" and actual message content; we only
+            // need/want the former for Redis
+            final Envelope message = deviceIdAndMessage.getValue().hasSharedMrmKey()
+                ? deviceIdAndMessage.getValue().toBuilder().clearContent().build()
+                : deviceIdAndMessage.getValue();
 
-                          if (!accountIdentifier.equals(sourceServiceIdentifier.uuid())) {
-                            // Note that this is an asynchronous, best-effort, fire-and-forget operation
-                            reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
-                          }
-                        }
+            final UUID messageGuid = Optional.ofNullable(foundationDbInsertResults.get(deviceId))
+                .flatMap(FoundationDbMessageStore.InsertResult::messageGuid)
+                .orElseGet(UUID::randomUUID);
 
-                        devicePresenceById.put(deviceId, present);
+            return messagesCache.insert(messageGuid, accountIdentifier, deviceId, message)
+                .thenAccept(present -> {
+                  if (message.hasSourceServiceId()) {
+                    final ServiceIdentifier sourceServiceIdentifier =
+                        ServiceIdentifier.fromByteString(message.getSourceServiceId());
 
-                        if (foundationDbInsertResults.containsKey(deviceId)) {
-                          Metrics.counter(PRESENCE_MATCH_COUNTER_NAME,
-                                  "match", String.valueOf(present == foundationDbInsertResults.get(deviceId).present()))
-                              .increment();
-                        }
-                      });
-                })
-                .toArray(CompletableFuture[]::new)))
+                    if (!accountIdentifier.equals(sourceServiceIdentifier.uuid())) {
+                      // Note that this is an asynchronous, best-effort, fire-and-forget operation
+                      reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
+                    }
+                  }
+
+                  if (!useFoundationDbPresence) {
+                    devicePresenceById.put(deviceId, present);
+                  }
+
+                  if (foundationDbInsertResults.containsKey(deviceId)) {
+                    Metrics.counter(PRESENCE_MATCH_COUNTER_NAME,
+                            "match", String.valueOf(present == foundationDbInsertResults.get(deviceId).present()))
+                        .increment();
+                  }
+                });
+          })
+          .toArray(CompletableFuture[]::new));
+        })
         .thenApply(ignored -> devicePresenceById);
   }
 
