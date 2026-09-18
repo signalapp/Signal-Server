@@ -150,6 +150,7 @@ import org.whispersystems.textsecuregcm.storage.PhoneNumberRecoveryPasswordsMana
 import org.whispersystems.textsecuregcm.storage.TooManyMfaKeysException;
 import org.whispersystems.textsecuregcm.storage.TooManyTotpKeysException;
 import org.whispersystems.textsecuregcm.storage.TotpKey;
+import org.whispersystems.textsecuregcm.storage.TotpManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -182,9 +183,9 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   private static final org.whispersystems.textsecuregcm.storage.TotpParameters TOTP_PARAMETERS =
       new org.whispersystems.textsecuregcm.storage.TotpParameters(
-          AccountsManager.TOTP.getAlgorithm(),
-          AccountsManager.TOTP.getPasswordLength(),
-          AccountsManager.TOTP.getTimeStep());
+          TotpManager.TOTP.getAlgorithm(),
+          TotpManager.TOTP.getPasswordLength(),
+          TotpManager.TOTP.getTimeStep());
 
   private static final int MFA_KEY_METADATA_SIZE = 160;
 
@@ -1160,9 +1161,9 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     assertEquals(GenerateTotpKeyResponse.ResponseCase.KEY_GENERATED, response.getResponseCase());
 
     assertArrayEquals(encodedKey, response.getKeyGenerated().getKey().toByteArray());
-    assertEquals(AccountsManager.TOTP.getAlgorithm(), response.getKeyGenerated().getTotpParameters().getAlgorithm());
-    assertEquals(AccountsManager.TOTP.getPasswordLength(), response.getKeyGenerated().getTotpParameters().getPasswordLength());
-    assertEquals(AccountsManager.TOTP.getTimeStep().toSeconds(), response.getKeyGenerated().getTotpParameters().getTimeStepSeconds());
+    assertEquals(TotpManager.TOTP.getAlgorithm(), response.getKeyGenerated().getTotpParameters().getAlgorithm());
+    assertEquals(TotpManager.TOTP.getPasswordLength(), response.getKeyGenerated().getTotpParameters().getPasswordLength());
+    assertEquals(TotpManager.TOTP.getTimeStep().toSeconds(), response.getKeyGenerated().getTotpParameters().getTimeStepSeconds());
   }
 
   @Test

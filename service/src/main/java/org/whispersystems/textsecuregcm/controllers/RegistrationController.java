@@ -432,13 +432,13 @@ public class RegistrationController {
       throw new ForbiddenException();
     }
 
-    existingAccount = checkMfa(existingAccount, registrationRequest.webAuthnResponse(), registrationRequest.totp());
-
     if (!registrationRequest.skipDeviceTransfer() && existingAccount.hasCapability(DeviceCapability.TRANSFER)) {
       // If a device transfer is possible, clients must explicitly opt out of a transfer (i.e. after prompting the user)
       // before we'll let them recover an account and start "from scratch"
       throw new WebApplicationException(Response.status(409, "device transfer available").build());
     }
+
+    existingAccount = checkMfa(existingAccount, registrationRequest.webAuthnResponse(), registrationRequest.totp());
 
     final Account reclaimedAccount = existingAccount.getNumber().isPresent()
         ? recoverAccountWithPhoneNumber(existingAccount, registrationRequest, password, userAgent, signalAgent)

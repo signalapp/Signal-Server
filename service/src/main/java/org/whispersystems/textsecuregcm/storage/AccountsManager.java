@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.storage;
 import static java.util.Objects.requireNonNull;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
@@ -64,9 +63,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
-import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -153,9 +150,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final ScheduledExecutorService messagesPollExecutor;
   private final ScheduledExecutorService retryExecutor;
   private final Clock clock;
-  private final Duration maxTotpValidationDelay;
 
-  private final KeyGenerator totpKeyGenerator;
+  private final TotpManager totpManager;
   private final WebAuthnCeremonyManager webAuthnCeremonyManager;
 
   private final Key verificationTokenKey;
@@ -210,12 +206,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
   @VisibleForTesting
   static final String LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM = "HmacSHA256";
-
-  @VisibleForTesting
-  public static final TimeBasedOneTimePasswordGenerator TOTP = new TimeBasedOneTimePasswordGenerator();
-
-  private static final TotpParameters TOTP_PARAMETERS =
-      new TotpParameters(TOTP.getAlgorithm(), TOTP.getPasswordLength(), TOTP.getTimeStep());
 
   public static final int MAX_TOTP_KEYS = 2;
   public static final int MAX_MFA_KEYS = 10;
@@ -314,8 +304,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final ScheduledExecutorService retryExecutor,
       final Clock clock,
       final byte[] linkDeviceSecret,
-      final Duration maxTotpValidationDelay,
-      final WebAuthnCeremonyManager webAuthnCeremonyManager) {
+      final WebAuthnCeremonyManager webAuthnCeremonyManager,
+      final TotpManager totpManager) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
@@ -332,13 +322,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.messagesPollExecutor = messagesPollExecutor;
     this.retryExecutor = retryExecutor;
     this.clock = requireNonNull(clock);
-
-    if (maxTotpValidationDelay.compareTo(TOTP.getTimeStep()) > 0) {
-      throw new IllegalArgumentException("Max TOTP validation delay must be less than or equal to TOTP time step");
-    }
-
-    this.maxTotpValidationDelay = maxTotpValidationDelay;
-
     this.verificationTokenKey = new SecretKeySpec(linkDeviceSecret, LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM);
 
     // Fail fast: reject bad keys
@@ -348,25 +331,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       throw new IllegalArgumentException(e);
     }
 
-    try {
-      this.totpKeyGenerator = KeyGenerator.getInstance(TOTP.getAlgorithm());
-      totpKeyGenerator.init(getTotpKeyLengthBits());
-    } catch (final NoSuchAlgorithmException e) {
-      throw new AssertionError("Every implementation of the Java platform is required to support the HmacSHA256 KeyGenerator algorithm", e);
-    }
-
     this.webAuthnCeremonyManager = webAuthnCeremonyManager;
+    this.totpManager = totpManager;
     this.pubSubConnection = pubSubRedisClient.createPubSubConnection();
-  }
-
-  @VisibleForTesting
-  static int getTotpKeyLengthBits() {
-    try {
-      // The HOTP/TOTP spec recommends using a key length that's the same as the HMAC block length
-      return Mac.getInstance(TOTP.getAlgorithm()).getMacLength() * 8;
-    } catch (final NoSuchAlgorithmException e) {
-      throw new AssertionError("Algorithm used by TOTP generator not found", e);
-    }
   }
 
   @Override
@@ -2052,8 +2019,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   /// @throws TooManyTotpKeysException if the target account already has at least [#MAX_TOTP_KEYS] TOTP keys
   /// @throws TooManyMfaKeysException if the target account already has at least [#MAX_MFA_KEYS] total MFA keys
   public TotpKey generatePendingTotpKey(final UUID accountIdentifier) throws TooManyTotpKeysException, TooManyMfaKeysException {
-    final SecretKey secretKey = totpKeyGenerator.generateKey();
-    final TotpKey pendingTotpKey = new TotpKey(TOTP_PARAMETERS, secretKey.getEncoded());
+    final TotpKey pendingTotpKey = totpManager.generateTotpKey();
 
     try {
       update(accountIdentifier, account -> {
@@ -2105,7 +2071,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final TotpKey pendingTotpKey = maybePendingTotpKey.get();
 
       try {
-        if (verifyTotp(pendingTotpKey, timestamp, oneTimePassword)) {
+        if (totpManager.checkTotpMatches(accountIdentifier, pendingTotpKey, timestamp, oneTimePassword)) {
           final AtomicInteger keyId = new AtomicInteger();
 
           update(accountIdentifier, account -> {
@@ -2148,7 +2114,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             .max(Map.Entry.comparingByKey())
             .filter(entry -> {
               try {
-                return verifyTotp((AnnotatedTotpKey) entry.getValue(), timestamp, oneTimePassword);
+                return totpManager.checkTotpMatches(accountIdentifier, (AnnotatedTotpKey) entry.getValue(), timestamp, oneTimePassword);
               } catch (final InvalidKeyException e) {
                 ImpossibleEvents.logImpossible(logger, "Invalid TOTP key for account {}", accountIdentifier, e);
                 return false;
@@ -2158,36 +2124,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   public boolean verifyTotp(final Account account, final Instant validationTimestamp, @Nullable final Integer oneTimePassword) {
-    final List<AnnotatedTotpKey> totpKeys = account.getMfaKeys().values().stream().filter(AnnotatedTotpKey.class::isInstance).map(AnnotatedTotpKey.class::cast).toList();
-    if (totpKeys.isEmpty()) {
-      return oneTimePassword == null;
-    }
-
-    if (oneTimePassword == null) {
-      // The account has TOTP keys, but the caller hasn't provided a one-time password
-      return false;
-    }
-
-    for (final SecretKey totpKey : totpKeys) {
-      try {
-        if (verifyTotp(totpKey, validationTimestamp, oneTimePassword)) {
-          return true;
-        }
-      } catch (final InvalidKeyException e) {
-        ImpossibleEvents.logImpossible(logger, "Invalid TOTP key for account {}", account.getAccountIdentifier(), e);
-      }
-    }
-
-    return false;
-  }
-
-  private boolean verifyTotp(final SecretKey totpKey, final Instant validationTimestamp, final int oneTimePassword) throws InvalidKeyException {
-    for (final Instant timestamp : new Instant[]{validationTimestamp, validationTimestamp.minus(maxTotpValidationDelay)}) {
-      if (TOTP.validateOneTimePassword(totpKey, timestamp, oneTimePassword)) {
-        return true;
-      }
-    }
-    return false;
+    return totpManager.verifyTotp(account, validationTimestamp, oneTimePassword);
   }
 
   /// Returns server-generated parameters needed to initiate a WebAuthn registration ceremony for the given account.

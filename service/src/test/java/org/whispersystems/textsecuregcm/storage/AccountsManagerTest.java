@@ -80,7 +80,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.function.Executable;
@@ -138,11 +137,11 @@ class AccountsManagerTest {
 
   private static final byte[] LINK_DEVICE_SECRET = "link-device-secret".getBytes(StandardCharsets.UTF_8);
 
-  private static final Duration MAX_TOTP_VALIDATION_DELAY = AccountsManager.TOTP.getTimeStep().dividedBy(2);
+  private static final Duration MAX_TOTP_VALIDATION_DELAY = TotpManager.TOTP.getTimeStep().dividedBy(2);
 
-  private static final TotpParameters TOTP_PARAMETERS = new TotpParameters(AccountsManager.TOTP.getAlgorithm(),
-      AccountsManager.TOTP.getPasswordLength(),
-      AccountsManager.TOTP.getTimeStep());
+  private static final TotpParameters TOTP_PARAMETERS = new TotpParameters(TotpManager.TOTP.getAlgorithm(),
+      TotpManager.TOTP.getPasswordLength(),
+      TotpManager.TOTP.getTimeStep());
 
   private static TestClock CLOCK;
 
@@ -270,8 +269,8 @@ class AccountsManagerTest {
         mock(ScheduledExecutorService.class),
         CLOCK,
         LINK_DEVICE_SECRET,
-        MAX_TOTP_VALIDATION_DELAY,
-        webAuthnCeremonyManager);
+        webAuthnCeremonyManager,
+        new TotpManager(redisCluster, MAX_TOTP_VALIDATION_DELAY));
   }
 
   @ParameterizedTest
@@ -2004,7 +2003,7 @@ class AccountsManagerTest {
       final Instant timestamp = Instant.now();
 
       assertEquals(Optional.of(nextTotpKeyId), accountsManager.confirmPendingTotpKey(accountIdentifier,
-          AccountsManager.TOTP.generateOneTimePassword(pendingTotpKey, timestamp),
+          TotpManager.TOTP.generateOneTimePassword(pendingTotpKey, timestamp),
           timestamp,
           TestRandomUtil.nextBytes(16)));
 
@@ -2028,18 +2027,18 @@ class AccountsManagerTest {
       when(account.getNextMfaKeyId()).thenReturn(nextTotpKeyId);
 
       final Instant beginningOfTotpWindow = totpWindowStart(Instant.now());
-      final int oneTimePassword = AccountsManager.TOTP.generateOneTimePassword(pendingTotpKey, beginningOfTotpWindow);
+      final int oneTimePassword = TotpManager.TOTP.generateOneTimePassword(pendingTotpKey, beginningOfTotpWindow);
 
       // Should be rejected since even after delay allowance, our otp is from the previous window
       assertEquals(Optional.empty(), accountsManager.confirmPendingTotpKey(accountIdentifier,
           oneTimePassword,
-          beginningOfTotpWindow.plus(AccountsManager.TOTP.getTimeStep()).plus(MAX_TOTP_VALIDATION_DELAY),
+          beginningOfTotpWindow.plus(TotpManager.TOTP.getTimeStep()).plus(MAX_TOTP_VALIDATION_DELAY),
           TestRandomUtil.nextBytes(16)));
 
       // Should still be accepted as MAX_TOTP_VALIDATION_DELAY delay brings us to the otp's window
       assertEquals(Optional.of(nextTotpKeyId), accountsManager.confirmPendingTotpKey(accountIdentifier,
           oneTimePassword,
-          beginningOfTotpWindow.plus(AccountsManager.TOTP.getTimeStep())
+          beginningOfTotpWindow.plus(TotpManager.TOTP.getTimeStep())
               .plus(MAX_TOTP_VALIDATION_DELAY)
               .minus(Duration.ofMillis(1)),
           TestRandomUtil.nextBytes(16)));
@@ -2058,8 +2057,8 @@ class AccountsManagerTest {
 
       final AnnotatedTotpKey confirmedTotpKey;
       {
-        final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP.getAlgorithm());
-        totpKeyGenerator.init(AccountsManager.getTotpKeyLengthBits());
+        final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(TotpManager.TOTP.getAlgorithm());
+        totpKeyGenerator.init(TotpManager.getTotpKeyLengthBits());
 
         confirmedTotpKey = new AnnotatedTotpKey(
             new TotpKey(TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
@@ -2076,7 +2075,7 @@ class AccountsManagerTest {
       final Instant timestamp = Instant.now();
 
       assertEquals(Optional.of(keyId), accountsManager.confirmPendingTotpKey(accountIdentifier,
-          AccountsManager.TOTP.generateOneTimePassword(confirmedTotpKey, timestamp),
+          TotpManager.TOTP.generateOneTimePassword(confirmedTotpKey, timestamp),
           timestamp,
           TestRandomUtil.nextBytes(16)));
     }
@@ -2099,7 +2098,7 @@ class AccountsManagerTest {
       final Instant timestamp = Instant.now();
 
       assertEquals(Optional.empty(), accountsManager.confirmPendingTotpKey(accountIdentifier,
-          AccountsManager.TOTP.generateOneTimePassword(pendingTotpKey, timestamp),
+          TotpManager.TOTP.generateOneTimePassword(pendingTotpKey, timestamp),
           timestamp,
           TestRandomUtil.nextBytes(16)));
     }
@@ -2122,7 +2121,7 @@ class AccountsManagerTest {
       when(account.getNextMfaKeyId()).thenReturn(nextTotpKeyId);
 
       final Instant timestamp = Instant.now();
-      final int incorrectPassword = AccountsManager.TOTP.generateOneTimePassword(pendingTotpKey, timestamp) + 1;
+      final int incorrectPassword = TotpManager.TOTP.generateOneTimePassword(pendingTotpKey, timestamp) + 1;
 
       assertEquals(Optional.empty(), accountsManager.confirmPendingTotpKey(accountIdentifier,
           incorrectPassword,
@@ -2133,94 +2132,9 @@ class AccountsManagerTest {
     }
   }
 
-  @ParameterizedTest
-  @MethodSource
-  void verifyTotp(final Map<Byte, AnnotatedMfaKey> mfaKeys,
-      final Instant timestamp,
-      @Nullable final Integer oneTimePassword,
-      final boolean expectVerified) {
-
-    final Account account = mock(Account.class);
-    when(account.getMfaKeys()).thenReturn(mfaKeys);
-
-    assertEquals(expectVerified, accountsManager.verifyTotp(account, timestamp, oneTimePassword));
-  }
-
-  private static List<Arguments> verifyTotp() throws NoSuchAlgorithmException, InvalidKeyException {
-    final Instant timestamp = Instant.now();
-
-    final AnnotatedTotpKey totpKey;
-    final AnnotatedTotpKey secondTotpKey;
-    {
-      final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP.getAlgorithm());
-      totpKeyGenerator.init(AccountsManager.getTotpKeyLengthBits());
-
-      totpKey = new AnnotatedTotpKey(
-          new TotpKey(TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
-          TestRandomUtil.nextBytes(16));
-
-      secondTotpKey = new AnnotatedTotpKey(
-          new TotpKey(TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
-          TestRandomUtil.nextBytes(16));
-    }
-
-    return List.of(
-        Arguments.argumentSet("No keys, no password provided",
-            Collections.emptyMap(), timestamp, null, true),
-
-        Arguments.argumentSet("No keys, password provided",
-            Collections.emptyMap(), timestamp, 123456, false),
-
-        Arguments.argumentSet("Has key, correct password provided",
-            Map.of((byte) 1, totpKey), timestamp, AccountsManager.TOTP.generateOneTimePassword(totpKey, timestamp), true),
-
-        Arguments.argumentSet("Has key, incorrect password provided",
-            Map.of((byte) 1, totpKey), timestamp, AccountsManager.TOTP.generateOneTimePassword(totpKey, timestamp) + 1, false),
-
-        Arguments.argumentSet("Has key, no password provided",
-            Map.of((byte) 1, totpKey), timestamp, null, false),
-
-        Arguments.argumentSet("Has multiple keys, correct password provided for one key",
-            Map.of((byte) 1, totpKey, (byte) 2, secondTotpKey), timestamp, AccountsManager.TOTP.generateOneTimePassword(totpKey, timestamp), true)
-    );
-  }
-
-  @RepeatedTest(value = 10, failureThreshold = 2)
-  void verifyTotpWithDelay() throws NoSuchAlgorithmException, InvalidKeyException, TooManyMfaKeysException {
-    final AnnotatedTotpKey totpKey;
-    {
-      final KeyGenerator totpKeyGenerator = KeyGenerator.getInstance(AccountsManager.TOTP.getAlgorithm());
-      totpKeyGenerator.init(AccountsManager.getTotpKeyLengthBits());
-
-      totpKey = new AnnotatedTotpKey(
-          new TotpKey(TOTP_PARAMETERS, totpKeyGenerator.generateKey().getEncoded()),
-          TestRandomUtil.nextBytes(16));
-    }
-
-    final Account account = mock(Account.class);
-    when(account.getMfaKeys()).thenReturn(Map.of((byte) 1, totpKey));
-
-    final Instant beginningOfTotpWindow = totpWindowStart(Instant.now());
-    final int oneTimePassword = AccountsManager.TOTP.generateOneTimePassword(totpKey, beginningOfTotpWindow);
-
-    assertTrue(accountsManager.verifyTotp(account, beginningOfTotpWindow, oneTimePassword),
-        "One-time password should be valid at the start of the window in which it was generated");
-
-    assertTrue(accountsManager.verifyTotp(account, beginningOfTotpWindow.plus(AccountsManager.TOTP.getTimeStep()), oneTimePassword),
-        "One-time password should be valid at the start of the window after which it was generated");
-
-    assertTrue(accountsManager.verifyTotp(account, beginningOfTotpWindow.plus(AccountsManager.TOTP.getTimeStep()).plus(MAX_TOTP_VALIDATION_DELAY).minusMillis(1), oneTimePassword),
-        "One-time password should be valid up until max delay after end of current TOTP window");
-
-    // With six-digit OTPs, there's a one-in-a-million chance of this returning a false positive, and so we repeat the
-    // test several allowing for failure
-    assertFalse(accountsManager.verifyTotp(account, beginningOfTotpWindow.plus(AccountsManager.TOTP.getTimeStep()).plus(MAX_TOTP_VALIDATION_DELAY), oneTimePassword),
-        "One-time password should not be valid after max delay past end of current TOTP window");
-  }
-
   private static Instant totpWindowStart(final Instant instant) {
-    return Instant.ofEpochMilli((instant.toEpochMilli() / AccountsManager.TOTP.getTimeStep().toMillis()) *
-        AccountsManager.TOTP.getTimeStep().toMillis());
+    return Instant.ofEpochMilli((instant.toEpochMilli() / TotpManager.TOTP.getTimeStep().toMillis()) *
+        TotpManager.TOTP.getTimeStep().toMillis());
   }
 
   @Nested
