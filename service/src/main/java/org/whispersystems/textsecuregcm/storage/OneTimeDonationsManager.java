@@ -51,6 +51,8 @@ public class OneTimeDonationsManager {
 
     final GetItemResponse getItemResponse = dynamoDbClient.getItem(getItemRequest);
     if (!getItemResponse.hasItem()) {
+      // This can happen if the upstream call races the asynchronous webhook that notifies of payment success,
+      // and usually the `paidAt` will be within a few seconds of the fallback
       Metrics.counter(ONETIME_DONATION_NOT_FOUND_COUNTER_NAME, Tags.of("processor", paymentProvider.name())).increment();
       return fallbackTimestamp;
     }
