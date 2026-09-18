@@ -56,7 +56,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
@@ -65,8 +64,6 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRegistrationConfiguration;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.entities.VerificationSessionResponse;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -115,7 +112,6 @@ class VerificationControllerTest {
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final CarrierDataProvider carrierDataProvider = mock(CarrierDataProvider.class);
-  private final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
   private final Clock clock = TestClock.pinned(Instant.now());
 
   private final RateLimiter captchaLimiter = mock(RateLimiter.class);
@@ -137,7 +133,7 @@ class VerificationControllerTest {
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,
               registrationCaptchaManager, phoneNumberRecoveryPasswordsManager, phoneNumberIdentifiers, rateLimiters, accountsManager,
-              carrierDataProvider, RegistrationFraudChecker.noop(), dynamicConfigurationManager, experimentEnrollmentManager, clock))
+              carrierDataProvider, RegistrationFraudChecker.noop(), dynamicConfigurationManager, clock))
       .build();
 
   @BeforeEach
@@ -156,8 +152,6 @@ class VerificationControllerTest {
         .thenReturn(dynamicConfiguration);
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER))
         .thenReturn(CompletableFuture.completedFuture(PNI));
-    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(VerificationController.VERIFICATION_CODE_PUSH_NOTIFICATION_EXPERIMENT_NAME)))
-        .thenReturn(true);
   }
 
   @ParameterizedTest
@@ -1035,9 +1029,9 @@ class VerificationControllerTest {
     }
   }
 
-  @CartesianTest
-  void requestVerificationCodeSuccess(@CartesianTest.Values(booleans = {true, false}) final boolean accountExistsWithNumber,
-      @CartesianTest.Values(booleans = {true, false}) final boolean enrolledInExperiment)
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void requestVerificationCodeSuccess(final boolean accountExistsWithNumber)
       throws NotPushRegisteredException, RegistrationServiceException, RegistrationServiceSenderException, RegistrationFraudException, VerificationSessionRateLimitExceededException {
     final String encodedSessionId = encodeSessionId(SESSION_ID);
     final RegistrationServiceSession registrationServiceSession = new RegistrationServiceSession(SESSION_ID, NUMBER,
@@ -1059,9 +1053,6 @@ class VerificationControllerTest {
     when(accountsManager.getByE164(any()))
         .thenReturn(accountExistsWithNumber ? Optional.of(existingAccount) : Optional.empty());
 
-    when(experimentEnrollmentManager.isEnrolled(accountIdentifier, VerificationController.VERIFICATION_CODE_PUSH_NOTIFICATION_EXPERIMENT_NAME))
-        .thenReturn(enrolledInExperiment);
-
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId + "/code")
         .request()
@@ -1076,7 +1067,7 @@ class VerificationControllerTest {
       assertTrue(verificationSessionResponse.allowedToRequestCode());
       assertTrue(verificationSessionResponse.requestedInformation().isEmpty());
 
-      if (accountExistsWithNumber && enrolledInExperiment) {
+      if (accountExistsWithNumber) {
         verify(pushNotificationManager).sendVerificationCodeRequestedNotifications(existingAccount, clock.instant());
       } else {
         verify(pushNotificationManager, never()).sendVerificationCodeRequestedNotifications(any(), any());
