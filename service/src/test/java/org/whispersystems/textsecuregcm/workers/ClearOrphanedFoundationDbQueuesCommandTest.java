@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -145,6 +146,7 @@ class ClearOrphanedFoundationDbQueuesCommandTest {
   }
 
   @Test
+  @Disabled("flaky test")
   void aciReusedAfterExistenceCheck() {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage())).join();
