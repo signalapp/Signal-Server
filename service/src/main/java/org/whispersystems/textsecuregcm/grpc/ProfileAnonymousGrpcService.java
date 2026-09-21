@@ -21,8 +21,8 @@ import org.signal.chat.profile.ExtendAvatarTTLRequest;
 import org.signal.chat.profile.ExtendAvatarTTLResponse;
 import org.signal.chat.profile.GetAvatarUploadFormRequest;
 import org.signal.chat.profile.GetAvatarUploadFormResponse;
-import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest;
-import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetProfileAnonymousRequest;
 import org.signal.chat.profile.GetProfileAnonymousResponse;
 import org.signal.chat.profile.SimpleProfileAnonymousGrpc;
@@ -143,11 +143,11 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
   }
 
   @Override
-  public GetExpiringProfileKeyCredentialAnonymousResponse getExpiringProfileKeyCredential(
-      final GetExpiringProfileKeyCredentialAnonymousRequest request) {
-    final ServiceIdentifier targetIdentifier = GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
+  public GetExpiringProfileKeyCredentialResponse getExpiringProfileKeyCredential(
+      final GetExpiringProfileKeyCredentialRequest request) {
+    final ServiceIdentifier targetIdentifier = GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getAccountIdentifier());
 
-    if (request.getRequest().getCredentialType() != CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY) {
+    if (request.getCredentialType() != CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY) {
       throw GrpcExceptions.invalidArguments("invalid credential type");
     }
 
@@ -156,14 +156,14 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
 
     return maybeAccount.map(account ->
         ProfileGrpcHelper.getExpiringProfileKeyCredentialResult(account,
-                request.getRequest().getVersion().toByteArray(), request.getRequest().getCredentialRequest().toByteArray(),
+                request.getVersion().toByteArray(), request.getCredentialRequest().toByteArray(),
                 profilesManager, zkProfileOperations)
-            .map(result -> GetExpiringProfileKeyCredentialAnonymousResponse.newBuilder()
+            .map(result -> GetExpiringProfileKeyCredentialResponse.newBuilder()
                 .setResult(result)
                 .build())
-            .orElseGet(() -> GetExpiringProfileKeyCredentialAnonymousResponse.newBuilder()
+            .orElseGet(() -> GetExpiringProfileKeyCredentialResponse.newBuilder()
                 .setNotFound(NotFound.getDefaultInstance())
-                .build())).orElseGet(() -> GetExpiringProfileKeyCredentialAnonymousResponse.newBuilder()
+                .build())).orElseGet(() -> GetExpiringProfileKeyCredentialResponse.newBuilder()
         .setNotFound(NotFound.getDefaultInstance())
         .build());
 

@@ -61,9 +61,8 @@ import org.signal.chat.profile.ExtendAvatarTTLRequest;
 import org.signal.chat.profile.ExtendAvatarTTLResponse;
 import org.signal.chat.profile.GetAvatarUploadFormRequest;
 import org.signal.chat.profile.GetAvatarUploadFormResponse;
-import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest;
-import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
+import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetProfileAnonymousRequest;
 import org.signal.chat.profile.GetProfileAnonymousResponse;
 import org.signal.chat.profile.GetProfileRequest;
@@ -524,20 +523,18 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();
 
-    final GetExpiringProfileKeyCredentialAnonymousRequest request = GetExpiringProfileKeyCredentialAnonymousRequest.newBuilder()
-        .setRequest(GetExpiringProfileKeyCredentialRequest.newBuilder()
-            .setAccountIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
-                .build())
-            .setCredentialRequest(ByteString.copyFrom(credentialRequest.serialize()))
-            .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
-            .setVersion(ByteString.copyFrom(profileKeyBytes))
+    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
             .build())
+        .setCredentialRequest(ByteString.copyFrom(credentialRequest.serialize()))
+        .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
+        .setVersion(ByteString.copyFrom(profileKeyBytes))
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
         .build();
 
-    final GetExpiringProfileKeyCredentialAnonymousResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(request);
+    final GetExpiringProfileKeyCredentialResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(request);
 
     final Instant expectedExpiration = Instant.now().plus(org.whispersystems.textsecuregcm.util.ProfileHelper.EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION)
         .truncatedTo(ChronoUnit.DAYS);
@@ -559,16 +556,14 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(
         missingAccount ? Optional.empty() : Optional.of(account));
 
-    final GetExpiringProfileKeyCredentialAnonymousRequest.Builder requestBuilder = GetExpiringProfileKeyCredentialAnonymousRequest.newBuilder()
-        .setRequest(GetExpiringProfileKeyCredentialRequest.newBuilder()
-            .setAccountIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
-                .build())
-            .setCredentialRequest(ByteString.copyFrom("credentialRequest".getBytes(StandardCharsets.UTF_8)))
-            .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
-            .setVersion(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
-            .build());
+    final GetExpiringProfileKeyCredentialRequest.Builder requestBuilder = GetExpiringProfileKeyCredentialRequest.newBuilder()
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
+            .build())
+        .setCredentialRequest(ByteString.copyFrom("credentialRequest".getBytes(StandardCharsets.UTF_8)))
+        .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
+        .setVersion(ByteString.copyFrom(TestRandomUtil.nextBytes(32)));
 
     if (missingUnidentifiedAccessKey) {
       assertStatusException(Status.INVALID_ARGUMENT,
@@ -577,7 +572,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     } else {
       requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
 
-      final GetExpiringProfileKeyCredentialAnonymousResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(
+      final GetExpiringProfileKeyCredentialResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(
           requestBuilder.build());
 
       assertEquals(missingAccount, response.hasNotFound());
@@ -611,20 +606,18 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(profilesManager.getV1(targetUuid, versionHex)).thenReturn(Optional.empty());
     when(profilesManager.get(eq(targetUuid), aryEq(version))).thenReturn(Optional.empty());
 
-    final GetExpiringProfileKeyCredentialAnonymousRequest request = GetExpiringProfileKeyCredentialAnonymousRequest.newBuilder()
+    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
-        .setRequest(GetExpiringProfileKeyCredentialRequest.newBuilder()
-            .setAccountIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
-                .build())
-            .setCredentialRequest(ByteString.copyFrom("credentialRequest".getBytes(StandardCharsets.UTF_8)))
-            .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
-            .setVersion(ByteString.copyFrom(version))
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
             .build())
+        .setCredentialRequest(ByteString.copyFrom("credentialRequest".getBytes(StandardCharsets.UTF_8)))
+        .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
+        .setVersion(ByteString.copyFrom(version))
         .build();
 
-    final GetExpiringProfileKeyCredentialAnonymousResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(
+    final GetExpiringProfileKeyCredentialResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(
         request);
 
     assertTrue(response.hasNotFound());
@@ -653,17 +646,15 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
           .when(zkProfileOperations).issueExpiringProfileKeyCredential(any(), any(), any(), any());
     }
 
-    final GetExpiringProfileKeyCredentialAnonymousRequest request = GetExpiringProfileKeyCredentialAnonymousRequest.newBuilder()
+    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
-        .setRequest(GetExpiringProfileKeyCredentialRequest.newBuilder()
-            .setAccountIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(identityType)
-                .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
-                .build())
-            .setCredentialRequest(ByteString.copyFrom(credentialRequest))
-            .setCredentialType(credentialType)
-            .setVersion(ByteString.copyFrom(version))
+        .setAccountIdentifier(ServiceIdentifier.newBuilder()
+            .setIdentityType(identityType)
+            .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
             .build())
+        .setCredentialRequest(ByteString.copyFrom(credentialRequest))
+        .setCredentialType(credentialType)
+        .setVersion(ByteString.copyFrom(version))
         .build();
 
     assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getExpiringProfileKeyCredential(request));

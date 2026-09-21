@@ -57,7 +57,7 @@ service ProfileAnonymous {
   rpc GetProfile(GetProfileAnonymousRequest) returns (GetProfileAnonymousResponse) {}
 
   // Retrieves a profile key credential.
-  rpc GetExpiringProfileKeyCredential(GetExpiringProfileKeyCredentialAnonymousRequest) returns (GetExpiringProfileKeyCredentialAnonymousResponse) {}
+  rpc GetExpiringProfileKeyCredential(GetExpiringProfileKeyCredentialRequest) returns (GetExpiringProfileKeyCredentialResponse) {}
 
   // Returns credentials to upload a v2 avatar. After uploading the avatar, the client
   // must call SetProfile with the new avatar URL in the encrypted `data`.
@@ -341,13 +341,8 @@ message GetExpiringProfileKeyCredentialRequest {
   CredentialType credential_type = 3 [(require.specified) = true];
   // The profile version for which to generate a profile key credential.
   bytes version = 4 [(require.exactlySize) = 32];
-}
-
-message GetExpiringProfileKeyCredentialAnonymousRequest {
-  // Contains the data necessary to request an expiring profile key credential.
-  GetExpiringProfileKeyCredentialRequest request = 1 [(require.present) = true];
   // The unidentified access key for the targeted account.
-  bytes unidentified_access_key = 2 [(require.exactlySize) = 16];
+  bytes unidentified_access_key = 5 [(require.exactlySize) = 16];
 }
 
 message GetExpiringProfileKeyCredentialResult {
@@ -356,7 +351,7 @@ message GetExpiringProfileKeyCredentialResult {
   bytes profile_key_credential = 1;
 }
 
-message GetExpiringProfileKeyCredentialAnonymousResponse {
+message GetExpiringProfileKeyCredentialResponse {
   oneof response {
     GetExpiringProfileKeyCredentialResult result = 1;
     errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
