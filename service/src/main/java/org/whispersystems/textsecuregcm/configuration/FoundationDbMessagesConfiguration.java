@@ -26,7 +26,7 @@ import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessage
 /// @param batchPriorityTransactionTimeout the maximum time for a batch priority transaction. Should be greater than or equal to {@link transactionTimeout}
 /// @param batchPriorityTransactionRetryLimit the maximum number of retries permitted _within_ a batch priority transaction
 public record FoundationDbMessagesConfiguration(@NotEmpty Map<String, @Valid FoundationDbDatabaseFactory> clusters,
-                                                @NotEmpty Map<@PositiveOrZero @Max(FoundationDbMessageStore.MAX_EPOCHS - 1) Integer, @Size(min = 1, max = FoundationDbMessageStore.MAX_SHARDS - 1) List<String>> epochs,
+                                                @NotEmpty Map<@PositiveOrZero @Max(FoundationDbMessageStore.MAX_EPOCHS - 1) Integer, @Size(min = 1, max = FoundationDbMessageStore.MAX_SHARDS) List<String>> epochs,
                                                 @PositiveOrZero @Max(FoundationDbMessageStore.MAX_EPOCHS - 1) int activeEpoch,
                                                 @NotEmpty Map<@PositiveOrZero @Max(63) Integer, SecretBytes> versionstampCipherKeys,
                                                 @PositiveOrZero @Max(63) int currentVersionstampCipherKey,
