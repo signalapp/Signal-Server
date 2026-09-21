@@ -6781,7 +6781,7 @@ components:
             the subscription
         amount:
           type: number
-          description: The amount paid for the subscription in the currency's smallest
+          description: The amount paid for the subscription in the currency's minor
             unit
           externalDocs:
             description: Stripe Currencies

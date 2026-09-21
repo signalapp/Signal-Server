@@ -1158,12 +1158,12 @@ https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
         maximum
       </td>
       <td>
-        <code title="string">
+        <code title="uint64">
           
-          <span>string</span>
+          <span>uint64</span>
         </code>
       </td>
-      <td class="content"><p>The maximum amount for a SEPA transaction</p></td>
+      <td class="content"><p>The maximum amount for a SEPA transaction in the <a href="https://docs.stripe.com/currencies#minor-units">currency's minor unit</a></p></td>
       
     </tr>
     
@@ -1208,12 +1208,12 @@ https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
         minimum
       </td>
       <td>
-        <code title="string">
+        <code title="uint64">
           
-          <span>string</span>
+          <span>uint64</span>
         </code>
       </td>
-      <td class="content"><p>The minimum amount for the currency</p></td>
+      <td class="content"><p>The minimum amount for the currency in the <a href="https://docs.stripe.com/currencies#minor-units">currency's minor unit</a></p></td>
       
     </tr>
     
@@ -1258,15 +1258,17 @@ https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
         amounts
       </td>
       <td>
-        <code title="string">
+        <code title="uint64">
           
             repeated
           
-          <span>string</span>
+          <span>uint64</span>
         </code>
       </td>
-      <td class="content"><p>NOTE: this is a string instead of a numeric type because it is intended
-for display purposes only</p></td>
+      <td class="content"><p>Amount in the currency's minor unit. Unless otherwise noted, currencies are
+two-decimal: divide by 100 to get the value in the specified currency.
+Some currencies are <a href="https://docs.stripe.com/currencies#zero-decimal">zero-decimal</a>;
+for zero-decimal currencies no multiplication is required.</p></td>
       
     </tr>
     
@@ -3741,14 +3743,12 @@ the subscription</p></td>
         minimum
       </td>
       <td>
-        <code title="string">
+        <code title="uint64">
           
-          <span>string</span>
+          <span>uint64</span>
         </code>
       </td>
-      <td class="content"><p>Minimum one-time donation
-NOTE: this is a string instead of a numeric type because it is intended
-for display purposes only</p></td>
+      <td class="content"><p>Minimum one-time donation in the currency's minor unit</p></td>
       
     </tr>
     
@@ -3773,12 +3773,13 @@ for display purposes only</p></td>
         subscription
       </td>
       <td>
-        <code title="map&lt;uint64, string&gt;">
+        <code title="map&lt;uint64, uint64&gt;">
           
-          <span>map&lt;uint64, string&gt;</span>
+          <span>map&lt;uint64, uint64&gt;</span>
         </code>
       </td>
-      <td class="content"><p>Map of subscription level IDs to the amount charged</p></td>
+      <td class="content"><p>Map of subscription level IDs to the amount charged in the currency's minor
+unit</p></td>
       
     </tr>
     
@@ -3788,12 +3789,13 @@ for display purposes only</p></td>
         backup_subscription
       </td>
       <td>
-        <code title="map&lt;uint64, string&gt;">
+        <code title="map&lt;uint64, uint64&gt;">
           
-          <span>map&lt;uint64, string&gt;</span>
+          <span>map&lt;uint64, uint64&gt;</span>
         </code>
       </td>
-      <td class="content"><p>Map of backup subscription level IDs to the amount charged</p></td>
+      <td class="content"><p>Map of backup subscription level IDs to the amount charged in the
+currency's minor unit</p></td>
       
     </tr>
     
@@ -4193,12 +4195,12 @@ for display purposes only</p></td>
         sepa_maximum_euros
       </td>
       <td>
-        <code title="string">
+        <code title="uint64">
           
-          <span>string</span>
+          <span>uint64</span>
         </code>
       </td>
-      <td class="content"><p>Maximum value of a one-time SEPA donation</p></td>
+      <td class="content"><p>Maximum value of a one-time SEPA donation, in EUR <a href="https://docs.stripe.com/currencies#minor-units">minor units</a></p></td>
       
     </tr>
     
@@ -6103,7 +6105,7 @@ the subscription</p></td>
           <span>uint64</span>
         </code>
       </td>
-      <td class="content"><p>The amount paid for the subscription in the currency's smallest unit</p></td>
+      <td class="content"><p>The amount paid for the subscription in the currency's minor unit</p></td>
       
     </tr>
     
