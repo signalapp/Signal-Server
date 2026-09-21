@@ -199,13 +199,10 @@ import org.whispersystems.textsecuregcm.grpc.net.SniMapper;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
-import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
-import org.whispersystems.textsecuregcm.limits.NoopMessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.limits.RedisMessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.mappers.BackupExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
@@ -850,8 +847,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getDonationPermits().getTableName(), config.getDynamoDbTables().getDonationPermits().getExpiration(), dynamoDbClient);
     Subscriptions subscriptions = new Subscriptions(
         config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbClient);
-    MessageDeliveryLoopMonitor messageDeliveryLoopMonitor =
-        config.logMessageDeliveryLoops() ? new RedisMessageDeliveryLoopMonitor(rateLimitersCluster) : new NoopMessageDeliveryLoopMonitor();
     CallQualitySurveyManager callQualitySurveyManager = new CallQualitySurveyManager(asnInfoProviderSupplier,
         config.getCallQualitySurveyConfiguration().pubSubPublisher().build(),
         Clock.systemUTC(),
@@ -1113,8 +1108,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final GroupSendTokenUtil groupSendTokenUtil = new GroupSendTokenUtil(groupZkSecretParams, Clock.systemUTC());
     final MessageMetrics messageMetrics = new MessageMetrics();
     final MessageDispatcher messageDispatcher = new MessageDispatcher(receiptSender, messagesManager, messageMetrics,
-        pushNotificationManager, pushNotificationScheduler, messageDeliveryLoopMonitor, disconnectionRequestManager,
-        clientReleaseManager);
+        pushNotificationManager, pushNotificationScheduler, disconnectionRequestManager, clientReleaseManager);
 
     final CertificateGenerator certificateGenerator =
         new CertificateGenerator(config.getDeliveryCertificate().certificate(),
@@ -1273,7 +1267,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(accountsManager, receiptSender, messagesManager, messageMetrics, pushNotificationManager,
             pushNotificationScheduler, disconnectionRequestManager,
-            messageDeliveryScheduler, asnInfoProviderSupplier, clientReleaseManager, messageDeliveryLoopMonitor, experimentEnrollmentManager
+            messageDeliveryScheduler, asnInfoProviderSupplier, clientReleaseManager, experimentEnrollmentManager
         ));
     webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));

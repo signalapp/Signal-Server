@@ -50,7 +50,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
@@ -158,7 +157,6 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(MessageDeliveryLoopMonitor.class),
         mock(ExperimentEnrollmentManager.class)
     );
 
@@ -233,7 +231,6 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(MessageDeliveryLoopMonitor.class),
         mock(ExperimentEnrollmentManager.class)
     );
 
@@ -328,7 +325,6 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(MessageDeliveryLoopMonitor.class),
         mock(ExperimentEnrollmentManager.class)
     );
 

@@ -54,7 +54,6 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.PriorityFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
@@ -132,7 +131,6 @@ class AuthenticatedConnectListenerIntegrationTest {
           Schedulers.boundedElastic(),
           () -> mock(AsnInfoProvider.class),
           mock(ClientReleaseManager.class),
-          mock(MessageDeliveryLoopMonitor.class),
           mock(ExperimentEnrollmentManager.class));
 
       final WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment =

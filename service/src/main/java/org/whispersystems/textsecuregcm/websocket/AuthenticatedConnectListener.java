@@ -15,7 +15,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.OpenWebSocketCounter;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -60,7 +59,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final Scheduler messageDeliveryScheduler,
       final Supplier<AsnInfoProvider> asnInfoProviderSupplier,
       final ClientReleaseManager clientReleaseManager,
-      final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
       final ExperimentEnrollmentManager experimentEnrollmentManager) {
 
     this(accountsManager,
@@ -78,7 +76,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
             client,
             messageDeliveryScheduler,
             clientReleaseManager,
-            messageDeliveryLoopMonitor,
             experimentEnrollmentManager)
     );
   }

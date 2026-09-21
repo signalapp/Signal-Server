@@ -340,9 +340,6 @@ public class WhisperServerConfiguration extends Configuration {
   private KeyTransparencyServiceConfiguration keyTransparencyService;
 
   @JsonProperty
-  private boolean logMessageDeliveryLoops;
-
-  @JsonProperty
   private IdlePrimaryDeviceReminderConfiguration idlePrimaryDeviceReminder =
       new IdlePrimaryDeviceReminderConfiguration(Duration.ofDays(30));
 
@@ -614,10 +611,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public KeyTransparencyServiceConfiguration getKeyTransparencyServiceConfiguration() {
     return keyTransparencyService;
-  }
-
-  public boolean logMessageDeliveryLoops() {
-    return logMessageDeliveryLoops;
   }
 
   public IdlePrimaryDeviceReminderConfiguration idlePrimaryDeviceReminderConfiguration() {

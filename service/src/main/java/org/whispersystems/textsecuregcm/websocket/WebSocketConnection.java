@@ -32,7 +32,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
-import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -90,7 +89,6 @@ public class WebSocketConnection {
   private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
   private final PushNotificationScheduler pushNotificationScheduler;
-  private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private final Account authenticatedAccount;
@@ -117,7 +115,6 @@ public class WebSocketConnection {
       final WebSocketClient client,
       final Scheduler messageDeliveryScheduler,
       final ClientReleaseManager clientReleaseManager,
-      final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
       final ExperimentEnrollmentManager experimentEnrollmentManager) {
 
     this.receiptSender = receiptSender;
@@ -130,7 +127,6 @@ public class WebSocketConnection {
     this.client = client;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
-    this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
 
     this.messageStream =
@@ -143,7 +139,6 @@ public class WebSocketConnection {
     pushNotificationManager.handleMessagesRetrieved(authenticatedAccount, authenticatedDevice, client.getUserAgent());
 
     final Timer.Sample queueDrainStart = Timer.start();
-    final AtomicBoolean hasSentFirstMessage = new AtomicBoolean();
 
     messageSubscription.set(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages())
         .name(SEND_MESSAGES_FLUX_NAME)
@@ -156,17 +151,6 @@ public class WebSocketConnection {
         .doOnError(ConflictingMessageConsumerException.class, _ -> {
           messageMetrics.measureMessageStreamDisplaced(MessageMetrics.WEBSOCKET_CHANNEL, userAgent, true);
           client.close(4409, "Connected elsewhere");
-        })
-        .doOnNext(entry -> {
-          if (entry instanceof MessageStreamEntry.Envelope(final Envelope message)) {
-            if (hasSentFirstMessage.compareAndSet(false, true)) {
-              messageDeliveryLoopMonitor.recordDeliveryAttempt(authenticatedAccount.getAccountIdentifier(),
-                  authenticatedDevice.getId(),
-                  UUIDUtil.fromByteString(message.getServerGuid()),
-                  client.getUserAgent(),
-                  MessageMetrics.WEBSOCKET_CHANNEL);
-            }
-          }
         })
         .flatMapSequential(entry -> switch (entry) {
           case MessageStreamEntry.Envelope envelope -> Mono.fromFuture(() -> sendMessage(envelope.message())).thenReturn(entry);

@@ -48,7 +48,6 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
-import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
@@ -126,7 +125,6 @@ class WebSocketConnectionTest {
         client,
         Schedulers.immediate(),
         clientReleaseManager,
-        mock(MessageDeliveryLoopMonitor.class),
         mock(ExperimentEnrollmentManager.class));
   }
 

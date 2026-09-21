@@ -40,7 +40,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
-import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
@@ -76,8 +75,6 @@ class MessageDispatcherTest {
   private MessageDispatcher dispatcher;
   private DisconnectionRequestManager disconnectionRequestManager;
   private PushNotificationScheduler pushNotificationScheduler;
-  private MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
-
 
   @BeforeEach
   void setUp() {
@@ -91,7 +88,6 @@ class MessageDispatcherTest {
     pushNotificationManager = mock(PushNotificationManager.class);
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     pushNotificationScheduler = mock(PushNotificationScheduler.class);
-    messageDeliveryLoopMonitor = mock(MessageDeliveryLoopMonitor.class);
 
     when(device.getId()).thenReturn(DEVICE_ID);
     when(device.isPrimary()).thenReturn(true);
@@ -102,7 +98,6 @@ class MessageDispatcherTest {
         new MessageMetrics(),
         pushNotificationManager,
         pushNotificationScheduler,
-        messageDeliveryLoopMonitor,
         disconnectionRequestManager,
         mock(ClientReleaseManager.class));
   }
@@ -129,8 +124,6 @@ class MessageDispatcherTest {
         .thenCancel()
         .verify(Duration.ofSeconds(5));
 
-    verify(messageDeliveryLoopMonitor, times(1))
-        .recordDeliveryAttempt(ACI, DEVICE_ID, UUIDUtil.fromByteString(message.getServerGuid()), TEST_UA, "grpc");
     verify(disconnectionRequestManager).removeListener(eq(ACI), eq(DEVICE_ID), any());
     verify(pushNotificationManager).handleMessagesRetrieved(account, device, TEST_UA);
     verify(messagesManager).mayHaveMessages(ACI, device);
