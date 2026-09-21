@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.github.resilience4j.bulkhead.BulkheadConfig;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 
 public class BulkheadConfiguration {
@@ -17,7 +18,7 @@ public class BulkheadConfiguration {
   private int maxConcurrentCalls = BulkheadConfig.DEFAULT_MAX_CONCURRENT_CALLS;
 
   @JsonProperty
-  @Min(1)
+  @NotNull
   private Duration maxWaitDuration = BulkheadConfig.DEFAULT_MAX_WAIT_DURATION;
 
   public int getMaxConcurrentCalls() {
