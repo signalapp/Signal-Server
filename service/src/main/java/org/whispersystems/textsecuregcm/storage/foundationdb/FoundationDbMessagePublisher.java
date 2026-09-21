@@ -91,6 +91,7 @@ class FoundationDbMessagePublisher {
 
   private static final String WATCHES_COUNTER = MetricsUtil.name(FoundationDbMessagePublisher.class, "watches");
   private static final String ACTION_TAG = "action";
+  private static final String DATABASE_TAG = "database";
 
   enum State {
     /// Messages are likely available in the queue. Initial state.
@@ -420,9 +421,9 @@ class FoundationDbMessagePublisher {
     // again (if there is demand). When we run out of messages, this method will be called again, setting another watch,
     // and so on, thus achieving a "watch for new messages -> read -> publish" loop.
     watchFuture = transaction.watch(messagesAvailableWatchKey);
-    Metrics.counter(WATCHES_COUNTER, ACTION_TAG, "set").increment();
+    Metrics.counter(WATCHES_COUNTER, ACTION_TAG, "set", DATABASE_TAG, database.getName()).increment();
     watchFuture.thenRun(() -> {
-      Metrics.counter(WATCHES_COUNTER, ACTION_TAG, "triggered").increment();
+      Metrics.counter(WATCHES_COUNTER, ACTION_TAG, "triggered", DATABASE_TAG, database.getName()).increment();
       transitionStateOnEvent(Event.MESSAGE_AVAILABLE_WATCH_TRIGGERED);
     });
   }
@@ -432,7 +433,7 @@ class FoundationDbMessagePublisher {
   private synchronized void cancelWatch() {
     if (watchFuture != null) {
       if (watchFuture.cancel(true)) {
-        Metrics.counter(WATCHES_COUNTER, ACTION_TAG, "cancelled").increment();
+        Metrics.counter(WATCHES_COUNTER, ACTION_TAG, "cancelled", DATABASE_TAG, database.getName()).increment();
       }
       watchFuture = null;
     }
