@@ -35,7 +35,7 @@ import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguratio
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.TestcontainersImages;
 
-public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, ExtensionContext.Store.CloseableResource {
+public class RedisClusterExtension implements AutoCloseable, BeforeAllCallback, BeforeEachCallback, AfterEachCallback {
 
   private static ComposeContainer composeContainer;
   private static Map<HostAndPort, HostAndPort> exposedAddressesByInternalAddress;
@@ -93,7 +93,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   }
 
   @Override
-  public void close() throws Throwable {
+  public void close() {
     if (composeContainer != null) {
       composeContainer.stop();
       composeContainer = null;

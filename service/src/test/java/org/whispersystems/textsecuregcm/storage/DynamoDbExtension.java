@@ -33,7 +33,7 @@ import software.amazon.awssdk.services.dynamodb.model.LocalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 
-public class DynamoDbExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, ExtensionContext.Store.CloseableResource {
+public class DynamoDbExtension implements AutoCloseable, BeforeAllCallback, BeforeEachCallback, AfterEachCallback {
 
   public interface TableSchema {
     String tableName();
@@ -133,7 +133,7 @@ public class DynamoDbExtension implements BeforeAllCallback, BeforeEachCallback,
   }
 
   @Override
-  public void close() throws Throwable {
+  public void close() {
     stopServer();
   }
 

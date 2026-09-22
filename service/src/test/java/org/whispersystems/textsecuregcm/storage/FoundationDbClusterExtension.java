@@ -13,7 +13,7 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDatabase;
 
-public class FoundationDbClusterExtension implements BeforeAllCallback, BeforeEachCallback, ExtensionContext.Store.CloseableResource {
+public class FoundationDbClusterExtension implements AutoCloseable, BeforeAllCallback, BeforeEachCallback {
 
   private final FoundationDbDatabaseLifecycleManager[] databaseLifecycleManagers;
   private final FaultTolerantDatabase[] databases;
@@ -57,7 +57,7 @@ public class FoundationDbClusterExtension implements BeforeAllCallback, BeforeEa
   }
 
   @Override
-  public void close() throws Throwable {
+  public void close() {
     if (databaseLifecycleManagers[0] != null) {
       for (final FoundationDbDatabaseLifecycleManager databaseLifecycleManager : databaseLifecycleManagers) {
         databaseLifecycleManager.closeDatabase();
