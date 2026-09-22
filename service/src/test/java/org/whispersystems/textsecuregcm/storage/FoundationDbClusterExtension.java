@@ -6,15 +6,19 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.apple.foundationdb.FDB;
+import com.apple.foundationdb.Range;
 import java.io.IOException;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDatabase;
 
-public class FoundationDbClusterExtension implements BeforeAllCallback, ExtensionContext.Store.CloseableResource {
+public class FoundationDbClusterExtension implements BeforeAllCallback, BeforeEachCallback, ExtensionContext.Store.CloseableResource {
 
-  private FoundationDbDatabaseLifecycleManager[] databaseLifecycleManagers;
-  private FaultTolerantDatabase[] databases;
+  private final FoundationDbDatabaseLifecycleManager[] databaseLifecycleManagers;
+  private final FaultTolerantDatabase[] databases;
+
+  private static final Range ALL_KEYS_RANGE = new Range(new byte[] {}, new byte[] {(byte) 0xff});
 
   public FoundationDbClusterExtension(final int numInstances) {
     this.databaseLifecycleManagers = new FoundationDbDatabaseLifecycleManager[numInstances];
@@ -35,6 +39,16 @@ public class FoundationDbClusterExtension implements BeforeAllCallback, Extensio
         databases[i] = new FaultTolerantDatabase(databaseLifecycleManager.getDatabase(), String.format("messages-%d", i), null, null);
       }
 
+    }
+  }
+
+  @Override
+  public void beforeEach(final ExtensionContext context) throws Exception {
+    for (final FaultTolerantDatabase database : databases) {
+      database.run(transaction -> {
+        transaction.clear(ALL_KEYS_RANGE);
+        return null;
+      }, FaultTolerantDatabase.Context.TEST);
     }
   }
 
