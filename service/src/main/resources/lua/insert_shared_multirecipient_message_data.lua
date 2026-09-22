@@ -9,7 +9,7 @@ if 1 == redis.call("EXISTS", sharedMrmKey) then
 end
 
 redis.call("HSET", sharedMrmKey, "data", mrmData);
-redis.call("EXPIRE", sharedMrmKey, 604800) -- 7 days
+redis.call("EXPIRE", sharedMrmKey, 43200) -- 12 hours
 
 -- unpack() fails with "too many results" at very large table sizes, so we loop
 for i = 2, #ARGV, 2 do
