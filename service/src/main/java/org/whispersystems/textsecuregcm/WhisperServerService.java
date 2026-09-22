@@ -170,6 +170,7 @@ import org.whispersystems.textsecuregcm.grpc.CredentialsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.DevicesGrpcService;
 import org.whispersystems.textsecuregcm.grpc.DonationsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ErrorConformanceInterceptor;
+import org.whispersystems.textsecuregcm.grpc.ConcurrentCallLimitingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceDefinitions;
 import org.whispersystems.textsecuregcm.grpc.GroupSendTokenUtil;
@@ -1101,6 +1102,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final ValidatingInterceptor validatingInterceptor = new ValidatingInterceptor();
 
+    final ConcurrentCallLimitingInterceptor concurrentCallLimitingInterceptor =
+        new ConcurrentCallLimitingInterceptor(config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor());
+
     final ExternalRequestFilter grpcExternalRequestFilter = new ExternalRequestFilter(
         config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
         config.getExternalRequestFilterConfiguration().grpcMethods());
@@ -1157,7 +1161,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             remoteDeprecationFilter,
             metricServerInterceptor,
             requestAttributesInterceptor,
-            requireAuthenticationInterceptor))
+            requireAuthenticationInterceptor,
+            concurrentCallLimitingInterceptor))
         .toList();
     final List<ServerServiceDefinition> unauthenticatedServices = Stream.of(
             new AccountsAnonymousGrpcService(accountsManager, rateLimiters, groupSendTokenUtil),
@@ -1185,7 +1190,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             remoteDeprecationFilter,
             metricServerInterceptor,
             requestAttributesInterceptor,
-            prohibitAuthenticationInterceptor))
+            prohibitAuthenticationInterceptor,
+            concurrentCallLimitingInterceptor))
         .toList();
 
     final ManagedEventLoopGroup<DefaultEventLoopGroup> omnibusLocalEventLoopGroup = new ManagedEventLoopGroup<>(new DefaultEventLoopGroup());
@@ -1195,7 +1201,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .forAddress(grpcLocalAddress)
         .channelType(LocalServerChannel.class)
         .bossEventLoopGroup(omnibusLocalEventLoopGroup.getEventLoopGroup())
-        .workerEventLoopGroup(omnibusLocalEventLoopGroup.getEventLoopGroup());
+        .workerEventLoopGroup(omnibusLocalEventLoopGroup.getEventLoopGroup())
+        .executor(ManagedExecutors.newVirtualThreadPerTaskExecutor("managed-grpc-virtual-thread", environment));
     authenticatedServices.forEach(serverBuilder::addService);
     unauthenticatedServices.forEach(serverBuilder::addService);
     final ManagedGrpcServer localGrpcServer = new ManagedGrpcServer(serverBuilder.build());

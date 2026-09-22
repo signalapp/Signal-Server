@@ -13,6 +13,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 /**
  * Build Executor Services managed by dropwizard, supplementing executors provided by
@@ -32,6 +33,21 @@ public class ManagedExecutors {
 
     final BoundedVirtualThreadFactory threadFactory =
         new BoundedVirtualThreadFactory(threadNamePrefix, maxConcurrentThreads);
+    return newVirtualThreadPerTaskExecutor(threadNamePrefix, threadFactory, environment);
+  }
+
+  public static ExecutorService newVirtualThreadPerTaskExecutor(
+      final String threadNamePrefix,
+      final Environment environment) {
+
+    final ThreadFactory threadFactory = Thread.ofVirtual().name(threadNamePrefix + "-", 0).factory();
+    return newVirtualThreadPerTaskExecutor(threadNamePrefix, threadFactory, environment);
+  }
+
+  private static ExecutorService newVirtualThreadPerTaskExecutor(
+      final String threadNamePrefix,
+      final ThreadFactory threadFactory,
+      final Environment environment) {
     final ExecutorService virtualThreadExecutor = Executors.newThreadPerTaskExecutor(threadFactory);
     environment.lifecycle()
         .manage(new ExecutorServiceManager(virtualThreadExecutor, SHUTDOWN_DURATION, threadNamePrefix));
