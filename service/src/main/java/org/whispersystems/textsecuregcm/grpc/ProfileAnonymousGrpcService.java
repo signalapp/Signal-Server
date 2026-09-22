@@ -10,6 +10,7 @@ import com.google.protobuf.Empty;
 import java.time.Clock;
 import java.util.Base64;
 import java.util.Optional;
+import io.micrometer.core.instrument.Metrics;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.chat.errors.NotFound;
@@ -36,6 +37,7 @@ import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -43,6 +45,9 @@ import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
 
 public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.ProfileAnonymousImplBase {
+
+  private static final String GET_PROFILE_RESPONSE_CASE_COUNTER_NAME = MetricsUtil.name(ProfileAnonymousGrpcService.class, "getProfile");
+
   private final AccountsManager accountsManager;
   private final ProfilesManager profilesManager;
   private final ProfileBadgeConverter profileBadgeConverter;
@@ -118,7 +123,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
     }
     final byte[] version = request.getRequest().getVersion().toByteArray();
 
-    return targetAccount.flatMap(account -> ProfileGrpcHelper
+    final GetProfileAnonymousResponse response = targetAccount.flatMap(account -> ProfileGrpcHelper
             .getProfile(account, profilesManager, profileBadgeConverter, version)
 
             // If the etag matches, drop the result
@@ -131,6 +136,10 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
                 .getProfileV1(account, profilesManager, profileBadgeConverter, version)
                 .map(v1Result -> GetProfileAnonymousResponse.newBuilder().setProfileV1(v1Result).build())))
         .orElseGet(() -> GetProfileAnonymousResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build());
+
+    Metrics.counter(GET_PROFILE_RESPONSE_CASE_COUNTER_NAME, "responseCase", response.getResponseCase().name());
+
+    return response;
   }
 
   @Override
