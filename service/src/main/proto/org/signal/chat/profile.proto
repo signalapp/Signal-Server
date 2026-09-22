@@ -189,11 +189,7 @@ message SetProfileResponse {
     // another device on the account may have created a new version the caller does not know about.
     errors.FailedPrecondition expected_version_write_conflict = 4 [(tag.reason) = "expected_version_write_conflict"];
 
-    // Because this is a temporary field during the migration, it has the highest
-    // field number without serialization overhead. This is purely aesthetic.
-    ProfilesV2CapabilityRequired profiles_v2_capability_required = 15 [(tag.reason) = "profiles_v2_capability_required"];
-
-    // next: 4
+    // next: 5
   }
 }
 

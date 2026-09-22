@@ -363,22 +363,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   }
 
   @Test
-  void setProfileWithoutCapability() {
-    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(false);
-
-    final SetProfileRequest request = SetProfileRequest.newBuilder()
-        .setVersion(ByteString.copyFrom(VERSION))
-        .setData(ByteString.copyFrom(VALID_DATA))
-        .setExpectedCurrentDataHash(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
-        .setV1Request(V1_REQUEST)
-        .build();
-
-    final SetProfileResponse response = authenticatedServiceStub().setProfile(request);
-
-    assertTrue(response.hasProfilesV2CapabilityRequired());
-  }
-
-  @Test
   void setProfileUnauthenticated() {
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.empty());

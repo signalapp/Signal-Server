@@ -26,7 +26,6 @@ import org.signal.chat.profile.GetAvatarCredentialsResponse;
 import org.signal.chat.profile.GetProfileRequest;
 import org.signal.chat.profile.GetProfileResponse;
 import org.signal.chat.profile.PaymentsForbiddenInRegion;
-import org.signal.chat.profile.ProfilesV2CapabilityRequired;
 import org.signal.chat.profile.SetProfileRequest;
 import org.signal.chat.profile.SetProfileResponse;
 import org.signal.chat.profile.SetProfileResult;
@@ -54,7 +53,6 @@ import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
@@ -110,12 +108,6 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
 
     final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
-
-    if (!account.hasCapability(DeviceCapability.PROFILES_V2)) {
-      return SetProfileResponse.newBuilder()
-              .setProfilesV2CapabilityRequired(ProfilesV2CapabilityRequired.getDefaultInstance())
-          .build();
-    }
 
     validateRequest(request);
 
