@@ -556,7 +556,7 @@ class MessagesCacheTest {
 
       final byte[] sharedMrmDataKey;
       if (sharedMrmKeyPresent) {
-        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm).join();
+        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm, new HashSet<>(mrm.getRecipients().values())).join();
       } else {
         sharedMrmDataKey = "{1}".getBytes(StandardCharsets.UTF_8);
       }
@@ -641,7 +641,7 @@ class MessagesCacheTest {
                 .setContent(ByteString.copyFrom(mrm.messageForRecipient(recepient)))
                 .build();
             expectedQueueSize += message.getSerializedSize();
-            byte[] sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm).join();
+            byte[] sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm, new HashSet<>(mrm.getRecipients().values())).join();
 
             // Insert the MRM message without the content
             yield message
@@ -696,7 +696,7 @@ class MessagesCacheTest {
 
       final byte[] sharedMrmDataKey;
       if (sharedMrmKeyPresent) {
-        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm).join();
+        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm, new HashSet<>(mrm.getRecipients().values())).join();
       } else {
         sharedMrmDataKey = new byte[]{1};
       }

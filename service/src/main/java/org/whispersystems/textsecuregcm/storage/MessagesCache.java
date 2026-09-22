@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -236,13 +237,14 @@ public class MessagesCache {
   }
 
   public CompletableFuture<byte[]> insertSharedMultiRecipientMessagePayload(
-      final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
+      final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage,
+      final Set<SealedSenderMultiRecipientMessage.Recipient> resolvedRecipients) {
 
     final Timer.Sample sample = Timer.start();
 
     final byte[] sharedMrmKey = getSharedMrmKey(UUID.randomUUID());
 
-    return insertMrmScript.executeAsync(sharedMrmKey, sealedSenderMultiRecipientMessage)
+    return insertMrmScript.executeAsync(sharedMrmKey, sealedSenderMultiRecipientMessage, resolvedRecipients)
         .thenApply(_ -> sharedMrmKey)
         .toCompletableFuture()
         .whenComplete((_, _) -> sample.stop(insertSharedMrmPayloadTimer));

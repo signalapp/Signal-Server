@@ -12,6 +12,7 @@ import io.lettuce.core.cluster.SlotHash;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -42,8 +44,11 @@ class MessagesCacheRemoveRecipientViewFromMrmDataScriptTest {
     final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript = new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(
         REDIS_CLUSTER_EXTENSION.getRedisCluster(), mock(ScheduledExecutorService.class));
 
+    final SealedSenderMultiRecipientMessage multiRecipientMessage =
+        MessagesCacheTest.generateRandomMrmMessage(destinations);
+
     final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
-    insertMrmScript.executeAsync(sharedMrmKey, MessagesCacheTest.generateRandomMrmMessage(destinations))
+    insertMrmScript.executeAsync(sharedMrmKey, multiRecipientMessage, new HashSet<>(multiRecipientMessage.getRecipients().values()))
         .toCompletableFuture()
         .join();
 
@@ -105,9 +110,12 @@ class MessagesCacheRemoveRecipientViewFromMrmDataScriptTest {
       final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript = new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(
           REDIS_CLUSTER_EXTENSION.getRedisCluster(), mock(ScheduledExecutorService.class));
 
+      final SealedSenderMultiRecipientMessage multiRecipientMessage =
+          MessagesCacheTest.generateRandomMrmMessage(serviceIdentifier, deviceId);
+
       final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
       insertMrmScript.executeAsync(sharedMrmKey,
-          MessagesCacheTest.generateRandomMrmMessage(serviceIdentifier, deviceId)).toCompletableFuture().join();
+          multiRecipientMessage, new HashSet<>(multiRecipientMessage.getRecipients().values())).toCompletableFuture().join();
 
       sharedMrmKeys.add(sharedMrmKey);
     }

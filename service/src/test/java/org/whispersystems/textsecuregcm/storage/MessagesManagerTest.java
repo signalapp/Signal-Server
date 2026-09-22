@@ -239,7 +239,7 @@ class MessagesManagerTest {
 
     final byte[] sharedMrmKey = "shared-mrm-key".getBytes(StandardCharsets.UTF_8);
 
-    when(messagesCache.insertSharedMultiRecipientMessagePayload(multiRecipientMessage))
+    when(messagesCache.insertSharedMultiRecipientMessagePayload(eq(multiRecipientMessage), any()))
         .thenReturn(CompletableFuture.completedFuture(sharedMrmKey));
 
     when(messagesCache.insert(any(), any(), anyByte(), any()))
