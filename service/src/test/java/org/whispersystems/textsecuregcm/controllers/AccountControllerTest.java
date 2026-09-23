@@ -136,6 +136,7 @@ class AccountControllerTest {
   private static final RateLimiter usernameReserveLimiter = mock(RateLimiter.class);
   private static final RateLimiter usernameLookupLimiter = mock(RateLimiter.class);
   private static final RateLimiter checkAccountExistence = mock(RateLimiter.class);
+  private static final RateLimiter setWebPushLimiter = mock(RateLimiter.class);
   private static final Account senderPinAccount = mock(Account.class);
   private static final Account senderRegLockAccount = mock(Account.class);
   private static final Account senderHasStorage = mock(Account.class);
@@ -185,6 +186,7 @@ class AccountControllerTest {
     when(rateLimiters.getUsernameSetLimiter()).thenReturn(usernameSetLimiter);
     when(rateLimiters.getUsernameReserveLimiter()).thenReturn(usernameReserveLimiter);
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameLookupLimiter);
+    when(rateLimiters.getSetWebPushLimiter()).thenReturn(setWebPushLimiter);
     when(rateLimiters.forDescriptor(eq(RateLimiters.For.USERNAME_LOOKUP))).thenReturn(usernameLookupLimiter);
     when(rateLimiters.forDescriptor(eq(RateLimiters.For.CHECK_ACCOUNT_EXISTENCE))).thenReturn(checkAccountExistence);
 
