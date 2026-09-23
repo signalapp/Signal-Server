@@ -147,8 +147,8 @@ public class AccountTest {
       assertEquals(ConfirmTotpKeyResponse.ResponseCase.KEY_CONFIRMED, confirmTotpKeyResponse.getResponseCase());
       final int keyId = confirmTotpKeyResponse.getKeyConfirmed().getKeyId();
 
-      final TestUser recoveredUser =
-          Operations.recoverNumberlessUserWithTotp(user, totpGenerator.generateOneTimePassword(totpKey, Instant.now()));
+      final TestUser recoveredUser = Operations.recoverNumberlessUserWithTotp(user, () ->
+          totpGenerator.generateOneTimePassword(totpKey, Instant.now()));
 
       assertEquals(user.aciUuid(), recoveredUser.aciUuid());
 

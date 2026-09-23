@@ -37,9 +37,12 @@ import java.net.URL;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -88,10 +91,13 @@ import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.mappers.MfaFailureExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.TotpManager;
 import org.whispersystems.textsecuregcm.util.CertificateUtil;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.HttpUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.ThrowingSupplier;
+import org.whispersystems.textsecuregcm.util.Util;
 
 public final class Operations {
 
@@ -163,34 +169,46 @@ public final class Operations {
     return user;
   }
 
-  public static TestUser recoverNumberlessUserWithTotp(final TestUser testUser, @Nullable final Integer totp) {
+  public static TestUser recoverNumberlessUserWithTotp(final TestUser testUser, final ThrowingSupplier<Integer, InvalidKeyException> totpSupplier) throws InvalidKeyException {
     final TestUser recoveredUser = TestUser.createNumberlessForRecovery(testUser.accountPassword(), testUser.registrationPassword());
-
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
-    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
-        testUser.registrationPassword(),
-        null,
-        totp,
-        null,
-        recoveredUser.accountAttributes(),
-        true,
-        new IdentityKey(aciIdentityKeyPair.getPublicKey()),
-        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
-        new DeviceActivationRequest(generateSignedECPreKey(1, aciIdentityKeyPair),
-            Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
-            generateSignedKEMPreKey(3, aciIdentityKeyPair),
-            Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
-            Optional.empty(),
-            Optional.empty()));
+    final DeviceActivationRequest deviceActivationRequest = new DeviceActivationRequest(
+        generateSignedECPreKey(1, aciIdentityKeyPair),
+        Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
+        generateSignedKEMPreKey(3, aciIdentityKeyPair),
+        Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
+        Optional.empty(),
+        Optional.empty());
 
-    final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
-        // For a numberless account recovery, the username is the ACI
-        .authorized(testUser.aciUuid().toString(), testUser.accountPassword())
-        .executeExpectSuccess(AccountIdentityResponse.class);
+    // The server only allows one redemption of a TOTP per time-step, which we may have used up during `confirm`. Retry
+    // until the next time-step.
+    final Instant retryUntil = Instant.now().plus(TotpManager.TOTP.getTimeStep().plus(Duration.ofSeconds(1)));
+    while (true) {
+      final Pair<Integer, AccountIdentityResponse> registrationResponse = apiPost("/v1/registration",
+          new RegistrationRequest(null,
+              testUser.registrationPassword(),
+              null,
+              totpSupplier.get(),
+              null,
+              recoveredUser.accountAttributes(),
+              true,
+              new IdentityKey(aciIdentityKeyPair.getPublicKey()),
+              new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+              deviceActivationRequest))
+          // For a numberless account recovery, the username is the ACI
+          .authorized(testUser.aciUuid().toString(), testUser.accountPassword())
+          .execute(AccountIdentityResponse.class);
+      if (registrationResponse.getLeft() == 441 && Instant.now().isBefore(retryUntil)) {
+        Util.sleep(Duration.ofSeconds(1).toMillis());
+        continue;
+      }
 
-    recoveredUser.setAciUuid(registrationResponse.uuid());
-    return recoveredUser;
+      Validate.isTrue(HttpUtils.isSuccessfulResponse(registrationResponse.getLeft()),
+          "Unexpected response code: %d", registrationResponse.getLeft());
+      recoveredUser.setAciUuid(registrationResponse.getRight().uuid());
+      return recoveredUser;
+    }
   }
 
   public static TestUser recoverNumberlessUserWithWebAuthn(final TestUser testUser,
