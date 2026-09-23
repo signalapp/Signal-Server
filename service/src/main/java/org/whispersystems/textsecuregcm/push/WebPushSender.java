@@ -29,12 +29,12 @@ import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
 
-import org.signal.libsignal.protocol.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.push.PushNotification.PushToken;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
@@ -161,9 +161,10 @@ public class WebPushSender implements PushNotificationSender {
       case CHALLENGE -> "challenge";
       case RATE_LIMIT_CHALLENGE -> "rateLimitChallenge";
       case ACTIVATION_TOKEN -> "activationToken";
+      case VERIFICATION_CODE_REQUESTED -> "verificationCodeRequested";
     };
 
-    map.put(key, pushNotification.data() != null ? pushNotification.data() : "");
+    map.put(key, pushNotification.data() != null ? pushNotification.data().toString() : "");
     map.put("urgency", pushNotification.urgent() ? "high" : "low");
 
     final byte[] body;

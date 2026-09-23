@@ -105,7 +105,7 @@ class WebPushSenderTest {
           "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
         }
       """, WebPushSubscription.class);
-    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, false), PushNotification.NotificationType.NOTIFICATION, null, null, null, true);
+    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, false), PushNotification.NotificationType.NOTIFICATION, null, null, null, true, null);
 
     final SendPushNotificationResult result = webPushSender.sendNotification(pushNotification).join();
 
@@ -182,7 +182,7 @@ class WebPushSenderTest {
           "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
         }
       """, WebPushSubscription.class);
-    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, null, null, true);
+    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, null, null, true, null);
 
     // Redis must be mocked before sendNotification
     final RedisStringCommands<String, String> cmd = mockRedis(redisClient);
@@ -213,7 +213,7 @@ class WebPushSenderTest {
           "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
         }
       """, WebPushSubscription.class);
-    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, null, null, true);
+    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, null, null, true, null);
 
     final RedisStringCommands<String, String> cmd = mockRedis(redisClient);
     when(cmd.get(any())).thenReturn(WebPushSender.RATE_LIMITED);

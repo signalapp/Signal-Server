@@ -101,7 +101,7 @@ class PushNotificationManagerTest {
     when(apnSender.sendNotification(any()))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
 
-    pushNotificationManager.sendRegistrationChallengeNotification(deviceToken, PushNotification.TokenType.APN, challengeToken);
+    pushNotificationManager.sendRegistrationChallengeNotification(deviceToken, challengeToken);
     verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.NotificationType.CHALLENGE, challengeToken, null, null, true, null));
   }
 
@@ -330,7 +330,7 @@ class PushNotificationManagerTest {
   void testSendNotificationUnregisteredWebPush() throws JsonProcessingException {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-    final UUID aci = UUID.randomUUID();
+    final UUID accountIdentifier = UUID.randomUUID();
     final WebPushSubscription webPushSub = SystemMapper.jsonMapper().readValue("""
         {
           "endpoint": "https://domain.tld/random1",
@@ -342,8 +342,8 @@ class PushNotificationManagerTest {
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(device.getWebPush()).thenReturn(webPushSub);
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
-    when(account.getUuid()).thenReturn(aci);
-    when(accountsManager.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
+    when(account.getAccountIdentifier()).thenReturn(accountIdentifier);
+    when(accountsManager.getByAccountIdentifier(accountIdentifier)).thenReturn(Optional.of(account));
 
     final PushNotification pushNotification = new PushNotification(
         new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
@@ -353,7 +353,7 @@ class PushNotificationManagerTest {
 
     pushNotificationManager.sendNotification(pushNotification);
 
-    verify(accountsManager).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
+    verify(accountsManager).updateDevice(eq(accountIdentifier), eq(Device.PRIMARY_ID), any());
     verify(device).setWebPush(null);
     verifyNoInteractions(fcmSender);
     verifyNoInteractions(apnSender);

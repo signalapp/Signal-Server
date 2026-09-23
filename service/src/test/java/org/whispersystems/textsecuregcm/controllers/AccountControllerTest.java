@@ -353,7 +353,7 @@ class AccountControllerTest {
 
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setWebPush(any());
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setWebPushActivation(any());
-      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_UUID_3), anyByte(), any());
     }
   }
 
@@ -384,7 +384,7 @@ class AccountControllerTest {
 
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setWebPush(any());
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setWebPushActivation(any());
-      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_UUID_3), anyByte(), any());
     }
   }
 
@@ -415,7 +415,7 @@ class AccountControllerTest {
 
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, never()).setWebPush(any());
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, never()).setWebPushActivation(any());
-      verify(accountsManager, never()).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(accountsManager, never()).updateDevice(eq(AuthHelper.VALID_UUID_3), anyByte(), any());
     }
   }
 
@@ -445,7 +445,7 @@ class AccountControllerTest {
 
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, never()).setWebPush(any());
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setWebPushActivation(any());
-      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_UUID_3), anyByte(), any());
     }
   }
 
@@ -476,7 +476,7 @@ class AccountControllerTest {
 
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, never()).setWebPush(any());
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, never()).setWebPushActivation(any());
-      verify(accountsManager, never()).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(accountsManager, never()).updateDevice(eq(AuthHelper.VALID_UUID_3), anyByte(), any());
     }
   }
 

@@ -170,7 +170,7 @@ public class AccountController {
     // We send to the subscription, with activated=true, else it wouldn't be sent
     pushNotificationManager.sendActivationTokenNotification(new PushToken.WEBPUSH(webPushSubscription, true), activationToken.activationToken());
 
-    accounts.updateDevice(account, device.getId(), d -> {
+    accounts.updateDevice(auth.accountIdentifier(), device.getId(), d -> {
       d.setApnId(null);
       d.setGcmId(null);
       d.setWebPush(webPushSubscription);
@@ -204,7 +204,7 @@ public class AccountController {
       return;
     }
 
-    accounts.updateDevice(account, device.getId(), d -> {
+    accounts.updateDevice(auth.accountIdentifier(), device.getId(), d -> {
       d.setWebPushActivation(new WebPushActivation(true, null));
       d.setFetchesMessages(false);
     });
@@ -219,7 +219,7 @@ public class AccountController {
     final Device device = account.getDevice(auth.deviceId())
         .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
 
-    accounts.updateDevice(account, device.getId(), d -> {
+    accounts.updateDevice(auth.accountIdentifier(), device.getId(), d -> {
       d.setWebPush(null);
       d.setWebPushActivation(null);
       d.setFetchesMessages(false);

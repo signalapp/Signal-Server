@@ -1144,7 +1144,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new ProfileGrpcService(clock, accountsManager, profilesManager, asnInfoProviderSupplier, dynamicConfigurationManager, config.getBadges(), profileCdnPolicyGenerator, chatGenericZkSecretParams, profileBadgeConverter, rateLimiters),
             new MessagesGrpcService(accountsManager, reportMessageManager, phoneNumberIdentifiers, rateLimiters, messageSender, messageByteLimitCardinalityEstimator, spamChecker, messageDispatcher, Clock.systemUTC()),
             new BackupsGrpcService(accountsManager, backupAuthManager, backupMetrics),
-            new DevicesGrpcService(accountsManager),
+            new DevicesGrpcService(accountsManager, rateLimiters),
             new AttachmentsGrpcService(experimentEnrollmentManager, rateLimiters, gcsAttachmentGenerator,
                 tusAttachmentGenerator, stickerPolicyGenerator,
                 config.getAttachments().maxAttachmentUploadSizeInBytes(), Clock.systemUTC()),

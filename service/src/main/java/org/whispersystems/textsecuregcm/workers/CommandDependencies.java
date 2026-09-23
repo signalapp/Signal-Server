@@ -244,7 +244,7 @@ public record CommandDependencies(
         .maxThreads(1).minThreads(1).build();
     ExecutorService fcmSenderExecutor = ExecutorServiceBuilder.of(environment, "fcmSender")
         .maxThreads(16).minThreads(16).build();
-    ExecutorService webPushSenderExecutor = environment.lifecycle().executorService(name(WhisperServerService.class, "webPushSender-%d"))
+    ExecutorService webPushSenderExecutor = ExecutorServiceBuilder.of(environment, "webPushSender")
         .maxThreads(16).minThreads(16).build();
     ExecutorService clientEventExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
       "clientEvent", configuration.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(), environment);

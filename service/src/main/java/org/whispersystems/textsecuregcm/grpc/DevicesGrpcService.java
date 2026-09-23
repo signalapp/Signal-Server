@@ -38,6 +38,7 @@ import org.signal.chat.device.SimpleDevicesGrpc;
 import org.signal.chat.errors.NotFound;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.WebPushActivation;
@@ -127,7 +128,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
   }
 
   @Override
-  public SetPushTokenResponse setPushToken(final SetPushTokenRequest request) {
+  public SetPushTokenResponse setPushToken(final SetPushTokenRequest request) throws RateLimitExceededException {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     @Nullable final String apnsToken;
