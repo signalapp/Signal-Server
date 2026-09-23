@@ -169,27 +169,18 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetExpiringProfileKeyCredentialAnonymousRequest</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetExpiringProfileKeyCredentialAnonymousResponse</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
         <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>GetExpiringProfileKeyCredentialRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetExpiringProfileKeyCredentialResponse</code> 
         </a>
       </p>
       
@@ -507,9 +498,9 @@ methods in <code>Profile</code> instead.</p></p>
         rpc <code>GetExpiringProfileKeyCredential</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest"><span title="org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest">org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest</span>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest"><span title="org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse"><span title="org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse">org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse</span>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse"><span title="org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse">org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse</span>
     </a></code><br>
   </div>
 
@@ -1279,9 +1270,9 @@ performed with this form will be limited to the provided length.</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">
   <span>
-    <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest" title="org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest">message GetExpiringProfileKeyCredentialAnonymousRequest</a>
+    <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest" title="org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">message GetExpiringProfileKeyCredentialRequest</a>
   
   </span>
   
@@ -1306,21 +1297,67 @@ performed with this form will be limited to the provided length.</p></td>
     <tr>
       <td>1</td>
       <td>
-        request
+        account_identifier
       </td>
       <td>
-        <code title="org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">
+        <code title="org.signal.chat.common.ServiceIdentifier">
           
-          <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest"><span title="org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest</span>
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
     </a>
         </code>
       </td>
-      <td class="content"><p>Contains the data necessary to request an expiring profile key credential.</p></td>
+      <td class="content"><p>The ACI of the account for which to get a profile key credential.</p></td>
       
     </tr>
     
     <tr>
       <td>2</td>
+      <td>
+        credential_request
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A zkgroup request for a profile key credential.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        credential_type
+      </td>
+      <td>
+        <code title="org.signal.chat.profile.CredentialType">
+          
+          <a href="org.signal.chat.profile.html#enum-org.signal.chat.profile.CredentialType"><span title="org.signal.chat.profile.CredentialType">org.signal.chat.profile.CredentialType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The type of credential being requested.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        version
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The profile version for which to generate a profile key credential.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
       <td>
         unidentified_access_key
       </td>
@@ -1345,9 +1382,9 @@ performed with this form will be limited to the provided length.</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse">
   <span>
-    <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse" title="org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse">message GetExpiringProfileKeyCredentialAnonymousResponse</a>
+    <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse" title="org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse">message GetExpiringProfileKeyCredentialResponse</a>
   
   </span>
   
@@ -1440,103 +1477,6 @@ performed with this form will be limited to the provided length.</p></td>
           
         </tr>
       
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest" title="org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">message GetExpiringProfileKeyCredentialRequest</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        account_identifier
-      </td>
-      <td>
-        <code title="org.signal.chat.common.ServiceIdentifier">
-          
-          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>The ACI of the account for which to get a profile key credential.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        credential_request
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>A zkgroup request for a profile key credential.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>3</td>
-      <td>
-        credential_type
-      </td>
-      <td>
-        <code title="org.signal.chat.profile.CredentialType">
-          
-          <a href="org.signal.chat.profile.html#enum-org.signal.chat.profile.CredentialType"><span title="org.signal.chat.profile.CredentialType">org.signal.chat.profile.CredentialType</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>The type of credential being requested.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>4</td>
-      <td>
-        version
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>The profile version for which to generate a profile key credential.</p></td>
-      
-    </tr>
-    
     
   </tbody>
 </table>
@@ -2667,27 +2607,6 @@ number. The request should be retried without `payment_address.</p></td>
           </td>
           <td class="content"><p>The current version did not match the request's expectation, indicating
 another device on the account may have created a new version the caller does not know about.</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            15
-          </td>
-          <td>
-            profiles_v2_capability_required
-          </td>
-          <td>
-            <code title="org.signal.chat.profile.ProfilesV2CapabilityRequired">
-              
-              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.ProfilesV2CapabilityRequired"><span title="org.signal.chat.profile.ProfilesV2CapabilityRequired">org.signal.chat.profile.ProfilesV2CapabilityRequired</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>Because this is a temporary field during the migration, it has the highest
-field number without serialization overhead. This is purely aesthetic.</p></td>
           
         </tr>
       
