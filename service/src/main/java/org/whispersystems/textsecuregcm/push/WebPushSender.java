@@ -243,7 +243,8 @@ public class WebPushSender implements PushNotificationSender {
   /**
    * Key to cache rate limited endpoints
    */
-  private static String rateLimitKey(final String endpoint) {
+  @VisibleForTesting
+  static String rateLimitKey(final String endpoint) {
     return "WebPush::RateLimit::" + endpoint;
   }
 
