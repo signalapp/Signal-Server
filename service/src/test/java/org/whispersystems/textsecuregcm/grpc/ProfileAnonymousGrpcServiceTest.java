@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatNoException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.EnumSource.Mode.EXCLUDE;
 import static org.mockito.AdditionalMatchers.aryEq;
@@ -37,6 +36,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HexFormat;
@@ -51,9 +51,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
+import org.signal.chat.profile.AccountInfo;
 import org.signal.chat.profile.CredentialType;
 import org.signal.chat.profile.DeleteAvatarRequest;
 import org.signal.chat.profile.DeleteAvatarResponse;
@@ -61,15 +63,14 @@ import org.signal.chat.profile.ExtendAvatarTTLRequest;
 import org.signal.chat.profile.ExtendAvatarTTLResponse;
 import org.signal.chat.profile.GetAvatarUploadFormRequest;
 import org.signal.chat.profile.GetAvatarUploadFormResponse;
-import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
-import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetProfileAnonymousRequest;
 import org.signal.chat.profile.GetProfileAnonymousResponse;
+import org.signal.chat.profile.GetProfileKeyCredentialRequest;
+import org.signal.chat.profile.GetProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetProfileRequest;
+import org.signal.chat.profile.LegacyProfileResult;
 import org.signal.chat.profile.ProfileAnonymousGrpc;
 import org.signal.chat.profile.ProfileResult;
-import org.signal.chat.profile.LegacyProfileResult;
-import org.signal.chat.profile.AccountInfo;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -500,8 +501,9 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     );
   }
 
-  @Test
-  void getExpiringProfileKeyCredential() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void getProfileKeyCredential(final boolean hasV2Capability) throws Exception {
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final UUID targetUuid = UUID.randomUUID();
 
@@ -513,30 +515,37 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
         clientZkProfile.createProfileKeyCredentialRequestContext(new ServiceId.Aci(targetUuid), profileKey);
 
-    final VersionedProfileV1 profile = mock(VersionedProfileV1.class);
-    when(profile.commitment()).thenReturn(profileKeyCommitment.serialize());
-
+    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(hasV2Capability);
+    if (hasV2Capability) {
+      final VersionedProfile profile = mock(VersionedProfile.class);
+      when(profile.commitment()).thenReturn(profileKeyCommitment.serialize());
+      when(profilesManager.get(targetUuid, profileKeyBytes)).thenReturn(Optional.of(profile));
+    } else {
+      final VersionedProfileV1 profileV1 = mock(VersionedProfileV1.class);
+      when(profileV1.commitment()).thenReturn(profileKeyCommitment.serialize());
+      when(profilesManager.getV1(targetUuid, HexFormat.of().formatHex(profileKeyBytes)))
+          .thenReturn(Optional.of(profileV1));
+    }
     when(account.getAccountIdentifier()).thenReturn(targetUuid);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(profileKeyBytes));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(Optional.of(account));
-    when(profilesManager.getV1(targetUuid, HexFormat.of().formatHex(profileKeyBytes))).thenReturn(Optional.of(profile));
 
     final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();
 
-    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
+    final GetProfileKeyCredentialRequest request = GetProfileKeyCredentialRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
             .build())
         .setCredentialRequest(ByteString.copyFrom(credentialRequest.serialize()))
         .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
-        .setVersion(ByteString.copyFrom(profileKeyBytes))
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
         .build();
 
-    final GetExpiringProfileKeyCredentialResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(request);
+    final GetProfileKeyCredentialResponse response = unauthenticatedServiceStub().getProfileKeyCredential(request);
 
-    final Instant expectedExpiration = Instant.now().plus(org.whispersystems.textsecuregcm.util.ProfileHelper.EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION)
+    final Instant expectedExpiration = Instant.now().plus(ProfileHelper.PROFILE_KEY_CREDENTIAL_EXPIRATION)
         .truncatedTo(ChronoUnit.DAYS);
     verify(zkProfileOperations).issueExpiringProfileKeyCredential(eq(credentialRequest), eq(ServiceId.Aci.parseFromString(targetUuid.toString())), eq(profileKeyCommitment), eq(expectedExpiration));
 
@@ -547,52 +556,55 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
   @ParameterizedTest
   @MethodSource
-  void getExpiringProfileKeyCredentialUnauthenticated(final boolean missingAccount, final boolean missingUnidentifiedAccessKey) {
-    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+  void getProfileKeyCredentialUnauthenticated(final boolean missingAccount, final byte[] requestUnidentifiedAccessKey, final byte[] accountUnidentifiedAccessKey, final Status expectedStatus, final
+      GetProfileKeyCredentialResponse.ResponseCase expectedResponseCase) {
     final UUID targetUuid = UUID.randomUUID();
 
     when(account.getAccountIdentifier()).thenReturn(targetUuid);
-    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(accountUnidentifiedAccessKey));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(
         missingAccount ? Optional.empty() : Optional.of(account));
 
-    final GetExpiringProfileKeyCredentialRequest.Builder requestBuilder = GetExpiringProfileKeyCredentialRequest.newBuilder()
+    final GetProfileKeyCredentialRequest.Builder requestBuilder = GetProfileKeyCredentialRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(ByteString.copyFrom(UUIDUtil.toBytes(targetUuid)))
             .build())
         .setCredentialRequest(ByteString.copyFrom("credentialRequest".getBytes(StandardCharsets.UTF_8)))
         .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
-        .setVersion(ByteString.copyFrom(TestRandomUtil.nextBytes(32)));
+        .setUnidentifiedAccessKey(ByteString.copyFrom(requestUnidentifiedAccessKey));
 
-    if (missingUnidentifiedAccessKey) {
-      assertStatusException(Status.INVALID_ARGUMENT,
-          () -> unauthenticatedServiceStub().getExpiringProfileKeyCredential(requestBuilder.build()));
-
-    } else {
-      requestBuilder.setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey));
-
-      final GetExpiringProfileKeyCredentialResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(
+    if (expectedStatus == Status.OK) {
+      final GetProfileKeyCredentialResponse response = unauthenticatedServiceStub().getProfileKeyCredential(
           requestBuilder.build());
 
-      assertEquals(missingAccount, response.hasNotFound());
-      assertNotEquals(missingAccount, response.hasFailedUnidentifiedAuthorization());
+      assertEquals(expectedResponseCase, response.getResponseCase());
+    } else {
+      assertStatusException(expectedStatus,
+          () -> unauthenticatedServiceStub().getProfileKeyCredential(requestBuilder.build()));
     }
 
     verifyNoInteractions(profilesManager);
   }
 
-  private static Stream<Arguments> getExpiringProfileKeyCredentialUnauthenticated() {
+  private static Stream<Arguments> getProfileKeyCredentialUnauthenticated() {
+    final byte[] accountUnidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+    final byte[] empty = new byte[0];
+    final byte[] incorrectUnidentifiedAccessKey = Arrays.copyOf(accountUnidentifiedAccessKey, accountUnidentifiedAccessKey.length);
+    incorrectUnidentifiedAccessKey[0] = (byte) (incorrectUnidentifiedAccessKey[0] + 1);
+
     return Stream.of(
-        Arguments.of(true, false),
-        Arguments.of(false, true),
-        Arguments.of(true, true)
+        Arguments.argumentSet("missing UAK", false, empty, accountUnidentifiedAccessKey, Status.INVALID_ARGUMENT, null),
+        Arguments.argumentSet("account not found", true, TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH),
+            accountUnidentifiedAccessKey, Status.OK, GetProfileKeyCredentialResponse.ResponseCase.NOT_FOUND),
+        Arguments.argumentSet("incorrect UAK", false, incorrectUnidentifiedAccessKey, accountUnidentifiedAccessKey,
+            Status.OK, GetProfileKeyCredentialResponse.ResponseCase.FAILED_UNIDENTIFIED_AUTHORIZATION)
     );
   }
 
-
-  @Test
-  void getExpiringProfileKeyCredentialProfileNotFound() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void getProfileKeyCredentialProfileNotFound(final boolean accountHasCurrentProfileVersion) {
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
     final UUID targetUuid = UUID.randomUUID();
 
@@ -603,10 +615,14 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(
         Optional.of(account));
-    when(profilesManager.getV1(targetUuid, versionHex)).thenReturn(Optional.empty());
-    when(profilesManager.get(eq(targetUuid), aryEq(version))).thenReturn(Optional.empty());
-
-    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
+    if (accountHasCurrentProfileVersion) {
+      when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
+      when(profilesManager.getV1(targetUuid, versionHex)).thenReturn(Optional.empty());
+      when(profilesManager.get(eq(targetUuid), aryEq(version))).thenReturn(Optional.empty());
+    } else {
+      when(account.getCurrentProfileVersion()).thenReturn(Optional.empty());
+    }
+    final GetProfileKeyCredentialRequest request = GetProfileKeyCredentialRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_ACI)
@@ -614,10 +630,9 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
             .build())
         .setCredentialRequest(ByteString.copyFrom("credentialRequest".getBytes(StandardCharsets.UTF_8)))
         .setCredentialType(CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY)
-        .setVersion(ByteString.copyFrom(version))
         .build();
 
-    final GetExpiringProfileKeyCredentialResponse response = unauthenticatedServiceStub().getExpiringProfileKeyCredential(
+    final GetProfileKeyCredentialResponse response = unauthenticatedServiceStub().getProfileKeyCredential(
         request);
 
     assertTrue(response.hasNotFound());
@@ -625,7 +640,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
   @ParameterizedTest
   @MethodSource
-  void getExpiringProfileKeyCredentialInvalidArgument(final IdentityType identityType, final CredentialType credentialType,
+  void getProfileKeyCredentialInvalidArgument(final IdentityType identityType, final CredentialType credentialType,
       final byte[] credentialRequest,
       final boolean throwZkVerificationException) throws VerificationFailedException {
     final UUID targetUuid = UUID.randomUUID();
@@ -638,6 +653,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(profile.commitment()).thenReturn("commitment".getBytes(StandardCharsets.UTF_8));
     when(account.getAccountIdentifier()).thenReturn(targetUuid);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(Optional.of(account));
     when(profilesManager.getV1(targetUuid, versionHex)).thenReturn(Optional.of(profile));
 
@@ -646,7 +662,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
           .when(zkProfileOperations).issueExpiringProfileKeyCredential(any(), any(), any(), any());
     }
 
-    final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
+    final GetProfileKeyCredentialRequest request = GetProfileKeyCredentialRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(identityType)
@@ -654,13 +670,12 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
             .build())
         .setCredentialRequest(ByteString.copyFrom(credentialRequest))
         .setCredentialType(credentialType)
-        .setVersion(ByteString.copyFrom(version))
         .build();
 
-    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getExpiringProfileKeyCredential(request));
+    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getProfileKeyCredential(request));
   }
 
-  private static Stream<Arguments> getExpiringProfileKeyCredentialInvalidArgument() throws Exception {
+  private static Stream<Arguments> getProfileKeyCredentialInvalidArgument() throws Exception {
     final byte[] invalidCredentialRequest = "invalidRequest".getBytes();
 
     final UUID targetUuid = UUID.randomUUID();
@@ -670,7 +685,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final byte[] profileKeyBytes = TestRandomUtil.nextBytes(32);
 
     final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
-    final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(new ServiceId.Aci(targetUuid));
     final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
         clientZkProfile.createProfileKeyCredentialRequestContext(new ServiceId.Aci(targetUuid), profileKey);
     final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();

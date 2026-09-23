@@ -7,10 +7,10 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Empty;
+import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
 import java.util.Base64;
 import java.util.Optional;
-import io.micrometer.core.instrument.Metrics;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.chat.errors.NotFound;
@@ -21,10 +21,10 @@ import org.signal.chat.profile.ExtendAvatarTTLRequest;
 import org.signal.chat.profile.ExtendAvatarTTLResponse;
 import org.signal.chat.profile.GetAvatarUploadFormRequest;
 import org.signal.chat.profile.GetAvatarUploadFormResponse;
-import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
-import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetProfileAnonymousRequest;
 import org.signal.chat.profile.GetProfileAnonymousResponse;
+import org.signal.chat.profile.GetProfileKeyCredentialRequest;
+import org.signal.chat.profile.GetProfileKeyCredentialResponse;
 import org.signal.chat.profile.SimpleProfileAnonymousGrpc;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -137,42 +137,50 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
                 .map(v1Result -> GetProfileAnonymousResponse.newBuilder().setProfileV1(v1Result).build())))
         .orElseGet(() -> GetProfileAnonymousResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build());
 
-    Metrics.counter(GET_PROFILE_RESPONSE_CASE_COUNTER_NAME, "responseCase", response.getResponseCase().name());
+    Metrics.counter(GET_PROFILE_RESPONSE_CASE_COUNTER_NAME, "responseCase", response.getResponseCase().name())
+        .increment();
 
     return response;
   }
 
   @Override
-  public GetExpiringProfileKeyCredentialResponse getExpiringProfileKeyCredential(
-      final GetExpiringProfileKeyCredentialRequest request) {
+  public GetProfileKeyCredentialResponse getProfileKeyCredential(
+      final GetProfileKeyCredentialRequest request) {
     final ServiceIdentifier targetIdentifier = GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getAccountIdentifier());
 
     if (request.getCredentialType() != CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY) {
       throw GrpcExceptions.invalidArguments("invalid credential type");
     }
 
-    final Optional<Account> maybeAccount = getTargetAccountAndValidateUnidentifiedAccess(
-        targetIdentifier, request.getUnidentifiedAccessKey().toByteArray());
+    final Optional<Account> maybeAccount = accountsManager.getByServiceIdentifier(targetIdentifier);
+    if (maybeAccount.isEmpty()) {
+      return GetProfileKeyCredentialResponse.newBuilder()
+          .setNotFound(NotFound.getDefaultInstance())
+          .build();
+    }
 
-    return maybeAccount.map(account ->
-        ProfileGrpcHelper.getExpiringProfileKeyCredentialResult(account,
-                request.getVersion().toByteArray(), request.getCredentialRequest().toByteArray(),
-                profilesManager, zkProfileOperations)
-            .map(result -> GetExpiringProfileKeyCredentialResponse.newBuilder()
-                .setResult(result)
-                .build())
-            .orElseGet(() -> GetExpiringProfileKeyCredentialResponse.newBuilder()
-                .setNotFound(NotFound.getDefaultInstance())
-                .build())).orElseGet(() -> GetExpiringProfileKeyCredentialResponse.newBuilder()
-        .setNotFound(NotFound.getDefaultInstance())
-        .build());
+    final Account account = maybeAccount.get();
 
-  }
+    if (!UnidentifiedAccessUtil.checkUnidentifiedAccess(account, request.getUnidentifiedAccessKey().toByteArray())) {
+      return GetProfileKeyCredentialResponse.newBuilder()
+          .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+          .build();
+    }
 
-  private Optional<Account> getTargetAccountAndValidateUnidentifiedAccess(final ServiceIdentifier targetIdentifier, final byte[] unidentifiedAccessKey)  {
-
-    return accountsManager.getByServiceIdentifier(targetIdentifier)
-        .filter(targetAccount -> UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, unidentifiedAccessKey));
+    // By presenting the correct unidentified access key, the client has confirmed they have the current profile key.
+    // If the credential request is somehow for a different profile version, then the below will fail (and it’s
+    // a client bug).
+    return account.getCurrentProfileVersion()
+        .flatMap(currentVersion ->
+            ProfileGrpcHelper.getProfileKeyCredentialResult(account,
+                    currentVersion, request.getCredentialRequest().toByteArray(),
+                    profilesManager, zkProfileOperations)
+                .map(result -> GetProfileKeyCredentialResponse.newBuilder()
+                    .setResult(result)
+                    .build()))
+        .orElseGet(() -> GetProfileKeyCredentialResponse.newBuilder()
+            .setNotFound(NotFound.getDefaultInstance())
+            .build());
   }
 
   @Override

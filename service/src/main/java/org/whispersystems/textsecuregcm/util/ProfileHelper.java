@@ -36,7 +36,7 @@ import org.whispersystems.textsecuregcm.storage.VersionedProfileV1;
 public class ProfileHelper {
   public static int MAX_PROFILE_AVATAR_SIZE_BYTES = 10 * 1024 * 1024;
   @VisibleForTesting
-  public static final Duration EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION = Duration.ofDays(7);
+  public static final Duration PROFILE_KEY_CREDENTIAL_EXPIRATION = Duration.ofDays(7);
 
   public static List<AccountBadge> mergeBadgeIdsWithExistingAccountBadges(
       final Clock clock,
@@ -99,7 +99,7 @@ public class ProfileHelper {
       final ServiceId.Aci accountIdentifier,
       final ServerZkProfileOperations zkProfileOperations) throws InvalidInputException, VerificationFailedException {
 
-    final Instant expiration = Instant.now().plus(EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION).truncatedTo(ChronoUnit.DAYS);
+    final Instant expiration = Instant.now().plus(PROFILE_KEY_CREDENTIAL_EXPIRATION).truncatedTo(ChronoUnit.DAYS);
 
     return zkProfileOperations.issueExpiringProfileKeyCredential(request, accountIdentifier, commitment, expiration);
   }

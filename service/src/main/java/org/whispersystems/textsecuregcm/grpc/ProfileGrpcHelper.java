@@ -17,7 +17,7 @@ import java.util.Optional;
 import org.bouncycastle.crypto.digests.TupleHash;
 import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.profile.AccountInfo;
-import org.signal.chat.profile.GetExpiringProfileKeyCredentialResult;
+import org.signal.chat.profile.GetProfileKeyCredentialResult;
 import org.signal.chat.profile.LegacyProfileResult;
 import org.signal.chat.profile.ProfileResult;
 import org.signal.chat.profile.ProfileResultOrBuilder;
@@ -128,7 +128,7 @@ public class ProfileGrpcHelper {
     return accountInfoBuilder.build();
   }
 
-  static Optional<GetExpiringProfileKeyCredentialResult> getExpiringProfileKeyCredentialResult(
+  static Optional<GetProfileKeyCredentialResult> getProfileKeyCredentialResult(
       final Account account,
       final byte[] version,
       final byte[] encodedCredentialRequest,
@@ -156,7 +156,7 @@ public class ProfileGrpcHelper {
             throw GrpcExceptions.invalidArguments("invalid credential request");
           }
 
-          return GetExpiringProfileKeyCredentialResult.newBuilder()
+          return GetProfileKeyCredentialResult.newBuilder()
               .setProfileKeyCredential(ByteString.copyFrom(profileKeyCredentialResponse.serialize()))
               .build();
         });

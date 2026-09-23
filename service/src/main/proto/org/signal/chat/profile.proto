@@ -57,7 +57,7 @@ service ProfileAnonymous {
   rpc GetProfile(GetProfileAnonymousRequest) returns (GetProfileAnonymousResponse) {}
 
   // Retrieves a profile key credential.
-  rpc GetExpiringProfileKeyCredential(GetExpiringProfileKeyCredentialRequest) returns (GetExpiringProfileKeyCredentialResponse) {}
+  rpc GetProfileKeyCredential(GetProfileKeyCredentialRequest) returns (GetProfileKeyCredentialResponse) {}
 
   // Returns a credential to upload a v2 avatar. After uploading the avatar, the client
   // must call SetProfile with the new avatar URL in the encrypted `data`.
@@ -332,29 +332,31 @@ message GetProfileAnonymousResponse {
   // next: 5
 }
 
-message GetExpiringProfileKeyCredentialRequest {
+message GetProfileKeyCredentialRequest {
   // The ACI of the account for which to get a profile key credential.
   common.ServiceIdentifier account_identifier = 1 [(require.present) = true, (require.identityType) = IDENTITY_TYPE_ACI];
-  // A zkgroup request for a profile key credential.
+  // A zkgroup request for a profile key credential for the target’s current profile.
   bytes credential_request = 2 [(require.nonEmpty) = true];
   // The type of credential being requested.
   CredentialType credential_type = 3 [(require.specified) = true];
-  // The profile version for which to generate a profile key credential.
-  bytes version = 4 [(require.exactlySize) = 32];
   // The unidentified access key for the targeted account.
-  bytes unidentified_access_key = 5 [(require.exactlySize) = 16];
+  bytes unidentified_access_key = 4 [(require.exactlySize) = 16];
 }
 
-message GetExpiringProfileKeyCredentialResult {
+message GetProfileKeyCredentialResult {
   // A zkgroup credential used by a client to prove that it has the profile key
   // of a targeted account.
   bytes profile_key_credential = 1;
 }
 
-message GetExpiringProfileKeyCredentialResponse {
+message GetProfileKeyCredentialResponse {
   oneof response {
-    GetExpiringProfileKeyCredentialResult result = 1;
+    GetProfileKeyCredentialResult result = 1;
+    // Indicates the account was not found or the account's current profile was
+    // not found. Use `AccountsAnonymous.CheckAccountExistence` for a canonical
+    // account existence check.
     errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
+    // The provided unidentified access key was incorrect
     errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3 [(tag.reason) = "failed_unidentified_authorization"];
   }
 }

@@ -1258,7 +1258,7 @@ class ProfileControllerTest {
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
     when(account.isIdentifiedBy(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(true);
 
-    final Instant expiration = Instant.now().plus(org.whispersystems.textsecuregcm.util.ProfileHelper.EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION)
+    final Instant expiration = Instant.now().plus(org.whispersystems.textsecuregcm.util.ProfileHelper.PROFILE_KEY_CREDENTIAL_EXPIRATION)
         .truncatedTo(ChronoUnit.DAYS);
 
     final ExpiringProfileKeyCredentialResponse credentialResponse =
