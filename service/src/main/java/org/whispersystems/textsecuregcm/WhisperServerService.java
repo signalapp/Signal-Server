@@ -666,7 +666,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final ScheduledExecutorService retryExecutor = ScheduledExecutorServiceBuilder.of(environment, "retry")
         .threads(16).build();
     final ScheduledExecutorService registrationIdentityTokenRefreshExecutor =
-      ScheduledExecutorServiceBuilder.of(environment, "registrationIdentityTokenRefresh").threads(1).build();
+        ScheduledExecutorServiceBuilder.of(environment, "registrationIdentityTokenRefresh").threads(1).build();
     final ScheduledExecutorService presenceRenewalExecutor =
         ScheduledExecutorServiceBuilder.of(environment, "presenceRenewal").threads(4).build();
 
@@ -726,11 +726,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final ManagedEventLoopGroup<NioEventLoopGroup> dnsResolutionEventLoopGroup = new ManagedEventLoopGroup<>(new NioEventLoopGroup());
     final DnsNameResolver cloudflareDnsResolver = new DnsNameResolverBuilder(dnsResolutionEventLoopGroup.getEventLoopGroup().next())
-            .resolvedAddressTypes(ResolvedAddressTypes.IPV6_PREFERRED)
-            .completeOncePreferredResolved(false)
-            .channelType(NioDatagramChannel.class)
-            .socketChannelType(NioSocketChannel.class)
-            .build();
+        .resolvedAddressTypes(ResolvedAddressTypes.IPV6_PREFERRED)
+        .completeOncePreferredResolved(false)
+        .channelType(NioDatagramChannel.class)
+        .socketChannelType(NioSocketChannel.class)
+        .build();
 
     ExternalServiceCredentialsGenerator directoryV2CredentialsGenerator = DirectoryV2Controller.credentialsGenerator(
         config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration());
@@ -1218,7 +1218,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         grpcLocalAddress);
     @Nullable final Mapping<String, SslContext> sniMapping = config.getGrpc().h2c()
         ? null
-        : SniMapper.buildSniMapping(config.getTlsKeyStoreConfiguration().path(), config.getTlsKeyStoreConfiguration().password().value());
+        : SniMapper.buildSniMapping(config.getTlsKeyStoreConfiguration().path(),
+            config.getTlsKeyStoreConfiguration().password().value(),
+            config.getGrpc().sslProvider());
     final OmnibusH2Server omnibusH2Server = new OmnibusH2Server(
         sniMapping,
         omnibusNioEventLoopGroup.getEventLoopGroup(),

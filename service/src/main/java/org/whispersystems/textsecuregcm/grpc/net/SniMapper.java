@@ -7,8 +7,10 @@ package org.whispersystems.textsecuregcm.grpc.net;
 import com.google.common.annotations.VisibleForTesting;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
 import io.netty.util.Mapping;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -49,25 +51,35 @@ public class SniMapper {
   ///
   /// @param keyStorePath     The path to the [KeyStore]
   /// @param keyStorePassword The password for the keyStore
+  /// @param sslProvider      The TLS implementation to use
   /// @return A [Mapping] that maps domains to the corresponding [SslContext] containing the certificates for that
   /// domain
-  public static Mapping<String, SslContext> buildSniMapping(final String keyStorePath, final String keyStorePassword)
-      throws IOException {
+  public static Mapping<String, SslContext> buildSniMapping(final String keyStorePath, final String keyStorePassword,
+      final SslProvider sslProvider) throws IOException {
     try (final FileInputStream fis = new FileInputStream(keyStorePath)) {
-      return buildSniMapping(fis, keyStorePassword);
+      return buildSniMapping(fis, keyStorePassword, sslProvider);
     }
   }
 
   @VisibleForTesting
-  static Mapping<String, SslContext> buildSniMapping(final InputStream keyStore, final String keyStorePassword)
-      throws IOException {
+  static Mapping<String, SslContext> buildSniMapping(final InputStream keyStore, final String keyStorePassword,
+      final SslProvider sslProvider) throws IOException {
+
+    if (sslProvider != SslProvider.JDK && sslProvider != SslProvider.OPENSSL) {
+      throw new IllegalArgumentException("Unsupported SSL provider: " + sslProvider);
+    }
+
+    if (sslProvider == SslProvider.OPENSSL) {
+      OpenSsl.ensureAvailability();
+    }
+
     try {
       final Map<String, KeyStore> domainKeyStores = partitionByDomain(keyStore, keyStorePassword.toCharArray());
       final Map<String, SslContext> sslContextsByDomain = new HashMap<>();
       for (final Map.Entry<String, KeyStore> entry : domainKeyStores.entrySet()) {
         final KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(entry.getValue(), keyStorePassword.toCharArray());
-        sslContextsByDomain.put(entry.getKey(), buildSslContext(kmf));
+        sslContextsByDomain.put(entry.getKey(), buildSslContext(kmf, sslProvider));
       }
 
       // Netty expects the SNI mapping to always return an SslContext. Per RFC-6066 it's valid to continue the handshake
@@ -78,15 +90,23 @@ public class SniMapper {
           .orElseThrow(() -> new IllegalArgumentException("Key store contained no certificates"))
           .getValue();
 
-      logger.info("Loaded TLS contexts for domains: {}", sslContextsByDomain.keySet());
+      logger.info("Loaded {} TLS contexts for domains: {}", sslProvider, sslContextsByDomain.keySet());
       return hostname -> sslContextsByDomain.getOrDefault(hostname, defaultSslContext);
     } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | UnrecoverableKeyException e) {
       throw new IOException("Failed to load keystore", e);
     }
   }
 
-  private static SslContext buildSslContext(final KeyManagerFactory kmf) throws SSLException {
-    return SslContextBuilder.forServer(kmf)
+  private static SslContext buildSslContext(final KeyManagerFactory kmf, final SslProvider sslProvider)
+      throws SSLException {
+
+    final SslContextBuilder sslContextBuilder = sslProvider == SslProvider.OPENSSL
+        // work around netty's OpenSSL provider not selecting Ed25519 certificates on its own
+        ? SslContextBuilder.forServer(BoringSslServerKeyManager.wrap(kmf.getKeyManagers()))
+        : SslContextBuilder.forServer(kmf);
+
+    return sslContextBuilder
+        .sslProvider(sslProvider)
         .applicationProtocolConfig(new ApplicationProtocolConfig(
             ApplicationProtocolConfig.Protocol.ALPN,
             ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,

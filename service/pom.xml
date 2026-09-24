@@ -515,6 +515,11 @@
 
     <dependency>
       <groupId>io.netty</groupId>
+      <artifactId>netty-tcnative-boringssl-static</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
       <artifactId>netty-transport</artifactId>
     </dependency>
 
@@ -795,6 +800,7 @@
                   <jvmFlag>-Djdk.nio.maxCachedBufferSize=262144</jvmFlag>
                   <jvmFlag>-Dlog4j2.formatMsgNoLookups=true</jvmFlag>
                   <jvmFlag>-Djdk.tls.server.newSessionTicketCount=0</jvmFlag>
+                  <jvmFlag>-Djdk.tls.server.enableSessionTicketExtension=false</jvmFlag>
                   <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
                   <jvmFlag>-XX:+HeapDumpOnOutOfMemoryError</jvmFlag>
                   <jvmFlag>-XX:HeapDumpPath=/tmp/heapdump.bin</jvmFlag>

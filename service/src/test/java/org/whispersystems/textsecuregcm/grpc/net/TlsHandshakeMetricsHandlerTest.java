@@ -51,7 +51,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class TlsHandshakeMetricsHandlerTest {
 
@@ -114,9 +115,10 @@ class TlsHandshakeMetricsHandlerTest {
     eventLoopGroup.shutdownGracefully(0, 1000, TimeUnit.MILLISECONDS).sync();
   }
 
-  @Test
-  void handshake() throws Exception {
-    final AtomicReference<Channel> lastServerChildChannel = startServer(buildSniMapping());
+  @ParameterizedTest
+  @EnumSource(value = SslProvider.class, names = {"JDK", "OPENSSL"})
+  void handshake(final SslProvider sslProvider) throws Exception {
+    final AtomicReference<Channel> lastServerChildChannel = startServer(buildSniMapping(sslProvider));
     connect(null);
 
     assertEquals(1, getCount(true));
@@ -125,9 +127,11 @@ class TlsHandshakeMetricsHandlerTest {
     assertNull(lastServerChildChannel.get().pipeline().get(TlsHandshakeMetricsHandler.class), "the metrics handler should remove itself");
   }
 
-  @Test
-  void failedHandshake() throws Exception {
-    startServer(buildSniMapping());
+  @ParameterizedTest
+  @EnumSource(value = SslProvider.class, names = {"JDK", "OPENSSL"})
+  void failedHandshake(final SslProvider sslProvider) throws Exception {
+    startServer(buildSniMapping(sslProvider));
+
     // The server only holds an Ed25519 key
     connect(new String[] { "rsa_pss_rsae_sha256" });
 
@@ -136,8 +140,8 @@ class TlsHandshakeMetricsHandlerTest {
     assertEquals(1, getCount(false));
   }
 
-  private static Mapping<String, SslContext> buildSniMapping() throws Exception {
-    return SniMapper.buildSniMapping(new ByteArrayInputStream(keyStoreBytes), keyStorePassword);
+  private static Mapping<String, SslContext> buildSniMapping(final SslProvider sslProvider) throws Exception {
+    return SniMapper.buildSniMapping(new ByteArrayInputStream(keyStoreBytes), keyStorePassword, sslProvider);
   }
 
   /// Starts the server and returns a reference to the child channel, for introspection by tests

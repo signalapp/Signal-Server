@@ -78,6 +78,8 @@
     <luajava.version>4.1.0</luajava.version>
     <micrometer.version>1.17.1</micrometer.version>
     <netty.version>4.2.18.Final</netty.version>
+    <!-- netty-bom doesn't manage the BoringSSL uber-jar; keep in sync with netty's tcnative.version -->
+    <netty-tcnative.version>2.0.84.Final</netty-tcnative.version>
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
     <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
     <protobuf.version>4.36.0</protobuf.version>
@@ -140,6 +142,11 @@
         <version>${netty.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-tcnative-boringssl-static</artifactId>
+        <version>${netty-tcnative.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.protobuf</groupId>

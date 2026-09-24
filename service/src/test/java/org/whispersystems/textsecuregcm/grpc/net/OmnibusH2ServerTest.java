@@ -51,6 +51,7 @@ import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.pkitesting.CertificateBuilder;
 import io.netty.util.Mapping;
@@ -142,7 +143,7 @@ class OmnibusH2ServerTest {
         .store(byteArrayOutputStream, keyStorePassword);
 
     sniMapping = SniMapper.buildSniMapping(new ByteArrayInputStream(byteArrayOutputStream.toByteArray()),
-        new String(keyStorePassword));
+        new String(keyStorePassword), SslProvider.OPENSSL);
 
     nioEventLoopGroup = new NioEventLoopGroup();
     localEventLoopGroup = new DefaultEventLoopGroup();
