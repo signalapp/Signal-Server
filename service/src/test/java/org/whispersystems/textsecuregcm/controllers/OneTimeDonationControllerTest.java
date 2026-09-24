@@ -276,7 +276,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
       assertThat(response.getStatus()).isEqualTo(402);
 
       if (expectChargeFailure) {
-        assertThat(response.readEntity(OneTimeDonationController.CreateBoostReceiptCredentialsErrorResponse.class)
+        assertThat(response.readEntity(OneTimeDonationController.CreateBoostReceiptCredentialErrorResponse.class)
             .chargeFailure()).isEqualTo(chargeFailure);
       } else {
         assertThat(response.readEntity(String.class)).isEqualTo("{}");

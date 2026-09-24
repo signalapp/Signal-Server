@@ -181,7 +181,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
 
     try {
       presentation = new AvatarUploadCredentialPresentation(
-          request.getAvatarCredentialsPresentation().toByteArray());
+          request.getAvatarCredentialPresentation().toByteArray());
 
       presentation.verify(clock.instant(), this.genericServerSecretParams);
 
@@ -190,7 +190,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
 
     } catch (VerificationFailedException _) {
       return GetAvatarUploadFormResponse.newBuilder()
-          .setInvalidCredentialsPresentation(FailedZkAuthentication.getDefaultInstance())
+          .setInvalidCredentialPresentation(FailedZkAuthentication.getDefaultInstance())
           .build();
     }
 
@@ -212,7 +212,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
     final AvatarUploadCredentialPresentation presentation;
     try {
       presentation = new AvatarUploadCredentialPresentation(
-          request.getAvatarCredentialsPresentation().toByteArray());
+          request.getAvatarCredentialPresentation().toByteArray());
     } catch (InvalidInputException _) {
       throw GrpcExceptions.invalidArguments("invalid credential presentation");
     }
@@ -222,7 +222,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
 
     } catch (VerificationFailedException _) {
       return ExtendAvatarTTLResponse.newBuilder()
-          .setInvalidCredentialsPresentation(FailedZkAuthentication.getDefaultInstance())
+          .setInvalidCredentialPresentation(FailedZkAuthentication.getDefaultInstance())
           .build();
     }
 
@@ -242,7 +242,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
     final AvatarUploadCredentialPresentation presentation;
     try {
       presentation = new AvatarUploadCredentialPresentation(
-          request.getAvatarCredentialsPresentation().toByteArray());
+          request.getAvatarCredentialPresentation().toByteArray());
     } catch (InvalidInputException _) {
       throw GrpcExceptions.invalidArguments("invalid credential presentation");
     }
@@ -252,7 +252,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
 
     } catch (VerificationFailedException _) {
       return DeleteAvatarResponse.newBuilder()
-          .setInvalidCredentialsPresentation(FailedZkAuthentication.getDefaultInstance())
+          .setInvalidCredentialPresentation(FailedZkAuthentication.getDefaultInstance())
           .build();
     }
 

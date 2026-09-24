@@ -313,7 +313,7 @@ public class OneTimeDonationController {
     return new ConfirmPayPalBoostResponse(chargeSuccessDetails.paymentId());
   }
 
-  public static class CreateBoostReceiptCredentialsRequest {
+  public static class CreateBoostReceiptCredentialRequest {
 
     /**
      * a payment ID from {@link #processor}
@@ -327,10 +327,10 @@ public class OneTimeDonationController {
     public PaymentProvider processor = PaymentProvider.STRIPE;
   }
 
-  public record CreateBoostReceiptCredentialsSuccessResponse(byte[] receiptCredentialResponse) {
+  public record CreateBoostReceiptCredentialSuccessResponse(byte[] receiptCredentialResponse) {
   }
 
-  public record CreateBoostReceiptCredentialsErrorResponse(
+  public record CreateBoostReceiptCredentialErrorResponse(
       @JsonInclude(JsonInclude.Include.NON_NULL) ChargeFailure chargeFailure) {}
 
   @POST
@@ -338,9 +338,9 @@ public class OneTimeDonationController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ManagedAsync
-  public Response createBoostReceiptCredentials(
+  public Response createBoostReceiptCredential(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
-      @NotNull @Valid final CreateBoostReceiptCredentialsRequest request,
+      @NotNull @Valid final CreateBoostReceiptCredentialRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws IOException {
 
     if (authenticatedAccount.isPresent()) {
@@ -363,7 +363,7 @@ public class OneTimeDonationController {
     }
     if (paymentDetails.status() != PaymentStatus.SUCCEEDED) {
       throw new WebApplicationException(Response.status(Response.Status.PAYMENT_REQUIRED)
-          .entity(new CreateBoostReceiptCredentialsErrorResponse(paymentDetails.chargeFailure())).build());
+          .entity(new CreateBoostReceiptCredentialErrorResponse(paymentDetails.chargeFailure())).build());
     }
 
     // The payment was successful, try to issue the receipt credential
@@ -406,7 +406,7 @@ public class OneTimeDonationController {
                 UserAgentTagUtil.getPlatformTag(userAgent)))
         .increment();
     return Response.ok(
-            new CreateBoostReceiptCredentialsSuccessResponse(receiptCredentialResponse.serialize()))
+            new CreateBoostReceiptCredentialSuccessResponse(receiptCredentialResponse.serialize()))
         .build();
   }
 }

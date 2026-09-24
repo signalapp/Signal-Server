@@ -25,8 +25,8 @@ import org.signal.chat.purchase.AmountAboveSepaLimitError;
 import org.signal.chat.purchase.AmountBelowMinimumError;
 import org.signal.chat.purchase.ConfirmPayPalBoostRequest;
 import org.signal.chat.purchase.ConfirmPayPalBoostResponse;
-import org.signal.chat.purchase.CreateBoostReceiptCredentialsRequest;
-import org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse;
+import org.signal.chat.purchase.CreateBoostReceiptCredentialRequest;
+import org.signal.chat.purchase.CreateBoostReceiptCredentialResponse;
 import org.signal.chat.purchase.CreateBoostRequest;
 import org.signal.chat.purchase.CreateBoostResponse;
 import org.signal.chat.purchase.CreatePayPalBoostRequest;
@@ -261,8 +261,8 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
   }
 
   @Override
-  public CreateBoostReceiptCredentialsResponse createBoostReceiptCredentials(
-      final CreateBoostReceiptCredentialsRequest request) throws IOException {
+  public CreateBoostReceiptCredentialResponse createBoostReceiptCredential(
+      final CreateBoostReceiptCredentialRequest request) throws IOException {
 
     final PaymentProvider processor = PaymentProvider.fromProto(request.getProcessor())
         .orElseThrow(() -> GrpcExceptions.fieldViolation("processor", "Unsupported payment processor"));
@@ -274,12 +274,12 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
     };
 
     if (maybePaymentDetails.isEmpty()) {
-      return CreateBoostReceiptCredentialsResponse.newBuilder()
+      return CreateBoostReceiptCredentialResponse.newBuilder()
           .setPaymentNotFound(NotFound.getDefaultInstance()).build();
     }
     final PaymentDetails paymentDetails = maybePaymentDetails.get();
     if (paymentDetails.status() == PaymentStatus.PROCESSING) {
-      return CreateBoostReceiptCredentialsResponse.newBuilder()
+      return CreateBoostReceiptCredentialResponse.newBuilder()
           .setPaymentStillProcessing(FailedPrecondition.getDefaultInstance()).build();
     }
     if (paymentDetails.status() != PaymentStatus.SUCCEEDED) {
@@ -287,7 +287,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
       if (paymentDetails.chargeFailure() != null) {
         paymentRequiredBuilder.setChargeFailure(toChargeFailure(processor, paymentDetails.chargeFailure()));
       }
-      return CreateBoostReceiptCredentialsResponse.newBuilder()
+      return CreateBoostReceiptCredentialResponse.newBuilder()
           .setPaymentRequired(paymentRequiredBuilder).build();
     }
 
@@ -316,7 +316,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
       issuedReceiptsManager.recordOneTimeIssuance(
           paymentDetails.id(), processor, receiptCredentialRequest, expiration);
     } catch (final WriteConflictException e) {
-      return CreateBoostReceiptCredentialsResponse.newBuilder()
+      return CreateBoostReceiptCredentialResponse.newBuilder()
           .setReceiptAlreadyIssued(FailedPrecondition.getDefaultInstance()).build();
     }
 
@@ -336,8 +336,8 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
                 UserAgentTagUtil.getPlatformTag(RequestAttributesUtil.getUserAgent().orElse(null))))
         .increment();
 
-    return CreateBoostReceiptCredentialsResponse.newBuilder()
-        .setResult(CreateBoostReceiptCredentialsResponse.CreateBoostReceiptCredentialsResult.newBuilder()
+    return CreateBoostReceiptCredentialResponse.newBuilder()
+        .setResult(CreateBoostReceiptCredentialResponse.CreateBoostReceiptCredentialResult.newBuilder()
             .setReceiptCredentialResponse(ByteString.copyFrom(receiptCredentialResponse.serialize()))
             .build())
         .build();

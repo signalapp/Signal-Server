@@ -835,7 +835,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/receipt_credentials", subscriberId))
         .request()
-        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())))) {
+        .post(Entity.json(new SubscriptionController.GetReceiptCredentialRequest(receiptRequest.serialize())))) {
 
       assertThat(response.getStatus()).isEqualTo(402);
       responseMap = response.readEntity(Map.class);
@@ -876,7 +876,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/receipt_credentials", subscriberId))
         .request()
-        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())))) {
+        .post(Entity.json(new SubscriptionController.GetReceiptCredentialRequest(receiptRequest.serialize())))) {
 
       assertThat(response.getStatus()).isEqualTo(409);
     }
@@ -917,7 +917,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/receipt_credentials", subscriberId))
         .request()
-        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())))) {
+        .post(Entity.json(new SubscriptionController.GetReceiptCredentialRequest(receiptRequest.serialize())))) {
       assertThat(response.getStatus()).isEqualTo(200);
     }
 

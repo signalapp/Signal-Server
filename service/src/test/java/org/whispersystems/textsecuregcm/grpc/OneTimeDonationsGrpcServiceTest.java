@@ -32,8 +32,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.signal.chat.purchase.ConfirmPayPalBoostRequest;
 import org.signal.chat.purchase.ConfirmPayPalBoostResponse;
-import org.signal.chat.purchase.CreateBoostReceiptCredentialsRequest;
-import org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse;
+import org.signal.chat.purchase.CreateBoostReceiptCredentialRequest;
+import org.signal.chat.purchase.CreateBoostReceiptCredentialResponse;
 import org.signal.chat.purchase.CreateBoostRequest;
 import org.signal.chat.purchase.CreateBoostResponse;
 import org.signal.chat.purchase.CreatePayPalBoostRequest;
@@ -268,22 +268,22 @@ public class OneTimeDonationsGrpcServiceTest extends
 
   @ParameterizedTest
   @MethodSource
-  void createBoostReceiptCredentialsPaymentRequired(
+  void createBoostReceiptCredentialPaymentRequired(
       @Nullable final ChargeFailure chargeFailure,
       final boolean expectChargeFailure) throws IOException {
     when(stripeManager.claimOneTimePurchase(any())).thenReturn(
         Optional.of(new PaymentDetails("id", null, PaymentStatus.FAILED,
             clock.instant(), chargeFailure)));
 
-    final CreateBoostReceiptCredentialsResponse response =
-        unauthenticatedServiceStub().createBoostReceiptCredentials(
-            CreateBoostReceiptCredentialsRequest.newBuilder()
+    final CreateBoostReceiptCredentialResponse response =
+        unauthenticatedServiceStub().createBoostReceiptCredential(
+            CreateBoostReceiptCredentialRequest.newBuilder()
                 .setPaymentIntentId("test-payment-intent-id")
                 .setReceiptCredentialRequest(ByteString.copyFromUtf8("abcd"))
                 .setProcessor(PaymentProvider.PAYMENT_PROVIDER_STRIPE)
                 .build());
 
-    assertEquals(CreateBoostReceiptCredentialsResponse.ResponseCase.PAYMENT_REQUIRED,
+    assertEquals(CreateBoostReceiptCredentialResponse.ResponseCase.PAYMENT_REQUIRED,
         response.getResponseCase());
     if (expectChargeFailure) {
       assertEquals("generic_decline", response.getPaymentRequired().getChargeFailure().getCode());
@@ -292,7 +292,7 @@ public class OneTimeDonationsGrpcServiceTest extends
     }
   }
 
-  static Stream<Arguments> createBoostReceiptCredentialsPaymentRequired() {
+  static Stream<Arguments> createBoostReceiptCredentialPaymentRequired() {
     return Stream.of(
         Arguments.of(new ChargeFailure("generic_decline", "some failure message", null, null, null), true),
         Arguments.of(null, false)
@@ -300,7 +300,7 @@ public class OneTimeDonationsGrpcServiceTest extends
   }
 
   @Test
-  void createBoostReceiptCredentialsAlreadyRedeemed() throws Exception {
+  void createBoostReceiptCredentialAlreadyRedeemed() throws Exception {
     final ReceiptCredentialRequest receiptCredentialRequest = new ClientZkReceiptOperations(
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
@@ -312,15 +312,15 @@ public class OneTimeDonationsGrpcServiceTest extends
     doThrow(WriteConflictException.class).when(issuedReceiptsManager)
         .recordOneTimeIssuance(any(), any(), any(), any());
 
-    final CreateBoostReceiptCredentialsResponse response =
-        unauthenticatedServiceStub().createBoostReceiptCredentials(
-            CreateBoostReceiptCredentialsRequest.newBuilder()
+    final CreateBoostReceiptCredentialResponse response =
+        unauthenticatedServiceStub().createBoostReceiptCredential(
+            CreateBoostReceiptCredentialRequest.newBuilder()
                 .setPaymentIntentId("test-payment-intent-id")
                 .setReceiptCredentialRequest(ByteString.copyFrom(receiptCredentialRequest.serialize()))
                 .setProcessor(PaymentProvider.PAYMENT_PROVIDER_STRIPE)
                 .build());
 
-    assertEquals(CreateBoostReceiptCredentialsResponse.ResponseCase.RECEIPT_ALREADY_ISSUED,
+    assertEquals(CreateBoostReceiptCredentialResponse.ResponseCase.RECEIPT_ALREADY_ISSUED,
         response.getResponseCase());
   }
 

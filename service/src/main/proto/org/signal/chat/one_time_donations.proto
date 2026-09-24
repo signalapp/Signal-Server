@@ -21,7 +21,7 @@ service OneTimeDonations {
   option (require.auth) = AUTH_ONLY_ANONYMOUS;
 
   // Create a Stripe payment intent and return a client secret that can be used to complete the payment.
-  // Once the payment is complete, the paymentIntentId can be used with CreateBoostReceiptCredentials
+  // Once the payment is complete, the paymentIntentId can be used with CreateBoostReceiptCredential
   rpc CreateBoost(CreateBoostRequest) returns (CreateBoostResponse) {}
 
   // Create a PayPal one-time payment.
@@ -41,7 +41,7 @@ service OneTimeDonations {
   // Obtain a ZK receipt credential for a completed one-time donation payment.
   // The receipt credential can then be used to redeem the one-time donation entitlement
   // via Donations.RedeemReceipt
-  rpc CreateBoostReceiptCredentials(CreateBoostReceiptCredentialsRequest) returns (CreateBoostReceiptCredentialsResponse) {}
+  rpc CreateBoostReceiptCredential(CreateBoostReceiptCredentialRequest) returns (CreateBoostReceiptCredentialResponse) {}
 }
 
 // The amount is below the minimum for the currency.
@@ -149,7 +149,7 @@ message ConfirmPayPalBoostResponse {
   }
 }
 
-message CreateBoostReceiptCredentialsRequest {
+message CreateBoostReceiptCredentialRequest {
   // a payment ID from the processor
   string payment_intent_id = 1 [(require.nonEmpty) = true];
   // ZK blind-signature receipt credential request bytes
@@ -158,12 +158,12 @@ message CreateBoostReceiptCredentialsRequest {
   PaymentProvider processor = 3 [(require.specified) = true];
 }
 
-message CreateBoostReceiptCredentialsResponse {
-  message CreateBoostReceiptCredentialsResult {
+message CreateBoostReceiptCredentialResponse {
+  message CreateBoostReceiptCredentialResult {
     bytes receipt_credential_response = 1;
   }
   oneof response {
-    CreateBoostReceiptCredentialsResult result = 1;
+    CreateBoostReceiptCredentialResult result = 1;
     // Payment is still processing; client should retry
     errors.FailedPrecondition payment_still_processing = 2 [(tag.reason) = "payment_still_processing"];
     // Payment failed

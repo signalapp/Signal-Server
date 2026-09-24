@@ -691,7 +691,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         genericServerSecretParams, clock);
 
     final GetAvatarUploadFormRequest request = GetAvatarUploadFormRequest.newBuilder()
-        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setAvatarCredentialPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
         .setUploadLength(100)
         .build();
 
@@ -711,7 +711,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         genericServerSecretParams, clock);
 
     final GetAvatarUploadFormRequest request = GetAvatarUploadFormRequest.newBuilder()
-        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setAvatarCredentialPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
         .setUploadLength(Math.toIntExact(ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES + 1))
         .build();
 
@@ -726,12 +726,12 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   }
 
   @Test
-  void getAvatarUploadFormInvalidCredentialsPresentation() throws Exception {
+  void getAvatarUploadFormInvalidCredentialPresentation() throws Exception {
     final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
         genericServerSecretParams, clock);
 
     final GetAvatarUploadFormRequest request = GetAvatarUploadFormRequest.newBuilder()
-        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setAvatarCredentialPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
         .setUploadLength(100)
         .build();
 
@@ -740,7 +740,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     final GetAvatarUploadFormResponse response = authenticatedServiceStub().getAvatarUploadForm(request);
 
-    assertTrue(response.hasInvalidCredentialsPresentation());
+    assertTrue(response.hasInvalidCredentialPresentation());
   }
 
   @Test
@@ -753,7 +753,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         .when(profileAvatarBytesRateLimiter).validate(anyString(), anyLong());
 
     final GetAvatarUploadFormRequest request = GetAvatarUploadFormRequest.newBuilder()
-        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setAvatarCredentialPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
         .setUploadLength(100)
         .build();
 
@@ -771,7 +771,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         genericServerSecretParams, clock);
 
     final ExtendAvatarTTLRequest request = ExtendAvatarTTLRequest.newBuilder()
-        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setAvatarCredentialPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
         .build();
 
     final ExtendAvatarTTLResponse response = authenticatedServiceStub().extendAvatarTTL(request);
@@ -789,7 +789,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         genericServerSecretParams, clock);
 
     final ExtendAvatarTTLRequest request = ExtendAvatarTTLRequest.newBuilder()
-        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setAvatarCredentialPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
         .build();
 
 
@@ -799,12 +799,12 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   }
 
   @Test
-  void extendAvatarTtlInvalidCredentialsPresentation() throws Exception {
+  void extendAvatarTtlInvalidCredentialPresentation() throws Exception {
     final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
         genericServerSecretParams, clock);
 
     final ExtendAvatarTTLRequest request = ExtendAvatarTTLRequest.newBuilder()
-        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setAvatarCredentialPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
         .build();
 
     // trigger a verification failure by advancing the clock beyond validity
@@ -812,7 +812,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     final ExtendAvatarTTLResponse response = authenticatedServiceStub().extendAvatarTTL(request);
 
-    assertTrue(response.hasInvalidCredentialsPresentation());
+    assertTrue(response.hasInvalidCredentialPresentation());
   }
 
   @Test
@@ -821,7 +821,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         genericServerSecretParams, clock);
 
     final DeleteAvatarRequest request = DeleteAvatarRequest.newBuilder()
-        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setAvatarCredentialPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
         .build();
 
     final DeleteAvatarResponse response = authenticatedServiceStub().deleteAvatar(request);
@@ -832,12 +832,12 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   }
 
   @Test
-  void deleteAvatarInvalidCredentialsPresentation() throws Exception {
+  void deleteAvatarInvalidCredentialPresentation() throws Exception {
     final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
         genericServerSecretParams, clock);
 
     final DeleteAvatarRequest request = DeleteAvatarRequest.newBuilder()
-        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setAvatarCredentialPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
         .build();
 
     // trigger a verification failure by advancing the clock beyond validity
@@ -845,7 +845,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     final DeleteAvatarResponse response = authenticatedServiceStub().deleteAvatar(request);
 
-    assertTrue(response.hasInvalidCredentialsPresentation());
+    assertTrue(response.hasInvalidCredentialPresentation());
   }
 
   static AvatarUploadCredentialPresentation getAvatarUploadCredentialPresentation(final GenericServerSecretParams serverSecretParams, final Clock clock) throws VerificationFailedException {

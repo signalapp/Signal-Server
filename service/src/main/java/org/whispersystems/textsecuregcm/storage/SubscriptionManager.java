@@ -201,7 +201,7 @@ public class SubscriptionManager {
    *                                                             request
    * @throws RateLimitExceededException                          if rate-limited
    */
-  public ReceiptResult createReceiptCredentials(
+  public ReceiptResult createReceiptCredential(
       final SubscriberCredentials subscriberCredentials,
       final byte[] receiptCredentialRequestBytes,
       final Function<CustomerAwareSubscriptionPaymentProcessor.ReceiptItem, Instant> expiration,

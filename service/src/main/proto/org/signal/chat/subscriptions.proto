@@ -65,7 +65,7 @@ service Subscriptions {
   // invoice. Clients SHOULD retry requests at this endpoint with the same ReceiptCredentialRequest value until
   // receiving a response. After receiving a response, clients should then compute the ReceiptCredentialPresentation
   // and redeem it at the receipt redemption endpoint. Once the first attempt is made there, the same
-  // ReceiptCredentialRequest MUST NOT be used again to request receipt credentials.
+  // ReceiptCredentialRequest MUST NOT be used again to request a receipt credential.
   //
   // Note that you may in fact redeem TWO or more invoices for the same ReceiptCredentialRequest while retrying this
   // operation if a later invoice gets paid while you are retrying. However, the returned receipt is always for the
@@ -75,7 +75,7 @@ service Subscriptions {
   // cannot be redeemed.
   //
   // Clients MUST validate that the generated receipt credential's level and expiration matches their expectations.
-  rpc GetReceiptCredentials(GetReceiptCredentialsRequest) returns (GetReceiptCredentialsResponse) {}
+  rpc GetReceiptCredential(GetReceiptCredentialRequest) returns (GetReceiptCredentialResponse) {}
 
   // Set a token that represents an IAP subscription made with App Store/Google Play Billing.
   //
@@ -84,7 +84,7 @@ service Subscriptions {
   // 2. [Create a subscription](https://developer.apple.com/documentation/storekit/in-app_purchase/) with the App Store
   //    directly via StoreKit and obtain a originalTransactionId.
   // 3. Call this RPC with the originalTransactionId
-  // 4. Obtain a receipt via GetReceiptCredentials which can then be used to obtain the
+  // 4. Obtain a receipt via GetReceiptCredential which can then be used to obtain the
   //    entitlement
   //
   // Play Billing: Set a purchaseToken that represents an IAP subscription made with Google Play Billing.
@@ -95,7 +95,7 @@ service Subscriptions {
   //    directly and obtain a purchaseToken. Do not [acknowledge](https://developer.android.com/google/play/billing/integrate#subscriptions)
   //    the purchaseToken.
   // 3. Call this RPC with the purchaseToken
-  // 4. Obtain a receipt via GetReceiptCredentials which can then be used to obtain the
+  // 4. Obtain a receipt via GetReceiptCredential which can then be used to obtain the
   //    entitlement
   //
   // After calling this method, the payment is confirmed. Callers must durably store their subscriberId before calling
@@ -374,18 +374,18 @@ message SetIapSubscriptionResponse {
   }
 }
 
-message GetReceiptCredentialsRequest {
+message GetReceiptCredentialRequest {
   bytes subscriberId = 1 [(require.exactlySize) = 32];
   bytes receiptCredentialRequest = 2 [(require.exactlySize) = 97];
 }
 
-message GetReceiptCredentialsResponse {
-  message GetReceiptCredentialsResult {
+message GetReceiptCredentialResponse {
+  message GetReceiptCredentialResult {
     bytes receiptCredentialResponse = 1;
   }
 
   oneof response {
-    GetReceiptCredentialsResult success = 1;
+    GetReceiptCredentialResult success = 1;
     // The subscriber did not exist or it did not have an associated subscription
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
     // No invoice has been issued for this subscription OR invoice is in 'draft' or 'open' state

@@ -688,12 +688,12 @@ public class SubscriptionController {
         .orElseGet(() -> new GetSubscriptionInformationResponse(null, null));
   }
 
-  public record GetReceiptCredentialsRequest(
+  public record GetReceiptCredentialRequest(
       @Schema(description = "A ReceiptCredentialRequest encoded in standard base64 with padding")
       @NotEmpty byte[] receiptCredentialRequest) {
   }
 
-  public record GetReceiptCredentialsResponse(
+  public record GetReceiptCredentialResponse(
       @Schema(description = "A ReceiptCredentialResponse encoded in standard base64 with padding")
       @NotEmpty byte[] receiptCredentialResponse) {
   }
@@ -711,7 +711,7 @@ public class SubscriptionController {
       invoice. Clients SHOULD retry requests at this endpoint with the same ReceiptCredentialRequest value until
       receiving a response. After receiving a response, clients should then compute the ReceiptCredentialPresentation
       and redeem it at the receipt redemption endpoint. Once the first attempt is made there, the same
-      ReceiptCredentialRequest MUST NOT be used again to request receipt credentials.
+      ReceiptCredentialRequest MUST NOT be used again to request a receipt credential.
 
       Note that you may in fact redeem TWO or more invoices for the same ReceiptCredentialRequest while retrying this
       operation if a later invoice gets paid while you are retrying. However, the returned receipt is always for the
@@ -747,14 +747,14 @@ public class SubscriptionController {
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   @ManagedAsync
-  public Response createSubscriptionReceiptCredentials(
+  public Response createSubscriptionReceiptCredential(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @PathParam("subscriberId") String subscriberId,
-      @NotNull @Valid GetReceiptCredentialsRequest request) throws SubscriptionException, RateLimitExceededException {
+      @NotNull @Valid GetReceiptCredentialRequest request) throws SubscriptionException, RateLimitExceededException {
     SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
     try {
-      final SubscriptionManager.ReceiptResult receiptCredential = subscriptionManager.createReceiptCredentials(
+      final SubscriptionManager.ReceiptResult receiptCredential = subscriptionManager.createReceiptCredential(
           subscriberCredentials, request.receiptCredentialRequest(),
           r -> SubscriptionsUtil.receiptExpirationWithGracePeriod(subscriptionConfiguration, r),
           userAgent);
@@ -770,7 +770,7 @@ public class SubscriptionController {
                           .toLowerCase(Locale.ROOT)),
                   UserAgentTagUtil.getPlatformTag(userAgent)))
           .increment();
-      return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
+      return Response.ok(new GetReceiptCredentialResponse(receiptCredentialResponse.serialize())).build();
     } catch (SubscriptionReceiptRequestedForOpenPaymentException e) {
       return Response.noContent().build();
     }

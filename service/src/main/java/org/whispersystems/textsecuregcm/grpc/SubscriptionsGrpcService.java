@@ -5,16 +5,15 @@ import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getPayPalL
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.util.Locale;
 import java.util.Optional;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import org.signal.chat.errors.FailedPrecondition;
-import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.purchase.CreatePayPalPaymentMethodRequest;
@@ -25,8 +24,8 @@ import org.signal.chat.purchase.DeleteSubscriberRequest;
 import org.signal.chat.purchase.DeleteSubscriberResponse;
 import org.signal.chat.purchase.GetBankMandateRequest;
 import org.signal.chat.purchase.GetBankMandateResponse;
-import org.signal.chat.purchase.GetReceiptCredentialsRequest;
-import org.signal.chat.purchase.GetReceiptCredentialsResponse;
+import org.signal.chat.purchase.GetReceiptCredentialRequest;
+import org.signal.chat.purchase.GetReceiptCredentialResponse;
 import org.signal.chat.purchase.GetSubscriptionInformationRequest;
 import org.signal.chat.purchase.GetSubscriptionInformationResponse;
 import org.signal.chat.purchase.PaymentRequired;
@@ -434,12 +433,12 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
   }
 
   @Override
-  public GetReceiptCredentialsResponse getReceiptCredentials(final GetReceiptCredentialsRequest request)
+  public GetReceiptCredentialResponse getReceiptCredential(final GetReceiptCredentialRequest request)
       throws RateLimitExceededException {
     final SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(
         request.getSubscriberId().toByteArray(), clock);
     try {
-      final SubscriptionManager.ReceiptResult result = subscriptionManager.createReceiptCredentials(
+      final SubscriptionManager.ReceiptResult result = subscriptionManager.createReceiptCredential(
           subscriberCredentials, request.getReceiptCredentialRequest().toByteArray(),
           r -> SubscriptionsUtil.receiptExpirationWithGracePeriod(subscriptionConfiguration, r),
           RequestAttributesUtil.getUserAgent().orElse(null));
@@ -452,27 +451,27 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
                           .toLowerCase(Locale.ROOT)),
                   UserAgentTagUtil.getPlatformTag(RequestAttributesUtil.getUserAgent().orElse(null))))
           .increment();
-      return GetReceiptCredentialsResponse.newBuilder().setSuccess(
-          GetReceiptCredentialsResponse.GetReceiptCredentialsResult.newBuilder()
+      return GetReceiptCredentialResponse.newBuilder().setSuccess(
+          GetReceiptCredentialResponse.GetReceiptCredentialResult.newBuilder()
               .setReceiptCredentialResponse(ByteString.copyFrom(result.receiptCredentialResponse().serialize()))
               .build()).build();
     } catch (final SubscriptionReceiptRequestedForOpenPaymentException e) {
-      return GetReceiptCredentialsResponse.newBuilder().setNoPaidInvoice(FailedPrecondition.newBuilder().build())
+      return GetReceiptCredentialResponse.newBuilder().setNoPaidInvoice(FailedPrecondition.newBuilder().build())
           .build();
     } catch (final SubscriptionChargeFailurePaymentRequiredException e) {
-      return GetReceiptCredentialsResponse.newBuilder().setPaymentRequired(
+      return GetReceiptCredentialResponse.newBuilder().setPaymentRequired(
           PaymentRequired.newBuilder()
               .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure())).build()).build();
     } catch (final SubscriptionPaymentRequiredException e) {
-      return GetReceiptCredentialsResponse.newBuilder()
+      return GetReceiptCredentialResponse.newBuilder()
           .setPaymentRequired(PaymentRequired.newBuilder().build()).build();
     } catch (final SubscriptionInvalidArgumentsException e) {
       throw GrpcExceptions.invalidArguments(e.errorDetail().orElse(""));
     } catch (final SubscriptionReceiptAlreadyRedeemedException e) {
-      return GetReceiptCredentialsResponse.newBuilder().setAlreadyRedeemed(FailedPrecondition.newBuilder().build())
+      return GetReceiptCredentialResponse.newBuilder().setAlreadyRedeemed(FailedPrecondition.newBuilder().build())
           .build();
     } catch (final SubscriptionNotFoundException | SubscriptionForbiddenException _) {
-      return GetReceiptCredentialsResponse.newBuilder().setSubscriberNotFound(NotFound.newBuilder().build()).build();
+      return GetReceiptCredentialResponse.newBuilder().setSubscriberNotFound(NotFound.newBuilder().build()).build();
     }
   }
 
