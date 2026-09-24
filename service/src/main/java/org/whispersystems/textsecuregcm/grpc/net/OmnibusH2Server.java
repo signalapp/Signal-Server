@@ -59,6 +59,8 @@ public class OmnibusH2Server implements Managed {
   private static final OmnibusExceptionHandler SESSION_EXCEPTION_HANDLER =
       new OmnibusExceptionHandler("omnibus-session", List.of(Http2Exception.class));
   private static final OmnibusLoadShedHandler LOAD_SHED_HANDLER = new OmnibusLoadShedHandler();
+  private static final TlsHandshakeMetricsHandler TLS_HANDSHAKE_METRICS_HANDLER =
+      new TlsHandshakeMetricsHandler(Metrics.globalRegistry);
   private static final String IDLE_DISCONNECT_COUNTER_NAME = MetricsUtil.name(OmnibusH2Server.class, "idleDisconnect");
 
   private final @Nullable Mapping<String, SslContext> sslContextBySni;
@@ -134,6 +136,7 @@ public class OmnibusH2Server implements Managed {
               });
             } else {
               ch.pipeline().addLast(new SniHandler(sslContextBySni));
+              ch.pipeline().addLast(TLS_HANDSHAKE_METRICS_HANDLER);
               ch.pipeline().addLast(new ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_2) {
                 @Override
                 protected void configurePipeline(final ChannelHandlerContext ctx, final String protocol) {
