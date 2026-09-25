@@ -133,18 +133,18 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.GetAvatarCredentialsRequest">
+        <a href="#message-org.signal.chat.profile.GetAvatarCredentialRequest">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetAvatarCredentialsRequest</code> 
+          <code>GetAvatarCredentialRequest</code> 
         </a>
       </p>
       
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.GetAvatarCredentialsResponse">
+        <a href="#message-org.signal.chat.profile.GetAvatarCredentialResponse">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetAvatarCredentialsResponse</code> 
+          <code>GetAvatarCredentialResponse</code> 
         </a>
       </p>
       
@@ -169,33 +169,6 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetExpiringProfileKeyCredentialRequest</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetExpiringProfileKeyCredentialResponse</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResult">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>GetExpiringProfileKeyCredentialResult</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
         <a href="#message-org.signal.chat.profile.GetProfileAnonymousRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>GetProfileAnonymousRequest</code> 
@@ -208,6 +181,33 @@
         <a href="#message-org.signal.chat.profile.GetProfileAnonymousResponse">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>GetProfileAnonymousResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.GetProfileKeyCredentialRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetProfileKeyCredentialRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.GetProfileKeyCredentialResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetProfileKeyCredentialResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.GetProfileKeyCredentialResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetProfileKeyCredentialResult</code> 
         </a>
       </p>
       
@@ -378,7 +378,7 @@
 
   
   <div class="block">
-    <p><p>Sets profile data and, if needed, returns credentials used by clients to upload a v1 avatar.</p></p>
+    <p><p>Sets profile data and, if needed, returns a credential used by clients to upload a v1 avatar.</p></p>
   </div>
   
 </div>
@@ -406,20 +406,20 @@ should use the version of this method in <code>ProfileAnonymous</code> instead.<
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.profile.Profile-GetAvatarCredentials">
-      <a href="#service-org.signal.chat.profile.Profile-GetAvatarCredentials">
-        rpc <code>GetAvatarCredentials</code>
+    <h5 class="title is-5" id="service-org.signal.chat.profile.Profile-GetAvatarCredential">
+      <a href="#service-org.signal.chat.profile.Profile-GetAvatarCredential">
+        rpc <code>GetAvatarCredential</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetAvatarCredentialsRequest"><span title="org.signal.chat.profile.GetAvatarCredentialsRequest">org.signal.chat.profile.GetAvatarCredentialsRequest</span>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetAvatarCredentialRequest"><span title="org.signal.chat.profile.GetAvatarCredentialRequest">org.signal.chat.profile.GetAvatarCredentialRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetAvatarCredentialsResponse"><span title="org.signal.chat.profile.GetAvatarCredentialsResponse">org.signal.chat.profile.GetAvatarCredentialsResponse</span>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetAvatarCredentialResponse"><span title="org.signal.chat.profile.GetAvatarCredentialResponse">org.signal.chat.profile.GetAvatarCredentialResponse</span>
     </a></code><br>
   </div>
 
   
   <div class="block">
-    <p><p>Returns anonymous credentials that may be presented with avatar operations in ProfilesAnonymous</p>
+    <p><p>Returns an anonymous credential that may be presented with avatar operations in ProfilesAnonymous</p>
 <p>Note: <code>Accounts.SetZkCredentialKey</code> is a pre-requisite for this RPC</p></p>
   </div>
   
@@ -440,7 +440,7 @@ should use the version of this method in <code>ProfileAnonymous</code> instead.<
 
   
   <div class="block">
-    <p><p>Returns credentials used by clients to upload a v1 avatar, deleting any current avatar.</p>
+    <p><p>Returns a credential used by clients to upload a v1 avatar, deleting any current avatar.</p>
 <p>This RPC streamlines avatar changes during the v1 -&gt; v2 transition by minimizing uploads:
 1. SetV1Avatar
 2. Upload to CDN
@@ -493,14 +493,14 @@ methods in <code>Profile</code> instead.</p></p>
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.profile.ProfileAnonymous-GetExpiringProfileKeyCredential">
-      <a href="#service-org.signal.chat.profile.ProfileAnonymous-GetExpiringProfileKeyCredential">
-        rpc <code>GetExpiringProfileKeyCredential</code>
+    <h5 class="title is-5" id="service-org.signal.chat.profile.ProfileAnonymous-GetProfileKeyCredential">
+      <a href="#service-org.signal.chat.profile.ProfileAnonymous-GetProfileKeyCredential">
+        rpc <code>GetProfileKeyCredential</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest"><span title="org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest</span>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetProfileKeyCredentialRequest"><span title="org.signal.chat.profile.GetProfileKeyCredentialRequest">org.signal.chat.profile.GetProfileKeyCredentialRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse"><span title="org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse">org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse</span>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetProfileKeyCredentialResponse"><span title="org.signal.chat.profile.GetProfileKeyCredentialResponse">org.signal.chat.profile.GetProfileKeyCredentialResponse</span>
     </a></code><br>
   </div>
 
@@ -526,12 +526,12 @@ methods in <code>Profile</code> instead.</p></p>
 
   
   <div class="block">
-    <p><p>Returns credentials to upload a v2 avatar. After uploading the avatar, the client
+    <p><p>Returns a credential to upload a v2 avatar. After uploading the avatar, the client
 must call SetProfile with the new avatar URL in the encrypted <code>data</code>.</p>
 <p>Because avatars are uploaded anonymously, they have an expiration equal to the
 idle account expiration. Clients must periodically (recommended: every 90 days)
 call ExtendAvatarTTL to extend the TTl.</p>
-<p>Note: any existing avatar associated with these credentials will be deleted immediately</p></p>
+<p>Note: any existing avatar associated with this credential will be deleted immediately</p></p>
   </div>
   
 </div>
@@ -720,7 +720,7 @@ RemoteConfiguration.GetBadges.</p></td>
     <tr>
       <td>1</td>
       <td>
-        avatar_credentials_presentation
+        avatar_credential_presentation
       </td>
       <td>
         <code title="bytes">
@@ -804,7 +804,7 @@ RemoteConfiguration.GetBadges.</p></td>
             2
           </td>
           <td>
-            invalid_credentials_presentation
+            invalid_credential_presentation
           </td>
           <td>
             <code title="org.signal.chat.errors.FailedZkAuthentication">
@@ -855,7 +855,7 @@ RemoteConfiguration.GetBadges.</p></td>
     <tr>
       <td>1</td>
       <td>
-        avatar_credentials_presentation
+        avatar_credential_presentation
       </td>
       <td>
         <code title="bytes">
@@ -939,7 +939,7 @@ RemoteConfiguration.GetBadges.</p></td>
             2
           </td>
           <td>
-            invalid_credentials_presentation
+            invalid_credential_presentation
           </td>
           <td>
             <code title="org.signal.chat.errors.FailedZkAuthentication">
@@ -983,9 +983,9 @@ RemoteConfiguration.GetBadges.</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetAvatarCredentialsRequest">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetAvatarCredentialRequest">
   <span>
-    <a href="#message-org.signal.chat.profile.GetAvatarCredentialsRequest" title="org.signal.chat.profile.GetAvatarCredentialsRequest">message GetAvatarCredentialsRequest</a>
+    <a href="#message-org.signal.chat.profile.GetAvatarCredentialRequest" title="org.signal.chat.profile.GetAvatarCredentialRequest">message GetAvatarCredentialRequest</a>
   
   </span>
   
@@ -1010,7 +1010,7 @@ RemoteConfiguration.GetBadges.</p></td>
     <tr>
       <td>1</td>
       <td>
-        avatar_credentials_request
+        avatar_credential_request
       </td>
       <td>
         <code title="bytes">
@@ -1033,9 +1033,9 @@ RemoteConfiguration.GetBadges.</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetAvatarCredentialsResponse">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetAvatarCredentialResponse">
   <span>
-    <a href="#message-org.signal.chat.profile.GetAvatarCredentialsResponse" title="org.signal.chat.profile.GetAvatarCredentialsResponse">message GetAvatarCredentialsResponse</a>
+    <a href="#message-org.signal.chat.profile.GetAvatarCredentialResponse" title="org.signal.chat.profile.GetAvatarCredentialResponse">message GetAvatarCredentialResponse</a>
   
   </span>
   
@@ -1075,7 +1075,7 @@ RemoteConfiguration.GetBadges.</p></td>
             1
           </td>
           <td>
-            avatar_credentials
+            avatar_credential
           </td>
           <td>
             <code title="bytes">
@@ -1145,7 +1145,7 @@ RemoteConfiguration.GetBadges.</p></td>
     <tr>
       <td>1</td>
       <td>
-        avatar_credentials_presentation
+        avatar_credential_presentation
       </td>
       <td>
         <code title="bytes">
@@ -1246,7 +1246,7 @@ performed with this form will be limited to the provided length.</p></td>
             2
           </td>
           <td>
-            invalid_credentials_presentation
+            invalid_credential_presentation
           </td>
           <td>
             <code title="org.signal.chat.errors.FailedZkAuthentication">
@@ -1259,275 +1259,6 @@ performed with this form will be limited to the provided length.</p></td>
           
         </tr>
       
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest" title="org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest">message GetExpiringProfileKeyCredentialRequest</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        account_identifier
-      </td>
-      <td>
-        <code title="org.signal.chat.common.ServiceIdentifier">
-          
-          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>The ACI of the account for which to get a profile key credential.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        credential_request
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>A zkgroup request for a profile key credential.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>3</td>
-      <td>
-        credential_type
-      </td>
-      <td>
-        <code title="org.signal.chat.profile.CredentialType">
-          
-          <a href="org.signal.chat.profile.html#enum-org.signal.chat.profile.CredentialType"><span title="org.signal.chat.profile.CredentialType">org.signal.chat.profile.CredentialType</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>The type of credential being requested.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>4</td>
-      <td>
-        version
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>The profile version for which to generate a profile key credential.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>5</td>
-      <td>
-        unidentified_access_key
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>The unidentified access key for the targeted account.</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse" title="org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse">message GetExpiringProfileKeyCredentialResponse</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof response</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            1
-          </td>
-          <td>
-            result
-          </td>
-          <td>
-            <code title="org.signal.chat.profile.GetExpiringProfileKeyCredentialResult">
-              
-              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResult"><span title="org.signal.chat.profile.GetExpiringProfileKeyCredentialResult">org.signal.chat.profile.GetExpiringProfileKeyCredentialResult</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            not_found
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.NotFound">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            3
-          </td>
-          <td>
-            failed_unidentified_authorization
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"></td>
-          
-        </tr>
-      
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResult">
-  <span>
-    <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialResult" title="org.signal.chat.profile.GetExpiringProfileKeyCredentialResult">message GetExpiringProfileKeyCredentialResult</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        profile_key_credential
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>A zkgroup credential used by a client to prove that it has the profile key
-of a targeted account.</p></td>
-      
-    </tr>
-    
     
   </tbody>
 </table>
@@ -1776,6 +1507,262 @@ field number without serialization overhead. This is purely aesthetic.</p></td>
           
         </tr>
       
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetProfileKeyCredentialRequest">
+  <span>
+    <a href="#message-org.signal.chat.profile.GetProfileKeyCredentialRequest" title="org.signal.chat.profile.GetProfileKeyCredentialRequest">message GetProfileKeyCredentialRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        account_identifier
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The ACI of the account for which to get a profile key credential.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        credential_request
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A zkgroup request for a profile key credential for the target’s current profile.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        credential_type
+      </td>
+      <td>
+        <code title="org.signal.chat.profile.CredentialType">
+          
+          <a href="org.signal.chat.profile.html#enum-org.signal.chat.profile.CredentialType"><span title="org.signal.chat.profile.CredentialType">org.signal.chat.profile.CredentialType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The type of credential being requested.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        unidentified_access_key
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The unidentified access key for the targeted account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetProfileKeyCredentialResponse">
+  <span>
+    <a href="#message-org.signal.chat.profile.GetProfileKeyCredentialResponse" title="org.signal.chat.profile.GetProfileKeyCredentialResponse">message GetProfileKeyCredentialResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            result
+          </td>
+          <td>
+            <code title="org.signal.chat.profile.GetProfileKeyCredentialResult">
+              
+              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetProfileKeyCredentialResult"><span title="org.signal.chat.profile.GetProfileKeyCredentialResult">org.signal.chat.profile.GetProfileKeyCredentialResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Indicates the account was not found or the account's current profile was
+not found. Use <code>AccountsAnonymous.CheckAccountExistence</code> for a canonical
+account existence check.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            failed_unidentified_authorization
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided unidentified access key was incorrect</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetProfileKeyCredentialResult">
+  <span>
+    <a href="#message-org.signal.chat.profile.GetProfileKeyCredentialResult" title="org.signal.chat.profile.GetProfileKeyCredentialResult">message GetProfileKeyCredentialResult</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        profile_key_credential
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A zkgroup credential used by a client to prove that it has the profile key
+of a targeted account.</p></td>
+      
+    </tr>
+    
     
   </tbody>
 </table>

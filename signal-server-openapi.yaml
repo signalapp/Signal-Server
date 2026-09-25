@@ -2790,7 +2790,7 @@ paths:
     post:
       tags:
       - OneTimeDonations
-      operationId: createBoostReceiptCredentials
+      operationId: createBoostReceiptCredential
       parameters:
       - name: User-Agent
         in: header
@@ -2800,7 +2800,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateBoostReceiptCredentialsRequest"
+              $ref: "#/components/schemas/CreateBoostReceiptCredentialRequest"
         required: true
       responses:
         default:
@@ -3420,7 +3420,7 @@ paths:
         invoice. Clients SHOULD retry requests at this endpoint with the same ReceiptCredentialRequest value until
         receiving a response. After receiving a response, clients should then compute the ReceiptCredentialPresentation
         and redeem it at the receipt redemption endpoint. Once the first attempt is made there, the same
-        ReceiptCredentialRequest MUST NOT be used again to request receipt credentials.
+        ReceiptCredentialRequest MUST NOT be used again to request a receipt credential.
 
         Note that you may in fact redeem TWO or more invoices for the same ReceiptCredentialRequest while retrying this
         operation if a later invoice gets paid while you are retrying. However, the returned receipt is always for the
@@ -3430,7 +3430,7 @@ paths:
         cannot be redeemed.
 
         Clients MUST validate that the generated receipt credential's level and expiration matches their expectations.
-      operationId: createSubscriptionReceiptCredentials
+      operationId: createSubscriptionReceiptCredential
       parameters:
       - name: User-Agent
         in: header
@@ -3445,7 +3445,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GetReceiptCredentialsRequest"
+              $ref: "#/components/schemas/GetReceiptCredentialRequest"
         required: true
       responses:
         "200":
@@ -5931,7 +5931,7 @@ components:
           - IDEAL
           - GOOGLE_PLAY_BILLING
           - APPLE_APP_STORE
-    CreateBoostReceiptCredentialsRequest:
+    CreateBoostReceiptCredentialRequest:
       required:
       - paymentIntentId
       - processor
@@ -6591,7 +6591,7 @@ components:
           - BRAINTREE
           - GOOGLE_PLAY_BILLING
           - APPLE_APP_STORE
-    GetReceiptCredentialsRequest:
+    GetReceiptCredentialRequest:
       required:
       - receiptCredentialRequest
       type: object
