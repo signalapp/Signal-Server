@@ -42,17 +42,16 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicLoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.PurchaseExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
-import org.whispersystems.textsecuregcm.subscriptions.LoginPurchaseManager;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptAlreadyRedeemedException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.purchases.ChargeFailure;
+import org.whispersystems.textsecuregcm.purchases.LoginPurchaseManager;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidArgumentsException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptAlreadyRedeemedException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptRequestedForOpenPaymentException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -83,7 +82,7 @@ class LoginPurchaseControllerTest {
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(CompletionExceptionMapper.class)
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
-      .addProvider(SubscriptionExceptionMapper.class)
+      .addProvider(PurchaseExceptionMapper.class)
       .addProvider(RateLimitExceededExceptionMapper.class)
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
@@ -163,11 +162,11 @@ class LoginPurchaseControllerTest {
 
   static Stream<Arguments> createReceiptCredentialErrors() {
     return Stream.of(
-        Arguments.of(new SubscriptionReceiptRequestedForOpenPaymentException(), 204),
-        Arguments.of(new SubscriptionPaymentRequiredException(), 402),
-        Arguments.of(new SubscriptionNotFoundException(), 404),
-        Arguments.of(new SubscriptionInvalidArgumentsException("test"), 400),
-        Arguments.of(new SubscriptionReceiptAlreadyRedeemedException(), 409),
+        Arguments.of(new PurchaseReceiptRequestedForOpenPaymentException(), 204),
+        Arguments.of(new PurchasePaymentRequiredException(PaymentProvider.APPLE_APP_STORE), 402),
+        Arguments.of(new PurchaseNotFoundException(), 404),
+        Arguments.of(new PurchaseInvalidArgumentsException("test"), 400),
+        Arguments.of(new PurchaseReceiptAlreadyRedeemedException(), 409),
         Arguments.of(new VerificationFailedException(), 400),
         Arguments.of(new RateLimitExceededException(null), 429));
   }
@@ -193,7 +192,7 @@ class LoginPurchaseControllerTest {
     final ChargeFailure chargeFailure =
         new ChargeFailure("generic_decline", "some failure message", null, null, null);
     when(LOGIN_PURCHASE_MANAGER.generateReceipt(any(), any(), any()))
-        .thenThrow(new SubscriptionChargeFailurePaymentRequiredException(PaymentProvider.APPLE_APP_STORE, chargeFailure));
+        .thenThrow(new PurchasePaymentRequiredException(PaymentProvider.APPLE_APP_STORE, chargeFailure));
 
     try (final Response response = RESOURCE_EXTENSION.target("/v1/login-purchase/receipt_credentials")
         .request()
@@ -201,8 +200,8 @@ class LoginPurchaseControllerTest {
             PURCHASE_ID,
             receiptCredentialRequestContext.getRequest().serialize(),
             PaymentProvider.APPLE_APP_STORE)))) {
-      final SubscriptionExceptionMapper.ChargeFailureResponse failureResponse =
-          response.readEntity(SubscriptionExceptionMapper.ChargeFailureResponse.class);
+      final PurchaseExceptionMapper.ChargeFailureResponse failureResponse =
+          response.readEntity(PurchaseExceptionMapper.ChargeFailureResponse.class);
       assertThat(failureResponse.chargeFailure()).isEqualTo(chargeFailure);
     }
   }

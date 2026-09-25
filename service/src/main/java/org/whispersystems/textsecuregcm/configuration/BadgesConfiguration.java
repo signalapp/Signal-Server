@@ -13,7 +13,7 @@ import com.fasterxml.jackson.annotation.Nulls;
 import io.dropwizard.validation.ValidationMethod;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

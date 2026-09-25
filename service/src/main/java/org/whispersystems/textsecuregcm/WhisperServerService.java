@@ -219,7 +219,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.mappers.RegistrationLockFailureExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
-import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.PurchaseExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
@@ -300,15 +300,15 @@ import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDataba
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDBWarmup;
 import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
-import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreClient;
-import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
-import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
-import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
-import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
-import org.whispersystems.textsecuregcm.subscriptions.LoginPurchaseManager;
-import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.purchases.AppleAppStoreClient;
+import org.whispersystems.textsecuregcm.purchases.AppleAppStoreManager;
+import org.whispersystems.textsecuregcm.purchases.BankMandateTranslator;
+import org.whispersystems.textsecuregcm.purchases.BraintreeManager;
+import org.whispersystems.textsecuregcm.purchases.GooglePlayBillingManager;
+import org.whispersystems.textsecuregcm.purchases.LoginPurchaseManager;
+import org.whispersystems.textsecuregcm.purchases.PayPalDonationsTranslator;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.StripeManager;
 import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
 import org.whispersystems.textsecuregcm.telephony.hlrlookup.HlrLookupCarrierDataProvider;
 import org.whispersystems.textsecuregcm.util.BufferingInterceptor;
@@ -1403,7 +1403,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new NonNormalizedPhoneNumberExceptionMapper(),
         new ObsoletePhoneNumberFormatExceptionMapper(),
         new RegistrationServiceSenderExceptionMapper(),
-        new SubscriptionExceptionMapper(),
+        new PurchaseExceptionMapper(),
         new BackupExceptionMapper(),
         new JsonMappingExceptionMapper(),
         new RegistrationLockFailureExceptionMapper(),

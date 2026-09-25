@@ -72,32 +72,32 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfigura
 import org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.PurchaseExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
-import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
-import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
-import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
-import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
-import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
-import org.whispersystems.textsecuregcm.subscriptions.CurrencyConfiguration;
-import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
-import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
-import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
-import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidLevelException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiresActionException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.purchases.AppleAppStoreManager;
+import org.whispersystems.textsecuregcm.purchases.BankMandateTranslator;
+import org.whispersystems.textsecuregcm.purchases.BankTransferType;
+import org.whispersystems.textsecuregcm.purchases.BraintreeManager;
+import org.whispersystems.textsecuregcm.purchases.ChargeFailure;
+import org.whispersystems.textsecuregcm.purchases.CurrencyConfiguration;
+import org.whispersystems.textsecuregcm.purchases.CustomerAwareSubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.purchases.GooglePlayBillingManager;
+import org.whispersystems.textsecuregcm.purchases.LevelConfiguration;
+import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.ProcessorCustomer;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
+import org.whispersystems.textsecuregcm.purchases.StripeManager;
+import org.whispersystems.textsecuregcm.purchases.PurchaseException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidArgumentsException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidLevelException;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiresActionException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptRequestedForOpenPaymentException;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 @Path("/v1/subscription")
@@ -197,7 +197,7 @@ public class SubscriptionController {
   @ManagedAsync
   public Response deleteSubscriber(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @PathParam("subscriberId") String subscriberId) throws SubscriptionException, RateLimitExceededException {
+      @PathParam("subscriberId") String subscriberId) throws PurchaseException, RateLimitExceededException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
     subscriptionManager.deleteSubscriber(subscriberCredentials);
@@ -229,7 +229,7 @@ public class SubscriptionController {
 
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgent,
 
-      @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
+      @PathParam("subscriberId") String subscriberId) throws PurchaseException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
@@ -277,7 +277,7 @@ public class SubscriptionController {
 
       @PathParam("subscriberId") String subscriberId,
       @QueryParam("type") @DefaultValue("CARD") PaymentMethod paymentMethodType,
-      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) throws SubscriptionException {
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) throws PurchaseException {
 
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
@@ -332,7 +332,7 @@ public class SubscriptionController {
       @NotNull @Valid CreatePayPalBillingAgreementRequest request,
       @Context ContainerRequestContext containerRequestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString)
-      throws SubscriptionException, IOException {
+      throws PurchaseException, IOException {
 
     final SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
@@ -365,7 +365,7 @@ public class SubscriptionController {
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("processor") PaymentProvider processor,
-      @PathParam("paymentMethodToken") @NotEmpty String paymentMethodToken) throws SubscriptionException, IOException {
+      @PathParam("paymentMethodToken") @NotEmpty String paymentMethodToken) throws PurchaseException, IOException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
@@ -405,7 +405,7 @@ public class SubscriptionController {
       @PathParam("subscriberId") String subscriberId,
       @PathParam("level") long level,
       @PathParam("currency") String currency,
-      @PathParam("idempotencyKey") String idempotencyKey) throws SubscriptionException {
+      @PathParam("idempotencyKey") String idempotencyKey) throws PurchaseException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
     try {
@@ -424,19 +424,19 @@ public class SubscriptionController {
       subscriptionManager.updateSubscriptionLevelForCustomer(subscriberCredentials, record, manager, level,
           currency, idempotencyKey, subscriptionTemplateId, this::subscriptionsAreSameType);
       return new SetSubscriptionLevelSuccessResponse(level);
-    } catch (SubscriptionInvalidLevelException e) {
+    } catch (PurchaseInvalidLevelException e) {
       throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
           .entity(new SubscriptionController.SetSubscriptionLevelErrorResponse(List.of(
               new SubscriptionController.SetSubscriptionLevelErrorResponse.Error(
                   SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL,
                   null))))
           .build());
-    } catch (SubscriptionPaymentRequiresActionException e) {
+    } catch (PurchasePaymentRequiresActionException e) {
       throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
           .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
               SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null))))
           .build());
-    } catch (SubscriptionInvalidArgumentsException e) {
+    } catch (PurchaseInvalidArgumentsException e) {
       throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
           .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
               SetSubscriptionLevelErrorResponse.Error.Type.INVALID_ARGUMENTS, e.getMessage()))))
@@ -476,7 +476,7 @@ public class SubscriptionController {
   public SetSubscriptionLevelSuccessResponse setAppStoreSubscription(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @PathParam("originalTransactionId") String originalTransactionId) throws SubscriptionException, RateLimitExceededException {
+      @PathParam("originalTransactionId") String originalTransactionId) throws PurchaseException, RateLimitExceededException {
     final SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
@@ -520,7 +520,7 @@ public class SubscriptionController {
   public SetSubscriptionLevelSuccessResponse setPlayStoreSubscription(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @PathParam("purchaseToken") String purchaseToken) throws SubscriptionException, RateLimitExceededException {
+      @PathParam("purchaseToken") String purchaseToken) throws PurchaseException, RateLimitExceededException {
     final SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
@@ -665,7 +665,7 @@ public class SubscriptionController {
   @ManagedAsync
   public GetSubscriptionInformationResponse getSubscriptionInformation(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @PathParam("subscriberId") String subscriberId) throws SubscriptionException, RateLimitExceededException {
+      @PathParam("subscriberId") String subscriberId) throws PurchaseException, RateLimitExceededException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
     return subscriptionManager.getSubscriptionInformation( subscriberCredentials)
@@ -739,7 +739,7 @@ public class SubscriptionController {
                 }
               }
               """,
-          implementation = SubscriptionExceptionMapper.ChargeFailureResponse.class)))
+          implementation = PurchaseExceptionMapper.ChargeFailureResponse.class)))
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "subscriberId is not found OR malformed OR no subscription setup on the subscriber id")
   @ApiResponse(responseCode = "409", description = "latest paid receipt on subscription was already redeemed for a receipt credential but with a different receipt credential request")
@@ -751,7 +751,7 @@ public class SubscriptionController {
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @PathParam("subscriberId") String subscriberId,
-      @NotNull @Valid GetReceiptCredentialRequest request) throws SubscriptionException, RateLimitExceededException {
+      @NotNull @Valid GetReceiptCredentialRequest request) throws PurchaseException, RateLimitExceededException {
     SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
     try {
       final SubscriptionManager.ReceiptResult receiptCredential = subscriptionManager.createReceiptCredential(
@@ -771,7 +771,7 @@ public class SubscriptionController {
                   UserAgentTagUtil.getPlatformTag(userAgent)))
           .increment();
       return Response.ok(new GetReceiptCredentialResponse(receiptCredentialResponse.serialize())).build();
-    } catch (SubscriptionReceiptRequestedForOpenPaymentException e) {
+    } catch (PurchaseReceiptRequestedForOpenPaymentException e) {
       return Response.noContent().build();
     }
   }
@@ -783,7 +783,7 @@ public class SubscriptionController {
   public Response setDefaultPaymentMethodForIdeal(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @PathParam("setupIntentId") @NotEmpty String setupIntentId) throws SubscriptionException, IOException {
+      @PathParam("setupIntentId") @NotEmpty String setupIntentId) throws PurchaseException, IOException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
@@ -794,7 +794,7 @@ public class SubscriptionController {
 
   private void setDefaultPaymentMethod(final CustomerAwareSubscriptionPaymentProcessor manager,
       final String paymentMethodId,
-      final SubscriberCredentials requestData) throws SubscriptionException, IOException {
+      final SubscriberCredentials requestData) throws PurchaseException, IOException {
     try {
       final Subscriptions.Record record = subscriptionManager.getSubscriber(requestData);
 
@@ -805,7 +805,7 @@ public class SubscriptionController {
 
       manager
           .setDefaultPaymentMethodForCustomer(processorCustomer.customerId(), paymentMethodId, record.subscriptionId);
-    } catch (final SubscriptionInvalidArgumentsException e) {
+    } catch (final PurchaseInvalidArgumentsException e) {
       // Here, invalid arguments must mean that the client has made requests out of order, and needs to finish
       // setting up the paymentMethod first
       throw new ClientErrorException(Status.CONFLICT);

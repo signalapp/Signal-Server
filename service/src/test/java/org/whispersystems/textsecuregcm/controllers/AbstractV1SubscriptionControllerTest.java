@@ -26,9 +26,9 @@ import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfigurati
 import org.whispersystems.textsecuregcm.storage.DonationPermits;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
-import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.purchases.BraintreeManager;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.StripeManager;
 import org.whispersystems.textsecuregcm.tests.util.SubscriptionConfigTestHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 

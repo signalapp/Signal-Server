@@ -25,7 +25,6 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.assertj.core.api.InstanceOfAssertFactories;
@@ -44,19 +43,20 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
-import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.PurchaseExceptionMapper;
+import org.whispersystems.textsecuregcm.purchases.BraintreeManager;
+import org.whispersystems.textsecuregcm.purchases.ChargeFailure;
+import org.whispersystems.textsecuregcm.purchases.PayPalDonationsTranslator;
+import org.whispersystems.textsecuregcm.purchases.PaymentDetails;
+import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.PurchaseException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidAmountException;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseProcessorException;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.WriteConflictException;
-import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
-import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
-import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidAmountException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -78,7 +78,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(CompletionExceptionMapper.class)
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
-      .addProvider(SubscriptionExceptionMapper.class)
+      .addProvider(PurchaseExceptionMapper.class)
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(ONE_TIME_CONTROLLER)
@@ -180,7 +180,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void testCreateBoostPaymentIntent(final boolean donationPermitSpendOk) throws SubscriptionInvalidAmountException {
+  void testCreateBoostPaymentIntent(final boolean donationPermitSpendOk) throws PurchaseInvalidAmountException {
     when(DONATION_PERMITS.spend(any(byte[].class), any(Instant.class))).thenReturn(donationPermitSpendOk);
 
     when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
@@ -256,14 +256,10 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
   @ParameterizedTest
   @MethodSource
   void createBoostReceiptPaymentRequired(final ChargeFailure chargeFailure, boolean expectChargeFailure)
-      throws IOException {
-    when(STRIPE_MANAGER.claimOneTimePurchase(any())).thenReturn(Optional.of(new PaymentDetails(
-        "id",
-        null,
-        PaymentStatus.FAILED,
-        Instant.now(),
-        chargeFailure))
-    );
+      throws IOException, PurchaseException {
+    when(STRIPE_MANAGER.claimOneTimePurchase(any())).thenThrow(chargeFailure == null
+            ? new PurchasePaymentRequiredException(PaymentProvider.STRIPE)
+            : new PurchasePaymentRequiredException(PaymentProvider.STRIPE, chargeFailure));
     try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
         .request()
         .post(Entity.json("""
@@ -298,12 +294,12 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
   }
 
   @Test
-  void confirmPaypalBoostProcessorError() throws SubscriptionProcessorException, IOException {
+  void confirmPaypalBoostProcessorError() throws PurchaseProcessorException, IOException {
     when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     when(BRAINTREE_MANAGER.captureOneTimePayment(anyString(), anyString(), anyString(), anyString(), anyLong(),
         anyLong(), any()))
-        .thenThrow(new SubscriptionProcessorException(PaymentProvider.BRAINTREE,
+        .thenThrow(new PurchaseProcessorException(PaymentProvider.BRAINTREE,
             new ChargeFailure("2046", "Declined", null, null, null)));
 
     try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/paypal/confirm")
@@ -314,7 +310,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
             "currency", "usd",
             "amount", 300)))) {
 
-      assertThat(response.getStatus()).isEqualTo(SubscriptionExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
+      assertThat(response.getStatus()).isEqualTo(PurchaseExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
 
       final Map<?, ?> responseMap = response.readEntity(Map.class);
       assertThat(responseMap.get("processor")).isEqualTo("BRAINTREE");
@@ -341,12 +337,8 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
 
     when(ONE_TIME_DONATIONS_MANAGER.getPaidAt(any(), anyString(), any())).thenReturn(Instant.now());
-    when(STRIPE_MANAGER.claimOneTimePurchase(any())).thenReturn(Optional.of(new PaymentDetails(
-        "id",
-        ReceiptLevel.ONE_TIME_DONATION,
-        PaymentStatus.SUCCEEDED,
-        Instant.now(),
-        null)));
+    when(STRIPE_MANAGER.claimOneTimePurchase(any()))
+        .thenReturn(new PaymentDetails("id", ReceiptLevel.ONE_TIME_DONATION, Instant.now()));
     doThrow(WriteConflictException.class).when(ISSUED_RECEIPTS_MANAGER).recordOneTimeIssuance(any(), any(), any(), any());
 
     try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")

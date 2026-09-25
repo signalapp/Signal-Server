@@ -28,8 +28,8 @@ import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
+import org.whispersystems.textsecuregcm.purchases.ReceiptCredentialPresentationFactory;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
 
 public class DonationsGrpcService extends SimpleDonationsGrpc.DonationsImplBase {
 

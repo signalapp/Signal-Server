@@ -16,10 +16,10 @@ import org.signal.chat.purchase.SimpleProductConfigurationGrpc;
 import org.whispersystems.textsecuregcm.configuration.LoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
-import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
+import org.whispersystems.textsecuregcm.purchases.CustomerAwareSubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
+import org.whispersystems.textsecuregcm.purchases.SubscriptionCurrencyUtil;
 
 public class ProductConfigurationGrpcService extends SimpleProductConfigurationGrpc.ProductConfigurationImplBase {
   private final GetConfigurationResponse configurationResponse;
@@ -103,7 +103,7 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
 
   private static CurrencyConfiguration toProtoCurrencyConfiguration(
       final String currency,
-      final org.whispersystems.textsecuregcm.subscriptions.CurrencyConfiguration config) {
+      final org.whispersystems.textsecuregcm.purchases.CurrencyConfiguration config) {
     final CurrencyConfiguration.Builder builder = CurrencyConfiguration.newBuilder()
         .setMinimum(SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(currency, config.minimum()))
         .addAllSupportedPaymentMethods(config.supportedPaymentMethods().stream()

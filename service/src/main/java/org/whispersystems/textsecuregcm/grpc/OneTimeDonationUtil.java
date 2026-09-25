@@ -7,12 +7,12 @@ import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
-import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
-import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
+import org.whispersystems.textsecuregcm.purchases.CustomerAwareSubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.purchases.PayPalDonationsTranslator;
+import org.whispersystems.textsecuregcm.purchases.PaymentDetails;
+import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
+import org.whispersystems.textsecuregcm.purchases.SubscriptionCurrencyUtil;
 
 public class OneTimeDonationUtil {
 
@@ -92,7 +92,7 @@ public class OneTimeDonationUtil {
     // independently.
     final Locale locale = SubscriptionsUtil.getPayPalLocale(acceptableLocales);
     final String localizedLineItemName = payPalDonationsTranslator.translate(acceptableLocales,
-        org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator.ONE_TIME_DONATION_LINE_ITEM_KEY);
+        org.whispersystems.textsecuregcm.purchases.PayPalDonationsTranslator.ONE_TIME_DONATION_LINE_ITEM_KEY);
     return new LocalizedPayPalDonationLineItem(locale, localizedLineItemName);
   }
 

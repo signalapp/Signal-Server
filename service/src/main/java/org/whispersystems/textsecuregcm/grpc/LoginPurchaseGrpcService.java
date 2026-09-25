@@ -10,7 +10,6 @@ import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.purchase.CreateLoginReceiptCredentialRequest;
 import org.signal.chat.purchase.CreateLoginReceiptCredentialResponse;
-import org.signal.chat.purchase.PaymentRequired;
 import org.signal.chat.purchase.SimpleLoginPurchaseGrpc;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -19,14 +18,13 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.subscriptions.LoginPurchaseManager;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptAlreadyRedeemedException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.purchases.LoginPurchaseManager;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidArgumentsException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptAlreadyRedeemedException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptRequestedForOpenPaymentException;
 
 public class LoginPurchaseGrpcService extends SimpleLoginPurchaseGrpc.LoginPurchaseImplBase {
 
@@ -66,28 +64,23 @@ public class LoginPurchaseGrpcService extends SimpleLoginPurchaseGrpc.LoginPurch
           .setResult(CreateLoginReceiptCredentialResponse.CreateLoginReceiptCredentialResult.newBuilder()
               .setReceiptCredentialResponse(ByteString.copyFrom(receiptCredentialResponse.serialize())))
           .build();
-    } catch (final SubscriptionReceiptRequestedForOpenPaymentException e) {
+    } catch (final PurchaseReceiptRequestedForOpenPaymentException e) {
       return CreateLoginReceiptCredentialResponse.newBuilder()
           .setPaymentStillProcessing(FailedPrecondition.getDefaultInstance())
           .build();
-    } catch (final SubscriptionChargeFailurePaymentRequiredException e) {
+    } catch (final PurchasePaymentRequiredException e) {
       return CreateLoginReceiptCredentialResponse.newBuilder()
-          .setPaymentRequired(PaymentRequired.newBuilder()
-              .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure())))
+          .setPaymentRequired(SubscriptionsUtil.toPaymentRequired(e))
           .build();
-    } catch (final SubscriptionPaymentRequiredException e) {
-      return CreateLoginReceiptCredentialResponse.newBuilder()
-          .setPaymentRequired(PaymentRequired.getDefaultInstance())
-          .build();
-    } catch (final SubscriptionNotFoundException e) {
+    } catch (final PurchaseNotFoundException e) {
       return CreateLoginReceiptCredentialResponse.newBuilder()
           .setPaymentNotFound(NotFound.getDefaultInstance())
           .build();
-    } catch (final SubscriptionReceiptAlreadyRedeemedException e) {
+    } catch (final PurchaseReceiptAlreadyRedeemedException e) {
       return CreateLoginReceiptCredentialResponse.newBuilder()
           .setReceiptAlreadyIssued(FailedPrecondition.getDefaultInstance())
           .build();
-    } catch (final SubscriptionInvalidArgumentsException e) {
+    } catch (final PurchaseInvalidArgumentsException e) {
       throw GrpcExceptions.invalidArguments(e.errorDetail().orElse(""));
     } catch (final VerificationFailedException e) {
       throw GrpcExceptions.fieldViolation("receipt_credential_request",

@@ -22,10 +22,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriberIdCreationNotPermittedException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionForbiddenException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.SubscriberIdCreationNotPermittedException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseForbiddenException;
+import org.whispersystems.textsecuregcm.purchases.SubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class SubscriptionManagerTest {
@@ -100,7 +100,7 @@ class SubscriptionManagerTest {
 
     when(SUBSCRIPTIONS.get(any(byte[].class), any(byte[].class))).thenReturn(Subscriptions.GetResult.PASSWORD_MISMATCH);
 
-    assertThrows(SubscriptionForbiddenException.class,
+    assertThrows(PurchaseForbiddenException.class,
         () -> subscriptionManager.updateSubscriber(credentials, true));
     verify(SUBSCRIPTIONS, never()).create(any(byte[].class), any(byte[].class), any(Instant.class));
   }

@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.workers;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Environment;
 import java.time.Clock;
-import java.util.Base64;
 import java.util.Optional;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
@@ -19,8 +18,8 @@ import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.SubscriptionPaymentProcessor;
 
 public class ClearIssuedReceiptRedemptionsCommand extends AbstractCommandWithDependencies {
 

@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
 
 public record StripeConfiguration(@NotNull SecretString apiKey,
                                   @NotNull SecretBytes idempotencyKeyGenerator,

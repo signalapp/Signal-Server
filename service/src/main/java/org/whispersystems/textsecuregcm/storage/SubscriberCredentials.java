@@ -15,9 +15,9 @@ import javax.annotation.Nonnull;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionForbiddenException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseForbiddenException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
 
 public record SubscriberCredentials(@Nonnull byte[] subscriberBytes,
                              @Nonnull byte[] subscriberUser,
@@ -28,9 +28,9 @@ public record SubscriberCredentials(@Nonnull byte[] subscriberBytes,
   public static SubscriberCredentials process(
       final Optional<AuthenticatedDevice> authenticatedAccount,
       final String subscriberId,
-      final Clock clock) throws SubscriptionException {
+      final Clock clock) throws PurchaseException {
     if (authenticatedAccount.isPresent()) {
-      throw new SubscriptionForbiddenException("must not use authenticated connection for subscriber operations");
+      throw new PurchaseForbiddenException("must not use authenticated connection for subscriber operations");
     }
     final byte[] subscriberBytes = convertSubscriberIdStringToBytes(subscriberId);
     return process(subscriberBytes, clock);
@@ -46,15 +46,15 @@ public record SubscriberCredentials(@Nonnull byte[] subscriberBytes,
     return new SubscriberCredentials(subscriberBytes, subscriberUser, subscriberKey, hmac, now);
   }
 
-  private static byte[] convertSubscriberIdStringToBytes(String subscriberId) throws SubscriptionNotFoundException {
+  private static byte[] convertSubscriberIdStringToBytes(String subscriberId) throws PurchaseNotFoundException {
     try {
       byte[] bytes = Base64.getUrlDecoder().decode(subscriberId);
       if (bytes.length != 32) {
-        throw new SubscriptionNotFoundException();
+        throw new PurchaseNotFoundException();
       }
       return bytes;
     } catch (IllegalArgumentException e) {
-      throw new SubscriptionNotFoundException(e);
+      throw new PurchaseNotFoundException(e);
     }
   }
 

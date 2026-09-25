@@ -39,15 +39,14 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicLoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
-import org.whispersystems.textsecuregcm.subscriptions.LoginPurchaseManager;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptAlreadyRedeemedException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.purchases.ChargeFailure;
+import org.whispersystems.textsecuregcm.purchases.LoginPurchaseManager;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidArgumentsException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptAlreadyRedeemedException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptRequestedForOpenPaymentException;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class LoginPurchaseGrpcServiceTest extends
@@ -126,13 +125,13 @@ class LoginPurchaseGrpcServiceTest extends
 
   static Stream<Arguments> createReceiptCredentialErrorResponses() {
     return Stream.of(
-        Arguments.of( new SubscriptionReceiptRequestedForOpenPaymentException(),
+        Arguments.of( new PurchaseReceiptRequestedForOpenPaymentException(),
             CreateLoginReceiptCredentialResponse.ResponseCase.PAYMENT_STILL_PROCESSING),
-        Arguments.of( new SubscriptionPaymentRequiredException(),
+        Arguments.of( new PurchasePaymentRequiredException(PaymentProvider.APPLE_APP_STORE),
             CreateLoginReceiptCredentialResponse.ResponseCase.PAYMENT_REQUIRED),
-        Arguments.of(new SubscriptionNotFoundException(),
+        Arguments.of(new PurchaseNotFoundException(),
             CreateLoginReceiptCredentialResponse.ResponseCase.PAYMENT_NOT_FOUND),
-        Arguments.of(new SubscriptionReceiptAlreadyRedeemedException(), CreateLoginReceiptCredentialResponse.ResponseCase.RECEIPT_ALREADY_ISSUED));
+        Arguments.of(new PurchaseReceiptAlreadyRedeemedException(), CreateLoginReceiptCredentialResponse.ResponseCase.RECEIPT_ALREADY_ISSUED));
   }
 
   @ParameterizedTest
@@ -146,7 +145,7 @@ class LoginPurchaseGrpcServiceTest extends
 
   static Stream<Arguments> createReceiptCredentialErrorStatuses() {
     return Stream.of(
-        Arguments.of(new SubscriptionInvalidArgumentsException("test"), Status.INVALID_ARGUMENT),
+        Arguments.of(new PurchaseInvalidArgumentsException("test"), Status.INVALID_ARGUMENT),
         Arguments.of(new VerificationFailedException(), Status.INVALID_ARGUMENT),
         Arguments.of(new RateLimitExceededException(null), Status.RESOURCE_EXHAUSTED));
   }
@@ -163,7 +162,7 @@ class LoginPurchaseGrpcServiceTest extends
     final ChargeFailure chargeFailure =
         new ChargeFailure("generic_decline", "some failure message", "networkStatus", null, "type");
     when(loginPurchaseManager.generateReceipt(any(), any(), any())).thenThrow(
-        new SubscriptionChargeFailurePaymentRequiredException(PaymentProvider.APPLE_APP_STORE, chargeFailure));
+        new PurchasePaymentRequiredException(PaymentProvider.APPLE_APP_STORE, chargeFailure));
     final CreateLoginReceiptCredentialResponse loginReceiptResponse =
         unauthenticatedServiceStub().createLoginReceiptCredential(createRequest(receiptContext()));
     assertTrue(loginReceiptResponse.hasPaymentRequired());

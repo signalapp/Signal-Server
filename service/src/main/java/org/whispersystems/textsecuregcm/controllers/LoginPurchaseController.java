@@ -29,15 +29,15 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.PurchaseExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.subscriptions.LoginPurchaseManager;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptAlreadyRedeemedException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.purchases.LoginPurchaseManager;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidArgumentsException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptAlreadyRedeemedException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptRequestedForOpenPaymentException;
 
 @Path("/v1/login-purchase")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "LoginPurchase")
@@ -91,7 +91,7 @@ public class LoginPurchaseController {
   @ApiResponse(responseCode = "402", description = "The purchase did not complete successfully. The body may include ChargeFailure details.",
       content = @Content(schema = @Schema(
           nullable = true,
-          implementation = SubscriptionExceptionMapper.ChargeFailureResponse.class)))
+          implementation = PurchaseExceptionMapper.ChargeFailureResponse.class)))
   @ApiResponse(responseCode = "403", description = "The request was made on an authenticated channel")
   @ApiResponse(responseCode = "404", description = "The payment provider has no purchase with the provided purchaseIdentifier")
   @ApiResponse(responseCode = "409", description = "The purchase was already redeemed for a receipt credential, but with a different receipt credential request")
@@ -102,7 +102,7 @@ public class LoginPurchaseController {
   public Response createLoginReceiptCredential(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid final CreateLoginReceiptCredentialRequest request)
-      throws IOException, SubscriptionPaymentRequiredException, SubscriptionInvalidArgumentsException, SubscriptionNotFoundException, RateLimitExceededException, SubscriptionReceiptAlreadyRedeemedException {
+      throws IOException, PurchasePaymentRequiredException, PurchaseInvalidArgumentsException, PurchaseNotFoundException, RateLimitExceededException, PurchaseReceiptAlreadyRedeemedException {
 
     if (!dynamicConfigurationManager.getConfiguration().getLoginPurchaseConfiguration().enabled()) {
       throw new BadRequestException("login purchases are not enabled");
@@ -125,7 +125,7 @@ public class LoginPurchaseController {
       return Response.ok(
               new CreateLoginReceiptCredentialResponse(receiptCredentialResponse.serialize()))
           .build();
-    } catch (SubscriptionReceiptRequestedForOpenPaymentException e) {
+    } catch (PurchaseReceiptRequestedForOpenPaymentException e) {
       return Response.noContent().build();
     } catch (VerificationFailedException e) {
       throw new BadRequestException("receipt credential request failed verification", e);

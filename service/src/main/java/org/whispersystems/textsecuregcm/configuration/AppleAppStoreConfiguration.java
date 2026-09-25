@@ -6,13 +6,12 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.apple.itunes.storekit.model.Environment;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
 import javax.annotation.Nullable;
 
 /**

@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.signal.chat.purchase.PaymentRequired;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.donation.DonationPermit;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
@@ -25,13 +26,14 @@ import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
-import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
-import org.whispersystems.textsecuregcm.subscriptions.CurrencyConfiguration;
-import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
-import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
+import org.whispersystems.textsecuregcm.purchases.ChargeFailure;
+import org.whispersystems.textsecuregcm.purchases.CurrencyConfiguration;
+import org.whispersystems.textsecuregcm.purchases.CustomerAwareSubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.purchases.LevelConfiguration;
+import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -161,6 +163,12 @@ public class SubscriptionsUtil {
                 "context", context)
             .and(UserAgentTagUtil.getPlatformTag(userAgent)))
         .increment();
+  }
+
+  public static PaymentRequired toPaymentRequired(final PurchasePaymentRequiredException e) {
+    final PaymentRequired.Builder builder = PaymentRequired.newBuilder();
+    e.getChargeFailure().ifPresent(chargeFailure -> builder.setChargeFailure(toChargeFailure(e.getProcessor(), chargeFailure)));
+    return builder.build();
   }
 
   public static org.signal.chat.purchase.ChargeFailure toChargeFailure(final PaymentProvider processor,

@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
 
 /**
  * @param merchantId          the Braintree merchant ID

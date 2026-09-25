@@ -25,9 +25,9 @@ import org.signal.chat.purchase.ProductConfigurationGrpc;
 import org.whispersystems.textsecuregcm.configuration.LoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
-import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
-import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.purchases.BraintreeManager;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
+import org.whispersystems.textsecuregcm.purchases.StripeManager;
 import org.whispersystems.textsecuregcm.tests.util.SubscriptionConfigTestHelper;
 
 public class ProductConfigurationGrpcServiceTest extends
@@ -55,17 +55,17 @@ public class ProductConfigurationGrpcServiceTest extends
 
     when(stripeManager.supportsPaymentMethod(any())).thenCallRealMethod();
     when(stripeManager.getSupportedCurrenciesForPaymentMethod(
-        org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.CARD))
+        org.whispersystems.textsecuregcm.purchases.PaymentMethod.CARD))
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     when(stripeManager.getSupportedCurrenciesForPaymentMethod(
-        org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.SEPA_DEBIT))
+        org.whispersystems.textsecuregcm.purchases.PaymentMethod.SEPA_DEBIT))
         .thenReturn(Set.of("eur"));
     when(stripeManager.getSupportedCurrenciesForPaymentMethod(
-        org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.IDEAL))
+        org.whispersystems.textsecuregcm.purchases.PaymentMethod.IDEAL))
         .thenReturn(Set.of("eur"));
     when(braintreeManager.supportsPaymentMethod(any())).thenCallRealMethod();
     when(braintreeManager.getSupportedCurrenciesForPaymentMethod(
-        org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.PAYPAL))
+        org.whispersystems.textsecuregcm.purchases.PaymentMethod.PAYPAL))
         .thenReturn(Set.of("usd", "jpy"));
 
 

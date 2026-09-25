@@ -17,7 +17,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.chat.errors.NotFound;
@@ -31,7 +30,6 @@ import org.signal.chat.purchase.CreateBoostRequest;
 import org.signal.chat.purchase.CreateBoostResponse;
 import org.signal.chat.purchase.CreatePayPalBoostRequest;
 import org.signal.chat.purchase.CreatePayPalBoostResponse;
-import org.signal.chat.purchase.PaymentRequired;
 import org.signal.chat.purchase.SimpleOneTimeDonationsGrpc;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -43,19 +41,21 @@ import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfigurati
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.purchases.BraintreeManager;
+import org.whispersystems.textsecuregcm.purchases.PayPalDonationsTranslator;
+import org.whispersystems.textsecuregcm.purchases.PaymentDetails;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidAmountException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseProcessorException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.purchases.StripeManager;
+import org.whispersystems.textsecuregcm.purchases.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.WriteConflictException;
-import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
-import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
-import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidAmountException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 
 public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneTimeDonationsImplBase {
 
@@ -115,11 +115,11 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
           .build();
     }
 
-    final org.whispersystems.textsecuregcm.subscriptions.PaymentMethod paymentMethod =
+    final org.whispersystems.textsecuregcm.purchases.PaymentMethod paymentMethod =
         switch (request.getPaymentMethod()) {
-          case PAYMENT_METHOD_CARD -> org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.CARD;
-          case PAYMENT_METHOD_SEPA_DEBIT -> org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.SEPA_DEBIT;
-          case PAYMENT_METHOD_IDEAL -> org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.IDEAL;
+          case PAYMENT_METHOD_CARD -> org.whispersystems.textsecuregcm.purchases.PaymentMethod.CARD;
+          case PAYMENT_METHOD_SEPA_DEBIT -> org.whispersystems.textsecuregcm.purchases.PaymentMethod.SEPA_DEBIT;
+          case PAYMENT_METHOD_IDEAL -> org.whispersystems.textsecuregcm.purchases.PaymentMethod.IDEAL;
           default -> throw GrpcExceptions.fieldViolation("payment_method", "Unsupported payment method");
         };
 
@@ -157,7 +157,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
               request.getCurrency(), request.getAmount(), request.getLevel(),
               getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)));
           yield CreateBoostResponse.newBuilder().setClientSecret(paymentIntent.getClientSecret()).build();
-        } catch (final SubscriptionInvalidAmountException e) {
+        } catch (final PurchaseInvalidAmountException e) {
           yield CreateBoostResponse.newBuilder()
               .setInvalidAmount(FailedPrecondition.newBuilder()
                   .setDescription(e.getErrorCode()).build())
@@ -175,7 +175,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
             request.getCurrency(),
             request.getAmount(),
             request.getLevel(),
-            org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.PAYPAL,
+            org.whispersystems.textsecuregcm.purchases.PaymentMethod.PAYPAL,
             oneTimeDonationConfiguration,
             braintreeManager);
 
@@ -221,7 +221,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
             request.getCurrency(),
             request.getAmount(),
             request.getLevel(),
-            org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.PAYPAL,
+            org.whispersystems.textsecuregcm.purchases.PaymentMethod.PAYPAL,
             oneTimeDonationConfiguration,
             braintreeManager);
 
@@ -251,7 +251,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
         yield ConfirmPayPalBoostResponse.newBuilder()
             .setResult(ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult.newBuilder()
                 .setPaymentId(chargeSuccessDetails.paymentId()).build()).build();
-        } catch (final SubscriptionProcessorException e) {
+        } catch (final PurchaseProcessorException e) {
           yield ConfirmPayPalBoostResponse.newBuilder()
               .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure()))
               .build();
@@ -267,28 +267,22 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
     final PaymentProvider processor = PaymentProvider.fromProto(request.getProcessor())
         .orElseThrow(() -> GrpcExceptions.fieldViolation("processor", "Unsupported payment processor"));
 
-    final Optional<PaymentDetails> maybePaymentDetails = switch (processor) {
-      case STRIPE -> stripeManager.claimOneTimePurchase(request.getPaymentIntentId());
-      case BRAINTREE -> braintreeManager.claimOneTimePurchase(request.getPaymentIntentId());
-      default -> throw GrpcExceptions.fieldViolation("processor", "Unsupported payment processor");
-    };
-
-    if (maybePaymentDetails.isEmpty()) {
+    final PaymentDetails paymentDetails;
+    try {
+      paymentDetails = switch (processor) {
+        case STRIPE -> stripeManager.claimOneTimePurchase(request.getPaymentIntentId());
+        case BRAINTREE -> braintreeManager.claimOneTimePurchase(request.getPaymentIntentId());
+        default -> throw GrpcExceptions.fieldViolation("processor", "Unsupported payment processor");
+      };
+    } catch (PurchaseNotFoundException _) {
       return CreateBoostReceiptCredentialResponse.newBuilder()
           .setPaymentNotFound(NotFound.getDefaultInstance()).build();
-    }
-    final PaymentDetails paymentDetails = maybePaymentDetails.get();
-    if (paymentDetails.status() == PaymentStatus.PROCESSING) {
+    } catch (PurchaseReceiptRequestedForOpenPaymentException _) {
       return CreateBoostReceiptCredentialResponse.newBuilder()
           .setPaymentStillProcessing(FailedPrecondition.getDefaultInstance()).build();
-    }
-    if (paymentDetails.status() != PaymentStatus.SUCCEEDED) {
-      final PaymentRequired.Builder paymentRequiredBuilder = PaymentRequired.newBuilder();
-      if (paymentDetails.chargeFailure() != null) {
-        paymentRequiredBuilder.setChargeFailure(toChargeFailure(processor, paymentDetails.chargeFailure()));
-      }
+    } catch (PurchasePaymentRequiredException e) {
       return CreateBoostReceiptCredentialResponse.newBuilder()
-          .setPaymentRequired(paymentRequiredBuilder).build();
+          .setPaymentRequired(SubscriptionsUtil.toPaymentRequired(e)).build();
     }
 
     final OneTimeDonationUtil.DonationLevelDetails levelDetails;

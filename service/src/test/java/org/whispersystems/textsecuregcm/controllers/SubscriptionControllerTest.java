@@ -67,30 +67,29 @@ import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSu
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
-import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.PurchaseExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.storage.WriteConflictException;
-import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
-import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
-import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
-import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
-import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
-import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
-import org.whispersystems.textsecuregcm.subscriptions.ReceiptLevel;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiresActionException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConflictException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.purchases.AppleAppStoreManager;
+import org.whispersystems.textsecuregcm.purchases.BankMandateTranslator;
+import org.whispersystems.textsecuregcm.purchases.ChargeFailure;
+import org.whispersystems.textsecuregcm.purchases.CustomerAwareSubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.purchases.GooglePlayBillingManager;
+import org.whispersystems.textsecuregcm.purchases.LevelConfiguration;
+import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.ProcessorCustomer;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
+import org.whispersystems.textsecuregcm.purchases.PurchaseException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidArgumentsException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
+import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiresActionException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseProcessorConflictException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseProcessorException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptRequestedForOpenPaymentException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.SubscriptionConfigTestHelper;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -123,7 +122,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(CompletionExceptionMapper.class)
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
-      .addProvider(SubscriptionExceptionMapper.class)
+      .addProvider(PurchaseExceptionMapper.class)
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(SUBSCRIPTION_CONTROLLER)
@@ -181,7 +180,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     }
 
     @Test
-    void createSubscriptionSuccess() throws SubscriptionException {
+    void createSubscriptionSuccess() throws PurchaseException {
       when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
           .thenReturn(mock(CustomerAwareSubscriptionPaymentProcessor.SubscriptionId.class));
 
@@ -197,9 +196,9 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     }
 
     @Test
-    void createSubscriptionProcessorDeclined() throws SubscriptionException {
+    void createSubscriptionProcessorDeclined() throws PurchaseException {
       when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
-          .thenThrow(new SubscriptionProcessorException(PaymentProvider.STRIPE,
+          .thenThrow(new PurchaseProcessorException(PaymentProvider.STRIPE,
               new ChargeFailure("card_declined", "Insufficient funds", null, null, null)));
 
       final String level = String.valueOf(levelId);
@@ -210,7 +209,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
           .request()
           .put(Entity.json(""))) {
 
-        assertThat(response.getStatus()).isEqualTo(SubscriptionExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
+        assertThat(response.getStatus()).isEqualTo(PurchaseExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
 
         responseMap = response.readEntity(Map.class);
       }
@@ -278,9 +277,9 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
     @Test
     void stripePaymentIntentRequiresAction()
-        throws SubscriptionInvalidArgumentsException, SubscriptionProcessorException {
+        throws PurchaseInvalidArgumentsException, PurchaseProcessorException {
       when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
-          .thenThrow(new SubscriptionPaymentRequiresActionException());
+          .thenThrow(new PurchasePaymentRequiresActionException());
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
@@ -519,7 +518,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
       "201, M4",
   })
   void setSubscriptionLevel(long levelId, String expectedProcessorId)
-      throws SubscriptionProcessorConflictException, SubscriptionProcessorException {
+      throws PurchaseProcessorConflictException, PurchaseProcessorException {
     // set up record
     final byte[] subscriberUserAndKey = new byte[32];
     Arrays.fill(subscriberUserAndKey, (byte) 1);
@@ -564,7 +563,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
   @MethodSource
   void setSubscriptionLevelExistingSubscription(final String existingCurrency, final long existingLevel,
       final String requestCurrency, final long requestLevel, final boolean expectUpdate)
-      throws SubscriptionProcessorConflictException, SubscriptionProcessorException {
+      throws PurchaseProcessorConflictException, PurchaseProcessorException {
 
     // set up record
     final byte[] subscriberUserAndKey = new byte[32];
@@ -682,7 +681,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
   @Test
   public void setAppStoreTransactionId()
-      throws SubscriptionInvalidArgumentsException, SubscriptionPaymentRequiredException, RateLimitExceededException, SubscriptionNotFoundException {
+      throws PurchaseInvalidArgumentsException, PurchasePaymentRequiredException, RateLimitExceededException, PurchaseNotFoundException {
     final String originalTxId = "aTxId";
     final byte[] subscriberUserAndKey = new byte[32];
     Arrays.fill(subscriberUserAndKey, (byte) 1);
@@ -723,7 +722,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
 
   @Test
-  public void setPlayPurchaseToken() throws RateLimitExceededException, SubscriptionException {
+  public void setPlayPurchaseToken() throws RateLimitExceededException, PurchaseException {
     final String purchaseToken = "aPurchaseToken";
     final byte[] subscriberUserAndKey = new byte[32];
     Arrays.fill(subscriberUserAndKey, (byte) 1);
@@ -763,7 +762,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
   }
 
   @Test
-  public void replacePlayPurchaseToken() throws RateLimitExceededException, SubscriptionException {
+  public void replacePlayPurchaseToken() throws RateLimitExceededException, PurchaseException {
     final String oldPurchaseToken = "oldPurchaseToken";
     final String newPurchaseToken = "newPurchaseToken";
     final byte[] subscriberUserAndKey = new byte[32];
@@ -809,7 +808,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
   @Test
   void createReceiptChargeFailure()
-      throws InvalidInputException, VerificationFailedException, SubscriptionException {
+      throws InvalidInputException, VerificationFailedException, PurchaseException {
     final byte[] subscriberUserAndKey = new byte[32];
     Arrays.fill(subscriberUserAndKey, (byte) 1);
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
@@ -824,7 +823,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
                 b(new ProcessorCustomer("customer", PaymentProvider.STRIPE).toDynamoBytes()),
                 Subscriptions.KEY_SUBSCRIPTION_ID, s("subscriptionId")))));
     when(STRIPE_MANAGER.getReceiptItem(any()))
-        .thenThrow(new SubscriptionChargeFailurePaymentRequiredException(
+        .thenThrow(new PurchasePaymentRequiredException(
             PaymentProvider.STRIPE,
             new ChargeFailure("card_declined", "Insufficient funds", null, null, null)));
 
@@ -849,7 +848,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
   @Test
   void createReceiptCredentialAlreadyRedeemed()
-      throws InvalidInputException, VerificationFailedException, SubscriptionException, WriteConflictException {
+      throws InvalidInputException, VerificationFailedException, PurchaseException, WriteConflictException {
     final byte[] subscriberUserAndKey = new byte[32];
     Arrays.fill(subscriberUserAndKey, (byte) 1);
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
@@ -885,7 +884,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
   @ParameterizedTest
   @CsvSource({"5, P45D", "201, P13D"})
   public void createReceiptCredential(long level, Duration expectedExpirationWindow)
-      throws InvalidInputException, VerificationFailedException, SubscriptionChargeFailurePaymentRequiredException, SubscriptionReceiptRequestedForOpenPaymentException {
+      throws InvalidInputException, VerificationFailedException, PurchasePaymentRequiredException, PurchaseReceiptRequestedForOpenPaymentException {
     final byte[] subscriberUserAndKey = new byte[32];
     Arrays.fill(subscriberUserAndKey, (byte) 1);
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);

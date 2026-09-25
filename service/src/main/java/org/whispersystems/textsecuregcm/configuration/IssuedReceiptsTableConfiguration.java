@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.EnumMap;
 import java.util.Map;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
+import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 
 public class IssuedReceiptsTableConfiguration extends DynamoDbTables.Table {
