@@ -385,7 +385,7 @@ public record CommandDependencies(
         configuration.getRegistrationTotpConfiguration().maxValidationDelay());
     final WebAuthnCeremonyManager webAuthnCeremonyManager = new WebAuthnCeremonyManager(
         configuration.getRegistrationWebAuthnConfiguration().relyingPartyId(),
-        configuration.getRegistrationWebAuthnConfiguration().origin(),
+        configuration.getRegistrationWebAuthnConfiguration().origins(),
         configuration.getRegistrationWebAuthnConfiguration().challengeTtl(),
         configuration.getRegistrationWebAuthnConfiguration().userHandleBlindingSecret().value(),
         rateLimitersCluster);

@@ -6,14 +6,16 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
+import java.util.List;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public record WebAuthnConfiguration(
   @NotBlank String relyingPartyId,
-  @NotBlank String origin,
+  @NotEmpty List<@NotBlank String> origins,
   @NotNull Duration challengeTtl,
   @NotNull @ExactlySize(32) SecretBytes userHandleBlindingSecret) {
 }

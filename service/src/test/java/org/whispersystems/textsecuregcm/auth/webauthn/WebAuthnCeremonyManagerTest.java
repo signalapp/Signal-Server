@@ -52,8 +52,8 @@ class WebAuthnCeremonyManagerTest {
 
   @BeforeEach
   void setUp() {
-    webAuthnCeremonyManager = new WebAuthnCeremonyManager(RP_ID, ORIGIN, CHALLENGE_TTL, TestRandomUtil.nextBytes(32),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster());
+    webAuthnCeremonyManager = new WebAuthnCeremonyManager(RP_ID, List.of(ORIGIN), CHALLENGE_TTL,
+        TestRandomUtil.nextBytes(32), REDIS_CLUSTER_EXTENSION.getRedisCluster());
     helper = new WebAuthnTestHelper(RP_ID, ORIGIN, EmulatorUtil.NONE_ATTESTATION_AUTHENTICATOR);
   }
 

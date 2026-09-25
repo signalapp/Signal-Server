@@ -819,7 +819,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final TotpManager totpManager = new TotpManager(rateLimitersCluster, config.getRegistrationTotpConfiguration().maxValidationDelay());
     final WebAuthnCeremonyManager webAuthnCeremonyManager = new WebAuthnCeremonyManager(
         config.getRegistrationWebAuthnConfiguration().relyingPartyId(),
-        config.getRegistrationWebAuthnConfiguration().origin(),
+        config.getRegistrationWebAuthnConfiguration().origins(),
         config.getRegistrationWebAuthnConfiguration().challengeTtl(),
         config.getRegistrationWebAuthnConfiguration().userHandleBlindingSecret().value(),
         rateLimitersCluster);

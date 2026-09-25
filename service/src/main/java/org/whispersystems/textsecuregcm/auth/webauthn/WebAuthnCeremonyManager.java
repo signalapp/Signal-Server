@@ -26,7 +26,10 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.HmacUtils;
@@ -39,7 +42,7 @@ public class WebAuthnCeremonyManager {
   /// [relying party ID - WebAuthn TR](https://www.w3.org/TR/webauthn/#relying-party-identifier)
   private final String rpId;
   /// [origin - WebAuthn TR](https://www.w3.org/TR/webauthn/#dom-collectedclientdata-origin)
-  private final Origin origin;
+  private final Set<Origin> origins;
   private final byte[] blindingSecret;
   private final Duration challengeTtl;
 
@@ -56,10 +59,10 @@ public class WebAuthnCeremonyManager {
 
   private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-  public WebAuthnCeremonyManager(final String rpId, final String origin, final Duration challengeTtl, final byte[] blindingSecret,
+  public WebAuthnCeremonyManager(final String rpId, final List<String> origins, final Duration challengeTtl, final byte[] blindingSecret,
                                  final FaultTolerantRedisClusterClient challengeStorageCluster) {
     this.rpId = rpId;
-    this.origin = new Origin(origin);
+    this.origins = origins.stream().map(Origin::new).collect(Collectors.toSet());
     this.challengeTtl = challengeTtl;
     this.blindingSecret = blindingSecret;
     this.challengeStorageCluster = challengeStorageCluster;
@@ -128,7 +131,7 @@ public class WebAuthnCeremonyManager {
         // we aren't verifying any signatures for registration, so we don't need to bother saving a
         // challenge; accept whatever is supplied
         .challenge(registrationData.getCollectedClientData().getChallenge())
-        .origin(origin)
+        .origins(origins)
         .rpId(rpId)
         .build();
 
@@ -202,7 +205,7 @@ public class WebAuthnCeremonyManager {
     final byte[] credentialId = matchingCredential.getAttestedCredentialData().getCredentialId();
     final AuthenticationParameters authenticationParameters = new AuthenticationParameters(
         ServerProperty.builder()
-            .origin(origin)
+            .origins(origins)
             .rpId(rpId)
             .challenge(() -> challenge)
             .build(),
