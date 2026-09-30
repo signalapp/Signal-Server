@@ -4,7 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
-public record GcmRegistrationId(@NotEmpty String gcmRegistrationId) {
+public record GcmRegistrationId(@NotBlank @Size(max = 1024) String gcmRegistrationId) {
 }

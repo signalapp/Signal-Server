@@ -47,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -330,6 +331,20 @@ class AccountControllerTest {
   }
 
   @Test
+  void testSetGcmIdExcessiveLength() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/gcm/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION,
+            AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json(new GcmRegistrationId(RandomStringUtils.insecure().nextAlphanumeric(2048))))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+      verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
+    }
+  }
+
+  @Test
   void testSetApnId() {
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/apn/")
@@ -342,6 +357,20 @@ class AccountControllerTest {
 
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
       verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_UUID_3), anyByte(), any());
+    }
+  }
+
+  @Test
+  void testSetApnIdExcessiveLength() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/apn/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION,
+            AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json(new ApnRegistrationId(RandomStringUtils.insecure().nextAlphanumeric(2048))))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+      verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
     }
   }
 

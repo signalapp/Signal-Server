@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -48,7 +49,6 @@ import org.signal.chat.device.SetDeviceNameRequest;
 import org.signal.chat.device.SetDeviceNameResponse;
 import org.signal.chat.device.SetPushTokenRequest;
 import org.signal.chat.device.SetPushTokenResponse;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -372,15 +372,32 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
   private static Stream<Arguments> setPushTokenIllegalArgument() {
     return Stream.of(
-        Arguments.of(SetPushTokenRequest.newBuilder().build()),
+        Arguments.argumentSet("No token",
+            SetPushTokenRequest.newBuilder().build()),
 
-        Arguments.of(SetPushTokenRequest.newBuilder()
+        Arguments.argumentSet("Empty APNs token",
+            SetPushTokenRequest.newBuilder()
                 .setApnsTokenRequest(SetPushTokenRequest.ApnsTokenRequest.newBuilder().build())
-            .build()),
+                .build()),
 
-        Arguments.of(SetPushTokenRequest.newBuilder()
-            .setFcmTokenRequest(SetPushTokenRequest.FcmTokenRequest.newBuilder().build())
-            .build())
+        Arguments.argumentSet("Empty FCM token",
+            SetPushTokenRequest.newBuilder()
+                .setFcmTokenRequest(SetPushTokenRequest.FcmTokenRequest.newBuilder().build())
+                .build()),
+
+        Arguments.argumentSet("Excessively long APNs token",
+            SetPushTokenRequest.newBuilder()
+                .setApnsTokenRequest(SetPushTokenRequest.ApnsTokenRequest.newBuilder()
+                    .setApnsToken(RandomStringUtils.insecure().nextAlphanumeric(2048))
+                    .build())
+                .build()),
+
+        Arguments.argumentSet("Excessively long FCM token",
+            SetPushTokenRequest.newBuilder()
+                .setFcmTokenRequest(SetPushTokenRequest.FcmTokenRequest.newBuilder()
+                    .setFcmToken(RandomStringUtils.insecure().nextAlphanumeric(2048))
+                    .build())
+                .build())
     );
   }
 
