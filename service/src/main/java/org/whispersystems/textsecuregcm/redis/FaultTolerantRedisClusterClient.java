@@ -113,7 +113,7 @@ public class FaultTolerantRedisClusterClient {
     this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
 
     // Eagerly initialize connections. Otherwise, the first several calls will fail immediately, rather than being queued
-    // while the connection is pending. See https://github.com/redis/lettuce/pull/378.
+    // while the connection is pending. See https://github.com/redis/lettuce/pull/3782.
     awaitUpstreamConnections(
         connectToAllUpstreams(stringConnection.getPartitions(), stringConnection::getConnectionAsync),
         connectToAllUpstreams(binaryConnection.getPartitions(), binaryConnection::getConnectionAsync));
