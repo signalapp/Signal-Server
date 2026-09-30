@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.redis;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,12 +21,14 @@ import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.lettuce.core.event.EventBus;
 import io.lettuce.core.event.EventPublisherOptions;
+import io.lettuce.core.internal.HostAndPort;
 import io.lettuce.core.metrics.CommandLatencyCollectorOptions;
 import io.lettuce.core.metrics.CommandLatencyRecorder;
 import io.lettuce.core.resource.ClientResources;
 import io.lettuce.core.resource.Delay;
-import io.lettuce.core.resource.DnsResolver;
+import io.lettuce.core.resource.DnsResolvers;
 import io.lettuce.core.resource.EventLoopGroupProvider;
+import io.lettuce.core.resource.MappingSocketAddressResolver;
 import io.lettuce.core.resource.NettyCustomizer;
 import io.lettuce.core.resource.SocketAddressResolver;
 import io.lettuce.core.resource.ThreadFactoryProvider;
@@ -41,6 +44,7 @@ import io.netty.util.Timer;
 import io.netty.util.concurrent.EventExecutorGroup;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -50,6 +54,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -60,9 +65,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 // ThreadMode.SEPARATE_THREAD protects against hangs in the remote Redis calls, as this mode allows the test code to be
 // preempted by the timeout check
@@ -104,6 +109,93 @@ class FaultTolerantRedisClusterClientTest {
   @AfterEach
   void tearDown() {
     cluster.shutdown();
+  }
+
+  @Test
+  void testConnectedToAllUpstreamsAtStartup() {
+    cluster = buildCluster("testConnectedToAllUpstreams", null, ClientResources.builder());
+
+    final List<String> keysByUpstream = cluster.withCluster(connection -> connection.getPartitions().stream()
+        .filter(node -> node.is(RedisClusterNode.NodeFlag.UPSTREAM))
+        .map(node -> "key::{%s}".formatted(RedisClusterUtil.getMinimalHashTag(node.getSlots().getFirst())))
+        .toList());
+
+    assertTrue(keysByUpstream.size() >= 2, "we should have at least two upstream nodes in a cluster");
+
+    for (final String key : keysByUpstream) {
+      cluster.useCluster(connection -> connection.sync().set(key, "value"));
+      assertEquals("value", cluster.withBinaryCluster(connection ->
+          new String(connection.sync().get(key.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8)));
+    }
+
+    final FaultTolerantPubSubClusterConnection<String, String> pubSubConnection = cluster.createPubSubConnection();
+    final FaultTolerantPubSubClusterConnection<byte[], byte[]> binaryPubSubConnection =
+        cluster.createBinaryPubSubConnection();
+
+    for (final String key : keysByUpstream) {
+      pubSubConnection.usePubSubConnection(connection -> connection.sync().ssubscribe(key));
+      binaryPubSubConnection.usePubSubConnection(connection ->
+          connection.sync().ssubscribe(key.getBytes(StandardCharsets.UTF_8)));
+    }
+  }
+
+  @Test
+  void testUnreachableUpstream() {
+    final RedisClusterNode unreachableNode = getFirstUpstream();
+    final AtomicBoolean nodeUnreachable = new AtomicBoolean(false);
+
+    cluster = new FaultTolerantRedisClusterClient("testUnreachableUpstream",
+        ClientResources.builder()
+            .socketAddressResolver(buildUnreachableNodeSocketAddressResolver(unreachableNode, nodeUnreachable)),
+        RedisClusterExtension.getRedisURIs(),
+        TIMEOUT,
+        null);
+
+    // The node becomes unreachable only after constructing the client, so that the client's topology discovery and
+    // initial connections succeed
+    nodeUnreachable.set(true);
+
+    final FaultTolerantPubSubClusterConnection<String, String> pubSubConnection = cluster.createPubSubConnection();
+
+    final List<RedisClusterNode> upstreams = cluster.withCluster(connection -> connection.getPartitions().stream()
+        .filter(node -> node.is(RedisClusterNode.NodeFlag.UPSTREAM))
+        .toList());
+
+    for (final RedisClusterNode upstream : upstreams) {
+      final String channel = "channel::{%s}".formatted(RedisClusterUtil.getMinimalHashTag(upstream.getSlots().getFirst()));
+
+      if (upstream.getNodeId().equals(unreachableNode.getNodeId())) {
+        assertThrows(RedisException.class,
+            () -> pubSubConnection.usePubSubConnection(connection -> connection.sync().ssubscribe(channel)));
+      } else {
+        assertDoesNotThrow(
+            () -> pubSubConnection.usePubSubConnection(connection -> connection.sync().ssubscribe(channel)));
+      }
+    }
+  }
+
+  private static RedisClusterNode getFirstUpstream() {
+    return REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection -> connection.getPartitions().stream()
+        .filter(node -> node.is(RedisClusterNode.NodeFlag.UPSTREAM))
+        .findFirst()
+        .orElseThrow());
+  }
+
+  private static SocketAddressResolver buildUnreachableNodeSocketAddressResolver(final RedisClusterNode unreachableNode,
+      final AtomicBoolean nodeUnreachable) {
+
+    final HostAndPort unreachableHostAndPort = HostAndPort.of(unreachableNode.getUri().getHost(), unreachableNode.getUri().getPort());
+
+    return MappingSocketAddressResolver.create(DnsResolvers.UNRESOLVED, hostAndPort -> {
+      if (nodeUnreachable.get() && hostAndPort.equals(unreachableHostAndPort)) {
+        // IP in TEST-NET-1 (https://www.rfc-editor.org/info/rfc5737/#section-3); should not be routable
+        return HostAndPort.of("192.0.2.1", hostAndPort.getPort());
+      }
+
+      final RedisURI exposedUri = REDIS_CLUSTER_EXTENSION.getExposedRedisURI(RedisURI.create(hostAndPort.getHostText(), hostAndPort.getPort()));
+
+      return HostAndPort.of(exposedUri.getHost(), exposedUri.getPort());
+    });
   }
 
   @Test
