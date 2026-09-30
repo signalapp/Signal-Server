@@ -9,6 +9,7 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Metrics;
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
 import javax.annotation.Nullable;
 import org.reactivestreams.Publisher;
@@ -155,11 +156,15 @@ class RedisDynamoDbMessagePublisher implements MessageAvailabilityListener, Flow
 
     this.subscriber = subscriber;
 
+    @Nullable final CompletionStage<Void> clientConnectedFuture;
+
     if (!terminateOnQueueEmpty) {
       // If we're trying to follow a live stream of messages, then listen for signals indicating that new messages are
       // available in Redis, that messages have been persisted from Redis to DynamoDB, or that there's a conflicting
       // message reader connected somewhere else
-      redisMessageAvailabilityManager.handleClientConnected(accountIdentifier, device.getId(), this);
+      clientConnectedFuture = redisMessageAvailabilityManager.handleClientConnected(accountIdentifier, device.getId(), this);
+    } else {
+      clientConnectedFuture = null;
     }
 
     subscriber.onSubscribe(new Flow.Subscription() {
@@ -173,6 +178,16 @@ class RedisDynamoDbMessagePublisher implements MessageAvailabilityListener, Flow
         terminate();
       }
     });
+
+    // Defer the client connected handling until after onSubscribe() is called. Otherwise, onError() might be called
+    // first, which violates the Reactive Streams spec.
+    if (clientConnectedFuture != null) {
+      clientConnectedFuture.whenComplete((_, throwable) -> {
+        if (throwable != null) {
+          handleMessageSourceError(throwable);
+        }
+      });
+    }
   }
 
   @Override

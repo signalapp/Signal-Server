@@ -361,6 +361,26 @@ class RedisDynamoDbMessagePublisherTest {
     verify(redisMessageAvailabilityManager, timeout(1_000)).handleClientDisconnected(DESTINATION_SERVICE_IDENTIFIER.uuid(), destinationDevice.getId(), messagePublisher);
   }
 
+  @Test
+  void publishMessagesClientConnectedFailure() {
+    final CompletableFuture<Void> clientConnectedFuture = new CompletableFuture<>();
+
+    final RuntimeException exception = new RuntimeException("OH NO");
+    clientConnectedFuture.completeExceptionally(exception);
+
+    final RedisDynamoDbMessagePublisher messagePublisher =
+        new RedisDynamoDbMessagePublisher(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, DESTINATION_SERVICE_IDENTIFIER.uuid(), destinationDevice, false);
+
+    when(redisMessageAvailabilityManager.handleClientConnected(DESTINATION_SERVICE_IDENTIFIER.uuid(), destinationDevice.getId(), messagePublisher))
+        .thenReturn(clientConnectedFuture);
+
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messagePublisher))
+        .expectErrorMatches(exception::equals)
+        .verify();
+
+    verify(redisMessageAvailabilityManager).handleClientDisconnected(DESTINATION_SERVICE_IDENTIFIER.uuid(), destinationDevice.getId(), messagePublisher);
+  }
+
   @ParameterizedTest
   @CsvSource({
           "207, 173",

@@ -180,15 +180,15 @@ public class RedisMessageAvailabilityManager extends RedisClusterPubSubAdapter<b
     }
 
     return subscribeFuture.get()
-        .thenCompose(ignored -> clusterClient.withBinaryCluster(connection -> connection.async()
-            .spublish(eventChannel, CLIENT_CONNECTED_EVENT_BYTES)))
-        .handle((ignored, throwable) -> {
+        .thenCompose(_ -> clusterClient.withBinaryCluster(connection -> connection.async()
+            .spublish(eventChannel, CLIENT_CONNECTED_EVENT_BYTES))
+        .handle((_, throwable) -> {
           if (throwable != null) {
             PUBLISH_CLIENT_CONNECTION_EVENT_ERROR_COUNTER.increment();
           }
 
           return null;
-        });
+        }));
   }
 
   /**
