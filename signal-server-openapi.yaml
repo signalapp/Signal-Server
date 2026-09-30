@@ -4278,7 +4278,8 @@ components:
       type: object
       properties:
         apnRegistrationId:
-          minLength: 1
+          maxLength: 1024
+          minLength: 0
           type: string
       description: |
         An APNs token set for the account's primary device. If provided, the account's primary
@@ -4291,7 +4292,8 @@ components:
       type: object
       properties:
         gcmRegistrationId:
-          minLength: 1
+          maxLength: 1024
+          minLength: 0
           type: string
       description: |
         An FCM/GCM token for the account's primary device. If provided, the account's primary
@@ -5883,12 +5885,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        spendId:
-          type: string
-          format: byte
         expiration:
           type: string
           format: date-time
+        spendId:
+          type: string
+          format: byte
         internalContentsForJNI:
           type: string
           format: byte
