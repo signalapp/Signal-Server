@@ -38,7 +38,7 @@ public class FixerClient {
           HttpResponse.BodyHandlers.ofString());
 
       if (response.statusCode() < 200 || response.statusCode() >= 300) {
-        throw new FixerException("Bad response: " + response.statusCode() + " " + response.toString());
+        throw new FixerException("Bad response: " + response.statusCode() + " " + response.toString().replaceAll(apiKey, "***"));
       }
 
       final FixerResponse parsedResponse = SystemMapper.jsonMapper().readValue(response.body(), FixerResponse.class);
