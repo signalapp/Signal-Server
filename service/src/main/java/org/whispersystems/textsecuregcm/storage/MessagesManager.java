@@ -181,7 +181,7 @@ public class MessagesManager {
                     final ServiceIdentifier sourceServiceIdentifier =
                         ServiceIdentifier.fromByteString(message.getSourceServiceId());
 
-                    if (!accountIdentifier.equals(sourceServiceIdentifier.uuid())) {
+                    if (!accountIdentifier.equals(sourceServiceIdentifier.uuid()) && message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
                       // Note that this is an asynchronous, best-effort, fire-and-forget operation
                       reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
                     }

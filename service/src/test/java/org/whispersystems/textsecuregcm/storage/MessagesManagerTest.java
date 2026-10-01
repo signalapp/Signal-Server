@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.InvalidVersionException;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
@@ -82,12 +83,12 @@ class MessagesManagerTest {
         experimentEnrollmentManager);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void insert(final boolean mirrorInsert) {
+  @CartesianTest
+  void insert(@CartesianTest.Enum Envelope.Type envelopeType, @CartesianTest.Values(booleans = {true, false}) final boolean mirrorInsert) {
     final UUID sourceAci = UUID.randomUUID();
     final Envelope message = Envelope.newBuilder()
         .setSourceServiceId(new AciServiceIdentifier(sourceAci).toCompactByteString())
+        .setType(envelopeType)
         .build();
 
     if (mirrorInsert) {
@@ -110,7 +111,7 @@ class MessagesManagerTest {
 
     messagesManager.insert(destinationUuid, Map.of(Device.PRIMARY_ID, message));
 
-    verify(reportMessageManager).store(eq(sourceAci.toString()), any(UUID.class));
+    verify(reportMessageManager, times(envelopeType.equals(Envelope.Type.SERVER_DELIVERY_RECEIPT) ? 0 : 1)).store(eq(sourceAci.toString()), any(UUID.class));
 
     final Envelope syncMessage = Envelope.newBuilder(message)
         .setSourceServiceId(new AciServiceIdentifier(destinationUuid).toCompactByteString())
