@@ -49,6 +49,8 @@ public class OneTimeDonationUtil {
 
   }
 
+  /// Validates a request is for a valid one-time donation level and is at least the configured minimum for the currency
+  /// and payment method.
   public static OneTimeDonationRequestValidationResult validateOneTimeDonationRequest(
       final String currency,
       final long amount,
