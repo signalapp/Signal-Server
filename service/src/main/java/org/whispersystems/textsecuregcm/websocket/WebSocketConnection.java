@@ -70,7 +70,6 @@ public class WebSocketConnection {
       "sendMessageError");
 
   private static final String STATUS_CODE_TAG = "status";
-  private static final String STATUS_MESSAGE_TAG = "message";
   private static final String ERROR_TYPE_TAG = "errorType";
   private static final String EXCEPTION_TYPE_TAG = "exceptionType";
 
@@ -263,11 +262,6 @@ public class WebSocketConnection {
             }
           } else {
             Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())));
-
-            // TODO Remove this once we've identified the cause of message rejections from desktop clients
-            if (StringUtils.isNotBlank(response.getMessage())) {
-              tags = tags.and(Tag.of(STATUS_MESSAGE_TAG, response.getMessage()));
-            }
 
             Metrics.counter(NON_SUCCESS_RESPONSE_COUNTER_NAME, tags).increment();
 
