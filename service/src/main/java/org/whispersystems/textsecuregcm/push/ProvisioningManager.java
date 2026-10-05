@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.push;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
@@ -67,14 +66,12 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
   public void addListener(final String address, final Consumer<PubSubProtos.PubSubMessage> listener) {
     listenersByProvisioningAddress.put(address, listener);
-    pubSubConnection.usePubSubConnection(connection -> connection.sync().subscribe(
-        getPrefixedChannel(address), getUnprefixedChannel(address)));
+    pubSubConnection.usePubSubConnection(connection -> connection.sync().subscribe(getChannel(address)));
   }
 
   public void removeListener(final String address) {
     RedisOperation.unchecked(() ->
-        pubSubConnection.usePubSubConnection(connection -> connection.sync().unsubscribe(
-            getPrefixedChannel(address), getUnprefixedChannel(address))));
+        pubSubConnection.usePubSubConnection(connection -> connection.sync().unsubscribe(getChannel(address))));
 
     listenersByProvisioningAddress.remove(address);
   }
@@ -87,7 +84,7 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
     final boolean receiverPresent = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeSupplier(() -> pubSubClient.withBinaryConnection(connection ->
-            connection.sync().publish(getPrefixedChannel(address), pubSubMessage.toByteArray()) > 0));
+            connection.sync().publish(getChannel(address), pubSubMessage.toByteArray()) > 0));
 
     Metrics.counter(SEND_PROVISIONING_MESSAGE_COUNTER_NAME, "online", String.valueOf(receiverPresent)).increment();
 
@@ -122,19 +119,11 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
     listenersByProvisioningAddress.remove(getAddress(channel));
   }
 
-  @VisibleForTesting
-  static byte[] getPrefixedChannel(final String address) {
+  private static byte[] getChannel(final String address) {
     return (CHANNEL_PREFIX + address).getBytes(StandardCharsets.UTF_8);
   }
 
-  @VisibleForTesting
-  static byte[] getUnprefixedChannel(final String address) {
-    return address.getBytes(StandardCharsets.UTF_8);
-  }
-
   private static String getAddress(final byte[] channel) {
-    final String channelName = new String(channel, StandardCharsets.UTF_8);
-
-    return channelName.startsWith(CHANNEL_PREFIX) ? channelName.substring(CHANNEL_PREFIX.length()) : channelName;
+    return new String(channel, StandardCharsets.UTF_8).substring(CHANNEL_PREFIX.length());
   }
 }

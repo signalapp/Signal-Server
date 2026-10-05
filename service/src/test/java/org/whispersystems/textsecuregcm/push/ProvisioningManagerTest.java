@@ -14,8 +14,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
@@ -73,37 +71,5 @@ class ProvisioningManagerTest {
 
     // Make sure that we give the message enough time to show up (if it was going to) before declaring victory
     verify(subscribedConsumer, after(PUBSUB_TIMEOUT_MILLIS).never()).accept(any());
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void receiveProvisioningMessageChannelMigration(final boolean prefixedChannel) {
-    final String provisioningAddress = UUID.randomUUID().toString();
-
-    final byte[] channel = prefixedChannel
-        ? ProvisioningManager.getPrefixedChannel(provisioningAddress)
-        : ProvisioningManager.getUnprefixedChannel(provisioningAddress);
-
-    final byte[] content = TestRandomUtil.nextBytes(16);
-
-    @SuppressWarnings("unchecked") final Consumer<PubSubProtos.PubSubMessage> subscribedConsumer = mock(Consumer.class);
-
-    provisioningManager.addListener(provisioningAddress, subscribedConsumer);
-
-    final PubSubProtos.PubSubMessage pubSubMessage = PubSubProtos.PubSubMessage.newBuilder()
-        .setType(PubSubProtos.PubSubMessage.Type.DELIVER)
-        .setContent(ByteString.copyFrom(content))
-        .build();
-
-    REDIS_EXTENSION.getRedisClient().useBinaryConnection(connection ->
-        connection.sync().publish(channel, pubSubMessage.toByteArray()));
-
-    final ArgumentCaptor<PubSubProtos.PubSubMessage> messageCaptor =
-        ArgumentCaptor.forClass(PubSubProtos.PubSubMessage.class);
-
-    verify(subscribedConsumer, timeout(PUBSUB_TIMEOUT_MILLIS)).accept(messageCaptor.capture());
-
-    assertEquals(PubSubProtos.PubSubMessage.Type.DELIVER, messageCaptor.getValue().getType());
-    assertEquals(ByteString.copyFrom(content), messageCaptor.getValue().getContent());
   }
 }
