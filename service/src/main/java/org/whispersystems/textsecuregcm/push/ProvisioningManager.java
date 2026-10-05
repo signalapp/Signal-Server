@@ -87,7 +87,7 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
     final boolean receiverPresent = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeSupplier(() -> pubSubClient.withBinaryConnection(connection ->
-            connection.sync().publish(getUnprefixedChannel(address), pubSubMessage.toByteArray()) > 0));
+            connection.sync().publish(getPrefixedChannel(address), pubSubMessage.toByteArray()) > 0));
 
     Metrics.counter(SEND_PROVISIONING_MESSAGE_COUNTER_NAME, "online", String.valueOf(receiverPresent)).increment();
 
