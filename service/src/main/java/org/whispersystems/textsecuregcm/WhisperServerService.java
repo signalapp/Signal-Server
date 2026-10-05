@@ -1180,7 +1180,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, profileCdnPolicyGenerator, chatGenericZkSecretParams, groupZkSecretParams, rateLimiters, clock),
             new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
             new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
-            new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC())),
+            new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC()), rateLimiters),
             new SubscriptionsGrpcService(clock, config.getSubscription(), subscriptionManager, donationPermitsManager,
                 stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager, bankMandateTranslator),
             new OneTimeDonationsGrpcService(config.getOneTimeDonations(), stripeManager, braintreeManager,

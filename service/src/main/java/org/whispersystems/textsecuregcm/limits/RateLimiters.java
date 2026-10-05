@@ -128,6 +128,10 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     return forDescriptor(For.ATTACHMENT_BYTES);
   }
 
+  public RateLimiter getBackupAuthCheckLimiter() {
+    return forDescriptor(For.BACKUP_AUTH_CHECK);
+  }
+
   public RateLimiter getPinLimiter() {
     return forDescriptor(For.PIN);
   }

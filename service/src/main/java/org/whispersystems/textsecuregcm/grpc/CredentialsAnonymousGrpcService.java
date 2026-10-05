@@ -12,6 +12,8 @@ import org.signal.chat.credentials.SimpleCredentialsAnonymousGrpc;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsSelector;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import java.util.HashSet;
@@ -23,18 +25,25 @@ public class CredentialsAnonymousGrpcService extends SimpleCredentialsAnonymousG
 
   private final AccountsManager accountsManager;
   private final ExternalServiceCredentialsGenerator svrCredentialsGenerator;
+  private final RateLimiters rateLimiters;
 
   private static final long MAX_SVR_PASSWORD_AGE_SECONDS = TimeUnit.DAYS.toSeconds(30);
 
   public CredentialsAnonymousGrpcService(final AccountsManager accountsManager,
-      final ExternalServiceCredentialsGenerator svrCredentialsGenerator) {
+      final ExternalServiceCredentialsGenerator svrCredentialsGenerator,
+      final RateLimiters rateLimiters) {
 
     this.svrCredentialsGenerator = svrCredentialsGenerator;
     this.accountsManager = accountsManager;
+    this.rateLimiters = rateLimiters;
   }
 
   @Override
-  public CheckSvrCredentialsResponse checkSvrCredentials(final CheckSvrCredentialsRequest request) {
+  public CheckSvrCredentialsResponse checkSvrCredentials(final CheckSvrCredentialsRequest request)
+      throws RateLimitExceededException {
+
+    RateLimitUtil.rateLimitByRemoteAddress(rateLimiters.getBackupAuthCheckLimiter());
+
     final List<String> tokens = request.getPasswordsList().stream().distinct().toList();
     final List<ExternalServiceCredentialsSelector.CredentialInfo> credentials = ExternalServiceCredentialsSelector.check(
         new HashSet<>(tokens),

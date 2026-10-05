@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +32,9 @@ import org.signal.chat.credentials.CheckSvrCredentialsResponse;
 import org.signal.chat.credentials.CredentialsAnonymousGrpc;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.MockUtils;
@@ -60,9 +65,15 @@ class CredentialsAnonymousGrpcServiceTest extends
   @Mock
   private AccountsManager accountsManager;
 
+  @Mock
+  private RateLimiters rateLimiters;
+
+  @Mock
+  private RateLimiter rateLimiter;
+
   @Override
   protected CredentialsAnonymousGrpcService createServiceBeforeEachTest() {
-    return new CredentialsAnonymousGrpcService(accountsManager, SVR_CREDENTIALS_GENERATOR);
+    return new CredentialsAnonymousGrpcService(accountsManager, SVR_CREDENTIALS_GENERATOR, rateLimiters);
   }
 
   @BeforeEach
@@ -71,6 +82,7 @@ class CredentialsAnonymousGrpcServiceTest extends
     when(account.getAccountIdentifier()).thenReturn(USER_UUID);
 
     when(accountsManager.getByE164(USER_E164)).thenReturn(Optional.of(account));
+    when(rateLimiters.getBackupAuthCheckLimiter()).thenReturn(rateLimiter);
   }
 
   @Test
@@ -145,6 +157,22 @@ class CredentialsAnonymousGrpcServiceTest extends
     final StatusRuntimeException status = assertThrows(StatusRuntimeException.class,
         () -> unauthenticatedServiceStub().checkSvrCredentials(request));
     assertEquals(Status.INVALID_ARGUMENT.getCode(), status.getStatus().getCode());
+  }
+
+  @Test
+  void checkSvrCredentialsRateLimited() throws RateLimitExceededException {
+    final Duration retryAfter = Duration.ofSeconds(11);
+
+    doThrow(new RateLimitExceededException(retryAfter))
+        .when(rateLimiter).validate(anyString());
+
+    //noinspection ResultOfMethodCallIgnored
+    GrpcTestUtils.assertRateLimitExceeded(retryAfter,
+        () -> unauthenticatedServiceStub().checkSvrCredentials(CheckSvrCredentialsRequest.newBuilder()
+            .setNumber(USER_E164)
+            .addPasswords(token(USER_UUID, day(1)))
+            .build()),
+        accountsManager);
   }
 
   private void assertExpectedCredentialCheckResponse(
