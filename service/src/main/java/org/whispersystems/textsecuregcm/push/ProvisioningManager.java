@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.push;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
@@ -41,6 +42,8 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
   private static final String RECEIVE_PROVISIONING_MESSAGE_COUNTER_NAME =
       name(ProvisioningManager.class, "receiveProvisioningMessage");
 
+  private static final String CHANNEL_PREFIX = "provisioning::";
+
   private static final String RETRY_NAME = ResilienceUtil.name(ProvisioningManager.class);
 
   private static final Logger logger = LoggerFactory.getLogger(ProvisioningManager.class);
@@ -64,12 +67,14 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
   public void addListener(final String address, final Consumer<PubSubProtos.PubSubMessage> listener) {
     listenersByProvisioningAddress.put(address, listener);
-    pubSubConnection.usePubSubConnection(connection -> connection.sync().subscribe(address.getBytes(StandardCharsets.UTF_8)));
+    pubSubConnection.usePubSubConnection(connection -> connection.sync().subscribe(
+        getPrefixedChannel(address), getUnprefixedChannel(address)));
   }
 
   public void removeListener(final String address) {
     RedisOperation.unchecked(() ->
-        pubSubConnection.usePubSubConnection(connection -> connection.sync().unsubscribe(address.getBytes(StandardCharsets.UTF_8))));
+        pubSubConnection.usePubSubConnection(connection -> connection.sync().unsubscribe(
+            getPrefixedChannel(address), getUnprefixedChannel(address))));
 
     listenersByProvisioningAddress.remove(address);
   }
@@ -82,7 +87,7 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
     final boolean receiverPresent = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeSupplier(() -> pubSubClient.withBinaryConnection(connection ->
-            connection.sync().publish(address.getBytes(StandardCharsets.UTF_8), pubSubMessage.toByteArray()) > 0));
+            connection.sync().publish(getUnprefixedChannel(address), pubSubMessage.toByteArray()) > 0));
 
     Metrics.counter(SEND_PROVISIONING_MESSAGE_COUNTER_NAME, "online", String.valueOf(receiverPresent)).increment();
 
@@ -92,7 +97,7 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
   @Override
   public void message(final byte[] channel, final byte[] message) {
     try {
-      final String address = new String(channel, StandardCharsets.UTF_8);
+      final String address = getAddress(channel);
       final PubSubProtos.PubSubMessage pubSubMessage = PubSubProtos.PubSubMessage.parseFrom(message);
 
       if (pubSubMessage.getType() == PubSubProtos.PubSubMessage.Type.DELIVER) {
@@ -114,6 +119,22 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
   @Override
   public void unsubscribed(final byte[] channel, final long count) {
-    listenersByProvisioningAddress.remove(new String(channel, StandardCharsets.UTF_8));
+    listenersByProvisioningAddress.remove(getAddress(channel));
+  }
+
+  @VisibleForTesting
+  static byte[] getPrefixedChannel(final String address) {
+    return (CHANNEL_PREFIX + address).getBytes(StandardCharsets.UTF_8);
+  }
+
+  @VisibleForTesting
+  static byte[] getUnprefixedChannel(final String address) {
+    return address.getBytes(StandardCharsets.UTF_8);
+  }
+
+  private static String getAddress(final byte[] channel) {
+    final String channelName = new String(channel, StandardCharsets.UTF_8);
+
+    return channelName.startsWith(CHANNEL_PREFIX) ? channelName.substring(CHANNEL_PREFIX.length()) : channelName;
   }
 }
