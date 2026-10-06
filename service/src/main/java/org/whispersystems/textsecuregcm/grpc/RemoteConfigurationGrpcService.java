@@ -98,9 +98,7 @@ public class RemoteConfigurationGrpcService extends SimpleRemoteConfigurationGrp
         .setEtag(etag(badges))
         .build();
 
-    // This could race and multiple threads could decide to build-and-cache. That's fine, they should all calculate
-    // the same etag.
-    localeToBadgesEtag.put(locale, taggedBadges.getEtag());
+    localeToBadgesEtag.computeIfAbsent(locale, _ -> taggedBadges.getEtag());
     return GetBadgesResponse.newBuilder().setTaggedBadges(taggedBadges).build();
   }
 
