@@ -235,18 +235,16 @@ public final class Operations {
             Optional.empty(),
             Optional.empty()));
 
-    final Pair<Integer, MfaFailureExceptionMapper.MfaFailureResponse> initialResponse = apiPost("/v1/registration", initialRequest)
+    // we expect (and need) failure with status 441, which will contain the WebAuthn challenge
+    final MfaFailureExceptionMapper.MfaFailureResponse mfaFailureResponse = apiPost("/v1/registration", initialRequest)
         // For a numberless account recovery, the username is the ACI
         .authorized(testUser.aciUuid().toString(), testUser.accountPassword())
-        .execute(MfaFailureExceptionMapper.MfaFailureResponse.class);
+        .executeExpectStatusCode(441, MfaFailureExceptionMapper.MfaFailureResponse.class);
 
-    // we expect (and need) failure with status 441, which will contain the WebAuthn challenge
-    assert initialResponse.getLeft() == 441;
-
-    final MfaFailureExceptionMapper.MfaFailureResponse mfaFailureResponse = initialResponse.getRight();
-    assert mfaFailureResponse.webAuthnParameters().allowedCredentialIds()
+    Validate.isTrue(mfaFailureResponse.webAuthnParameters().allowedCredentialIds()
         .stream()
-        .anyMatch(allowedId -> Arrays.equals(allowedId, credentialId));
+        .anyMatch(allowedId -> Arrays.equals(allowedId, credentialId)),
+        "Expected MFA failure to contain credentialId");
 
     final PublicKeyCredential<AuthenticatorAssertionResponse, ?> credential =
         clientPlatform.get(new PublicKeyCredentialRequestOptions(
@@ -523,6 +521,15 @@ public final class Operations {
           response.statusCode() == expectedStatusCode,
           "Unexpected response code: %d (expected %d), body: %s",
           response.statusCode(), expectedStatusCode, response.body());
+    }
+
+    public <T> T executeExpectStatusCode(final int expectedStatusCode, final Class<T> expectedType) {
+      final RawResponse response = executeRaw();
+      Validate.isTrue(
+          response.statusCode() == expectedStatusCode,
+          "Unexpected response code: %d (expected %d), body: %s",
+          response.statusCode(), expectedStatusCode, response.body());
+      return requireNonNull(parseBody(response.body(), expectedType));
     }
 
     public <T> Pair<Integer, T> execute(final Class<T> expectedType) {
