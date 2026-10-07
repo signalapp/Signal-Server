@@ -580,15 +580,6 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>SetSubscriptionLevelResult</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
         <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.StripePaymentMethod">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>StripePaymentMethod</code> 
@@ -3500,7 +3491,7 @@ other values will result in an INVALID_ARGUMENT error.</p></td>
           <span>bytes</span>
         </code>
       </td>
-      <td class="content"><p>a libsignal DonationPermit from rpc Donations.CreateDonationPermit</p></td>
+      <td class="content"><p>a libsignal DonationPermit from rpc Donations.CreateDonationPermits</p></td>
       
     </tr>
     
@@ -5647,10 +5638,9 @@ transaction is not supported for use at this endpoint</p></td>
             success
           </td>
           <td>
-            <code title="org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">
+            <code title="google.protobuf.Empty">
               
-              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult"><span title="org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult</span>
-    </a>
+              <span>google.protobuf.Empty</span>
             </code>
           </td>
           <td class="content"></td>
@@ -5684,27 +5674,6 @@ transaction is not supported for use at this endpoint</p></td>
             3
           </td>
           <td>
-            subscription_processor_conflict
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>New payment processor does not match existing processor associated with
-the subscription</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            4
-          </td>
-          <td>
             payment_method_not_set_up
           </td>
           <td>
@@ -5722,7 +5691,7 @@ the subscription</p></td>
 
         <tr>
           <td>
-            5
+            4
           </td>
           <td>
             unsupported_operation
@@ -5742,7 +5711,7 @@ the subscription</p></td>
 
         <tr>
           <td>
-            6
+            5
           </td>
           <td>
             unsupported_level
@@ -5762,7 +5731,7 @@ the subscription</p></td>
 
         <tr>
           <td>
-            7
+            6
           </td>
           <td>
             unsupported_currency
@@ -5782,7 +5751,7 @@ the subscription</p></td>
 
         <tr>
           <td>
-            8
+            7
           </td>
           <td>
             payment_requires_action
@@ -5802,7 +5771,7 @@ the subscription</p></td>
 
         <tr>
           <td>
-            9
+            8
           </td>
           <td>
             invalid_level_transition
@@ -5822,7 +5791,7 @@ the subscription</p></td>
 
         <tr>
           <td>
-            10
+            9
           </td>
           <td>
             invalid_idempotency_key
@@ -5842,7 +5811,7 @@ the subscription</p></td>
 
         <tr>
           <td>
-            11
+            10
           </td>
           <td>
             charge_failure
@@ -5858,59 +5827,6 @@ the subscription</p></td>
           
         </tr>
       
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">
-  <span>
-    <a href="#message-org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult" title="org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">message SetSubscriptionLevelResult</a>
-  
-    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetSubscriptionLevelResponse"><span title="org.signal.chat.purchase.SetSubscriptionLevelResponse">org.signal.chat.purchase.SetSubscriptionLevelResponse</span>
-    </a>)</span>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        level
-      </td>
-      <td>
-        <code title="uint64">
-          
-          <span>uint64</span>
-        </code>
-      </td>
-      <td class="content"></td>
-      
-    </tr>
-    
     
   </tbody>
 </table>
@@ -6253,7 +6169,7 @@ the subscription</p></td>
           <span>bytes</span>
         </code>
       </td>
-      <td class="content"><p>A libsignal DonationPermit from rpc Donations.CreateDonationPermit.
+      <td class="content"><p>A libsignal DonationPermit from rpc Donations.CreateDonationPermits.
 Not required if the subscriber already exists.</p></td>
       
     </tr>
