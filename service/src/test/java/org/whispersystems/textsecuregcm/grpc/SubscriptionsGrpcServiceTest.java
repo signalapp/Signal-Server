@@ -36,8 +36,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.signal.chat.purchase.CreatePayPalPaymentMethodRequest;
 import org.signal.chat.purchase.CreatePayPalPaymentMethodResponse;
-import org.signal.chat.purchase.CreatePaymentMethodRequest;
-import org.signal.chat.purchase.CreatePaymentMethodResponse;
+import org.signal.chat.purchase.CreateStripePaymentMethodRequest;
+import org.signal.chat.purchase.CreateStripePaymentMethodResponse;
 import org.signal.chat.purchase.DeleteSubscriberRequest;
 import org.signal.chat.purchase.DeleteSubscriberResponse;
 import org.signal.chat.purchase.GetBankMandateRequest;
@@ -233,28 +233,24 @@ public class SubscriptionsGrpcServiceTest extends
   @ParameterizedTest
   @EnumSource(value = PaymentMethod.class, names = {"PAYMENT_METHOD_CARD", "PAYMENT_METHOD_SEPA_DEBIT",
       "PAYMENT_METHOD_IDEAL"})
-  void createPaymentMethod(final PaymentMethod paymentMethod)
+  void createStripePaymentMethod(final PaymentMethod paymentMethod)
       throws PurchaseForbiddenException, PurchaseNotFoundException, PurchaseProcessorConflictException {
     when(subscriptionManager.addPaymentMethodToCustomer(any(), any(), any(), any())).thenReturn("test-client-secret");
-    when(stripeManager.getProvider()).thenReturn(PaymentProvider.STRIPE);
 
-    final CreatePaymentMethodRequest.Builder builder = CreatePaymentMethodRequest.newBuilder()
+    final CreateStripePaymentMethodRequest.Builder builder = CreateStripePaymentMethodRequest.newBuilder()
         .setSubscriberId(SUBSCRIBER_ID)
         .setDonationPermit(ByteString.copyFrom(getDonationPermit().serialize()))
         .setPaymentMethod(paymentMethod);
-    final CreatePaymentMethodResponse response = unauthenticatedServiceStub().createPaymentMethod(builder.build());
-    assertEquals(CreatePaymentMethodResponse.ResponseCase.RESULT, response.getResponseCase());
-    // Currently, only stripe is chosen as the payment provider for all supported payment methods
-    assertEquals(org.signal.chat.purchase.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
-        response.getResult().getPaymentProvider());
+    final CreateStripePaymentMethodResponse response = unauthenticatedServiceStub().createStripePaymentMethod(builder.build());
+    assertEquals(CreateStripePaymentMethodResponse.ResponseCase.RESULT, response.getResponseCase());
     assertEquals("test-client-secret", response.getResult().getClientSecret());
   }
 
   @Test
   void createPaymentMethodUnsupportedPaymentMethod() {
     GrpcTestUtils.assertStatusInvalidArgument(
-        () -> unauthenticatedServiceStub().createPaymentMethod(
-            CreatePaymentMethodRequest.newBuilder()
+        () -> unauthenticatedServiceStub().createStripePaymentMethod(
+            CreateStripePaymentMethodRequest.newBuilder()
                 .setSubscriberId(SUBSCRIBER_ID)
                 .setPaymentMethod(PaymentMethod.PAYMENT_METHOD_PAYPAL)
                 .build()));
@@ -263,8 +259,8 @@ public class SubscriptionsGrpcServiceTest extends
   @Test
   void createPaymentMethodInvalidDonationPermit() {
     GrpcTestUtils.assertStatusInvalidArgument(
-        () -> unauthenticatedServiceStub().createPaymentMethod(
-            CreatePaymentMethodRequest.newBuilder()
+        () -> unauthenticatedServiceStub().createStripePaymentMethod(
+            CreateStripePaymentMethodRequest.newBuilder()
                 .setSubscriberId(SUBSCRIBER_ID)
                 .setDonationPermit(ByteString.copyFrom(new byte[]{1}))
                 .setPaymentMethod(PaymentMethod.PAYMENT_METHOD_CARD)
@@ -278,8 +274,8 @@ public class SubscriptionsGrpcServiceTest extends
     final DonationPermit donationPermit = getDonationPermit();
     clock.pin(clock.instant().plus(Duration.ofDays(30)));
 
-    final CreatePaymentMethodResponse createPaymentMethodResponse = unauthenticatedServiceStub().createPaymentMethod(
-        CreatePaymentMethodRequest.newBuilder()
+    final CreateStripePaymentMethodResponse createPaymentMethodResponse = unauthenticatedServiceStub().createStripePaymentMethod(
+        CreateStripePaymentMethodRequest.newBuilder()
             .setSubscriberId(SUBSCRIBER_ID)
             .setDonationPermit(ByteString.copyFrom(donationPermit.serialize()))
             .setPaymentMethod(PaymentMethod.PAYMENT_METHOD_CARD)
@@ -293,13 +289,13 @@ public class SubscriptionsGrpcServiceTest extends
       throws PurchaseForbiddenException, PurchaseNotFoundException, PurchaseProcessorConflictException {
     doThrow(new PurchaseProcessorConflictException())
         .when(subscriptionManager).addPaymentMethodToCustomer(any(), any(), any(), any());
-    final CreatePaymentMethodResponse response = unauthenticatedServiceStub().createPaymentMethod(
-        CreatePaymentMethodRequest.newBuilder()
+    final CreateStripePaymentMethodResponse response = unauthenticatedServiceStub().createStripePaymentMethod(
+        CreateStripePaymentMethodRequest.newBuilder()
             .setSubscriberId(SUBSCRIBER_ID)
             .setDonationPermit(ByteString.copyFrom(getDonationPermit().serialize()))
             .setPaymentMethod(PaymentMethod.PAYMENT_METHOD_CARD)
             .build());
-    assertEquals(CreatePaymentMethodResponse.ResponseCase.SUBSCRIPTION_PROCESSOR_CONFLICT, response.getResponseCase());
+    assertEquals(CreateStripePaymentMethodResponse.ResponseCase.SUBSCRIPTION_PROCESSOR_CONFLICT, response.getResponseCase());
   }
 
   @Test
@@ -398,7 +394,7 @@ public class SubscriptionsGrpcServiceTest extends
             .setStripe(SetDefaultPaymentMethodRequest.StripePaymentMethod.newBuilder()
                 .setPaymentMethodToken("test-token").build())
             .build());
-    assertEquals(SetDefaultPaymentMethodResponse.ResponseCase.PAYMENT_METHOD_NOT_SET_UP, response.getResponseCase());
+    assertEquals(SetDefaultPaymentMethodResponse.ResponseCase.FAILED_PRECONDITION, response.getResponseCase());
   }
 
   private void mockValidSubscription() throws PurchaseNotFoundException, PurchaseForbiddenException {
@@ -443,7 +439,7 @@ public class SubscriptionsGrpcServiceTest extends
             .setSubscriberId(SUBSCRIBER_ID)
             .setLevel(LEVEL).setCurrency(CURRENCY).setIdempotencyKey("test-idempotency-key")
             .build());
-    assertEquals(SetSubscriptionLevelResponse.ResponseCase.PAYMENT_METHOD_NOT_SET_UP, response.getResponseCase());
+    assertEquals(SetSubscriptionLevelResponse.ResponseCase.FAILED_PRECONDITION, response.getResponseCase());
   }
 
   @Test
@@ -457,7 +453,7 @@ public class SubscriptionsGrpcServiceTest extends
             .setSubscriberId(SUBSCRIBER_ID)
             .setLevel(999L).setCurrency(CURRENCY).setIdempotencyKey("test-idempotency-key")
             .build());
-    assertEquals(SetSubscriptionLevelResponse.ResponseCase.UNSUPPORTED_LEVEL, response.getResponseCase());
+    assertEquals(SetSubscriptionLevelResponse.ResponseCase.INVALID_SELECTION, response.getResponseCase());
   }
 
   @Test
@@ -471,13 +467,12 @@ public class SubscriptionsGrpcServiceTest extends
             .setSubscriberId(SUBSCRIBER_ID)
             .setLevel(LEVEL).setCurrency("xyz").setIdempotencyKey("test-idempotency-key")
             .build());
-    assertEquals(SetSubscriptionLevelResponse.ResponseCase.UNSUPPORTED_CURRENCY, response.getResponseCase());
+    assertEquals(SetSubscriptionLevelResponse.ResponseCase.INVALID_SELECTION, response.getResponseCase());
   }
 
   @ParameterizedTest
   @MethodSource
-  void setSubscriptionLevelUpdateExceptions(final PurchaseException exception,
-      final SetSubscriptionLevelResponse.ResponseCase expectedCase)
+  void setSubscriptionLevelUpdateFailedPreconditionExceptions(final PurchaseException exception)
       throws PurchaseException {
     mockValidSubscription();
     doThrow(exception).when(subscriptionManager).updateSubscriptionLevelForCustomer(
@@ -487,17 +482,15 @@ public class SubscriptionsGrpcServiceTest extends
             .setSubscriberId(SUBSCRIBER_ID)
             .setLevel(LEVEL).setCurrency(CURRENCY).setIdempotencyKey("test-idempotency-key")
             .build());
-    assertEquals(expectedCase, response.getResponseCase());
+    assertEquals(SetSubscriptionLevelResponse.ResponseCase.FAILED_PRECONDITION, response.getResponseCase());
   }
 
-  static Stream<Arguments> setSubscriptionLevelUpdateExceptions() {
+  static Stream<Arguments> setSubscriptionLevelUpdateFailedPreconditionExceptions() {
     return Stream.of(
-        Arguments.of(new PurchaseInvalidIdempotencyKeyException("bad key"),
-            SetSubscriptionLevelResponse.ResponseCase.INVALID_IDEMPOTENCY_KEY),
-        Arguments.of(new PurchasePaymentRequiresActionException(),
-            SetSubscriptionLevelResponse.ResponseCase.PAYMENT_REQUIRES_ACTION),
-        Arguments.of(new PurchaseInvalidLevelException(),
-            SetSubscriptionLevelResponse.ResponseCase.INVALID_LEVEL_TRANSITION)
+        Arguments.of(new PurchaseInvalidIdempotencyKeyException("bad key")),
+        Arguments.of(new PurchasePaymentRequiresActionException()),
+        Arguments.of(new PurchaseInvalidLevelException()),
+        Arguments.of(new PurchaseProcessorConflictException())
     );
   }
 
@@ -514,11 +507,11 @@ public class SubscriptionsGrpcServiceTest extends
             .setSubscriberId(SUBSCRIBER_ID)
             .setLevel(LEVEL).setCurrency(CURRENCY).setIdempotencyKey("test-idempotency-key")
             .build());
-    assertEquals(SetSubscriptionLevelResponse.ResponseCase.CHARGE_FAILURE, response.getResponseCase());
+    assertEquals(SetSubscriptionLevelResponse.ResponseCase.PAYMENT_REQUIRED, response.getResponseCase());
     assertEquals(org.signal.chat.purchase.PaymentProvider.PAYMENT_PROVIDER_STRIPE,
-        response.getChargeFailure().getProcessor());
-    assertEquals("card_declined", response.getChargeFailure().getCode());
-    assertEquals("Insufficient funds", response.getChargeFailure().getMessage());
+        response.getPaymentRequired().getChargeFailure().getProcessor());
+    assertEquals("card_declined", response.getPaymentRequired().getChargeFailure().getCode());
+    assertEquals("Insufficient funds", response.getPaymentRequired().getChargeFailure().getMessage());
   }
 
   @Test

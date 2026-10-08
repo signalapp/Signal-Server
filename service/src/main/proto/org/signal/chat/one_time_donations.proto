@@ -22,7 +22,7 @@ service OneTimeDonations {
 
   // Create a Stripe payment intent and return a client secret that can be used to complete the payment.
   // Once the payment is complete, the paymentIntentId can be used with CreateBoostReceiptCredential
-  rpc CreateBoost(CreateBoostRequest) returns (CreateBoostResponse) {}
+  rpc CreateStripeBoost(CreateStripeBoostRequest) returns (CreateStripeBoostResponse) {}
 
   // Create a PayPal one-time payment.
   //
@@ -44,47 +44,34 @@ service OneTimeDonations {
   rpc CreateBoostReceiptCredential(CreateBoostReceiptCredentialRequest) returns (CreateBoostReceiptCredentialResponse) {}
 }
 
-// The amount is below the minimum for the currency.
-message AmountBelowMinimumError {
-  // The minimum amount for the currency in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)
-  uint64 minimum = 1;
-}
-
-// The SEPA Direct Debit amount exceeds the allowed maximum.
-message AmountAboveSepaLimitError {
-  // The maximum amount for a SEPA transaction in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)
-  uint64 maximum = 1;
-}
-
-message CreateBoostRequest {
+message CreateStripeBoostRequest {
   // ISO 4217 currency code, case-insensitive (e.g. "usd", "EUR")
   string currency = 1 [(require.exactlySize) = 3];
   // The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)
   uint64 amount = 2 [(require.range).min = 1];
-  // The level for the boost payment
-  uint64 level = 3 [(require.range).min = 1];
-  // The payment method
-  PaymentMethod payment_method = 4 [(require.specified) = true];
+  // The level for the boost payment: 1 for a one-time donation, 100 for a gift donation
+  uint64 level = 3 [(require.allowedValues) = { ints: [1, 100] }];
+  // The payment method. Only card, SEPA Direct Debit, and iDEAL are supported.
+  PaymentMethod payment_method = 4 [(require.allowedValues) = {
+    enums: ["PAYMENT_METHOD_CARD", "PAYMENT_METHOD_SEPA_DEBIT", "PAYMENT_METHOD_IDEAL"]
+  }];
   // A donation permit retrieved from Donations.createDonationPermit
   bytes donation_permit = 5 [(require.nonEmpty) = true];
 }
 
-message CreateBoostResponse {
+message CreateStripeBoostResponse {
   oneof response {
     // A client secret that can be used to complete a stripe PaymentIntent
     string client_secret = 1;
-    // The amount is below the minimum for the currency
-    AmountBelowMinimumError amount_below_minimum = 2 [(tag.reason) = "amount_below_minimum"];
-    // The amount exceeds the maximum for SEPA Direct Debit
-    AmountAboveSepaLimitError amount_above_sepa_limit = 3 [(tag.reason) = "amount_above_sepa_limit"];
-    // The requested currency is not supported for the given payment method
-    errors.FailedPrecondition unsupported_currency = 4 [(tag.reason) = "unsupported_currency"];
-    // The requested level is not a valid one-time donation level
-    errors.FailedPrecondition unsupported_level = 5 [(tag.reason) = "unsupported_level"];
+    // The currency is not supported for the payment method, or the amount is
+    // outside the configured limits (e.g. below the currency's minimum, above
+    // the SEPA Direct Debit maximum, above the processor's currency maximum).
+    // The violated constraint may be present in the product configuration,
+    // clients can attempt a refresh of ProductConfiguration/GetConfiguration
+    // before giving up.
+    errors.FailedPrecondition invalid_selection = 2 [(tag.reason) = "invalid_selection"];
     // Donation permit was invalid or already spent
-    errors.FailedZkAuthentication permit_rejected = 6 [(tag.reason) = "permit_rejected"];
-    // The amount in the specified currency is not supported by the payment provider
-    errors.FailedPrecondition invalid_amount = 7 [(tag.reason) = "invalid_amount"];
+    errors.FailedZkAuthentication permit_rejected = 3 [(tag.reason) = "permit_rejected"];
   }
 }
 
@@ -93,8 +80,8 @@ message CreatePayPalBoostRequest {
   string currency = 1 [(require.exactlySize) = 3];
   // Amount in the currency's minor unit (e.g. cents for USD), must be >= 1
   uint64 amount = 2 [(require.range).min = 1];
-  // Donation level.
-  uint64 level = 3 [(require.range).min = 1];
+  // Donation level: 1 for a one-time donation, 100 for a gift donation
+  uint64 level = 3 [(require.allowedValues) = { ints: [1, 100] }];
   // URL to redirect the user to after PayPal approval
   string return_url = 4 [(require.nonEmpty) = true];
   // URL to redirect the user to if they cancel
@@ -108,12 +95,11 @@ message CreatePayPalBoostResponse {
   }
   oneof response {
     CreatePayPalBoostResult result = 1;
-    // The amount is below the minimum for the currency
-    AmountBelowMinimumError amount_below_minimum = 2 [(tag.reason) = "amount_below_minimum"];
-    // The requested currency is not supported for PayPal
-    errors.FailedPrecondition unsupported_currency = 3 [(tag.reason) = "unsupported_currency"];
-    // The requested level is not a valid one-time donation level
-    errors.FailedPrecondition unsupported_level = 4 [(tag.reason) = "unsupported_level"];
+    // The currency is not supported for PayPal, or the amount is below the
+    // currency's minimum. The violated constraint may be present in the product
+    // configuration, clients can attempt a refresh of
+    // ProductConfiguration/GetConfiguration before giving up.
+    errors.FailedPrecondition invalid_selection = 2 [(tag.reason) = "invalid_selection"];
   }
 }
 
@@ -122,8 +108,8 @@ message ConfirmPayPalBoostRequest {
   string currency = 1 [(require.exactlySize) = 3];
   // Amount in the currency's minor unit, must be >= 1
   uint64 amount = 2 [(require.range).min = 1];
-  // Donation level.
-  uint64 level = 3 [(require.range).min = 1];
+  // Donation level: 1 for a one-time donation, 100 for a gift donation
+  uint64 level = 3 [(require.allowedValues) = { ints: [1, 100] }];
   // PayPal payer ID from the approval redirect
   string payer_id = 4 [(require.nonEmpty) = true];
   // PayPal payment ID (PAYID-…) from CreatePayPalBoost
@@ -138,14 +124,13 @@ message ConfirmPayPalBoostResponse {
   }
   oneof response {
     ConfirmPayPalBoostResult result = 1;
-    // The amount is below the minimum for the currency
-    AmountBelowMinimumError amount_below_minimum = 2 [(tag.reason) = "amount_below_minimum"];
-    // The requested currency is not supported for PayPal
-    errors.FailedPrecondition unsupported_currency = 3 [(tag.reason) = "unsupported_currency"];
-    // The requested level is not a valid one-time donation level
-    errors.FailedPrecondition unsupported_level = 4 [(tag.reason) = "unsupported_level"];
+    // The currency is not supported for PayPal, or the amount is below the
+    // currency's minimum. The violated constraint may be present in the product
+    // configuration, clients can attempt a refresh of
+    // ProductConfiguration/GetConfiguration before giving up.
+    errors.FailedPrecondition invalid_selection = 2 [(tag.reason) = "invalid_selection"];
     // The payment failed; see charge failure details
-    ChargeFailure charge_failure = 5 [(tag.reason) = "charge_failure"];
+    PaymentRequired payment_required = 3 [(tag.reason) = "payment_required"];
   }
 }
 
@@ -155,7 +140,9 @@ message CreateBoostReceiptCredentialRequest {
   // ZK blind-signature receipt credential request bytes
   bytes receipt_credential_request = 2 [(require.nonEmpty) = true];
   // The processor that handled the payment
-  PaymentProvider processor = 3 [(require.specified) = true];
+  PaymentProvider processor = 3 [(require.allowedValues) = {
+    enums: ["PAYMENT_PROVIDER_STRIPE", "PAYMENT_PROVIDER_BRAINTREE"]
+  }];
 }
 
 message CreateBoostReceiptCredentialResponse {

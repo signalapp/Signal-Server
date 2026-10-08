@@ -424,6 +424,78 @@ public class ValidatingInterceptorTest {
   }
 
   @Test
+  public void testAllowedValues() throws Exception {
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValues(2)
+            .build()
+    ));
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .clearAllowedValues()
+            .build()
+    ));
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValuesOptional(0)
+            .build()
+    ));
+    stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValues(100)
+            .build()
+    );
+    stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValuesOptional(-1)
+            .build()
+    );
+    stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .clearAllowedValuesOptional()
+            .build()
+    );
+  }
+
+  @Test
+  public void testAllowedValuesString() throws Exception {
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValuesString("subscription")
+            .build()
+    ));
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValuesString("")
+            .build()
+    ));
+    stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValuesString("gift")
+            .build()
+    );
+  }
+
+  @Test
+  public void testAllowedValuesEnum() throws Exception {
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValuesEnum(Color.COLOR_GREEN)
+            .build()
+    ));
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValuesEnum(Color.COLOR_UNSPECIFIED)
+            .build()
+    ));
+    stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setAllowedValuesEnum(Color.COLOR_BLUE)
+            .build()
+    );
+  }
+
+  @Test
   public void testPresent() throws Exception {
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
         builderWithValidDefaults()
@@ -588,6 +660,7 @@ public class ValidatingInterceptorTest {
         .addAllFixedSizeList(List.of("a", "b", "c", "d", "e"))
         .addAllRangeSizeList(List.of("a", "b", "c", "d", "e"))
         .setI32Range(15)
+        .setAllowedValues(1)
         .setNested(NestedMessage.getDefaultInstance())
         .addRepeatedNested(NestedMessage.getDefaultInstance())
         .putMapNested("test", NestedMessage.getDefaultInstance())

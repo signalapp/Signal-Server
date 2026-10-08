@@ -4,12 +4,11 @@
  */
 package org.whispersystems.textsecuregcm.purchases;
 
-public class PurchaseInvalidAmountException extends PurchaseInvalidArgumentsException {
+public class PurchaseAmountTooLargeException extends PurchaseInvalidArgumentsException {
+  private final String errorCode;
 
-  private String errorCode;
-
-  public PurchaseInvalidAmountException(String errorCode) {
-    super(null, null);
+  public PurchaseAmountTooLargeException(final String errorCode) {
+    super("Purchase amount too large");
     this.errorCode = errorCode;
   }
 

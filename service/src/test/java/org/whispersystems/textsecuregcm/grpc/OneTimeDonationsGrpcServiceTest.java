@@ -33,8 +33,8 @@ import org.signal.chat.purchase.ConfirmPayPalBoostRequest;
 import org.signal.chat.purchase.ConfirmPayPalBoostResponse;
 import org.signal.chat.purchase.CreateBoostReceiptCredentialRequest;
 import org.signal.chat.purchase.CreateBoostReceiptCredentialResponse;
-import org.signal.chat.purchase.CreateBoostRequest;
-import org.signal.chat.purchase.CreateBoostResponse;
+import org.signal.chat.purchase.CreateStripeBoostRequest;
+import org.signal.chat.purchase.CreateStripeBoostResponse;
 import org.signal.chat.purchase.CreatePayPalBoostRequest;
 import org.signal.chat.purchase.CreatePayPalBoostResponse;
 import org.signal.chat.purchase.OneTimeDonationsGrpc;
@@ -58,7 +58,7 @@ import org.whispersystems.textsecuregcm.purchases.ChargeFailure;
 import org.whispersystems.textsecuregcm.purchases.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.purchases.PaymentDetails;
 import org.whispersystems.textsecuregcm.purchases.PurchaseException;
-import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidAmountException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseAmountTooLargeException;
 import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseProcessorException;
 import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
@@ -137,7 +137,7 @@ public class OneTimeDonationsGrpcServiceTest extends
   }
 
   @Test
-  void createBoost() throws PurchaseInvalidAmountException {
+  void createStripeBoost() throws PurchaseAmountTooLargeException {
     final PaymentIntent paymentIntent = mock(PaymentIntent.class);
     when(paymentIntent.getClientSecret()).thenReturn("test-client-secret");
     when(stripeManager.getSupportedCurrenciesForPaymentMethod(
@@ -146,8 +146,8 @@ public class OneTimeDonationsGrpcServiceTest extends
     when(stripeManager.createPaymentIntent(any(), anyLong(), anyLong(), any()))
         .thenReturn(paymentIntent);
 
-    final CreateBoostResponse response = unauthenticatedServiceStub().createBoost(
-        CreateBoostRequest.newBuilder()
+    final CreateStripeBoostResponse response = unauthenticatedServiceStub().createStripeBoost(
+        CreateStripeBoostRequest.newBuilder()
             .setCurrency("usd")
             .setAmount(500)
             .setLevel(1)
@@ -155,16 +155,20 @@ public class OneTimeDonationsGrpcServiceTest extends
             .setDonationPermit(ByteString.copyFrom(getDonationPermit().serialize()))
             .build());
 
-    assertEquals(CreateBoostResponse.ResponseCase.CLIENT_SECRET, response.getResponseCase());
+    assertEquals(CreateStripeBoostResponse.ResponseCase.CLIENT_SECRET, response.getResponseCase());
     assertEquals("test-client-secret", response.getClientSecret());
   }
 
   @Test
-  void createBoostPermitAlreadySpent() {
-    when(donationPermits.spend(any(byte[].class), any(Instant.class))).thenReturn(false);
+  void createBoostAmountTooLarge() throws PurchaseAmountTooLargeException {
+    when(stripeManager.getSupportedCurrenciesForPaymentMethod(
+        org.whispersystems.textsecuregcm.purchases.PaymentMethod.CARD))
+        .thenReturn(Set.of("usd"));
+    when(stripeManager.createPaymentIntent(any(), anyLong(), anyLong(), any()))
+        .thenThrow(new PurchaseAmountTooLargeException("amount_too_large"));
 
-    final CreateBoostResponse response = unauthenticatedServiceStub().createBoost(
-        CreateBoostRequest.newBuilder()
+    final CreateStripeBoostResponse response = unauthenticatedServiceStub().createStripeBoost(
+        CreateStripeBoostRequest.newBuilder()
             .setCurrency("usd")
             .setAmount(500)
             .setLevel(1)
@@ -172,7 +176,26 @@ public class OneTimeDonationsGrpcServiceTest extends
             .setDonationPermit(ByteString.copyFrom(getDonationPermit().serialize()))
             .build());
 
-    assertEquals(CreateBoostResponse.ResponseCase.PERMIT_REJECTED, response.getResponseCase());
+    assertEquals(CreateStripeBoostResponse.ResponseCase.INVALID_SELECTION, response.getResponseCase());
+  }
+
+  @Test
+  void createBoostPermitAlreadySpent() {
+    when(stripeManager.getSupportedCurrenciesForPaymentMethod(
+        org.whispersystems.textsecuregcm.purchases.PaymentMethod.CARD))
+        .thenReturn(Set.of("usd"));
+    when(donationPermits.spend(any(byte[].class), any(Instant.class))).thenReturn(false);
+
+    final CreateStripeBoostResponse response = unauthenticatedServiceStub().createStripeBoost(
+        CreateStripeBoostRequest.newBuilder()
+            .setCurrency("usd")
+            .setAmount(500)
+            .setLevel(1)
+            .setPaymentMethod(PaymentMethod.PAYMENT_METHOD_CARD)
+            .setDonationPermit(ByteString.copyFrom(getDonationPermit().serialize()))
+            .build());
+
+    assertEquals(CreateStripeBoostResponse.ResponseCase.PERMIT_REJECTED, response.getResponseCase());
   }
 
   @ParameterizedTest
@@ -180,8 +203,7 @@ public class OneTimeDonationsGrpcServiceTest extends
   void createBoostValidationErrors(
       final String currency,
       final long amount,
-      final PaymentMethod paymentMethod,
-      final CreateBoostResponse.ResponseCase expectedResponseCase) {
+      final PaymentMethod paymentMethod) {
     when(stripeManager.getSupportedCurrenciesForPaymentMethod(
         org.whispersystems.textsecuregcm.purchases.PaymentMethod.CARD))
         .thenReturn(Set.of("usd"));
@@ -189,8 +211,8 @@ public class OneTimeDonationsGrpcServiceTest extends
         org.whispersystems.textsecuregcm.purchases.PaymentMethod.SEPA_DEBIT))
         .thenReturn(Set.of("eur"));
 
-    final CreateBoostResponse response = unauthenticatedServiceStub().createBoost(
-        CreateBoostRequest.newBuilder()
+    final CreateStripeBoostResponse response = unauthenticatedServiceStub().createStripeBoost(
+        CreateStripeBoostRequest.newBuilder()
             .setCurrency(currency)
             .setAmount(amount)
             .setLevel(1)
@@ -198,19 +220,30 @@ public class OneTimeDonationsGrpcServiceTest extends
             .setDonationPermit(ByteString.copyFrom(getDonationPermit().serialize()))
             .build());
 
-    assertEquals(expectedResponseCase, response.getResponseCase());
+    assertEquals(CreateStripeBoostResponse.ResponseCase.INVALID_SELECTION, response.getResponseCase());
   }
 
   static Stream<Arguments> createBoostValidationErrors() {
     return Stream.of(
-        Arguments.of("usd", 249L, PaymentMethod.PAYMENT_METHOD_CARD,
-            CreateBoostResponse.ResponseCase.AMOUNT_BELOW_MINIMUM),
-        Arguments.of("eur", 1000001L, PaymentMethod.PAYMENT_METHOD_SEPA_DEBIT,
-            CreateBoostResponse.ResponseCase.AMOUNT_ABOVE_SEPA_LIMIT),
+        // Below the USD minimum
+        Arguments.of("usd", 249L, PaymentMethod.PAYMENT_METHOD_CARD),
+        // Above the SEPA maximum
+        Arguments.of("eur", 1000001L, PaymentMethod.PAYMENT_METHOD_SEPA_DEBIT),
         // USD is not supported for SEPA_DEBIT
-        Arguments.of("usd", 3000L, PaymentMethod.PAYMENT_METHOD_SEPA_DEBIT,
-            CreateBoostResponse.ResponseCase.UNSUPPORTED_CURRENCY)
+        Arguments.of("usd", 3000L, PaymentMethod.PAYMENT_METHOD_SEPA_DEBIT)
     );
+  }
+
+  @Test
+  void createBoostUnsupportedLevel() {
+    GrpcTestUtils.assertStatusInvalidArgument(() -> unauthenticatedServiceStub().createStripeBoost(
+        CreateStripeBoostRequest.newBuilder()
+            .setCurrency("usd")
+            .setAmount(3000L)
+            .setLevel(500)
+            .setPaymentMethod(PaymentMethod.PAYMENT_METHOD_CARD)
+            .setDonationPermit(ByteString.copyFrom(getDonationPermit().serialize()))
+            .build()));
   }
 
   @Test

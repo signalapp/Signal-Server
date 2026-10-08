@@ -19,6 +19,7 @@ import java.util.Map;
 import org.signal.chat.require.ElementConstraint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.grpc.validators.AllowedValuesFieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.Base64UrlFieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.FieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.E164FieldValidator;
@@ -49,7 +50,8 @@ public class ValidatingInterceptor implements ServerInterceptor {
       "size", new SizeFieldValidator(),
       "base64url", new Base64UrlFieldValidator(),
       "identityType", new ServiceIdentifierIdentityTypeValidator(),
-      "present", new PresentFieldValidator());
+      "present", new PresentFieldValidator(),
+      "allowedValues", new AllowedValuesFieldValidator());
 
   @Override
   public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(

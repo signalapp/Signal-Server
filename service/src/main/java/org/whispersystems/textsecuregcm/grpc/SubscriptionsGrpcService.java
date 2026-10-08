@@ -18,8 +18,8 @@ import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.purchase.CreatePayPalPaymentMethodRequest;
 import org.signal.chat.purchase.CreatePayPalPaymentMethodResponse;
-import org.signal.chat.purchase.CreatePaymentMethodRequest;
-import org.signal.chat.purchase.CreatePaymentMethodResponse;
+import org.signal.chat.purchase.CreateStripePaymentMethodRequest;
+import org.signal.chat.purchase.CreateStripePaymentMethodResponse;
 import org.signal.chat.purchase.DeleteSubscriberRequest;
 import org.signal.chat.purchase.DeleteSubscriberResponse;
 import org.signal.chat.purchase.GetBankMandateRequest;
@@ -28,6 +28,7 @@ import org.signal.chat.purchase.GetReceiptCredentialRequest;
 import org.signal.chat.purchase.GetReceiptCredentialResponse;
 import org.signal.chat.purchase.GetSubscriptionInformationRequest;
 import org.signal.chat.purchase.GetSubscriptionInformationResponse;
+import org.signal.chat.purchase.PaymentRequired;
 import org.signal.chat.purchase.SetDefaultPaymentMethodRequest;
 import org.signal.chat.purchase.SetDefaultPaymentMethodResponse;
 import org.signal.chat.purchase.SetIapSubscriptionRequest;
@@ -170,42 +171,38 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
   }
 
   @Override
-  public CreatePaymentMethodResponse createPaymentMethod(final CreatePaymentMethodRequest request) {
+  public CreateStripePaymentMethodResponse createStripePaymentMethod(final CreateStripePaymentMethodRequest request) {
     final SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(
         request.getSubscriberId().toByteArray(), clock);
-    final CustomerAwareSubscriptionPaymentProcessor customerAwareSubscriptionPaymentProcessor = switch (request.getPaymentMethod()) {
-      case PAYMENT_METHOD_CARD, PAYMENT_METHOD_SEPA_DEBIT, PAYMENT_METHOD_IDEAL -> stripeManager;
-      default -> throw GrpcExceptions.fieldViolation("payment_method", "Unsupported payment method");
-    };
 
     try {
       final DonationPermit permit = new DonationPermit(request.getDonationPermit().toByteArray());
 
       if (!SubscriptionsUtil.verifyAndSpendDonationPermit(permit, donationPermitsManager, clock)) {
-        return CreatePaymentMethodResponse.newBuilder()
+        return CreateStripePaymentMethodResponse.newBuilder()
             .setPermitRejected(FailedZkAuthentication.getDefaultInstance())
             .build();
       }
     } catch (final InvalidInputException _) {
       throw GrpcExceptions.invalidArguments("invalid donation permit");
     } catch (final VerificationFailedException _) {
-      return CreatePaymentMethodResponse.newBuilder()
+      return CreateStripePaymentMethodResponse.newBuilder()
           .setPermitRejected(FailedZkAuthentication.getDefaultInstance())
           .build();
     }
 
     try {
       final String token = subscriptionManager.addPaymentMethodToCustomer(subscriberCredentials,
-          customerAwareSubscriptionPaymentProcessor,
+          stripeManager,
           getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)),
           CustomerAwareSubscriptionPaymentProcessor::createPaymentMethodSetupToken);
-      return CreatePaymentMethodResponse.newBuilder().setResult(
-          CreatePaymentMethodResponse.CreatePaymentMethodResult.newBuilder().setClientSecret(token)
-              .setPaymentProvider(customerAwareSubscriptionPaymentProcessor.getProvider().toProto()).build()).build();
+      return CreateStripePaymentMethodResponse.newBuilder().setResult(
+          CreateStripePaymentMethodResponse.CreateStripePaymentMethodResult.newBuilder().setClientSecret(token).build())
+          .build();
     } catch (final PurchaseNotFoundException | PurchaseForbiddenException _) {
-      return CreatePaymentMethodResponse.newBuilder().setSubscriberNotFound(NotFound.newBuilder()).build();
+      return CreateStripePaymentMethodResponse.newBuilder().setSubscriberNotFound(NotFound.newBuilder()).build();
     } catch (final PurchaseProcessorConflictException e) {
-      return CreatePaymentMethodResponse.newBuilder().setSubscriptionProcessorConflict(
+      return CreateStripePaymentMethodResponse.newBuilder().setSubscriptionProcessorConflict(
           FailedPrecondition.newBuilder().setDescription(e.errorDetail().orElse("")).build()).build();
     }
   }
@@ -263,13 +260,13 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
           // a missing customer ID indicates the client made requests out of order,
           // and needs to call create_payment_method to create a customer for the given payment method
           .orElseGet(() -> SetDefaultPaymentMethodResponse.newBuilder()
-              .setPaymentMethodNotSetUp(FailedPrecondition.newBuilder().build())
+              .setFailedPrecondition(FailedPrecondition.newBuilder().build())
               .build());
     } catch (final PurchaseNotFoundException | PurchaseForbiddenException _) {
       return SetDefaultPaymentMethodResponse.newBuilder().setSubscriberNotFound(NotFound.newBuilder().build()).build();
     } catch (final PurchaseProcessorConflictException _) {
       return SetDefaultPaymentMethodResponse.newBuilder()
-          .setPaymentMethodNotSetUp(FailedPrecondition.newBuilder().build())
+          .setFailedPrecondition(FailedPrecondition.newBuilder().build())
           .build();
     }
   }
@@ -284,7 +281,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
       // Here, invalid arguments must mean that the client has made requests out of order, and needs to finish
       // setting up the paymentMethod first
       return SetDefaultPaymentMethodResponse.newBuilder()
-          .setPaymentMethodNotSetUp(FailedPrecondition.newBuilder().setDescription(e.errorDetail().orElse("")).build())
+          .setFailedPrecondition(FailedPrecondition.newBuilder().setDescription(e.errorDetail().orElse("")).build())
           .build();
     } catch (final IOException e) {
       throw new UncheckedIOException(e);
@@ -298,10 +295,11 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
         request.getSubscriberId().toByteArray(), clock);
     try {
       final Subscriptions.Record record = subscriptionManager.getSubscriber(subscriberCredentials);
-      return record.getProcessorCustomer().map(processorCustomer ->
-              setSubscriptionLevelForCustomer(processorCustomer, subscriberCredentials, record, request))
+      return record.getProcessorCustomer()
+          .map(processorCustomer -> setSubscriptionLevelForCustomer(processorCustomer, subscriberCredentials, record, request))
           .orElseGet(() -> SetSubscriptionLevelResponse.newBuilder()
-              .setPaymentMethodNotSetUp(FailedPrecondition.newBuilder().build())
+              .setFailedPrecondition(FailedPrecondition.newBuilder()
+                  .setDescription("No payment method has been created for the subscriber"))
               .build());
 
     } catch (final PurchaseNotFoundException | PurchaseForbiddenException _) {
@@ -312,29 +310,33 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
   private SetSubscriptionLevelResponse setSubscriptionLevelForCustomer(final ProcessorCustomer processorCustomer,
       final SubscriberCredentials subscriberCredentials, final Subscriptions.Record subscriptionRecord,
       final SetSubscriptionLevelRequest request) {
+    final CustomerAwareSubscriptionPaymentProcessor manager;
+    switch (processorCustomer.processor()) {
+      case STRIPE -> manager = stripeManager;
+      case BRAINTREE -> manager = braintreeManager;
+      default -> {
+        return SetSubscriptionLevelResponse.newBuilder()
+            .setFailedPrecondition(FailedPrecondition.newBuilder()
+                .setDescription(String.format("Subscription level %s invalid for %s", request.getLevel(), processorCustomer.processor())))
+            .build();
+      }
+    }
+
     final SubscriptionLevelConfiguration config = subscriptionConfiguration.getSubscriptionLevel(request.getLevel());
     if (config == null) {
-      return SetSubscriptionLevelResponse.newBuilder().setUnsupportedLevel(FailedPrecondition.newBuilder().build())
+      return SetSubscriptionLevelResponse.newBuilder()
+          .setInvalidSelection(FailedPrecondition.newBuilder()
+              .setDescription("Unsupported subscription level " + request.getLevel()))
           .build();
     }
     final Optional<String> templateId = Optional.ofNullable(
             config.prices().get(request.getCurrency().toLowerCase(Locale.ROOT)))
         .map(priceConfiguration -> priceConfiguration.processorIds().get(processorCustomer.processor()));
     if (templateId.isEmpty()) {
-      return SetSubscriptionLevelResponse.newBuilder().setUnsupportedCurrency(FailedPrecondition.newBuilder().build())
+      return SetSubscriptionLevelResponse.newBuilder()
+          .setInvalidSelection(FailedPrecondition.newBuilder()
+              .setDescription(String.format("Currency %s is not supported for %s", request.getCurrency(), processorCustomer.processor())))
           .build();
-    }
-
-    final CustomerAwareSubscriptionPaymentProcessor manager;
-    switch (processorCustomer.processor()) {
-      case STRIPE -> manager = stripeManager;
-      case BRAINTREE -> manager = braintreeManager;
-      default -> {
-        return SetSubscriptionLevelResponse.newBuilder().setUnsupportedOperation(FailedPrecondition.newBuilder()
-            .setDescription(
-                "Operation cannot be performed with the '" + processorCustomer.processor() + "' payment provider")
-            .build()).build();
-      }
     }
 
     try {
@@ -345,22 +347,30 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
           .build();
     } catch (final PurchaseInvalidIdempotencyKeyException e) {
       return SetSubscriptionLevelResponse.newBuilder()
-          .setInvalidIdempotencyKey(FailedPrecondition.newBuilder().setDescription(e.errorDetail().orElse("")).build())
+          .setFailedPrecondition(FailedPrecondition.newBuilder()
+              .setDescription("Idempotency key was reused with a modified request"))
           .build();
     } catch (final PurchaseProcessorException e) {
       return SetSubscriptionLevelResponse.newBuilder()
-          .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure())).build();
+          .setPaymentRequired(PaymentRequired.newBuilder()
+              .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure())))
+          .build();
     } catch (final PurchasePaymentRequiresActionException e) {
-      return SetSubscriptionLevelResponse.newBuilder().setPaymentRequiresAction(FailedPrecondition.newBuilder().build())
+      return SetSubscriptionLevelResponse.newBuilder()
+          .setFailedPrecondition(FailedPrecondition.newBuilder()
+              .setDescription("Payment processor requires additional customer action before the payment method can be charged"))
           .build();
     } catch (final PurchaseInvalidLevelException e) {
       return SetSubscriptionLevelResponse.newBuilder()
-          .setInvalidLevelTransition(FailedPrecondition.newBuilder().build()).build();
+          .setFailedPrecondition(FailedPrecondition.newBuilder()
+              .setDescription("Cannot transition to level " + request.getLevel()))
+          .build();
     } catch (final PurchaseProcessorConflictException e) {
-      // We just looked up the subscription processor from the database, a conflict is not possible
-      throw new IllegalStateException(e);
+      return SetSubscriptionLevelResponse.newBuilder()
+          .setFailedPrecondition(FailedPrecondition.newBuilder()
+              .setDescription("No payment method set up"))
+          .build();
     }
-
   }
 
   @Override
@@ -385,7 +395,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
       return SetIapSubscriptionResponse.newBuilder().setSubscriptionProcessorConflict(
           FailedPrecondition.newBuilder().setDescription(e.errorDetail().orElse("")).build()).build();
     } catch (final PurchasePaymentRequiredException e) {
-      return SetIapSubscriptionResponse.newBuilder().setPaymentRequired(FailedPrecondition.newBuilder().build())
+      return SetIapSubscriptionResponse.newBuilder().setPaymentRequired(SubscriptionsUtil.toPaymentRequired(e))
           .build();
     } catch (final PurchaseInvalidArgumentsException e) {
       return SetIapSubscriptionResponse.newBuilder()

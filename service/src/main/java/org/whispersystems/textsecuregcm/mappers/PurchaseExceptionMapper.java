@@ -15,7 +15,7 @@ import java.util.Map;
 import org.whispersystems.textsecuregcm.purchases.ChargeFailure;
 import org.whispersystems.textsecuregcm.purchases.PurchaseException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseForbiddenException;
-import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidAmountException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseAmountTooLargeException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidArgumentsException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
 import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
@@ -34,7 +34,7 @@ public class PurchaseExceptionMapper implements ExceptionMapper<PurchaseExceptio
   public Response toResponse(final PurchaseException exception) {
 
     // Some exceptions have specific error body formats
-    if (exception instanceof PurchaseInvalidAmountException e) {
+    if (exception instanceof PurchaseAmountTooLargeException e) {
       return Response
           .status(Response.Status.BAD_REQUEST)
           .entity(Map.of("error", e.getErrorCode()))

@@ -66,7 +66,7 @@ message LevelConfiguration {
 
   // The duration for which a badge is valid. Present only for
   // one-time (boost, gift) badges
-  optional uint64 badge_duration_seconds = 2;
+  optional uint32 badge_duration_seconds = 2;
 }
 
 // Configuration for a backup level - use to present appropriate client interfaces
@@ -76,14 +76,14 @@ message BackupLevelConfiguration {
   // The play billing productID associated with this backup level
   string play_product_id = 2;
   // The duration, in days, for which your backed up media is retained on the server after you stop refreshing with a paid credential
-  uint64 media_ttl_days = 3;
+  uint32 media_ttl_days = 3;
 }
 
 message BackupConfiguration {
   // A map of numeric backup level IDs to level-specific backup configuration
   map<uint64, BackupLevelConfiguration> levels = 1;
   // The number of days of media a free tier backup user gets
-  uint64 free_tier_media_days = 2;
+  uint32 free_tier_media_days = 2;
 }
 
 // Configuration for one-time Signal Login purchases

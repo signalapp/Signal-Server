@@ -200,7 +200,28 @@ extend google.protobuf.FieldOptions {
    */
   optional ElementConstraint each = 70010;
 
-  // next 70011
+  /*
+   * Requires a value to be one of a fixed set of values. Use `ints` for integer
+   * fields, `strings` for string fields, and `enums` (enum value names) for enum
+   * fields.
+   *
+   * If the field is `optional`, this check allows a value to be not set.
+   *
+   * ```
+   * import "org/signal/chat/require.proto";
+   *
+   * message Data {
+   *   uint64 level = 1 [(require.allowedValues) = { ints: [1, 100] }];
+   *   string kind = 2 [(require.allowedValues) = { strings: ["boost", "gift"] }];
+   *   Color color = 3 [(require.allowedValues) = { enums: ["COLOR_RED", "COLOR_BLUE"] }];
+   * }
+   * ```
+   *
+   * Applicable to integer, string, and enum fields.
+   */
+  optional AllowedValuesConstraint allowedValues = 70011;
+
+  // next 70012
 }
 
 message ElementConstraint {
@@ -217,6 +238,15 @@ message ElementConstraint {
 message SizeConstraint {
   optional uint32 min = 1;
   optional uint32 max = 2;
+}
+
+message AllowedValuesConstraint {
+  // Permitted values for integer fields
+  repeated int64 ints = 1;
+  // Permitted values for string fields
+  repeated string strings = 2;
+  // Permitted value names for enum fields
+  repeated string enums = 3;
 }
 
 message ValueRangeConstraint {

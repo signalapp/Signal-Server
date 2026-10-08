@@ -33,8 +33,8 @@ service Subscriptions {
   // cancelling a subscription from storekit to keep server data up to date.
   rpc DeleteSubscriber(DeleteSubscriberRequest) returns (DeleteSubscriberResponse) {}
 
-  // Returns a client secret that can be used to set up a new payment method with the payment processor.
-  rpc CreatePaymentMethod(CreatePaymentMethodRequest) returns (CreatePaymentMethodResponse) {}
+  // Returns a Stripe client secret that can be used to set up a new payment method with Stripe.
+  rpc CreateStripePaymentMethod(CreateStripePaymentMethodRequest) returns (CreateStripePaymentMethodResponse) {}
 
   // Returns a PayPal billing agreement approval URL and token that can be used to set up PayPal as a payment method.
   //
@@ -49,7 +49,7 @@ service Subscriptions {
   // Sets the subscription level and currency for a subscriber.
   rpc SetSubscriptionLevel(SetSubscriptionLevelRequest) returns (SetSubscriptionLevelResponse) {}
 
-  // Returns information about the current subscription associated with the provided subscriberId if one exists.
+  // Returns information about the current subscription associated with the provided subscriber_id if one exists.
   //
   // Although it uses [Stripe's values](https://stripe.com/docs/billing/subscriptions/overview#subscription-statuses),
   // the status field in the response is generic, with [Braintree-specific values](https://developer.paypal.com/braintree/docs/guides/recurring-billing/overview#subscription-statuses) mapped
@@ -98,11 +98,11 @@ service Subscriptions {
   // 4. Obtain a receipt via GetReceiptCredential which can then be used to obtain the
   //    entitlement
   //
-  // After calling this method, the payment is confirmed. Callers must durably store their subscriberId before calling
+  // After calling this method, the payment is confirmed. Callers must durably store their subscriber_id before calling
   // this method to ensure their payment is tracked.
   //
-  // Once a purchaseToken to is posted to a subscriberId, the same subscriberId must not be used with another payment
-  // method. A different playbilling purchaseToken can be posted to the same subscriberId, in this case the subscription
+  // Once a purchaseToken to is posted to a subscriber_id, the same subscriber_id must not be used with another payment
+  // method. A different playbilling purchaseToken can be posted to the same subscriber_id, in this case the subscription
   // associated with the old purchaseToken will be cancelled.
   rpc SetIapSubscription(SetIapSubscriptionRequest) returns (SetIapSubscriptionResponse) {}
 
@@ -131,7 +131,7 @@ message UpdateSubscriberResponse {
 }
 
 message DeleteSubscriberRequest {
-  bytes subscriberId = 1 [(require.exactlySize) = 32];
+  bytes subscriber_id = 1 [(require.exactlySize) = 32];
 }
 
 message DeleteSubscriberResponse {
@@ -180,23 +180,23 @@ enum SubscriptionStatus {
   SUBSCRIPTION_STATUS_UNPAID = 5;
 }
 
-message CreatePaymentMethodRequest {
-  // Only PAYMENT_METHOD_CARD, PAYMENT_METHOD_SEPA_DEBIT, and PAYMENT_METHOD_IDEAL are supported;
-  // other values will result in an INVALID_ARGUMENT error.
+message CreateStripePaymentMethodRequest {
   bytes subscriber_id = 1 [(require.exactlySize) = 32];
-  PaymentMethod payment_method = 2 [(require.specified) = true];
+  // The payment method. Only card, SEPA Direct Debit, and iDEAL are supported.
+  PaymentMethod payment_method = 2 [(require.allowedValues) = {
+    enums: ["PAYMENT_METHOD_CARD", "PAYMENT_METHOD_SEPA_DEBIT", "PAYMENT_METHOD_IDEAL"]
+  }];
   // a libsignal DonationPermit from rpc Donations.CreateDonationPermits
   bytes donation_permit = 3 [(require.nonEmpty) = true];
 }
 
-message CreatePaymentMethodResponse {
-  message CreatePaymentMethodResult {
-    string clientSecret = 1;
-    PaymentProvider paymentProvider = 2;
+message CreateStripePaymentMethodResponse {
+  message CreateStripePaymentMethodResult {
+    string client_secret = 1;
   }
 
   oneof response {
-    CreatePaymentMethodResult result = 1;
+    CreateStripePaymentMethodResult result = 1;
     // The subscriber did not exist
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
     // New payment processor does not match existing processor associated with
@@ -208,17 +208,17 @@ message CreatePaymentMethodResponse {
 }
 
 message CreatePayPalPaymentMethodRequest {
-  bytes subscriberId = 1 [(require.exactlySize) = 32];
+  bytes subscriber_id = 1 [(require.exactlySize) = 32];
   // a callback URL (e.g. an in-client URL handler) for when the user approved the payment
-  string returnUrl = 2;
+  string return_url = 2;
   // a callback URL (e.g. an in-client URL handler) for when the user did not approve the payment
-  string cancelUrl = 3;
+  string cancel_url = 3;
 }
 
 message CreatePayPalPaymentMethodResponse {
   message CreatePayPalPaymentMethodResult {
     // a URL to open where the user may approve the payment
-    string approvalUrl = 1;
+    string approval_url = 1;
     // an opaque PayPal payment identifier to use with SetDefaultPaymentMethodRequest
     string token = 2;
   }
@@ -235,16 +235,16 @@ message CreatePayPalPaymentMethodResponse {
 
 message SetDefaultPaymentMethodRequest {
   message StripePaymentMethod {
-    string paymentMethodToken = 1 [(require.nonEmpty) = true];
+    string payment_method_token = 1 [(require.nonEmpty) = true];
   }
   message BraintreePaymentMethod {
-    string paymentMethodToken = 1 [(require.nonEmpty) = true];
+    string payment_method_token = 1 [(require.nonEmpty) = true];
   }
   message SepaPaymentMethod {
-    string setupIntentId = 1 [(require.nonEmpty) = true];
+    string setup_intent_id = 1 [(require.nonEmpty) = true];
   }
 
-  bytes subscriberId = 1 [(require.exactlySize) = 32];
+  bytes subscriber_id = 1 [(require.exactlySize) = 32];
   oneof request {
     StripePaymentMethod stripe = 2;
     BraintreePaymentMethod braintree = 3;
@@ -257,17 +257,20 @@ message SetDefaultPaymentMethodResponse {
     google.protobuf.Empty success = 1;
     // The subscriber did not exist, or the referenced setup intent was not found
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
-    // No payment method has been created for the subscriber, or the provided
-    // payment method has not finished being set up with the processor
-    errors.FailedPrecondition payment_method_not_set_up = 3 [(tag.reason) = "payment_method_not_set_up"];
+    // The request could not be applied in the subscriber's current state. This
+    // typically indicates a client bug or an out-of-date client. Either
+    // - No payment method has been created for the subscriber
+    // - The provided payment method has not finished being set up with the
+    //   processor
+    errors.FailedPrecondition failed_precondition = 3 [(tag.reason) = "failed_precondition"];
   }
 }
 
 message SetSubscriptionLevelRequest {
-  bytes subscriberId = 1 [(require.exactlySize) = 32];
+  bytes subscriber_id = 1 [(require.exactlySize) = 32];
   uint64 level = 2;
   string currency = 3;
-  string idempotencyKey = 4;
+  string idempotency_key = 4;
 }
 
 // Information about a charge failure.
@@ -312,22 +315,21 @@ message SetSubscriptionLevelResponse {
     google.protobuf.Empty success = 1;
     // The subscriber did not exist
     errors.NotFound subscriber_not_found = 2 [(tag.reason) = "subscriber_not_found"];
-    // No payment method has been created for the subscriber
-    errors.FailedPrecondition payment_method_not_set_up = 3 [(tag.reason) = "payment_method_not_set_up"];
-    // The payment processor does not support this operation
-    errors.FailedPrecondition unsupported_operation = 4 [(tag.reason) = "unsupported_operation"];
-    // The requested level was invalid
-    errors.FailedPrecondition unsupported_level = 5 [(tag.reason) = "unsupported_level"];
-    // The requested currency was invalid
-    errors.FailedPrecondition unsupported_currency = 6 [(tag.reason) = "unsupported_currency"];
-    // The card could not be charged
-    errors.FailedPrecondition payment_requires_action = 7 [(tag.reason) = "payment_requires_action"];
-    // Cannot transition from existing level to the requested level
-    errors.FailedPrecondition invalid_level_transition = 8 [(tag.reason) = "invalid_level_transition"];
-    // The idempotency key was invalid or re-used with a modified request
-    errors.FailedPrecondition invalid_idempotency_key = 9 [(tag.reason) = "invalid_idempotency_key"];
-    // The payment failed; see charge failure details
-    ChargeFailure charge_failure = 10 [(tag.reason) = "charge_failure"];
+    // The request could not be applied in the subscriber's current state. This
+    // typically indicates a client bug or an out-of-date client. Some examples:
+    //  - the client failed to first set up a payment method
+    //  - the requested level cannot be transitioned to from the existing level
+    //  - the payment needs additional authorization before processing
+    // The FailedPrecondition will contain the specific reason for the failure.
+    errors.FailedPrecondition failed_precondition = 3 [(tag.reason) = "failed_precondition"];
+    // The request contained a currency or level that is not supported. The
+    // violated constraint may be present in the product configuration, clients
+    // can attempt a refresh of ProductConfiguration/GetConfiguration before
+    // giving up.
+    errors.FailedPrecondition invalid_selection = 4 [(tag.reason) = "invalid_selection"];
+    // The payment method could not be charged. If the processor declined the
+    // charge, charge_failure will be present.
+    PaymentRequired payment_required = 5 [(tag.reason) = "payment_required"];
   }
 }
 
@@ -339,7 +341,7 @@ message SetIapSubscriptionRequest {
     string purchase_token = 1 [(require.nonEmpty) = true];
   }
 
-  bytes subscriberId = 1 [(require.exactlySize) = 32];
+  bytes subscriber_id = 1 [(require.exactlySize) = 32];
   oneof request {
     AppStorePurchase app_store = 2;
     PlayBillingPurchase play_billing = 3;
@@ -360,7 +362,7 @@ message SetIapSubscriptionResponse {
     errors.FailedPrecondition subscription_processor_conflict = 3 [(tag.reason) = "subscription_processor_conflict"];
     // The subscription is not in a purchase state that grants the user an
     // entitlement
-    errors.FailedPrecondition payment_required = 4 [(tag.reason) = "payment_required"];
+    PaymentRequired payment_required = 4 [(tag.reason) = "payment_required"];
     // The provided purchase identifier is malformed or the identified
     // transaction is not supported for use at this endpoint
     errors.FailedPrecondition invalid_transaction = 5 [(tag.reason) = "invalid_transaction"];
@@ -368,13 +370,13 @@ message SetIapSubscriptionResponse {
 }
 
 message GetReceiptCredentialRequest {
-  bytes subscriberId = 1 [(require.exactlySize) = 32];
-  bytes receiptCredentialRequest = 2 [(require.exactlySize) = 97];
+  bytes subscriber_id = 1 [(require.exactlySize) = 32];
+  bytes receipt_credential_request = 2 [(require.exactlySize) = 97];
 }
 
 message GetReceiptCredentialResponse {
   message GetReceiptCredentialResult {
-    bytes receiptCredentialResponse = 1;
+    bytes receipt_credential_response = 1;
   }
 
   oneof response {
@@ -391,7 +393,7 @@ message GetReceiptCredentialResponse {
 }
 
 message GetSubscriptionInformationRequest {
-  bytes subscriberId = 1 [(require.exactlySize) = 32];
+  bytes subscriber_id = 1 [(require.exactlySize) = 32];
 }
 
 message GetSubscriptionInformationResponse {

@@ -51,7 +51,7 @@ import org.whispersystems.textsecuregcm.purchases.PaymentDetails;
 import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
 import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
 import org.whispersystems.textsecuregcm.purchases.PurchaseException;
-import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidAmountException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseAmountTooLargeException;
 import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseProcessorException;
 import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
@@ -180,7 +180,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void testCreateBoostPaymentIntent(final boolean donationPermitSpendOk) throws PurchaseInvalidAmountException {
+  void testCreateBoostPaymentIntent(final boolean donationPermitSpendOk) throws PurchaseAmountTooLargeException {
     when(DONATION_PERMITS.spend(any(byte[].class), any(Instant.class))).thenReturn(donationPermitSpendOk);
 
     when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))

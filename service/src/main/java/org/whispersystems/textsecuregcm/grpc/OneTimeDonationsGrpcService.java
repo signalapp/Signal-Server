@@ -5,7 +5,6 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientPlatform;
-import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.toChargeFailure;
 
 import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Metrics;
@@ -17,19 +16,19 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.chat.errors.NotFound;
-import org.signal.chat.purchase.AmountAboveSepaLimitError;
-import org.signal.chat.purchase.AmountBelowMinimumError;
 import org.signal.chat.purchase.ConfirmPayPalBoostRequest;
 import org.signal.chat.purchase.ConfirmPayPalBoostResponse;
 import org.signal.chat.purchase.CreateBoostReceiptCredentialRequest;
 import org.signal.chat.purchase.CreateBoostReceiptCredentialResponse;
-import org.signal.chat.purchase.CreateBoostRequest;
-import org.signal.chat.purchase.CreateBoostResponse;
+import org.signal.chat.purchase.CreateStripeBoostRequest;
+import org.signal.chat.purchase.CreateStripeBoostResponse;
 import org.signal.chat.purchase.CreatePayPalBoostRequest;
 import org.signal.chat.purchase.CreatePayPalBoostResponse;
+import org.signal.chat.purchase.PaymentRequired;
 import org.signal.chat.purchase.SimpleOneTimeDonationsGrpc;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -42,16 +41,16 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.purchases.BraintreeManager;
+import org.whispersystems.textsecuregcm.purchases.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.purchases.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.purchases.PaymentDetails;
 import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
-import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidAmountException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseAmountTooLargeException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
 import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseProcessorException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseReceiptRequestedForOpenPaymentException;
 import org.whispersystems.textsecuregcm.purchases.StripeManager;
-import org.whispersystems.textsecuregcm.purchases.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
@@ -94,121 +93,77 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
   }
 
   @Override
-  public CreateBoostResponse createBoost(final CreateBoostRequest request)
+  public CreateStripeBoostResponse createStripeBoost(final CreateStripeBoostRequest request)
       throws RateLimitExceededException {
     RateLimitUtil.rateLimitByRemoteAddress(rateLimiters.forDescriptor(RateLimiters.For.ONE_TIME_DONATION));
-
-    try {
-      final DonationPermit donationPermit = new DonationPermit(request.getDonationPermit().toByteArray());
-      if (!donationPermitsManager.spend(donationPermit)) {
-        return CreateBoostResponse.newBuilder()
-            .setPermitRejected(FailedZkAuthentication.newBuilder()
-                .setDescription("donation permit rejected")
-                .build())
-            .build();
-      }
-    } catch (InvalidInputException | VerificationFailedException _) {
-      return CreateBoostResponse.newBuilder()
-          .setPermitRejected(FailedZkAuthentication.newBuilder()
-              .setDescription("donation permit rejected")
-              .build())
-          .build();
-    }
 
     final org.whispersystems.textsecuregcm.purchases.PaymentMethod paymentMethod =
         switch (request.getPaymentMethod()) {
           case PAYMENT_METHOD_CARD -> org.whispersystems.textsecuregcm.purchases.PaymentMethod.CARD;
           case PAYMENT_METHOD_SEPA_DEBIT -> org.whispersystems.textsecuregcm.purchases.PaymentMethod.SEPA_DEBIT;
           case PAYMENT_METHOD_IDEAL -> org.whispersystems.textsecuregcm.purchases.PaymentMethod.IDEAL;
-          default -> throw GrpcExceptions.fieldViolation("payment_method", "Unsupported payment method");
+          default -> throw new IllegalStateException("payment_method should already have been validated");
         };
 
-    final OneTimeDonationUtil.OneTimeDonationRequestValidationResult validationResult =
-        OneTimeDonationUtil.validateOneTimeDonationRequest(
-            request.getCurrency(),
-            request.getAmount(),
-            request.getLevel(),
-            paymentMethod,
-            oneTimeDonationConfiguration,
-            stripeManager);
-
-    return switch (validationResult) {
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.UnsupportedLevel _ ->
-          CreateBoostResponse.newBuilder()
-              .setUnsupportedLevel(FailedPrecondition.getDefaultInstance()).build();
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.UnsupportedCurrency _ ->
-          CreateBoostResponse.newBuilder()
-              .setUnsupportedCurrency(FailedPrecondition.getDefaultInstance()).build();
-      case final OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountBelowMinimum r ->
-          CreateBoostResponse.newBuilder()
-              .setAmountBelowMinimum(AmountBelowMinimumError.newBuilder()
-                  .setMinimum(SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(request.getCurrency(),
-                      r.minimum()))
-                  .build()).build();
-      case final OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountAboveSepaLimit r ->
-          CreateBoostResponse.newBuilder()
-              .setAmountAboveSepaLimit(AmountAboveSepaLimitError.newBuilder()
-                  .setMaximum(SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(
-                      OneTimeDonationUtil.EURO_CURRENCY_CODE, r.maximum()))
-                  .build()).build();
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.Success _ -> {
-        try {
-          final com.stripe.model.PaymentIntent paymentIntent = stripeManager.createPaymentIntent(
-              request.getCurrency(), request.getAmount(), request.getLevel(),
-              getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)));
-          yield CreateBoostResponse.newBuilder().setClientSecret(paymentIntent.getClientSecret()).build();
-        } catch (final PurchaseInvalidAmountException e) {
-          yield CreateBoostResponse.newBuilder()
-              .setInvalidAmount(FailedPrecondition.newBuilder()
-                  .setDescription(e.getErrorCode()).build())
-              .build();
-        }
+    try {
+      OneTimeDonationUtil.validateOneTimeDonationRequest(
+          request.getCurrency(), request.getAmount(), request.getLevel(), paymentMethod, oneTimeDonationConfiguration, stripeManager);
+      final DonationPermit donationPermit = new DonationPermit(request.getDonationPermit().toByteArray());
+      if (!donationPermitsManager.spend(donationPermit)) {
+        return CreateStripeBoostResponse.newBuilder()
+            .setPermitRejected(FailedZkAuthentication.newBuilder()
+                .setDescription("donation permit rejected")
+                .build())
+            .build();
       }
-    };
+    } catch (InvalidInputException | VerificationFailedException _) {
+      return CreateStripeBoostResponse.newBuilder()
+          .setPermitRejected(FailedZkAuthentication.newBuilder()
+              .setDescription("donation permit rejected")
+              .build())
+          .build();
+    } catch (OneTimeDonationUtil.ValidationException e) {
+      return CreateStripeBoostResponse.newBuilder()
+          .setInvalidSelection(FailedPrecondition.newBuilder().setDescription(e.getDescription()).build())
+          .build();
+    }
+
+    try {
+      final com.stripe.model.PaymentIntent paymentIntent = stripeManager.createPaymentIntent(
+          request.getCurrency(), request.getAmount(), request.getLevel(),
+          getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)));
+      return CreateStripeBoostResponse.newBuilder().setClientSecret(paymentIntent.getClientSecret()).build();
+    } catch (final PurchaseAmountTooLargeException e) {
+      return CreateStripeBoostResponse.newBuilder()
+          .setInvalidSelection(FailedPrecondition.newBuilder()
+              .setDescription("Amount exceeds the payment processor's maximum for currency " + request.getCurrency()))
+          .build();
+    }
   }
 
   @Override
   public CreatePayPalBoostResponse createPayPalBoost(final CreatePayPalBoostRequest request) throws IOException {
 
-    final OneTimeDonationUtil.OneTimeDonationRequestValidationResult validationResult =
-        OneTimeDonationUtil.validateOneTimeDonationRequest(
-            request.getCurrency(),
-            request.getAmount(),
-            request.getLevel(),
-            org.whispersystems.textsecuregcm.purchases.PaymentMethod.PAYPAL,
-            oneTimeDonationConfiguration,
-            braintreeManager);
+    try {
+      OneTimeDonationUtil.validateOneTimeDonationRequest(request.getCurrency(), request.getAmount(), request.getLevel(), org.whispersystems.textsecuregcm.purchases.PaymentMethod.PAYPAL, oneTimeDonationConfiguration, braintreeManager);
+    } catch (OneTimeDonationUtil.ValidationException e) {
+      return CreatePayPalBoostResponse.newBuilder()
+          .setInvalidSelection(FailedPrecondition.newBuilder().setDescription(e.getDescription()).build())
+          .build();
+    }
 
-    return switch (validationResult) {
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.UnsupportedLevel _ ->
-          CreatePayPalBoostResponse.newBuilder()
-              .setUnsupportedLevel(FailedPrecondition.getDefaultInstance()).build();
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.UnsupportedCurrency _ ->
-          CreatePayPalBoostResponse.newBuilder()
-              .setUnsupportedCurrency(FailedPrecondition.getDefaultInstance()).build();
-      case final OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountBelowMinimum r ->
-          CreatePayPalBoostResponse.newBuilder()
-              .setAmountBelowMinimum(AmountBelowMinimumError.newBuilder()
-                  .setMinimum(SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(request.getCurrency(),
-                      r.minimum()))
-                  .build()).build();
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountAboveSepaLimit _ ->
-          throw new IllegalStateException("SEPA limit should not trigger for PayPal");
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.Success _ -> {
-        final List<Locale> acceptableLocales = RequestAttributesUtil.getAvailableAcceptedLocales();
-        final OneTimeDonationUtil.LocalizedPayPalDonationLineItem localizedLineItem = OneTimeDonationUtil.localizePayPalDonationLineItem(
-            payPalDonationsTranslator, acceptableLocales);
-        final BraintreeManager.PayPalOneTimePaymentApprovalDetails approvalDetails =
-            braintreeManager.createOneTimePayment(
-                request.getCurrency().toUpperCase(Locale.ROOT), request.getAmount(),
-                localizedLineItem.locale().toLanguageTag(), request.getReturnUrl(), request.getCancelUrl(),
-                localizedLineItem.itemName());
-        yield CreatePayPalBoostResponse.newBuilder()
-            .setResult(CreatePayPalBoostResponse.CreatePayPalBoostResult.newBuilder()
-                .setApprovalUrl(approvalDetails.approvalUrl())
-                .setPaymentId(approvalDetails.paymentId()).build()).build();
-      }
-    };
+    final List<Locale> acceptableLocales = RequestAttributesUtil.getAvailableAcceptedLocales();
+    final OneTimeDonationUtil.LocalizedPayPalDonationLineItem localizedLineItem = OneTimeDonationUtil.localizePayPalDonationLineItem(
+        payPalDonationsTranslator, acceptableLocales);
+    final BraintreeManager.PayPalOneTimePaymentApprovalDetails approvalDetails =
+        braintreeManager.createOneTimePayment(
+            request.getCurrency().toUpperCase(Locale.ROOT), request.getAmount(),
+            localizedLineItem.locale().toLanguageTag(), request.getReturnUrl(), request.getCancelUrl(),
+            localizedLineItem.itemName());
+    return CreatePayPalBoostResponse.newBuilder()
+        .setResult(CreatePayPalBoostResponse.CreatePayPalBoostResult.newBuilder()
+            .setApprovalUrl(approvalDetails.approvalUrl())
+            .setPaymentId(approvalDetails.paymentId()).build()).build();
   }
 
   @Override
@@ -216,48 +171,28 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
       throws RateLimitExceededException, IOException {
     RateLimitUtil.rateLimitByRemoteAddress(rateLimiters.forDescriptor(RateLimiters.For.ONE_TIME_DONATION));
 
-    final OneTimeDonationUtil.OneTimeDonationRequestValidationResult validationResult =
-        OneTimeDonationUtil.validateOneTimeDonationRequest(
-            request.getCurrency(),
-            request.getAmount(),
-            request.getLevel(),
-            org.whispersystems.textsecuregcm.purchases.PaymentMethod.PAYPAL,
-            oneTimeDonationConfiguration,
-            braintreeManager);
-
-    return switch (validationResult) {
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.UnsupportedLevel _ ->
-          ConfirmPayPalBoostResponse.newBuilder()
-              .setUnsupportedLevel(FailedPrecondition.getDefaultInstance()).build();
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.UnsupportedCurrency _ ->
-          ConfirmPayPalBoostResponse.newBuilder()
-              .setUnsupportedCurrency(FailedPrecondition.getDefaultInstance()).build();
-      case final OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountBelowMinimum r ->
-          ConfirmPayPalBoostResponse.newBuilder()
-              .setAmountBelowMinimum(AmountBelowMinimumError.newBuilder()
-                  .setMinimum(SubscriptionCurrencyUtil.convertPrimaryToMinorUnits(request.getCurrency(),
-                      r.minimum()))
-                  .build()).build();
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountAboveSepaLimit _ ->
-          throw new IllegalStateException("SEPA limit should not trigger for PayPal");
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.Success _ -> {
-        final BraintreeManager.PayPalChargeSuccessDetails chargeSuccessDetails;
-        try {
-          chargeSuccessDetails = braintreeManager.captureOneTimePayment(
-              request.getPayerId(), request.getPaymentId(), request.getPaymentToken(),
-              request.getCurrency(), request.getAmount(), request.getLevel(),
-              SubscriptionsUtil.getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)));
-        oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), clock.instant());
-        yield ConfirmPayPalBoostResponse.newBuilder()
-            .setResult(ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult.newBuilder()
-                .setPaymentId(chargeSuccessDetails.paymentId()).build()).build();
-        } catch (final PurchaseProcessorException e) {
-          yield ConfirmPayPalBoostResponse.newBuilder()
-              .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure()))
-              .build();
-        }
-      }
-    };
+    try {
+      OneTimeDonationUtil.validateOneTimeDonationRequest(request.getCurrency(), request.getAmount(), request.getLevel(),
+          org.whispersystems.textsecuregcm.purchases.PaymentMethod.PAYPAL, oneTimeDonationConfiguration,
+          braintreeManager);
+      final BraintreeManager.PayPalChargeSuccessDetails chargeSuccessDetails = braintreeManager.captureOneTimePayment(
+          request.getPayerId(), request.getPaymentId(), request.getPaymentToken(),
+          request.getCurrency(), request.getAmount(), request.getLevel(),
+          SubscriptionsUtil.getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)));
+      oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), clock.instant());
+      return ConfirmPayPalBoostResponse.newBuilder()
+          .setResult(ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult.newBuilder()
+              .setPaymentId(chargeSuccessDetails.paymentId()).build()).build();
+    } catch (OneTimeDonationUtil.ValidationException e) {
+      return ConfirmPayPalBoostResponse.newBuilder()
+          .setInvalidSelection(FailedPrecondition.newBuilder().setDescription(e.getDescription()).build())
+          .build();
+    } catch (final PurchaseProcessorException e) {
+      return ConfirmPayPalBoostResponse.newBuilder()
+          .setPaymentRequired(PaymentRequired.newBuilder()
+              .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure())))
+          .build();
+    }
   }
 
   @Override

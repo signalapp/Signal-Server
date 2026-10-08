@@ -93,7 +93,12 @@ message ValidationsRequest {
     (require.each) = { exactlySize: 4 }
   ];
 
-  // next 40
+  uint64 allowedValues = 40 [(require.allowedValues) = { ints: [1, 100] }];
+  optional int32 allowedValuesOptional = 41 [(require.allowedValues) = { ints: [-1, 5] }];
+  optional string allowedValuesString = 42 [(require.allowedValues) = { strings: ["boost", "gift"] }];
+  optional Color allowedValuesEnum = 43 [(require.allowedValues) = { enums: ["COLOR_RED", "COLOR_BLUE"] }];
+
+  // next 44
 }
 
 message NestedMessage {

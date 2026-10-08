@@ -67,11 +67,13 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
     donationLevels.put(ReceiptLevel.ONE_TIME_DONATION.getValue(),
         LevelConfiguration.newBuilder()
             .setBadgeId(oneTimeDonationConfiguration.boost().badge())
-            .setBadgeDurationSeconds(oneTimeDonationConfiguration.boost().expiration().toSeconds()).build());
+            .setBadgeDurationSeconds(Math.toIntExact(oneTimeDonationConfiguration.boost().expiration().toSeconds()))
+            .build());
     donationLevels.put(ReceiptLevel.ONE_TIME_GIFT_DONATION.getValue(),
         LevelConfiguration.newBuilder()
             .setBadgeId(oneTimeDonationConfiguration.gift().badge())
-            .setBadgeDurationSeconds(oneTimeDonationConfiguration.gift().expiration().toSeconds()).build());
+            .setBadgeDurationSeconds(Math.toIntExact(oneTimeDonationConfiguration.gift().expiration().toSeconds()))
+            .build());
     return donationLevels;
   }
 
@@ -83,11 +85,11 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
             e -> BackupLevelConfiguration.newBuilder()
                 .setStorageAllowanceBytes(backupMediaStorageAllowanceBytes)
                 .setPlayProductId(e.getValue().playProductId())
-                .setMediaTtlDays(e.getValue().mediaTtl().toDays())
+                .setMediaTtlDays(Math.toIntExact(e.getValue().mediaTtl().toDays()))
                 .build()));
     return BackupConfiguration.newBuilder()
         .putAllLevels(backupLevels)
-        .setFreeTierMediaDays(subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays())
+        .setFreeTierMediaDays(Math.toIntExact(subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays()))
         .build();
   }
 

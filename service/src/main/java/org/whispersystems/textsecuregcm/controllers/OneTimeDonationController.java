@@ -36,14 +36,11 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.glassfish.jersey.server.ManagedAsync;
@@ -69,7 +66,7 @@ import org.whispersystems.textsecuregcm.purchases.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.purchases.PaymentDetails;
 import org.whispersystems.textsecuregcm.purchases.PaymentMethod;
 import org.whispersystems.textsecuregcm.purchases.PaymentProvider;
-import org.whispersystems.textsecuregcm.purchases.PurchaseInvalidAmountException;
+import org.whispersystems.textsecuregcm.purchases.PurchaseAmountTooLargeException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseNotFoundException;
 import org.whispersystems.textsecuregcm.purchases.PurchasePaymentRequiredException;
 import org.whispersystems.textsecuregcm.purchases.PurchaseProcessorException;
@@ -181,7 +178,7 @@ public class OneTimeDonationController {
       @HeaderParam(HeaderUtils.DONATION_PERMIT) final Optional<DonationPermitHeader> donationPermitHeader,
 
       @NotNull @Valid final CreateBoostRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws PurchaseInvalidAmountException {
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws PurchaseAmountTooLargeException {
 
     if (authenticatedAccount.isPresent()) {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
@@ -217,24 +214,13 @@ public class OneTimeDonationController {
   private void validateRequestCurrencyAmount(final CreateBoostRequest request, final long amount,
       final CustomerAwareSubscriptionPaymentProcessor manager) {
 
-    final Map<String, String> errorBody = switch (OneTimeDonationUtil.validateOneTimeDonationRequest(request.currency,
-        amount, request.level, request.paymentMethod, oneTimeDonationConfiguration, manager)) {
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.UnsupportedLevel _ ->
-          Map.of("error", "invalid_level");
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.UnsupportedCurrency _ ->
-          Map.of("error", "unsupported_currency");
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountBelowMinimum(final BigDecimal min) ->
-          Map.of("error", "amount_below_currency_minimum", "minimum", min.toString());
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountAboveSepaLimit(final BigDecimal max) ->
-          Map.of("error", "amount_above_sepa_limit", "maximum", max.toString());
-      case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.Success _ -> Collections.emptyMap();
-    };
-
-    if (!errorBody.isEmpty()) {
+    try {
+      OneTimeDonationUtil.validateOneTimeDonationRequest(request.currency, amount, request.level, request.paymentMethod,
+          oneTimeDonationConfiguration, manager);
+    } catch (OneTimeDonationUtil.ValidationException e) {
       throw new BadRequestException(
-          Response.status(Response.Status.BAD_REQUEST).entity(errorBody).build());
+          Response.status(Response.Status.BAD_REQUEST).entity(e.getErrorBody()).build());
     }
-
   }
 
   public static class CreatePayPalBoostRequest extends CreateBoostRequest {

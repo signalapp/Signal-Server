@@ -25,9 +25,10 @@ service LoginPurchase {
 }
 
 message CreateLoginReceiptCredentialRequest {
-  // The payment processor. Currently, only GOOGLE_PLAY_BILLING and
-  // APPLE_APP_STORE are supported.
-  PaymentProvider processor = 1 [(require.specified) = true];
+  // The payment processor
+  PaymentProvider processor = 1 [(require.allowedValues) = {
+    enums: ["PAYMENT_PROVIDER_GOOGLE_PLAY_BILLING", "PAYMENT_PROVIDER_APPLE_APP_STORE"]
+  }];
 
   // The identifier of a completed purchase for a signal login within the
   // payment provider

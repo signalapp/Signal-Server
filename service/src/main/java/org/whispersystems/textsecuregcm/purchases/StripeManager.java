@@ -44,6 +44,7 @@ import com.stripe.param.SubscriptionRetrieveParams;
 import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.SubscriptionUpdateParams.BillingCycleAnchor;
 import com.stripe.param.SubscriptionUpdateParams.ProrationBehavior;
+import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -71,6 +72,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.ExecutorUtil;
@@ -79,6 +81,8 @@ import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor, OneTimePaymentProcessor {
 
   private static final Logger logger = LoggerFactory.getLogger(StripeManager.class);
+  private static final String PAYMENT_REQUIRES_ACTION_COUNTER_NAME =
+      MetricsUtil.name(StripeManager.class, "subscriptionPaymentRequiresAction");
   private static final String METADATA_KEY_LEVEL = "level";
   private static final String METADATA_KEY_CLIENT_PLATFORM = "clientPlatform";
 
@@ -208,13 +212,13 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor,
   }
 
   /**
-   * Creates a payment intent. May throw a {@link PurchaseInvalidAmountException} if stripe rejects the attempt if
-   * the amount is too large or too small
+   * Creates a payment intent. May throw a {@link PurchaseAmountTooLargeException} if stripe rejects the attempt because
+   * the amount is too large
    */
   public PaymentIntent createPaymentIntent(final String currency,
       final long amount,
       final long level,
-      @Nullable final ClientPlatform clientPlatform) throws PurchaseInvalidAmountException {
+      @Nullable final ClientPlatform clientPlatform) throws PurchaseAmountTooLargeException {
 
     final PaymentIntentCreateParams.Builder builder = PaymentIntentCreateParams.builder()
         .setAmount(amount)
@@ -234,7 +238,9 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor,
           ? "unknown"
           : e.getCode().toLowerCase(Locale.ROOT);
       switch (errorCode) {
-        case "amount_too_small", "amount_too_large" -> throw new PurchaseInvalidAmountException(errorCode);
+        case "amount_too_large" -> throw new PurchaseAmountTooLargeException(errorCode);
+        // Callers should validate against configured minimums first
+        case "amount_too_small" -> throw new IllegalStateException(String.format("Stripe rejected %d %s, the configured minimum is too low", amount, currency), e);
         default -> throw new RuntimeException(e);
       }
     }
@@ -319,6 +325,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor,
       throw new PurchaseProcessorException(getProvider(), createChargeFailureFromCardException(e));
     } catch (final StripeException e) {
       if ("subscription_payment_intent_requires_action".equals(e.getCode())) {
+        Metrics.counter(PAYMENT_REQUIRES_ACTION_COUNTER_NAME).increment();
         throw new PurchasePaymentRequiresActionException();
       }
       throw new UncheckedIOException(new IOException(e));
