@@ -6,66 +6,55 @@ package org.whispersystems.textsecuregcm.grpc.net;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.netty.handler.ssl.OpenSsl;
-import io.netty.handler.ssl.ReferenceCountedOpenSslEngine;
-import io.netty.internal.tcnative.SSL;
 import java.net.Socket;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Optional;
-import javax.annotation.Nullable;
+import javax.net.ssl.ExtendedSSLSession;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.X509ExtendedKeyManager;
-import javax.net.ssl.X509KeyManager;
 
 /// A server key manager for netty's BoringSSL provider that uses a client's signature algorithm preferences, enabling
 /// support for ed25519.
 ///
-/// This works around [netty#10916](https://github.com/netty/netty/issues/10916) by addressing two issues in key selection:
-///
-///    1. Netty’s engine only declares support for RSA- and EC-family key types, and
-///    2. the handshake session's peer signature algorithm converter (`io.netty.handler.ssl.SignatureAlgorithmConverter`)
-///       doesn't match BoringSSL's `ed25519`, so ed25519 gets dropped, even if one is presented as a candidate
+/// This works around [netty#17690](https://github.com/netty/netty/issues/17690):
+/// netty’s engine only asks the key manager for RSA- and EC-family key types, so it never selects an Ed25519 key.
 class BoringSslServerKeyManager extends X509ExtendedKeyManager {
 
-  private final X509KeyManager delegate;
+  private final X509ExtendedKeyManager delegate;
 
   @VisibleForTesting
-  BoringSslServerKeyManager(final X509KeyManager delegate) {
+  BoringSslServerKeyManager(final X509ExtendedKeyManager delegate) {
     if (!"BoringSSL".equals(OpenSsl.versionString())) {
       throw new IllegalStateException("BoringSSL required, found " + OpenSsl.versionString());
     }
     this.delegate = delegate;
   }
 
-  /// @throws IllegalArgumentException if `keyManagers` contains no [X509KeyManager]
+  /// @throws IllegalArgumentException if `keyManagers` contains no [X509ExtendedKeyManager]
   static BoringSslServerKeyManager wrap(final KeyManager[] keyManagers) {
     return Arrays.stream(keyManagers)
-        .filter(X509KeyManager.class::isInstance)
-        .map(X509KeyManager.class::cast)
+        .filter(X509ExtendedKeyManager.class::isInstance)
+        .map(X509ExtendedKeyManager.class::cast)
         .findFirst()
         .map(BoringSslServerKeyManager::new)
-        .orElseThrow(() -> new IllegalArgumentException("No X509KeyManager found"));
+        .orElseThrow(() -> new IllegalArgumentException("No X509ExtendedKeyManager found"));
   }
 
   @Override
   public String chooseEngineServerAlias(final String keyType, final Principal[] issuers, final SSLEngine engine) {
-    if (!(engine instanceof ReferenceCountedOpenSslEngine openSslEngine)) {
-      throw new IllegalArgumentException("BoringSslServerKeyManager requires netty's OpenSSL provider");
-    }
-
-    @Nullable final String[] peerSignatureAlgorithms = SSL.getSigAlgs(openSslEngine.sslPointer());
-    if (peerSignatureAlgorithms == null) {
+    if (!(engine.getHandshakeSession() instanceof ExtendedSSLSession session)) {
       return null;
     }
 
-    for (final String signatureAlgorithm : peerSignatureAlgorithms) {
+    // Netty will only call this with EC/RSA key types (https://github.com/netty/netty/issues/17690).
+    // We can safely ignore `keyType` and loop through the peer's signature algorithms to find the best matching key.
+    for (final String signatureAlgorithm : session.getPeerSupportedSignatureAlgorithms()) {
       final Optional<String> maybeAlias = getJdkKeyType(signatureAlgorithm)
-          // The Netty OpenSSL engine doesn't advertise support for Ed25519, and so we can't include the engine in the
-          // delegate's selection process. Instead, we loop through the peer signature algorithms and find a matching key.
-          .map(jdkKeyType -> delegate.chooseServerAlias(jdkKeyType, issuers, null));
+          .map(jdkKeyType -> delegate.chooseEngineServerAlias(jdkKeyType, issuers, engine));
 
       if (maybeAlias.isPresent()) {
         return maybeAlias.get();
@@ -75,15 +64,14 @@ class BoringSslServerKeyManager extends X509ExtendedKeyManager {
     return null;
   }
 
-  /// Maps a [BoringSSL signature algorithm name](https://github.com/google/boringssl/blob/8525ff3/ssl/ssl_privkey.cc#L420-L433)
-  /// to the JDK key type that can produce it
+  /// Maps a JDK signature algorithm name to the JDK key type that can produce it
   @VisibleForTesting
   static Optional<String> getJdkKeyType(final String signatureAlgorithm) {
-    if (signatureAlgorithm.equals("ed25519")) {
+    if (signatureAlgorithm.equals("Ed25519")) {
       return Optional.of("EdDSA");
-    } else if (signatureAlgorithm.startsWith("ecdsa_")) {
+    } else if (signatureAlgorithm.endsWith("withECDSA")) {
       return Optional.of("EC");
-    } else if (signatureAlgorithm.startsWith("rsa_pss_rsae_")) {
+    } else if (signatureAlgorithm.endsWith("withRSA")) {
       return Optional.of("RSA");
     }
 

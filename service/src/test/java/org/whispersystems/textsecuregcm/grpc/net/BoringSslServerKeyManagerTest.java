@@ -15,16 +15,15 @@ class BoringSslServerKeyManagerTest {
 
   @ParameterizedTest
   @CsvSource(nullValues = "null", value = {
-      "ed25519, EdDSA",
-      "ecdsa_sha256, EC",
-      "ecdsa_secp256r1_sha256, EC",
-      "rsa_pss_rsae_sha256, RSA",
-      "rsa_pss_rsae_sha512, RSA",
-      "rsa_pkcs1_sha256, null",
-      "rsa_pss_pss_sha256, null",
-      "ed448, null",
+      "Ed25519, EdDSA",
+      "SHA256withECDSA, EC",
+      "SHA512withECDSA, EC",
+      "SHA256withRSA, RSA",
+      "SHA512withRSA, RSA",
+      "SHA256withRSA_PSS_PSS, null",
+      "Ed448, null",
   })
-  void getJdkKeyType(final String boringSslSignatureAlgorithm, @Nullable final String expectedKeyType) {
-    assertEquals(Optional.ofNullable(expectedKeyType), BoringSslServerKeyManager.getJdkKeyType(boringSslSignatureAlgorithm));
+  void getJdkKeyType(final String signatureAlgorithm, @Nullable final String expectedKeyType) {
+    assertEquals(Optional.ofNullable(expectedKeyType), BoringSslServerKeyManager.getJdkKeyType(signatureAlgorithm));
   }
 }
