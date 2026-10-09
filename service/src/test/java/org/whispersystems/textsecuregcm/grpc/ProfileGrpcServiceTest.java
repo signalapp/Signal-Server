@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -339,7 +340,9 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final byte[] validPaymentAddress = new byte[582];
     final byte[] validPhoneNumberSharing = new byte[29];
 
-    doThrow(WriteConflictException.class)
+    final byte[] conflictedVersion = TestRandomUtil.nextBytes(32);
+
+    doThrow(new WriteConflictException(conflictedVersion))
         .when(accountsManager).updateCurrentProfileVersion(any(), any(), any(), any());
 
     final SetProfileRequest request = SetProfileRequest.newBuilder()
@@ -358,6 +361,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final SetProfileResponse response = authenticatedServiceStub().setProfile(request);
 
     assertTrue(response.hasExpectedVersionWriteConflict());
+    assertArrayEquals(conflictedVersion, response.getExpectedVersionWriteConflict().getCurrentProfileVersion().toByteArray());
     verify(profilesManager).set(any(), any(), any(), any());
     verify(accountsManager).updateCurrentProfileVersion(any(), any(), any(), any());
   }

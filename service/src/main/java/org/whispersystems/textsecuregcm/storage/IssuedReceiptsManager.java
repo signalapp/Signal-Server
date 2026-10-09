@@ -128,7 +128,7 @@ public class IssuedReceiptsManager {
     try {
       dynamoDbClient.updateItem(updateItemRequest);
     } catch (final ConditionalCheckFailedException _) {
-      throw new WriteConflictException();
+      throw new WriteConflictException(null);
     }
   }
 

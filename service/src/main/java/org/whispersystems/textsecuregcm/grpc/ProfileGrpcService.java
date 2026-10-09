@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.NotFound;
+import org.signal.chat.profile.ExpectedVersionConflict;
 import org.signal.chat.profile.GetAvatarCredentialRequest;
 import org.signal.chat.profile.GetAvatarCredentialResponse;
 import org.signal.chat.profile.GetProfileRequest;
@@ -115,9 +116,11 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     final boolean currentVersionMatchesExpected = Arrays.equals(account.getCurrentProfileVersion().orElse(new byte[0]), expectedCurrentVersion);
 
     if (!currentVersionMatchesExpected) {
-      return SetProfileResponse.newBuilder().setExpectedVersionWriteConflict(FailedPrecondition.newBuilder()
-          .setDescription("current and expected profile versions must match")
-          .build()).build();
+      final ExpectedVersionConflict conflict = account.getCurrentProfileVersion()
+          .map(v -> ExpectedVersionConflict.newBuilder().setCurrentProfileVersion(ByteString.copyFrom(v)).build())
+          .orElseGet(ExpectedVersionConflict::getDefaultInstance);
+      return SetProfileResponse.newBuilder().setExpectedVersionWriteConflict(conflict)
+          .build();
     }
 
     final byte[] version = request.getVersion().toByteArray();
@@ -190,12 +193,13 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
         a.setBadges(clock, updatedBadges);
       });
 
-    } catch (final WriteConflictException _) {
-      return SetProfileResponse.newBuilder()
-          .setExpectedVersionWriteConflict(FailedPrecondition.newBuilder()
-              .setDescription("current and expected version mismatch")
-              .build())
-          .build();
+    } catch (final WriteConflictException e) {
+
+      final ExpectedVersionConflict conflict = e.getConflictedValue()
+          .map(v -> ExpectedVersionConflict.newBuilder().setCurrentProfileVersion(ByteString.copyFrom(v)).build())
+          .orElseGet(ExpectedVersionConflict::getDefaultInstance);
+
+      return SetProfileResponse.newBuilder().setExpectedVersionWriteConflict(conflict).build();
     }
 
     if (request.getV1Request().getAvatarChange() != AvatarChange.AVATAR_CHANGE_UNCHANGED && avatarData.currentAvatar().isPresent()) {

@@ -1345,7 +1345,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       });
 
       if (!maybeUpdatedAccount.getCurrentProfileVersion().map(v -> Arrays.equals(v, newVersion)).orElse(false)) {
-        throw new WriteConflictException();
+        throw new WriteConflictException(maybeUpdatedAccount.getCurrentProfileVersion().orElse(null));
       }
 
       return maybeUpdatedAccount;

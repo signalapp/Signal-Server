@@ -162,7 +162,7 @@ public class ProfilesV2 {
         if (cancellationCode.isPresent()) {
           // any other conditional check failure is an expected data hash mismatch, which is a write conflict
           Metrics.counter(WRITE_CONFLICTS_COUNTER_NAME, "code", cancellationCode.get()).increment();
-          throw new WriteConflictException();
+          throw new WriteConflictException(null);
         }
       }
 

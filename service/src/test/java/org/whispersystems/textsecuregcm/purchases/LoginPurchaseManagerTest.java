@@ -104,7 +104,7 @@ class LoginPurchaseManagerTest {
   void generateReceiptAlreadyRedeemed() throws Exception {
     when(paymentProcessor.claimOneTimePurchase(PURCHASE_ID))
         .thenReturn(new PaymentDetails(PURCHASE_ID, ReceiptLevel.LOGIN, PURCHASED_AT));
-    doThrow(new WriteConflictException())
+    doThrow(new WriteConflictException(null))
         .when(issuedReceiptsManager).recordOneTimeIssuance(any(), any(), any(), any());
     assertThatExceptionOfType(PurchaseReceiptAlreadyRedeemedException.class).isThrownBy(() ->
       loginPurchaseManager.generateReceipt(PROVIDER, PURCHASE_ID, receiptCredentialRequestContext.getRequest()));

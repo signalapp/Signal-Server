@@ -175,6 +175,13 @@ message SetProfileResult {
   // next: 1
 }
 
+message ExpectedVersionConflict {
+  // In certain, highly unlikely, cases, a new profile version might not be
+  // distributed among all devices. These devices wouldn't be able to decrypt the
+  // profile, but the value can be used to set a new version.
+  bytes current_profile_version = 2;
+}
+
 message SetProfileResponse {
   oneof response {
     SetProfileResult result = 1;
@@ -187,7 +194,7 @@ message SetProfileResponse {
     PaymentsForbiddenInRegion payments_forbidden_in_region = 3 [(tag.reason) = "payments_forbidden_in_region"];
     // The current version did not match the request's expectation, indicating
     // another device on the account may have created a new version the caller does not know about.
-    errors.FailedPrecondition expected_version_write_conflict = 4 [(tag.reason) = "expected_version_write_conflict"];
+    ExpectedVersionConflict expected_version_write_conflict = 4 [(tag.reason) = "expected_version_write_conflict"];
 
     // next: 5
   }
