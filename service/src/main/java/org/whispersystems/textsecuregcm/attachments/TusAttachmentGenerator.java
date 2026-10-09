@@ -10,6 +10,7 @@ import org.whispersystems.textsecuregcm.auth.JwtGenerator;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
 
@@ -19,15 +20,17 @@ public class TusAttachmentGenerator implements AttachmentGenerator {
 
   private final JwtGenerator jwtGenerator;
   private final String tusUri;
+  private final Duration tokenExpiration;
 
   public TusAttachmentGenerator(final TusConfiguration cfg) {
     this.tusUri = cfg.uploadUri();
+    this.tokenExpiration = cfg.tokenExpiration();
     this.jwtGenerator = new JwtGenerator(cfg.userAuthenticationTokenSharedSecret().value(), Clock.systemUTC());
   }
 
   @Override
   public Descriptor generateAttachment(final String key, final long uploadLength) {
-    final String token = jwtGenerator.generateJwt(ATTACHMENTS, key,
+    final String token = jwtGenerator.generateJwt(ATTACHMENTS, key, tokenExpiration,
         builder -> builder.withClaim(JwtGenerator.MAX_LENGTH_CLAIM_KEY, uploadLength));
     final String b64Key = Base64.getEncoder().encodeToString(key.getBytes(StandardCharsets.UTF_8));
 

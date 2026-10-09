@@ -108,7 +108,7 @@ class AttachmentControllerV4Test {
           .addProvider(new RateLimitExceededExceptionMapper())
           .addProvider(new AttachmentControllerV4(RATE_LIMITERS,
               gcsAttachmentGenerator,
-              new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL)),
+              new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL, TusConfiguration.DEFAULT_TOKEN_EXPIRATION)),
               EXPERIMENT_MANAGER, MAX_UPLOAD_LENGTH))
           .build();
     } catch (IOException | InvalidKeyException | InvalidKeySpecException e) {

@@ -10,6 +10,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Consumer;
 
@@ -27,12 +28,13 @@ public class JwtGenerator {
     this.clock = clock;
   }
 
-  public String generateJwt(final String audience, final String subject, Consumer<JWTCreator.Builder> claimCustomizer) {
+  public String generateJwt(final String audience, final String subject, final Duration expiration, Consumer<JWTCreator.Builder> claimCustomizer) {
     final Instant now = clock.instant();
     JWTCreator.Builder builder = JWT.create()
         .withAudience(audience)
         .withSubject(subject)
-        .withIssuedAt(now);
+        .withIssuedAt(now)
+        .withExpiresAt(now.plus(expiration));
     claimCustomizer.accept(builder);
     return builder.sign(algorithm);
   }

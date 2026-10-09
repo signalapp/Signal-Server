@@ -5,25 +5,27 @@
 
 package org.whispersystems.textsecuregcm.backup;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.Base64;
+import java.util.Map;
 import org.apache.http.HttpHeaders;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.auth.JwtGenerator;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
-
-import java.nio.charset.StandardCharsets;
-import java.time.Clock;
-import java.util.Base64;
-import java.util.Map;
 
 public class Cdn3BackupCredentialGenerator {
   public static final String CDN_PATH = "backups";
   public static final int BACKUP_CDN = 3;
 
   private final String tusUri;
+  private final Duration tokenExpiration;
   private final JwtGenerator jwtGenerator;
 
   public Cdn3BackupCredentialGenerator(final TusConfiguration cfg) {
     this.tusUri = cfg.uploadUri();
+    this.tokenExpiration = cfg.tokenExpiration();
     this.jwtGenerator = new JwtGenerator(cfg.userAuthenticationTokenSharedSecret().value(), Clock.systemUTC());
   }
 
@@ -32,7 +34,7 @@ public class Cdn3BackupCredentialGenerator {
       throw new IllegalArgumentException("Upload descriptors must have non-empty keys");
     }
 
-    final String token = jwtGenerator.generateJwt(CDN_PATH, key, builder -> builder
+    final String token = jwtGenerator.generateJwt(CDN_PATH, key, tokenExpiration, builder -> builder
         .withClaim(JwtGenerator.MAX_LENGTH_CLAIM_KEY, uploadSize)
         .withClaim(JwtGenerator.SCOPE_CLAIM_KEY, "write"));
 
@@ -53,7 +55,7 @@ public class Cdn3BackupCredentialGenerator {
       throw new IllegalArgumentException("Backup subdir name must be non-empty");
     }
 
-    final String token = jwtGenerator.generateJwt(CDN_PATH, hashedBackupId, builder -> builder
+    final String token = jwtGenerator.generateJwt(CDN_PATH, hashedBackupId, tokenExpiration, builder -> builder
         .withClaim(JwtGenerator.SCOPE_CLAIM_KEY, "read"));
     return Map.of(HttpHeaders.AUTHORIZATION, HeaderUtils.bearerAuthHeader(token));
   }

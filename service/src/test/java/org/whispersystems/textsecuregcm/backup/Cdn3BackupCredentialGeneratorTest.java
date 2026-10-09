@@ -6,15 +6,11 @@
 package org.whispersystems.textsecuregcm.backup;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.Map;
 import com.auth0.jwt.JWT;
-import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
@@ -28,7 +24,8 @@ public class Cdn3BackupCredentialGeneratorTest {
   public void uploadGenerator() {
     final Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
         new SecretBytes(SECRET),
-        "https://example.org/upload"));
+        "https://example.org/upload",
+        TusConfiguration.DEFAULT_TOKEN_EXPIRATION));
 
     final BackupUploadDescriptor messageBackupUploadDescriptor = generator.generateUpload("subdir/key", MAX_UPLOAD_LENGTH);
     assertThat(messageBackupUploadDescriptor.signedUploadLocation()).isEqualTo("https://example.org/upload/backups");
@@ -42,14 +39,15 @@ public class Cdn3BackupCredentialGeneratorTest {
         .withClaim("scope", "write")
         .withClaim("maxLen", MAX_UPLOAD_LENGTH)
         .build().verify(token);
-    assertThat(decoded.getClaims()).containsOnlyKeys("aud", "sub", "scope", "iat", "maxLen");
+    assertThat(decoded.getClaims()).containsOnlyKeys("aud", "sub", "scope", "iat", "exp", "maxLen");
   }
 
   @Test
   public void readCredential() {
     final Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
         new SecretBytes(SECRET),
-        "https://example.org/upload"));
+        "https://example.org/upload",
+        TusConfiguration.DEFAULT_TOKEN_EXPIRATION));
 
     final Map<String, String> headers = generator.readHeaders("subdir");
     assertThat(headers).containsKey("Authorization");
@@ -58,7 +56,7 @@ public class Cdn3BackupCredentialGeneratorTest {
         .withSubject("subdir")
         .withClaim("scope", "read")
         .build().verify(parseBearerToken(headers.get("Authorization")));
-    assertThat(decoded.getClaims()).containsOnlyKeys("aud", "sub", "scope", "iat");
+    assertThat(decoded.getClaims()).containsOnlyKeys("aud", "sub", "scope", "iat", "exp");
   }
 
   private static String parseBearerToken(final String authHeader) {
