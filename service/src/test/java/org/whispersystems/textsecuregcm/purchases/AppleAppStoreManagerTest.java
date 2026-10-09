@@ -27,6 +27,8 @@ import com.apple.itunes.storekit.model.TransactionInfoResponse;
 import com.apple.itunes.storekit.model.Type;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -59,7 +61,7 @@ class AppleAppStoreManagerTest {
     reset(apiClient, signedDataVerifier);
     appleAppStoreManager = new AppleAppStoreManager(
         new AppleAppStoreClient(Environment.PRODUCTION, signedDataVerifier, apiClient, signedDataVerifier, apiClient,
-            null),
+            Retry.of("test", AppleAppStoreClient.retryConfig(RetryConfig.ofDefaults()))),
         SUBSCRIPTION_GROUP_ID,
         Map.of(ONE_TIME_PRODUCT_ID, ReceiptLevel.LOGIN, SUBSCRIPTION_PRODUCT_ID, ReceiptLevel.BACKUP_PAID));
   }

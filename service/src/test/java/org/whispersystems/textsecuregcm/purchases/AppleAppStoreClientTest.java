@@ -24,8 +24,11 @@ import com.apple.itunes.storekit.model.StatusResponse;
 import com.apple.itunes.storekit.model.TransactionInfoResponse;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,8 +57,14 @@ class AppleAppStoreClientTest {
   @BeforeEach
   public void setup() {
     reset(productionClient, productionSignedDataVerifier, sandboxClient, sandboxSignedDataVerifier);
+
+    final RetryConfig retryConfig = RetryConfig.custom()
+        .maxAttempts(3)
+        .waitDuration(Duration.ofMillis(1))
+        .build();
+
     apiWrapper = new AppleAppStoreClient(Environment.PRODUCTION, productionSignedDataVerifier, productionClient,
-        sandboxSignedDataVerifier, sandboxClient, null);
+        sandboxSignedDataVerifier, sandboxClient, Retry.of("test", AppleAppStoreClient.retryConfig(retryConfig)));
   }
 
   @Test

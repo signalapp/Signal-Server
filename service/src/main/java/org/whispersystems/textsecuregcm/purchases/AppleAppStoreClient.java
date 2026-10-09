@@ -23,7 +23,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.net.http.HttpResponse;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -84,7 +83,10 @@ public class AppleAppStoreClient {
         new AppStoreServerAPIClient(encodedKey, keyId, issuerId, bundleId, Environment.PRODUCTION),
         new SignedDataVerifier(decodeRootCerts(base64AppleRootCerts), bundleId, appAppleId, Environment.SANDBOX, true),
         new AppStoreServerAPIClient(encodedKey, keyId, issuerId, bundleId, Environment.SANDBOX),
-        retryConfigurationName);
+        ResilienceUtil.getRetryRegistry().retry("appstore-retry", retryConfig(
+            Optional.ofNullable(retryConfigurationName)
+                .flatMap(name -> ResilienceUtil.getRetryRegistry().getConfiguration(name))
+                .orElseGet(() -> ResilienceUtil.getRetryRegistry().getDefaultConfig()))));
   }
 
   @VisibleForTesting
@@ -94,19 +96,14 @@ public class AppleAppStoreClient {
       AppStoreServerAPIClient productionApiClient,
       SignedDataVerifier sandboxSignedDataVerifier,
       AppStoreServerAPIClient sandboxApiClient,
-      @Nullable final String retryConfigurationName) {
+      final Retry retry) {
     this.defaultEnvironment = defaultEnvironment;
     this.sandboxSignedDataVerifier = sandboxSignedDataVerifier;
     this.sandboxApiClient = sandboxApiClient;
     this.productionSignedDataVerifier = productionSignedDataVerifier;
     this.productionApiClient = productionApiClient;
-    this.retry = ResilienceUtil.getRetryRegistry().retry("appstore-retry", RetryConfig
-        .<HttpResponse<?>>from(Optional.ofNullable(retryConfigurationName)
-            .flatMap(name -> ResilienceUtil.getRetryRegistry().getConfiguration(name))
-            .orElseGet(() -> ResilienceUtil.getRetryRegistry().getDefaultConfig()))
-        .retryOnException(AppleAppStoreClient::shouldRetry).build());
+    this.retry = retry;
   }
-
 
   /// Verify signature and decode transaction payload for a recurring subscription
   AppleAppStoreDecodedTransaction verifySubscription(final Environment environment, final LastTransactionsItem tx) {
@@ -236,6 +233,12 @@ public class AppleAppStoreClient {
     };
   }
 
+  /// Adds App Store-specific retry predicate to the given base retry configuration
+  @VisibleForTesting
+  static RetryConfig retryConfig(final RetryConfig baseConfig) {
+    return RetryConfig.from(baseConfig).retryOnException(AppleAppStoreClient::shouldRetry).build();
+  }
+
   private static Set<InputStream> decodeRootCerts(final List<String> rootCerts) {
     return rootCerts.stream()
         .map(Base64.getDecoder()::decode)
@@ -249,6 +252,4 @@ public class AppleAppStoreClient {
       case null, default -> false;
     };
   }
-
-
 }

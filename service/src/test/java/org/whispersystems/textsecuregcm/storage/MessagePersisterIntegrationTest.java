@@ -131,8 +131,6 @@ class MessagePersisterIntegrationTest {
     when(accountsManager.getByAccountIdentifier(accountUuid)).thenReturn(Optional.of(account));
     when(accountsManager.getByAccountIdentifierAsync(accountUuid)).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(DevicesHelper.createDevice(Device.PRIMARY_ID)));
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")

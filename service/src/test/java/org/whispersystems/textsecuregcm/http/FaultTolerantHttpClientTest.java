@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.retry.Retry;
 import java.io.IOException;
 import java.net.URI;
@@ -37,11 +38,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import org.whispersystems.textsecuregcm.util.MutableClock;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 class FaultTolerantHttpClientTest {
@@ -51,8 +54,23 @@ class FaultTolerantHttpClientTest {
       .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
       .build();
 
+  private static final String RETRY_CONFIGURATION_NAME = FaultTolerantHttpClientTest.class.getSimpleName() + "#retry";
+
   private ExecutorService httpExecutor;
   private ScheduledExecutorService retryExecutor;
+
+  @BeforeAll
+  static void setUpBeforeAll() {
+    ResilienceUtil.getRetryRegistry()
+        .addConfiguration(RETRY_CONFIGURATION_NAME, fastRetryConfiguration().toRetryConfigBuilder().build());
+  }
+
+  private static RetryConfiguration fastRetryConfiguration() {
+    final RetryConfiguration retryConfiguration = new RetryConfiguration();
+    retryConfiguration.setWaitDuration(1);
+
+    return retryConfiguration;
+  }
 
   @BeforeEach
   void setUp() {
@@ -78,7 +96,7 @@ class FaultTolerantHttpClientTest {
             .withBody("Pong!")));
 
     final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testSimpleGet", httpExecutor)
-        .withRetry(null, retryExecutor)
+        .withRetry(RETRY_CONFIGURATION_NAME, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
@@ -103,7 +121,7 @@ class FaultTolerantHttpClientTest {
             .withBody("Pong!")));
 
     final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testSimpleGet", httpExecutor)
-        .withRetry(null, retryExecutor)
+        .withRetry(RETRY_CONFIGURATION_NAME, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
@@ -129,7 +147,7 @@ class FaultTolerantHttpClientTest {
             .withBody("Pong!")));
 
     final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testRetryGet", httpExecutor)
-        .withRetry(null, retryExecutor)
+        .withRetry(RETRY_CONFIGURATION_NAME, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
@@ -155,7 +173,7 @@ class FaultTolerantHttpClientTest {
             .withBody("Pong!")));
 
     final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testRetryGet", httpExecutor)
-        .withRetry(null, retryExecutor)
+        .withRetry(RETRY_CONFIGURATION_NAME, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
@@ -176,7 +194,7 @@ class FaultTolerantHttpClientTest {
   void testRetryGetAsyncOnException() {
     final HttpClient mockHttpClient = mock(HttpClient.class);
 
-    final Retry retry = Retry.of("test", new RetryConfiguration().toRetryConfigBuilder()
+    final Retry retry = Retry.of("test", fastRetryConfiguration().toRetryConfigBuilder()
         .retryOnException(throwable -> throwable instanceof IOException)
         .build());
 
@@ -206,7 +224,7 @@ class FaultTolerantHttpClientTest {
   void testRetryGetSyncOnException() throws IOException, InterruptedException {
     final HttpClient mockHttpClient = mock(HttpClient.class);
 
-    final Retry retry = Retry.of("test", new RetryConfiguration().toRetryConfigBuilder()
+    final Retry retry = Retry.of("test", fastRetryConfiguration().toRetryConfigBuilder()
         .retryOnException(throwable -> throwable instanceof IOException)
         .build());
 
@@ -236,15 +254,11 @@ class FaultTolerantHttpClientTest {
     final HttpClient mockHttpClient1 = mock(HttpClient.class);
     final HttpClient mockHttpClient2 = mock(HttpClient.class);
 
-    final Retry retry = Retry.of("test", new RetryConfiguration().toRetryConfigBuilder()
-        .retryOnException(throwable -> throwable instanceof IOException)
-        .build());
-
     final FaultTolerantHttpClient client = new FaultTolerantHttpClient(
         List.of(mockHttpClient1, mockHttpClient2),
         Duration.ofSeconds(1),
         retryExecutor,
-        retry,
+        null,
         CircuitBreaker.ofDefaults("test"));
 
     // Just to get a dummy HttpResponse
@@ -285,7 +299,7 @@ class FaultTolerantHttpClientTest {
   }
 
   @Test
-  void testNetworkFailureCircuitBreaker() throws InterruptedException {
+  void testNetworkFailureCircuitBreaker() {
     final CircuitBreakerConfiguration circuitBreakerConfiguration = new CircuitBreakerConfiguration();
     circuitBreakerConfiguration.setSlidingWindowSize(2);
     circuitBreakerConfiguration.setSlidingWindowMinimumNumberOfCalls(2);
@@ -295,13 +309,16 @@ class FaultTolerantHttpClientTest {
 
     final String circuitBreakerConfigurationName = getClass().getSimpleName() + "#testNetworkFailureCircuitBreaker";
 
+    final MutableClock clock = new MutableClock();
+
     ResilienceUtil.getCircuitBreakerRegistry()
-        .addConfiguration(circuitBreakerConfigurationName, circuitBreakerConfiguration.toCircuitBreakerConfig());
+        .addConfiguration(circuitBreakerConfigurationName,
+            CircuitBreakerConfig.from(circuitBreakerConfiguration.toCircuitBreakerConfig()).clock(clock).build());
 
     final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testNetworkFailureCircuitBreaker",
             httpExecutor)
         .withCircuitBreaker(circuitBreakerConfigurationName)
-        .withRetry(null, retryExecutor)
+        .withRetry(RETRY_CONFIGURATION_NAME, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
@@ -322,7 +339,7 @@ class FaultTolerantHttpClientTest {
         .isInstanceOf(CompletionException.class)
         .hasCauseInstanceOf(CallNotPermittedException.class);
 
-    Thread.sleep(1001);
+    clock.incrementMillis(circuitBreakerConfiguration.getWaitDurationInOpenState().plusMillis(1).toMillis());
 
     assertThatThrownBy(() -> client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join())
         .isInstanceOf(CompletionException.class)

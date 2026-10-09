@@ -22,10 +22,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.stream.IntStream;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.BulkheadConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.util.MutableClock;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 public class FaultTolerantDatabaseTest {
@@ -37,7 +39,7 @@ public class FaultTolerantDatabaseTest {
   }
 
   @Test
-  void circuitBreaker() throws InterruptedException {
+  void circuitBreaker() {
     final String circuitBreakerConfigurationName = "testCircuitBreaker";
     final CircuitBreakerConfiguration circuitBreakerConfiguration = new CircuitBreakerConfiguration();
 
@@ -47,8 +49,11 @@ public class FaultTolerantDatabaseTest {
     circuitBreakerConfiguration.setFailureRateThreshold(50);
     circuitBreakerConfiguration.setWaitDurationInOpenState(Duration.ofSeconds(1));
 
+    final MutableClock clock = new MutableClock();
+
     ResilienceUtil.getCircuitBreakerRegistry()
-        .addConfiguration(circuitBreakerConfigurationName, circuitBreakerConfiguration.toCircuitBreakerConfig());
+        .addConfiguration(circuitBreakerConfigurationName,
+            CircuitBreakerConfig.from(circuitBreakerConfiguration.toCircuitBreakerConfig()).clock(clock).build());
     final FaultTolerantDatabase ftDatabase = new FaultTolerantDatabase(database, getClass().getSimpleName() + "testCircuitBreaker",
         circuitBreakerConfigurationName,
         null);
@@ -64,7 +69,7 @@ public class FaultTolerantDatabaseTest {
     assertThrows(CallNotPermittedException.class, () -> ftDatabase.read(t ->
         t.get("test_key".getBytes()), FaultTolerantDatabase.Context.TEST));
 
-    Thread.sleep(1001);
+    clock.incrementMillis(circuitBreakerConfiguration.getWaitDurationInOpenState().plusMillis(1).toMillis());
 
     assertThrows(FDBException.class, () -> ftDatabase.read(t ->
         t.get("test_key".getBytes()), FaultTolerantDatabase.Context.TEST));
