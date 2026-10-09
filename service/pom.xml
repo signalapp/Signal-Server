@@ -240,7 +240,7 @@
       <artifactId>opentelemetry-logback-appender-1.0</artifactId>
       <version>${opentelemetry-logback-appender-1.0.version}</version>
       <exclusions>
-        <!-- incubator packages aren't included in the opentelemetry BOM, and we don't use them -->
+        <!-- conflicts with google-cloud-firestore; incubator packages aren't included in the opentelemetry BOM, and we don't use them -->
         <exclusion>
           <groupId>io.opentelemetry.instrumentation</groupId>
           <artifactId>opentelemetry-instrumentation-api-incubator</artifactId>
@@ -307,7 +307,7 @@
       <version>${firebase-admin.version}</version>
       <exclusions>
         <exclusion>
-          <!-- conflicts with jackson-dataformat 2.22.1 -->
+          <!-- google-cloud-storage pins 4.2.2, but jackson-dataformat-xml 2.22.x wants 4.3.0 -->
           <groupId>org.codehaus.woodstox</groupId>
           <artifactId>stax2-api</artifactId>
         </exclusion>
@@ -315,15 +315,15 @@
     </dependency>
 
     <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>jsr305</artifactId>
-    </dependency>
-
-    <dependency>
-      <!-- manually resolve dependency conflict -->
+      <!-- jackson-dataformat-xml (via firebase-admin), wants >= 4.3.0 -->
       <groupId>org.codehaus.woodstox</groupId>
       <artifactId>stax2-api</artifactId>
       <version>4.3.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
     </dependency>
 
     <dependency>
@@ -644,6 +644,7 @@
       <version>${apollo-api-jvm.version}</version>
 
       <exclusions>
+        <!-- conflicts with kotlin-stdlib -->
         <exclusion>
           <groupId>org.jetbrains</groupId>
           <artifactId>annotations</artifactId>
@@ -661,7 +662,7 @@
       <groupId>com.squareup.okio</groupId>
       <artifactId>okio-jvm</artifactId>
       <!-- update dependabot.yml when this dependency is removed -->
-      <version>3.17.0</version>
+      <version>3.18.1</version>
     </dependency>
 
   </dependencies>
