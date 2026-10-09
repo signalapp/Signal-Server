@@ -231,7 +231,7 @@ class FoundationDbMessagePublisherTest {
         .expectNext(getExpectedMessageStreamEntry(keyValue1))
         .expectNext(getExpectedMessageStreamEntry(keyValue2))
         .expectNext(getExpectedMessageStreamEntry(keyValue3))
-        .verifyTimeout(Duration.ofSeconds(1));
+        .verifyTimeout(Duration.ofMillis(100));
 
     assertEquals(List.of(
             FoundationDbMessagePublisher.State.FETCHING_MESSAGES, // Batch 1
@@ -372,7 +372,7 @@ class FoundationDbMessagePublisherTest {
     StepVerifier.create(infinitePublisher.getMessages())
         .expectNext(getExpectedMessageStreamEntry(keyValue1))
         .expectNext(getExpectedMessageStreamEntry(keyValue2))
-        .verifyTimeout(Duration.ofSeconds(1));
+        .verifyTimeout(Duration.ofMillis(100));
 
     assertEquals(List.of(
             FoundationDbMessagePublisher.State.FETCHING_MESSAGES, // Batch 1

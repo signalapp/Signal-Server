@@ -156,7 +156,9 @@ class RedisDynamoDbMessagePublisherTest {
         .expectNext(new MessageStreamEntry.Envelope(dynamoDbMessage))
         .expectNext(new MessageStreamEntry.Envelope(redisMessage))
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .verifyTimeout(Duration.ofMillis(500));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
   }
 
   @Test
@@ -200,7 +202,9 @@ class RedisDynamoDbMessagePublisherTest {
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messagePublisher))
         .expectNext(new MessageStreamEntry.Envelope(dynamoDbMessage))
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .verifyTimeout(Duration.ofMillis(500));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
   }
 
   @Test
@@ -213,7 +217,9 @@ class RedisDynamoDbMessagePublisherTest {
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messagePublisher))
         .expectNext(new MessageStreamEntry.Envelope(redisMessage))
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .verifyTimeout(Duration.ofMillis(500));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
   }
 
   @Test
@@ -255,7 +261,9 @@ class RedisDynamoDbMessagePublisherTest {
         .expectNext(new MessageStreamEntry.Envelope(redisMessage))
         .expectNext(new MessageStreamEntry.QueueEmpty())
         .expectNext(new MessageStreamEntry.Envelope(newArrivalRedisMessage))
-        .verifyTimeout(Duration.ofMillis(500));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
   }
 
   @Test
@@ -297,7 +305,9 @@ class RedisDynamoDbMessagePublisherTest {
         .expectNext(new MessageStreamEntry.Envelope(redisMessage))
         .expectNext(new MessageStreamEntry.QueueEmpty())
         .expectNext(new MessageStreamEntry.Envelope(persistedMessage))
-        .verifyTimeout(Duration.ofMillis(500));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
   }
 
   @Test
@@ -312,7 +322,7 @@ class RedisDynamoDbMessagePublisherTest {
 
     final CountDownLatch queueEmptyCountDownLatch = new CountDownLatch(1);
 
-    Thread.ofVirtual().start(() -> {
+    final Thread persister = Thread.ofVirtual().start(() -> {
       try {
         queueEmptyCountDownLatch.await();
       } catch (final InterruptedException e) {
@@ -332,7 +342,17 @@ class RedisDynamoDbMessagePublisherTest {
         .expectNext(new MessageStreamEntry.Envelope(dynamoDbMessage))
         .expectNext(new MessageStreamEntry.Envelope(redisMessage))
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .verifyTimeout(Duration.ofMillis(500));
+        .then(() -> {
+          try {
+            persister.join();
+          } catch (final InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+        })
+        // Extra time to catch unexpected events after persisting completes
+        .expectNoEvent(Duration.ofMillis(500))
+        .thenCancel()
+        .verify();
   }
 
   @Test
@@ -432,7 +452,9 @@ class RedisDynamoDbMessagePublisherTest {
 
       StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messagePublisher), 1)
           .expectNext(new MessageStreamEntry.Envelope(redisMessage))
-          .verifyTimeout(Duration.ofMillis(500));
+          .expectNoEvent(Duration.ofMillis(100))
+          .thenCancel()
+          .verify();
     }
 
     {
@@ -443,7 +465,9 @@ class RedisDynamoDbMessagePublisherTest {
       StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messagePublisher), 2)
           .expectNext(new MessageStreamEntry.Envelope(redisMessage))
           .expectNext(new MessageStreamEntry.QueueEmpty())
-          .verifyTimeout(Duration.ofMillis(500));
+          .expectNoEvent(Duration.ofMillis(100))
+          .thenCancel()
+          .verify();
     }
   }
 

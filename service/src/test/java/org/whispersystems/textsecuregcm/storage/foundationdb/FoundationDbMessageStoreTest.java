@@ -633,7 +633,9 @@ class FoundationDbMessageStoreTest {
         .recordWith(() -> retrievedEntries)
         .expectNextCount(numMessages)
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .verifyTimeout(Duration.ofSeconds(1));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
 
     final MessageGuidCodec messageGuidCodec =
         new MessageGuidCodec(aci.uuid(), Device.PRIMARY_ID, versionstampUUIDCipher);
@@ -699,7 +701,10 @@ class FoundationDbMessageStoreTest {
         .expectNext(new MessageStreamEntry.QueueEmpty())
         .then(queueEmptyLatch::countDown)
         .expectNextCount(2 * messagesPerBatch)
-        .verifyTimeout(Duration.ofSeconds(1));
+        // A little extra time to catch unexpected events
+        .expectNoEvent(Duration.ofMillis(250))
+        .thenCancel()
+        .verify();
 
     final List<MessageProtos.Envelope> retrievedMessages = retrievedEntries.stream()
         .filter(messageStreamEntry -> messageStreamEntry instanceof MessageStreamEntry.Envelope)
@@ -770,7 +775,9 @@ class FoundationDbMessageStoreTest {
             .toBuilder()
             .setServerGuid(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp3.join())))
             .build())))
-        .verifyTimeout(Duration.ofSeconds(3));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
   }
 
   @Test
@@ -808,7 +815,10 @@ class FoundationDbMessageStoreTest {
         .expectNextCount(15)
         .expectNext(new MessageStreamEntry.QueueEmpty())
         .expectNextCount(16)
-        .verifyTimeout(Duration.ofSeconds(3));
+        // A little extra time to catch unexpected events
+        .expectNoEvent(Duration.ofMillis(250))
+        .thenCancel()
+        .verify();
   }
 
   @Test
@@ -834,7 +844,9 @@ class FoundationDbMessageStoreTest {
         .expectNextCount(1)
         .then(() -> assertTrue(isPresent(aci, Device.PRIMARY_ID),
             "Client should be present after infinite stream begins"))
-        .verifyTimeout(Duration.ofSeconds(3));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
 
     final Instant deadline = Instant.now().plus(Duration.ofSeconds(1));
     boolean presenceCleared = false;
@@ -951,7 +963,9 @@ class FoundationDbMessageStoreTest {
             }))
         .expectNextCount(numMessages)
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .verifyTimeout(Duration.ofSeconds(1));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
 
     CompletableFuture.allOf(acknowledgeFutures.toArray(CompletableFuture[]::new)).join();
     final List<Versionstamp> expectedDeletedVersionstamps = IntStream.range(0, numMessages)
@@ -975,7 +989,9 @@ class FoundationDbMessageStoreTest {
         .recordWith(() -> retrievedEntries)
         .expectNextCount(expectedRedeliveredVersionstamps.size())
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .verifyTimeout(Duration.ofSeconds(1));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
 
     assertEquals(expectedRedeliveredVersionstamps, retrievedEntries.stream()
         .filter(e -> e instanceof MessageStreamEntry.Envelope)
@@ -1018,7 +1034,9 @@ class FoundationDbMessageStoreTest {
               // Acknowledge messages with even-numbered timestamps; this will spread acknowledgements across both epochs
               .filter(message -> message.getServerTimestamp() % 2 == 0)
               .forEach(message -> messageStream.acknowledgeMessage(UUIDUtil.fromByteString(message.getServerGuid()), message.getServerTimestamp()).join()))
-          .verifyTimeout(Duration.ofSeconds(1));
+          .expectNoEvent(Duration.ofMillis(100))
+          .thenCancel()
+          .verify();
 
       cleanupLatch.await();
     }
@@ -1031,7 +1049,9 @@ class FoundationDbMessageStoreTest {
           .recordWith(() -> retrievedEntries)
           .expectNextCount(messagesPerBatch)
           .expectNext(new MessageStreamEntry.QueueEmpty())
-          .verifyTimeout(Duration.ofSeconds(1));
+          .expectNoEvent(Duration.ofMillis(100))
+          .thenCancel()
+          .verify();
 
       final List<MessageProtos.Envelope> retrievedMessages = retrievedEntries.stream()
           .filter(messageStreamEntry -> messageStreamEntry instanceof MessageStreamEntry.Envelope)
@@ -1089,7 +1109,9 @@ class FoundationDbMessageStoreTest {
             .toBuilder()
             .setServerGuid(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(deliveredUnacknowledgedVersionstamp.join())))
             .build())))
-        .verifyTimeout(Duration.ofSeconds(3));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
 
     assertTrue(cleanUpLatch.await(1, TimeUnit.SECONDS));
     assertNull(getMessageByVersionstamp(aci, Device.PRIMARY_ID, acknowledgedVersionstamp));
@@ -1239,7 +1261,9 @@ class FoundationDbMessageStoreTest {
             && message.getServerTimestamp() > lastTimestampInInactiveEpoch)
         .thenConsumeWhile(entry -> !(entry instanceof MessageStreamEntry.QueueEmpty))
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .verifyTimeout(Duration.ofSeconds(1));
+        .expectNoEvent(Duration.ofMillis(100))
+        .thenCancel()
+        .verify();
   }
 
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
