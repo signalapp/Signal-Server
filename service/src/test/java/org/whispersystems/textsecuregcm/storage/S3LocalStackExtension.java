@@ -5,16 +5,14 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
-
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import  org.testcontainers.localstack.LocalStackContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.whispersystems.textsecuregcm.util.TestcontainersImages;
 import reactor.core.publisher.Flux;
@@ -40,7 +38,7 @@ public class S3LocalStackExtension implements BeforeEachCallback, AfterEachCallb
               StringUtils.substringBefore(TestcontainersImages.getLocalStack(), "@"),
               ":"));
 
-  private static LocalStackContainer LOCAL_STACK = new LocalStackContainer(LOCAL_STACK_IMAGE).withServices(S3)
+  private static final LocalStackContainer LOCAL_STACK = new LocalStackContainer(LOCAL_STACK_IMAGE).withServices("s3")
       .withExposedPorts(4566);
 
   private final String bucketName;
@@ -76,14 +74,18 @@ public class S3LocalStackExtension implements BeforeEachCallback, AfterEachCallb
   }
 
   @Override
-  public void afterAll(final ExtensionContext context) throws Exception {
+  public void afterAll(final ExtensionContext context) {
     s3Client.close();
-    LOCAL_STACK.close();
+    // Testcontainers adds a JVM shutdown hook to shut down any running containers, and the running container can be
+    // reused across tests
   }
 
   @Override
   public void beforeAll(final ExtensionContext context) throws Exception {
-    LOCAL_STACK.start();
+    if (!LOCAL_STACK.isRunning()) {
+      LOCAL_STACK.start();
+    }
+
     s3Client = S3AsyncClient.builder()
         .endpointOverride(LOCAL_STACK.getEndpoint())
         .credentialsProvider(StaticCredentialsProvider

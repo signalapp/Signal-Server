@@ -14,7 +14,6 @@ import io.dropwizard.core.Configuration;
 import io.dropwizard.core.setup.Environment;
 import io.dropwizard.testing.DropwizardTestSupport;
 import io.dropwizard.testing.junit5.DropwizardAppExtension;
-import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
@@ -29,11 +28,13 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.TestInstance;
 import org.signal.chat.rpc.EchoRequest;
 import org.signal.chat.rpc.EchoServiceGrpc;
 import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
@@ -42,7 +43,6 @@ import org.whispersystems.textsecuregcm.grpc.MockRequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
 import org.whispersystems.textsecuregcm.util.InetAddressRange;
 
-@ExtendWith(DropwizardExtensionsSupport.class)
 class ExternalRequestFilterTest {
 
   @Nested
@@ -118,10 +118,23 @@ class ExternalRequestFilterTest {
     private ManagedChannel channel;
 
     @Nested
+    // The DropwizardAppExtension is heavy, but the field can't be static because it uses `abstract` methods. Instead,
+    // use PER_CLASS and manage its lifecycle manually, rather than with `DropwizardExtensionSupport`.
+    @TestInstance(TestInstance.Lifecycle.PER_CLASS)
     class Http {
 
       private final DropwizardAppExtension<TestConfiguration> DROPWIZARD_APP_EXTENSION =
           new DropwizardAppExtension<>(getTestSupport());
+
+      @BeforeAll
+      void setUp() throws Exception {
+        DROPWIZARD_APP_EXTENSION.before();
+      }
+
+      @AfterAll
+      void tearDown() {
+        DROPWIZARD_APP_EXTENSION.after();
+      }
 
       @Test
       void testRestricted() {
