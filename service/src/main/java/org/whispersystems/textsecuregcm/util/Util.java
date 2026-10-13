@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -36,6 +37,19 @@ public class Util {
 
   public static final String COUNTRY_CODE_NOT_APPLICABLE = "n/a";
   public static final String REGION_NOT_APPLICABLE = "n/a";
+
+  // Keep in sync with registration-service's FictitiousNumberVerificationCodeSender, which sends verification codes
+  // for these numbers to a datastore instead of an SMS/voice provider
+  private static final List<Pattern> FICTITIOUS_NUMBER_PATTERNS = List.of(
+      // NANPA fictitious numbers
+      Pattern.compile("\\+1[0-9]{3}55501[0-9]{2}"),
+
+      // UK "numbers for drama"
+      Pattern.compile("\\+447700900[0-9]{3}"),
+
+      // French numbers "for use in audiovisual productions"
+      Pattern.compile("\\+3363998[0-9]{4}")
+  );
 
   // We use a `HashMap` because `HashMap` allows for null keys at query time, and `PhoneNumberUtil` may return a null
   // region code for some phone numbers
@@ -224,6 +238,13 @@ public class Util {
   public static boolean isOldFormatBeninPhoneNumber(final Phonenumber.PhoneNumber phoneNumber) {
     return "BJ".equals(PHONE_NUMBER_UTIL.getRegionCodeForNumber(phoneNumber)) &&
         PHONE_NUMBER_UTIL.getNationalSignificantNumber(phoneNumber).length() == 8;
+  }
+
+  /**
+   * @return whether the E164-formatted {@code number} is in a range that registration-service treats as fictitious
+   */
+  public static boolean isFictitiousNumber(final String number) {
+    return FICTITIOUS_NUMBER_PATTERNS.stream().anyMatch(pattern -> pattern.matcher(number).matches());
   }
 
   /**

@@ -740,7 +740,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
         Tag.of("type", accountCreationType.getTagValue()),
         Tag.of("pushTokenType", pushTokenType.getTagValue()),
-        Tag.of("hasRecoveryPassword", String.valueOf(hasRecoveryPassword)));
+        Tag.of("hasRecoveryPassword", String.valueOf(hasRecoveryPassword)),
+        Tag.of("fictitiousNumber", String.valueOf(account.getNumber().map(Util::isFictitiousNumber).orElse(false))));
 
     if (previousPushTokenType != null) {
       tags = tags.and(Tag.of("previousPushTokenType", previousPushTokenType.getTagValue()));

@@ -98,6 +98,7 @@ public class RegistrationController {
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
   private static final String REGION_CODE_TAG_NAME = "regionCode";
   private static final String VERIFICATION_TYPE_TAG_NAME = "verification";
+  private static final String FICTITIOUS_NUMBER_TAG_NAME = "fictitiousNumber";
 
   private final AccountsManager accounts;
   private final PhoneVerificationTokenManager phoneVerificationTokenManager;
@@ -320,7 +321,8 @@ public class RegistrationController {
     Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
             Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(number)),
-            Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name())))
+            Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name()),
+            Tag.of(FICTITIOUS_NUMBER_TAG_NAME, String.valueOf(Util.isFictitiousNumber(number)))))
         .increment();
 
     final AccountIdentityResponse identityResponse = new AccountIdentityResponseBuilder(account)
