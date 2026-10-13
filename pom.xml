@@ -78,6 +78,8 @@
     <netty.version>4.2.19.Final</netty.version>
     <!-- netty-bom doesn't manage the BoringSSL uber-jar; keep in sync with netty's tcnative.version -->
     <netty-tcnative.version>2.0.84.Final</netty-tcnative.version>
+    <!-- Instrumentation releases target upstream opentelemetry versions and include that BOM by reference -->
+    <opentelemetry-instrumentation.version>2.32.0</opentelemetry-instrumentation.version>
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
     <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
     <protobuf.version>4.36.2</protobuf.version>
@@ -196,16 +198,9 @@
         <scope>import</scope>
       </dependency>
       <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-bom</artifactId>
-        <version>1.67.0</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
         <groupId>io.opentelemetry.instrumentation</groupId>
         <artifactId>opentelemetry-instrumentation-bom</artifactId>
-        <version>2.32.0</version>
+        <version>${opentelemetry-instrumentation.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>

@@ -20,7 +20,7 @@
     <java-jwt.version>4.6.1</java-jwt.version>
     <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
     <!-- *all* opentelemetry-logback-appender versions are "alpha" despite the advanced version number -->
-    <opentelemetry-logback-appender-1.0.version>2.32.0-alpha</opentelemetry-logback-appender-1.0.version>
+    <opentelemetry-logback-appender-1.0.version>${opentelemetry-instrumentation.version}-alpha</opentelemetry-logback-appender-1.0.version>
     <storekit.version>5.2.0</storekit.version>
   </properties>
 
