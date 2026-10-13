@@ -69,4 +69,4 @@ jobs:
           cp service/target/jib-extra/usr/lib/libfdb_c.so /usr/lib/libfdb_c.x86_64.so
           ldconfig
       - name: Build with Maven
-        run: ./mvnw -e -B clean verify -DfoundationDb.serviceContainerNamePrefix=foundationdb
+        run: ./mvnw -e -B -Pprepull-testcontainers-images clean verify -DfoundationDb.serviceContainerNamePrefix=foundationdb
