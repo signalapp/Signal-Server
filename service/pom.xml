@@ -15,12 +15,12 @@
     <commons-compress.version>1.28.0</commons-compress.version>
     <dynamodb-lock-client.version>1.5.0</dynamodb-lock-client.version>
     <firebase-admin.version>9.11.0</firebase-admin.version>
-    <libphonenumber-geocoder.version>3.40</libphonenumber-geocoder.version>
+    <libphonenumber-geocoder.version>3.41</libphonenumber-geocoder.version>
     <google-androidpublisher.version>v3-rev20250904-2.0.0</google-androidpublisher.version>
     <java-jwt.version>4.6.1</java-jwt.version>
     <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
     <!-- *all* opentelemetry-logback-appender versions are "alpha" despite the advanced version number -->
-    <opentelemetry-logback-appender-1.0.version>2.31.1-alpha</opentelemetry-logback-appender-1.0.version>
+    <opentelemetry-logback-appender-1.0.version>2.32.0-alpha</opentelemetry-logback-appender-1.0.version>
     <storekit.version>5.2.0</storekit.version>
   </properties>
 
@@ -318,7 +318,7 @@
       <!-- jackson-dataformat-xml (via firebase-admin), wants >= 4.3.0 -->
       <groupId>org.codehaus.woodstox</groupId>
       <artifactId>stax2-api</artifactId>
-      <version>4.3.1</version>
+      <version>4.3.2</version>
     </dependency>
 
     <dependency>

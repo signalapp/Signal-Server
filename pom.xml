@@ -45,7 +45,7 @@
   </modules>
 
   <properties>
-    <aws.sdk2.version>2.55.6</aws.sdk2.version>
+    <aws.sdk2.version>2.55.14</aws.sdk2.version>
     <braintree.version>3.54.0</braintree.version>
     <commons-csv.version>1.14.1</commons-csv.version>
     <commons-io.version>2.22.0</commons-io.version>
@@ -55,9 +55,9 @@
     <foundationdb.version>7.3.76</foundationdb.version>
     <foundationdb.api-version>730</foundationdb.api-version>
     <foundationdb.client-library-sha256>af099848721d08904ff9e5d38fade0de24d92e86451ea491d9ab5ce84adcf62a</foundationdb.client-library-sha256>
-    <google-cloud-libraries.version>26.89.0</google-cloud-libraries.version>
+    <google-cloud-libraries.version>26.90.0</google-cloud-libraries.version>
     <grpc.version>1.76.3</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
-    <guava.version>33.7.1-jre</guava.version>
+    <guava.version>33.7.2-jre</guava.version>
     <!-- several libraries (AWS, Google Cloud) use Apache httpclient transitively, and we need to align them -->
     <httpclient.version>4.5.14</httpclient.version>
     <jackson.version>2.22.3</jackson.version>
@@ -65,12 +65,12 @@
     <jetty.version>12.1.9</jetty.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
-    <kotlin.version>2.4.20</kotlin.version>
+    <kotlin.version>2.4.21</kotlin.version>
     <!-- dropwizard references a constant removed in 1.6. See also: dependabot.yml -->
     <logback.version>1.5.38</logback.version>
     <logback-access-common.version>2.0.15</logback-access-common.version>
     <lettuce.version>7.8.0.RELEASE</lettuce.version>
-    <libphonenumber.version>9.0.40</libphonenumber.version>
+    <libphonenumber.version>9.0.41</libphonenumber.version>
     <logstash.logback.version>9.0</logstash.logback.version>
     <log4j-bom.version>2.26.1</log4j-bom.version>
     <luajava.version>4.1.0</luajava.version>
@@ -198,14 +198,14 @@
       <dependency>
         <groupId>io.opentelemetry</groupId>
         <artifactId>opentelemetry-bom</artifactId>
-        <version>1.66.0</version>
+        <version>1.67.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
       <dependency>
         <groupId>io.opentelemetry.instrumentation</groupId>
         <artifactId>opentelemetry-instrumentation-bom</artifactId>
-        <version>2.31.1</version>
+        <version>2.32.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -318,7 +318,7 @@
       <dependency>
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
-        <version>0.103.0</version>
+        <version>0.105.0</version>
       </dependency>
       <dependency>
         <groupId>org.signal</groupId>
