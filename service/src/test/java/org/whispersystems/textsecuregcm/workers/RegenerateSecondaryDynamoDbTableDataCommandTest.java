@@ -53,7 +53,6 @@ class RegenerateSecondaryDynamoDbTableDataCommandTest {
           null,
           null,
           null,
-          null,
           dynamoDbRecoveryManager,
           null,
           null,

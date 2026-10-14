@@ -134,8 +134,6 @@ dynamoDbTables:
     tableName: Example_ProfilesV2
   pushChallenge:
     tableName: Example_PushChallenge
-  pushNotificationExperimentSamples:
-    tableName: Example_PushNotificationExperimentSamples
   redeemedReceipts:
     tableName: Example_RedeemedReceipts
   registrationRecovery:

@@ -43,10 +43,12 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
-import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
+import org.whispersystems.textsecuregcm.purchases.AppleAppStoreClient;
+import org.whispersystems.textsecuregcm.purchases.AppleAppStoreManager;
+import org.whispersystems.textsecuregcm.purchases.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -90,9 +92,6 @@ import org.whispersystems.textsecuregcm.storage.TotpManager;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
-import org.whispersystems.textsecuregcm.purchases.AppleAppStoreClient;
-import org.whispersystems.textsecuregcm.purchases.AppleAppStoreManager;
-import org.whispersystems.textsecuregcm.purchases.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.ManagedExecutors;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
@@ -118,7 +117,6 @@ public record CommandDependencies(
     APNSender apnSender,
     FcmSender fcmSender,
     PushNotificationManager pushNotificationManager,
-    PushNotificationExperimentSamples pushNotificationExperimentSamples,
     FaultTolerantRedisClusterClient cacheCluster,
     FaultTolerantRedisClusterClient pushSchedulerCluster,
     ClientResources.Builder redisClusterClientResourcesBuilder,
@@ -461,10 +459,6 @@ public record CommandDependencies(
         apnSender, fcmSender, accountsManager, 0, 0, retryExecutor);
     PushNotificationManager pushNotificationManager = new PushNotificationManager(accountsManager,
         apnSender, fcmSender, pushNotificationScheduler);
-    PushNotificationExperimentSamples pushNotificationExperimentSamples =
-        new PushNotificationExperimentSamples(dynamoDbAsyncClient,
-            configuration.getDynamoDbTables().getPushNotificationExperimentSamples().getTableName(),
-            Clock.systemUTC());
 
     final DynamoDbRecoveryManager dynamoDbRecoveryManager =
         new DynamoDbRecoveryManager(accounts, phoneNumberIdentifiers);
@@ -485,7 +479,6 @@ public record CommandDependencies(
         apnSender,
         fcmSender,
         pushNotificationManager,
-        pushNotificationExperimentSamples,
         cacheCluster,
         pushSchedulerCluster,
         redisClientResourcesBuilder,
