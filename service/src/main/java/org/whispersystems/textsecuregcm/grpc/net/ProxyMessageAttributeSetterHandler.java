@@ -21,7 +21,7 @@ class ProxyMessageAttributeSetterHandler extends ChannelInboundHandlerAdapter {
   static final AttributeKey<InetAddress> PROXY_REMOTE_ADDRESS = AttributeKey.newInstance("proxyRemoteAddress");
 
   @Override
-  public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
+  public void channelRead(final ChannelHandlerContext ctx, final Object msg) {
     if (!(msg instanceof HAProxyMessage proxyMessage)) {
       ctx.pipeline().remove(this);
       ctx.fireChannelRead(msg);

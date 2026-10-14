@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.zip.GZIPInputStream;
 import javax.annotation.Nonnull;
+import com.google.common.net.InetAddresses;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -74,8 +75,8 @@ public class AsnInfoProviderImpl implements AsnInfoProvider {
         for (final CSVRecord record : csvParser) {
           // format:
           // range_start_ip_string range_end_ip_string AS_number country_code AS_description
-          final InetAddress startIp = InetAddress.getByName(record.get(0));
-          final InetAddress endIp = InetAddress.getByName(record.get(1));
+          final InetAddress startIp = InetAddresses.forString(record.get(0));
+          final InetAddress endIp = InetAddresses.forString(record.get(1));
           final long asn = Long.parseLong(record.get(2));
           final String regionCode = record.get(3);
           // country code should be the same for any ASN, so we're caching AsnInfo objects
@@ -123,7 +124,7 @@ public class AsnInfoProviderImpl implements AsnInfoProvider {
   @Override
   public Optional<AsnInfo> lookup(@Nonnull final String ipString) {
     try {
-      final InetAddress address = InetAddress.getByName(ipString);
+      final InetAddress address = InetAddresses.forString(ipString);
       if (address instanceof Inet4Address ip4) {
         final Long key = ip4BytesToLong(ip4);
         return lookupInMap(asnBlocksByFirstIpv4, key);

@@ -57,6 +57,10 @@ public class InetAddressRange {
   }
 
   public boolean contains(final String name) {
+    if (name == null) {
+      throw new IllegalArgumentException(new NullPointerException("Name must not be null"));
+    }
+
     // InetAddresses.forString() throws "IllegalArgumentException" for anything that is not an IP address
     return contains(InetAddresses.forString(name));
   }

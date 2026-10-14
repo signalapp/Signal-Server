@@ -16,11 +16,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.google.common.net.InetAddresses;
 import io.netty.resolver.dns.DnsNameResolver;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.util.concurrent.SucceededFuture;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -126,7 +126,7 @@ public class CloudflareTurnCredentialsManagerTest {
 
     when(dnsResolver.resolveAll(TURN_HOSTNAME))
         .thenReturn(new SucceededFuture<>(GlobalEventExecutor.INSTANCE,
-            List.of(InetAddress.getByName("127.0.0.1"), InetAddress.getByName("::1"))));
+            List.of(InetAddresses.forString("127.0.0.1"), InetAddresses.forString("::1"))));
 
     final TurnToken token = cloudflareTurnCredentialsManager.retrieveFromCloudflare(UUID.randomUUID());
 

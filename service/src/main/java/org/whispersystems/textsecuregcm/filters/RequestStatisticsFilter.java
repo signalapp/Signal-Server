@@ -59,6 +59,10 @@ public class RequestStatisticsFilter implements ContainerRequestFilter {
   private static String resolveIpVersion(@Nonnull final ContainerRequestContext ctx) {
     final String ipString = (String) ctx.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
+    if (ipString == null) {
+      return "unresolved";
+    }
+
     try {
       final InetAddress addr = InetAddresses.forString(ipString);
       if (addr instanceof Inet4Address) {

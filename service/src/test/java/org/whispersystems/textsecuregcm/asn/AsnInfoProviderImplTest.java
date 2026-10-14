@@ -11,12 +11,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.whispersystems.textsecuregcm.asn.AsnInfoProviderImpl.ip4BytesToLong;
 import static org.whispersystems.textsecuregcm.asn.AsnInfoProviderImpl.ip6BytesToBigInteger;
 
+import com.google.common.net.InetAddresses;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
-import java.net.InetAddress;
 import org.junit.jupiter.api.Test;
 
 public class AsnInfoProviderImplTest {
@@ -54,12 +54,12 @@ public class AsnInfoProviderImplTest {
 
   @Test
   public void testBytesToLong() throws Exception {
-    assertEquals(0x00000000ffffffffL, ip4BytesToLong((Inet4Address) InetAddress.getByName("255.255.255.255")));
-    assertEquals(0x0000000000000001L, ip4BytesToLong((Inet4Address) InetAddress.getByName("0.0.0.1")));
-    assertEquals(0x00000000ff00ff01L, ip4BytesToLong((Inet4Address) InetAddress.getByName("255.0.255.1")));
+    assertEquals(0x00000000ffffffffL, ip4BytesToLong((Inet4Address) InetAddresses.forString("255.255.255.255")));
+    assertEquals(0x0000000000000001L, ip4BytesToLong((Inet4Address) InetAddresses.forString("0.0.0.1")));
+    assertEquals(0x00000000ff00ff01L, ip4BytesToLong((Inet4Address) InetAddresses.forString("255.0.255.1")));
 
-    final BigInteger start = ip6BytesToBigInteger((Inet6Address) InetAddress.getByName("2c0f:fff1:0:0:0:0:0:0"));
-    final BigInteger end = ip6BytesToBigInteger((Inet6Address) InetAddress.getByName("fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+    final BigInteger start = ip6BytesToBigInteger((Inet6Address) InetAddresses.forString("2c0f:fff1:0:0:0:0:0:0"));
+    final BigInteger end = ip6BytesToBigInteger((Inet6Address) InetAddresses.forString("fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
     assertTrue(start.compareTo(BigInteger.ZERO) >= 0);
     assertTrue(end.compareTo(BigInteger.ZERO) >= 0);
     assertTrue(start.compareTo(end) <= 0);

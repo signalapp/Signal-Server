@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.filters;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.google.common.net.InetAddresses;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.ServerCall;
@@ -73,8 +74,12 @@ public class ExternalRequestFilter implements Filter, ServerInterceptor {
   public void doFilter(final ServletRequest request, final ServletResponse response, final FilterChain chain)
       throws IOException, ServletException {
 
-    final InetAddress remoteInetAddress = InetAddress.getByName(
-        (String) request.getAttribute(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME));
+    final String remoteAddressString = (String) request.getAttribute(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
+
+    final InetAddress remoteInetAddress = remoteAddressString != null
+        ? InetAddresses.forString(remoteAddressString)
+        : InetAddress.getLoopbackAddress();
+
     final boolean restricted = shouldBlock(remoteInetAddress);
 
     Metrics.counter(REQUESTS_COUNTER_NAME,
