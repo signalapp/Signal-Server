@@ -818,7 +818,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
               connection.async().set(key, deviceInfoJson, SetArgs.Builder.ex(RECENTLY_ADDED_DEVICE_TTL))))
           .whenComplete((_, pubSubThrowable) -> {
             if (pubSubThrowable != null) {
-              logger.warn("Failed to record recently-created device", pubSubThrowable);
+              if (!ExceptionUtils.isBreakerOpen(pubSubThrowable)) {
+                logger.warn("Failed to record recently-created device", pubSubThrowable);
+              }
             }
           });
 
@@ -1565,7 +1567,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
               DELETION_REASON_TAG_NAME, deletionReason.tagValue)
           .increment();
     } catch (final RuntimeException e) {
-      logger.warn("Failed to delete account", e);
+      if (!ExceptionUtils.isBreakerOpen(e)) {
+        logger.warn("Failed to delete account", e);
+      }
       throw e;
     } finally {
       sample.stop(deleteTimer);
@@ -1658,7 +1662,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         try {
           account.ifPresent(this::redisSet);
         } catch (RedisException e) {
-          logger.warn("Failed to cache retrieved account", e);
+          if (!ExceptionUtils.isBreakerOpen(e)) {
+            logger.warn("Failed to cache retrieved account", e);
+          }
         }
       }
       return account;
@@ -1679,7 +1685,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                 .thenCompose(maybeAccountFromAccounts -> maybeAccountFromAccounts
                     .map(account -> redisSetAsync(account)
                         .exceptionally(ExceptionUtils.exceptionallyHandler(RedisException.class, e -> {
-                          logger.warn("Failed to cache retrieved account", e);
+                          if (!ExceptionUtils.isBreakerOpen(e)) {
+                            logger.warn("Failed to cache retrieved account", e);
+                          }
                           return null;
                         }))
                         .thenApply(ignored -> maybeAccountFromAccounts))
@@ -1697,7 +1705,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       logger.warn("Deserialization error", e);
       return Optional.empty();
     } catch (RedisException e) {
-      logger.warn("Failed fetching account from cache by secondary key", e);
+      if (!ExceptionUtils.isBreakerOpen(e)) {
+        logger.warn("Failed fetching account from cache by secondary key", e);
+      }
       return Optional.empty();
     }
     });
@@ -1715,7 +1725,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           }
         })
         .exceptionally(throwable -> {
-          logger.warn("Failed to retrieve account from Redis", throwable);
+          if (!ExceptionUtils.isBreakerOpen(throwable)) {
+            logger.warn("Failed to retrieve account from Redis", throwable);
+          }
           return Optional.empty();
         })
         .whenComplete((_, _) -> sample.stop(timer))
@@ -1729,7 +1741,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
         return parseAccountJson(json, uuid);
       } catch (final RedisException e) {
-        logger.warn("Failed to retrieve account from cache", e);
+        if (!ExceptionUtils.isBreakerOpen(e)) {
+          logger.warn("Failed to retrieve account from cache", e);
+        }
         return Optional.empty();
       }
     });
@@ -1739,7 +1753,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return cacheCluster.withCluster(connection -> connection.async().get(getAccountEntityKey(uuid)))
         .thenApply(accountJson -> parseAccountJson(accountJson, uuid))
         .exceptionally(throwable -> {
-          logger.warn("Failed to retrieve account from Redis", throwable);
+          if (!ExceptionUtils.isBreakerOpen(throwable)) {
+            logger.warn("Failed to retrieve account from Redis", throwable);
+          }
           return Optional.empty();
         })
         .toCompletableFuture();

@@ -35,9 +35,10 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.ResilienceUtil;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Mono;
 
@@ -99,7 +100,10 @@ public class PushNotificationScheduler implements Managed {
             Util.sleep(1000);
           }
         } catch (Exception e) {
-          logger.warn("Exception while processing scheduled notifications", e);
+
+          if (!ExceptionUtils.isBreakerOpen(e)) {
+            logger.warn("Exception while processing scheduled notifications", e);
+          }
 
           try {
             Thread.sleep(EXCEPTION_PAUSE);

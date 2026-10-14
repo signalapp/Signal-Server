@@ -9,6 +9,7 @@ import com.apple.foundationdb.FDBException;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.protobuf.CodedOutputStream;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
@@ -132,6 +133,9 @@ public class MirroringMessageStream implements MessageStream {
     protected void hookOnError(final Throwable throwable) {
       switch (ExceptionUtils.unwrap(throwable)) {
         case ConflictingMessageConsumerException _ -> CONFLICTING_CONSUMER_COUNTER.increment();
+        case CallNotPermittedException _ -> {
+          // CallNotPermittedExceptions are already instrumented by metrics, so do nothing
+        }
         case FDBException _ -> {
           // FDBExceptions are already instrumented by metrics, so do nothing
         }
@@ -178,6 +182,11 @@ public class MirroringMessageStream implements MessageStream {
       return JdkFlowAdapter.publisherToFlowPublisher(
           JdkFlowAdapter.flowPublisherToFlux(redisDynamoDbMessageStream.getMessages())
               .doOnNext(subscriber::handleRedisDynamoDbMessageStreamEntry)
+              .doOnError(throwable -> {
+                if (ExceptionUtils.unwrap(throwable) instanceof ConflictingMessageConsumerException) {
+                  CONFLICTING_CONSUMER_COUNTER.increment();
+                }
+              })
               .doFinally(_ -> {
                 try {
                   subscriber.dispose();
@@ -210,16 +219,20 @@ public class MirroringMessageStream implements MessageStream {
             })
             .whenComplete((_, throwable) -> {
               if (throwable != null) {
-                logger.warn("Failed to delete message {}/{}/{} from FoundationDb", accountIdentifier.uuid(), deviceId,
-                    messageGuid, throwable);
+                if (!ExceptionUtils.isBreakerOpen(throwable)) {
+                  logger.warn("Failed to delete message {}/{}/{} from FoundationDb", accountIdentifier.uuid(), deviceId,
+                      messageGuid, throwable);
+                }
               }
             });
       } else {
         foundationDbMessageStream.acknowledgeMessage(messageGuid, serverTimestamp)
             .whenComplete((_, throwable) -> {
               if (throwable != null) {
-                logger.warn("Failed to delete message {}/{}/{} from FoundationDb", accountIdentifier.uuid(), deviceId,
-                    messageGuid, throwable);
+                if (!ExceptionUtils.isBreakerOpen(throwable)) {
+                  logger.warn("Failed to delete message {}/{}/{} from FoundationDb", accountIdentifier.uuid(), deviceId,
+                      messageGuid, throwable);
+                }
               }
             });
       }

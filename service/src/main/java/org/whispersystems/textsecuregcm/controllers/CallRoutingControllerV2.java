@@ -18,6 +18,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.io.IOException;
 import java.util.List;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -54,6 +55,7 @@ public class CallRoutingControllerV2 {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
+  @ManagedAsync
   public GetCallingRelaysResponse getCallingRelays(final @Auth AuthenticatedDevice auth)
       throws RateLimitExceededException, IOException {
 

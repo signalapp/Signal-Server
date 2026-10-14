@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.core.publisher.Flux;
 
 public class ClusterLuaScript {
@@ -109,7 +110,9 @@ public class ClusterLuaScript {
         return connection.sync().eval(script, scriptOutputType, keys, args);
       }
     } catch (final Exception e) {
-      log.warn("Failed to execute script", e);
+      if (!ExceptionUtils.isBreakerOpen(e)) {
+        log.warn("Failed to execute script", e);
+      }
       throw e;
     }
   }
@@ -123,7 +126,9 @@ public class ClusterLuaScript {
             return connection.async().eval(script, scriptOutputType, keys, args);
           }
 
-          log.warn("Failed to execute script", throwable);
+          if (!ExceptionUtils.isBreakerOpen(throwable)) {
+            log.warn("Failed to execute script", throwable);
+          }
           throw new RedisException(throwable);
         }).toCompletableFuture();
   }
@@ -133,6 +138,10 @@ public class ClusterLuaScript {
 
     return connection.reactive().evalsha(sha, scriptOutputType, keys, args)
         .onErrorResume(RedisNoScriptException.class, _ -> connection.reactive().eval(script, scriptOutputType, keys, args))
-        .doOnError(throwable -> log.warn("Failed to execute script", throwable));
+        .doOnError(throwable -> {
+          if (!ExceptionUtils.isBreakerOpen(throwable)) {
+            log.warn("Failed to execute script", throwable);
+          }
+        });
   }
 }

@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.netty.resolver.dns.DnsNameResolver;
 import jakarta.ws.rs.core.Response;
 import java.io.IOException;
@@ -14,10 +15,8 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
@@ -27,7 +26,6 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class CloudflareTurnCredentialsManager {
@@ -133,10 +131,16 @@ public class CloudflareTurnCredentialsManager {
 
     final HttpResponse<String> response;
     try {
-      response = cloudflareTurnClient.sendAsync(getCredentialsRequest, HttpResponse.BodyHandlers.ofString()).join();
-    } catch (CompletionException e) {
+      response = cloudflareTurnClient.send(getCredentialsRequest, HttpResponse.BodyHandlers.ofString());
+    } catch (Exception e) {
+
+      if (e instanceof CallNotPermittedException cnpe) {
+        // the circuit breaker is open, and this can escape up to the exception mapper
+        throw cnpe;
+      }
+
       logger.warn("failed to make http request to Cloudflare Turn: {}", e.getMessage());
-      throw new IOException(ExceptionUtils.unwrap(e));
+      throw new IOException(e);
     }
 
     if (response.statusCode() != Response.Status.CREATED.getStatusCode()) {

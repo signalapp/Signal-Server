@@ -451,7 +451,9 @@ class FoundationDbMessagePublisher {
     final ScheduledFuture<?> scheduledFuture = presenceRenewalExecutorService.schedule(() -> {
       renewPresence().whenComplete((_, throwable) -> {
         if (throwable != null) {
-          LOGGER.warn("Failed to renew presence", throwable);
+          if (!ExceptionUtils.isBreakerOpen(throwable)) {
+            LOGGER.warn("Failed to renew presence", throwable);
+          }
           renewPresenceFuture.completeExceptionally(throwable);
         } else {
           renewPresenceFuture.complete(null);
@@ -503,7 +505,7 @@ class FoundationDbMessagePublisher {
                 }
               }), FaultTolerantDatabase.Context.CLEAR_PRESENCE)
               .whenComplete((_, throwable) -> {
-                if (throwable != null) {
+                if (throwable != null && !ExceptionUtils.isBreakerOpen(throwable)) {
                   LOGGER.warn("Failed to clear presence on disposal", throwable);
                 }
               }));

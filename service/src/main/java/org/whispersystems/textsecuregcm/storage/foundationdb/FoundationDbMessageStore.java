@@ -50,6 +50,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -720,7 +721,9 @@ public class FoundationDbMessageStore {
 
                 return deleteModifier.apply(deleteMono)
                     .onErrorResume(throwable -> {
-                      LOGGER.warn("Failed to trim message queue for {}:{}", aci, device.getId(), throwable);
+                      if (!ExceptionUtils.isBreakerOpen(throwable)) {
+                        LOGGER.warn("Failed to trim message queue for {}:{}", aci, device.getId(), throwable);
+                      }
                       return Mono.just(false);
                     });
               })
@@ -731,7 +734,9 @@ public class FoundationDbMessageStore {
         .onErrorResume(throwable -> {
           // If we error out on estimating queue size, we don't know if this queue needed trimming
           Metrics.counter(TRIM_QUEUE_COUNTER_NAME, "success", "false").increment();
-          LOGGER.warn("Failed to estimate queue size for {}:{}", aci, device.getId(), throwable);
+          if (!ExceptionUtils.isBreakerOpen(throwable)) {
+            LOGGER.warn("Failed to estimate queue size for {}:{}", aci, device.getId(), throwable);
+          }
           return Mono.empty();
         });
   }

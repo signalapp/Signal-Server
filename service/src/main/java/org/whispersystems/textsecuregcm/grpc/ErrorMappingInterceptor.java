@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.grpc.ForwardingServerCall;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
@@ -12,6 +13,7 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import io.lettuce.core.RedisException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import org.slf4j.Logger;
@@ -66,6 +68,13 @@ public class ErrorMappingInterceptor implements ServerInterceptor {
             ImpossibleEvents.logImpossible(log, e.getMessage(), e);
             yield GrpcExceptions.unavailable();
           }
+          case CallNotPermittedException _ -> GrpcExceptions.unavailable();
+          case RedisException e -> {
+            if (!ExceptionUtils.isBreakerOpen(e)) {
+              log.warn("RPC {} encountered RedisException", call.getMethodDescriptor().getFullMethodName(), e);
+            }
+            yield GrpcExceptions.unavailable();
+          }
           case null -> {
             log.error("RPC {} finished with status UNKNOWN: {}",
                 call.getMethodDescriptor().getFullMethodName(), status.getDescription());
@@ -73,7 +82,7 @@ public class ErrorMappingInterceptor implements ServerInterceptor {
           }
           default -> {
             log.error("RPC {} finished with status UNKNOWN",
-                call.getMethodDescriptor().getFullMethodName(), status.getCause());
+                call.getMethodDescriptor().getFullMethodName(), cause);
             yield GrpcExceptions.unavailable();
           }
         };

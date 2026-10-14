@@ -9,9 +9,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.jersey.errors.LoggingExceptionMapper;
 import jakarta.inject.Provider;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.Response;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.slf4j.Logger;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -31,6 +34,14 @@ public class LoggingUnhandledExceptionMapper extends LoggingExceptionMapper<Thro
   @VisibleForTesting
   LoggingUnhandledExceptionMapper(final Logger logger) {
     super(logger);
+  }
+
+  @Override
+  public Response toResponse(final Throwable exception) {
+    if (!(exception instanceof WebApplicationException) && ExceptionUtils.isBreakerOpen(exception)) {
+      return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();
+    }
+    return super.toResponse(exception);
   }
 
   @Override

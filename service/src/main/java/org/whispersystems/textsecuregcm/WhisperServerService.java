@@ -207,6 +207,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.BackupExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.CallNotPermittedExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
@@ -1405,6 +1406,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     List.of(
         new LoggingUnhandledExceptionMapper(),
         new CompletionExceptionMapper(),
+        new CallNotPermittedExceptionMapper(),
         new IOExceptionMapper(),
         new RateLimitExceededExceptionMapper(),
         new InvalidWebsocketAddressExceptionMapper(),

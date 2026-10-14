@@ -139,10 +139,12 @@ public class MessagesManager {
                   Metrics.counter(INSERT_FDB_EXCEPTIONS_COUNTER_NAME, "code", String.valueOf(fdbException.getCode()))
                       .increment();
                 } else {
-                  logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
-                      minimizedMessagesByDeviceId.size(),
-                      accountIdentifier,
-                      e);
+                  if (!ExceptionUtils.isBreakerOpen(e)) {
+                    logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
+                        minimizedMessagesByDeviceId.size(),
+                        accountIdentifier,
+                        e);
+                  }
                 }
 
                 throw ExceptionUtils.wrap(e);
@@ -337,7 +339,9 @@ public class MessagesManager {
         try {
           foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid));
         } catch (final Exception e) {
-          logger.warn("Failed to clear messages for {}", destinationUuid, e);
+          if (!ExceptionUtils.isBreakerOpen(e)) {
+            logger.warn("Failed to clear messages for {}", destinationUuid, e);
+          }
         }
       });
     }
@@ -351,7 +355,9 @@ public class MessagesManager {
         try {
           foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid), deviceId);
         } catch (final Exception e) {
-          logger.warn("Failed to clear messages for {}:{}", destinationUuid, deviceId, e);
+          if (!ExceptionUtils.isBreakerOpen(e)) {
+            logger.warn("Failed to clear messages for {}:{}", destinationUuid, deviceId, e);
+          }
         }
       });
     }

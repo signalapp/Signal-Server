@@ -1,8 +1,10 @@
 package org.whispersystems.textsecuregcm.util;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 public final class ExceptionUtils {
 
@@ -126,5 +128,20 @@ public final class ExceptionUtils {
       }
       throw e;
     }
+  }
+
+  /// Checks whether an exception in the chain is a [CallNotPermittedException].
+  ///
+  /// This is useful to check when logging, to avoid repetitive output.
+  public static boolean isBreakerOpen(@Nullable Throwable t) {
+    if (t == null) {
+      return false;
+    }
+
+    while (!(t instanceof CallNotPermittedException) && t.getCause() != null) {
+      t = t.getCause();
+    }
+
+    return t instanceof CallNotPermittedException;
   }
 }

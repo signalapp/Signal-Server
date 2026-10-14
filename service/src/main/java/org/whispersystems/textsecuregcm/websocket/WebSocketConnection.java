@@ -20,11 +20,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.util.ConstantThrowable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +43,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
@@ -289,6 +288,8 @@ public class WebSocketConnection {
       errorType = "timeout";
     } else if (isConnectionClosedException(e)) {
       errorType = "connectionClosed";
+    } else if (ExceptionUtils.isBreakerOpen(e)) {
+      errorType = "breakerOpen";
     } else {
       logger.warn("Send message failed", e);
       errorType = "other";

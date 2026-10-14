@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -400,7 +401,11 @@ public class MessagesCache {
         .subscribe(messageGuids ->
                 remove(destinationUuid, destinationDevice, messageGuids)
                     .thenAccept(removedMessages -> counter.increment(removedMessages.size())),
-            e -> logger.warn("Could not remove stale {} messages from cache", context, e));
+            e -> {
+              if (!ExceptionUtils.isBreakerOpen(e)) {
+                logger.warn("Could not remove stale {} messages from cache", context, e);
+              }
+            });
   }
 
   @VisibleForTesting
@@ -524,7 +529,9 @@ public class MessagesCache {
             // MRM data) fails after it has been delivered. We return it so that it may be discarded from the queue.
             result = Mono.just(mrmMessage.toBuilder().setSharedMrmKey(STALE_MRM_KEY).build());
           } else {
-            logger.warn("Failed to retrieve shared mrm data", throwable);
+            if (!ExceptionUtils.isBreakerOpen(throwable)) {
+              logger.warn("Failed to retrieve shared mrm data", throwable);
+            }
             // For unexpected errors, return empty. The message will remain in the queue and be retried in the future.
             result = Mono.empty();
           }
@@ -555,7 +562,9 @@ public class MessagesCache {
             REMOVE_MRM_RECIPIENT_VIEW_CONCURRENCY)
         .doOnNext(sharedMrmDataKeyRemovedCounter::increment)
         .onErrorResume(e -> {
-          logger.warn("Error removing recipient view", e);
+          if (!ExceptionUtils.isBreakerOpen(e)) {
+            logger.warn("Error removing recipient view", e);
+          }
           return Mono.just(0L);
         })
         .then()

@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -177,7 +178,9 @@ public class ProfilesManager {
       try {
         profile.ifPresent(versionedProfile -> redisSet(uuid, null, versionedProfile));
       } catch (RedisException e) {
-        logger.warn("Failed to cache retrieved profile", e);
+        if (!ExceptionUtils.isBreakerOpen(e)) {
+          logger.warn("Failed to cache retrieved profile", e);
+        }
       }
 
       return profile;
@@ -190,7 +193,9 @@ public class ProfilesManager {
       try {
         profile.ifPresent(versionedProfile -> redisSet(uuid, versionedProfile, null));
       } catch (RedisException e) {
-        logger.warn("Failed to cache retrieved profile", e);
+        if (!ExceptionUtils.isBreakerOpen(e)) {
+          logger.warn("Failed to cache retrieved profile", e);
+        }
       }
 
       return profile;
@@ -239,7 +244,9 @@ public class ProfilesManager {
 
       return parseProfileJson(json, VersionedProfile.class);
     } catch (RedisException e) {
-      logger.warn("Redis exception", e);
+      if (!ExceptionUtils.isBreakerOpen(e)) {
+        logger.warn("Redis exception", e);
+      }
       return Optional.empty();
     }
   }
@@ -255,7 +262,9 @@ public class ProfilesManager {
 
       return parseProfileJson(json, VersionedProfileV1.class);
     } catch (RedisException e) {
-      logger.warn("Failed to retrieve profile from cache", e);
+      if (!ExceptionUtils.isBreakerOpen(e)) {
+        logger.warn("Failed to retrieve profile from cache", e);
+      }
       return Optional.empty();
     }
   }

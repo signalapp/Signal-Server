@@ -24,6 +24,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -215,7 +216,9 @@ public class FoundationDbMessageStream implements MessageStream {
         })
         .whenComplete((_, throwable) -> {
           if (throwable != null) {
-            logger.warn("Failed to fetch end-of-queue key", throwable);
+            if (!ExceptionUtils.isBreakerOpen(throwable)) {
+              logger.warn("Failed to fetch end-of-queue key", throwable);
+            }
           }
         });
   }

@@ -9,6 +9,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.Phonenumber;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpRequest;
@@ -19,15 +22,13 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.telephony.CarrierData;
 import org.whispersystems.textsecuregcm.telephony.CarrierDataException;
 import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 /// A carrier data provider that uses [HLR Lookup](https://www.hlrlookup.com/) as its data source.
@@ -117,9 +118,13 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
 
       Metrics.counter(REQUEST_COUNTER_NAME, "status", String.valueOf(httpResponse.statusCode()))
           .increment();
-    } catch (final IOException | CarrierDataException e) {
+    } catch (final IOException | CarrierDataException | RuntimeException e) {
       Metrics.counter(REQUEST_COUNTER_NAME, "exception", e.getClass().getSimpleName())
           .increment();
+
+      if (ExceptionUtils.isBreakerOpen(e)) {
+        return Optional.empty();
+      }
 
       throw e;
     }

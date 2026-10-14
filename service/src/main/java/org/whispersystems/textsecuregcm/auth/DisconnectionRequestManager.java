@@ -27,7 +27,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
@@ -120,10 +119,6 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
 
   /**
    * Adds a listener for disconnection requests for a specific authenticated device.
-   *
-   * @param accountIdentifier TODO
-   * @param deviceId TODO
-   * @param listener the listener to register
    */
   public void addListener(final UUID accountIdentifier, final byte deviceId, final DisconnectionRequestListener listener) {
     listeners.compute(new AccountIdentifierAndDeviceId(accountIdentifier, deviceId), (_, existingListeners) -> {
@@ -138,10 +133,6 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
 
   /**
    * Removes a listener for disconnection requests for a specific authenticated device.
-   *
-   * @param accountIdentifier TODO
-   * @param deviceId TODO
-   * @param listener the listener to remove
    */
   public void removeListener(final UUID accountIdentifier, final byte deviceId, final DisconnectionRequestListener listener) {
     listeners.computeIfPresent(new AccountIdentifierAndDeviceId(accountIdentifier, deviceId), (_, existingListeners) -> {
