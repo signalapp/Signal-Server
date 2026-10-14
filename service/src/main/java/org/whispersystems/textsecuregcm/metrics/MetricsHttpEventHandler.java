@@ -122,7 +122,8 @@ public class MetricsHttpEventHandler extends EventsHandler {
 
   private void onResponseFailure(Request request, int status, Throwable failure) {
 
-    if (failure instanceof org.eclipse.jetty.io.EofException) {
+    if (failure instanceof org.eclipse.jetty.io.EofException
+        || (failure instanceof java.io.IOException && failure.getCause() instanceof org.eclipse.jetty.io.EofException)) {
       // the client disconnected early
       return;
     }
