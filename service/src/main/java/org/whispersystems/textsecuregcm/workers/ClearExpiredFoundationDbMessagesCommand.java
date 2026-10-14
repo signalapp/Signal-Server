@@ -11,10 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.stream.Collectors;
 import net.sourceforge.argparse4j.inf.Subparser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -35,11 +32,6 @@ public class ClearExpiredFoundationDbMessagesCommand extends AbstractSinglePassC
 
   @VisibleForTesting
   static final String VERSIONSTAMP_TTL_DAYS_ARGUMENT = "versionstamp-ttl-days";
-
-  @VisibleForTesting
-  static final Duration TIMESTAMP_RETENTION_PERIOD = Duration.ofDays(60);
-
-  private static final Logger log = LoggerFactory.getLogger(ClearExpiredFoundationDbMessagesCommand.class);
 
   public ClearExpiredFoundationDbMessagesCommand(final Clock clock) {
     super("clear-expired-foundationdb-messages", "Removes expired messages from FoundationDB");
