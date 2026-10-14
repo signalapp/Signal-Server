@@ -117,6 +117,12 @@ public class MessageSender {
       @Nullable final String userAgent)
       throws MismatchedDevicesException, MessageTooLargeException, MessageDeliveryNotAllowedException {
 
+    // Every message in the map is expected to have the same ephemerality.
+    if (dynamicConfigurationManager.getConfiguration().getMessageDeliveryConfiguration().dropEphemeralMessages()
+        && messagesByDeviceId.values().stream().anyMatch(Envelope::getEphemeral)) {
+      return;
+    }
+
     if (dynamicConfigurationManager.getConfiguration().getMessageDeliveryConfiguration().isReadOnly()) {
       throw new MessageDeliveryNotAllowedException();
     }
@@ -198,6 +204,11 @@ public class MessageSender {
       final boolean isUrgent,
       @Nullable final String userAgent)
       throws MultiRecipientMismatchedDevicesException, MessageTooLargeException, MessageDeliveryNotAllowedException {
+
+    if (dynamicConfigurationManager.getConfiguration().getMessageDeliveryConfiguration().dropEphemeralMessages()
+        && isEphemeral) {
+      return CompletableFuture.completedFuture(null);
+    }
 
     if (dynamicConfigurationManager.getConfiguration().getMessageDeliveryConfiguration().isReadOnly()) {
       throw new MessageDeliveryNotAllowedException();

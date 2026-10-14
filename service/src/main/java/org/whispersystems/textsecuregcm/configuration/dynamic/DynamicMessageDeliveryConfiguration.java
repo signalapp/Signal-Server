@@ -12,7 +12,14 @@ public class DynamicMessageDeliveryConfiguration {
   @JsonProperty
   private boolean readOnly = false;
 
+  @JsonProperty
+  private boolean dropEphemeralMessages = false;
+
   public boolean isReadOnly() {
     return readOnly;
+  }
+
+  public boolean dropEphemeralMessages() {
+    return dropEphemeralMessages;
   }
 }
