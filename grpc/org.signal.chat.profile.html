@@ -115,6 +115,15 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.profile.ExpectedVersionConflict">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ExpectedVersionConflict</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.profile.ExtendAvatarTTLRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>ExtendAvatarTTLRequest</code> 
@@ -817,6 +826,58 @@ RemoteConfiguration.GetBadges.</p></td>
           
         </tr>
       
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.ExpectedVersionConflict">
+  <span>
+    <a href="#message-org.signal.chat.profile.ExpectedVersionConflict" title="org.signal.chat.profile.ExpectedVersionConflict">message ExpectedVersionConflict</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        current_profile_version
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>In certain, highly unlikely, cases, a new profile version might not be
+distributed among all devices. These devices wouldn't be able to decrypt the
+profile, but the value can be used to set a new version.</p></td>
+      
+    </tr>
+    
     
   </tbody>
 </table>
@@ -2586,9 +2647,9 @@ number. The request should be retried without `payment_address.</p></td>
             expected_version_write_conflict
           </td>
           <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
+            <code title="org.signal.chat.profile.ExpectedVersionConflict">
               
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+              <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.ExpectedVersionConflict"><span title="org.signal.chat.profile.ExpectedVersionConflict">org.signal.chat.profile.ExpectedVersionConflict</span>
     </a>
             </code>
           </td>

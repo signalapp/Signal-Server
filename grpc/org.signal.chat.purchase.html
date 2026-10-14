@@ -102,24 +102,6 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.purchase.AmountAboveSepaLimitError">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>AmountAboveSepaLimitError</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.purchase.AmountBelowMinimumError">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>AmountBelowMinimumError</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
         <a href="#message-org.signal.chat.purchase.AmountList">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>AmountList</code> 
@@ -232,24 +214,6 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.purchase.CreateBoostRequest">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>CreateBoostRequest</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.purchase.CreateBoostResponse">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>CreateBoostResponse</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
         <a href="#message-org.signal.chat.purchase.CreateLoginReceiptCredentialRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>CreateLoginReceiptCredentialRequest</code> 
@@ -331,27 +295,45 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.purchase.CreatePaymentMethodRequest">
+        <a href="#message-org.signal.chat.purchase.CreateStripeBoostRequest">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>CreatePaymentMethodRequest</code> 
+          <code>CreateStripeBoostRequest</code> 
         </a>
       </p>
       
     
       
       <p>
-        <a href="#message-org.signal.chat.purchase.CreatePaymentMethodResponse">
+        <a href="#message-org.signal.chat.purchase.CreateStripeBoostResponse">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>CreatePaymentMethodResponse</code> 
+          <code>CreateStripeBoostResponse</code> 
         </a>
       </p>
       
     
       
       <p>
-        <a href="#message-org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">
+        <a href="#message-org.signal.chat.purchase.CreateStripePaymentMethodRequest">
           <span class="tag" style="min-width: 6em">Message</span>
-          <code>CreatePaymentMethodResult</code> 
+          <code>CreateStripePaymentMethodRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreateStripePaymentMethodResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreateStripePaymentMethodResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreateStripePaymentMethodResponse.CreateStripePaymentMethodResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreateStripePaymentMethodResult</code> 
         </a>
       </p>
       
@@ -712,14 +694,14 @@
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.purchase.OneTimeDonations-CreateBoost">
-      <a href="#service-org.signal.chat.purchase.OneTimeDonations-CreateBoost">
-        rpc <code>CreateBoost</code>
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.OneTimeDonations-CreateStripeBoost">
+      <a href="#service-org.signal.chat.purchase.OneTimeDonations-CreateStripeBoost">
+        rpc <code>CreateStripeBoost</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateBoostRequest"><span title="org.signal.chat.purchase.CreateBoostRequest">org.signal.chat.purchase.CreateBoostRequest</span>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateStripeBoostRequest"><span title="org.signal.chat.purchase.CreateStripeBoostRequest">org.signal.chat.purchase.CreateStripeBoostRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateBoostResponse"><span title="org.signal.chat.purchase.CreateBoostResponse">org.signal.chat.purchase.CreateBoostResponse</span>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateStripeBoostResponse"><span title="org.signal.chat.purchase.CreateStripeBoostResponse">org.signal.chat.purchase.CreateStripeBoostResponse</span>
     </a></code><br>
   </div>
 
@@ -899,20 +881,20 @@ cancelling a subscription from storekit to keep server data up to date.</p></p>
 
 <div class="box">
   <div class="block">
-    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-CreatePaymentMethod">
-      <a href="#service-org.signal.chat.purchase.Subscriptions-CreatePaymentMethod">
-        rpc <code>CreatePaymentMethod</code>
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-CreateStripePaymentMethod">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-CreateStripePaymentMethod">
+        rpc <code>CreateStripePaymentMethod</code>
       </a>
     </h5>
-    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePaymentMethodRequest"><span title="org.signal.chat.purchase.CreatePaymentMethodRequest">org.signal.chat.purchase.CreatePaymentMethodRequest</span>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateStripePaymentMethodRequest"><span title="org.signal.chat.purchase.CreateStripePaymentMethodRequest">org.signal.chat.purchase.CreateStripePaymentMethodRequest</span>
     </a></code><br>
-    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePaymentMethodResponse"><span title="org.signal.chat.purchase.CreatePaymentMethodResponse">org.signal.chat.purchase.CreatePaymentMethodResponse</span>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateStripePaymentMethodResponse"><span title="org.signal.chat.purchase.CreateStripePaymentMethodResponse">org.signal.chat.purchase.CreateStripePaymentMethodResponse</span>
     </a></code><br>
   </div>
 
   
   <div class="block">
-    <p><p>Returns a client secret that can be used to set up a new payment method with the payment processor.</p></p>
+    <p><p>Returns a Stripe client secret that can be used to set up a new payment method with Stripe.</p></p>
   </div>
   
 </div>
@@ -995,7 +977,7 @@ https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
 
   
   <div class="block">
-    <p><p>Returns information about the current subscription associated with the provided subscriberId if one exists.</p>
+    <p><p>Returns information about the current subscription associated with the provided subscriber_id if one exists.</p>
 <p>Although it uses <a href="https://stripe.com/docs/billing/subscriptions/overview#subscription-statuses">Stripe's values</a>,
 the status field in the response is generic, with <a href="https://developer.paypal.com/braintree/docs/guides/recurring-billing/overview#subscription-statuses">Braintree-specific values</a> mapped
 to Stripe's. Since we don't support trials or unpaid subscriptions, the associated statuses will never be returned
@@ -1070,10 +1052,10 @@ cannot be redeemed.</p>
 3. Call this RPC with the purchaseToken
 4. Obtain a receipt via GetReceiptCredential which can then be used to obtain the
    entitlement</p>
-<p>After calling this method, the payment is confirmed. Callers must durably store their subscriberId before calling
+<p>After calling this method, the payment is confirmed. Callers must durably store their subscriber_id before calling
 this method to ensure their payment is tracked.</p>
-<p>Once a purchaseToken to is posted to a subscriberId, the same subscriberId must not be used with another payment
-method. A different playbilling purchaseToken can be posted to the same subscriberId, in this case the subscription
+<p>Once a purchaseToken to is posted to a subscriber_id, the same subscriber_id must not be used with another payment
+method. A different playbilling purchaseToken can be posted to the same subscriber_id, in this case the subscription
 associated with the old purchaseToken will be cancelled.</p></p>
   </div>
   
@@ -1114,106 +1096,6 @@ https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
       Messages
     </h3>
 
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.AmountAboveSepaLimitError">
-  <span>
-    <a href="#message-org.signal.chat.purchase.AmountAboveSepaLimitError" title="org.signal.chat.purchase.AmountAboveSepaLimitError">message AmountAboveSepaLimitError</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  <p>The SEPA Direct Debit amount exceeds the allowed maximum.</p>
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        maximum
-      </td>
-      <td>
-        <code title="uint64">
-          
-          <span>uint64</span>
-        </code>
-      </td>
-      <td class="content"><p>The maximum amount for a SEPA transaction in the <a href="https://docs.stripe.com/currencies#minor-units">currency's minor unit</a></p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.AmountBelowMinimumError">
-  <span>
-    <a href="#message-org.signal.chat.purchase.AmountBelowMinimumError" title="org.signal.chat.purchase.AmountBelowMinimumError">message AmountBelowMinimumError</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  <p>The amount is below the minimum for the currency.</p>
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        minimum
-      </td>
-      <td>
-        <code title="uint64">
-          
-          <span>uint64</span>
-        </code>
-      </td>
-      <td class="content"><p>The minimum amount for the currency in the <a href="https://docs.stripe.com/currencies#minor-units">currency's minor unit</a></p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
     
       
       <div class="block">
@@ -1372,9 +1254,9 @@ for zero-decimal currencies no multiplication is required.</p></td>
         free_tier_media_days
       </td>
       <td>
-        <code title="uint64">
+        <code title="uint32">
           
-          <span>uint64</span>
+          <span>uint32</span>
         </code>
       </td>
       <td class="content"><p>The number of days of media a free tier backup user gets</p></td>
@@ -1452,9 +1334,9 @@ for zero-decimal currencies no multiplication is required.</p></td>
         media_ttl_days
       </td>
       <td>
-        <code title="uint64">
+        <code title="uint32">
           
-          <span>uint64</span>
+          <span>uint32</span>
         </code>
       </td>
       <td class="content"><p>The duration, in days, for which your backed up media is retained on the server after you stop refreshing with a paid credential</p></td>
@@ -1506,7 +1388,7 @@ for zero-decimal currencies no multiplication is required.</p></td>
     <tr>
       <td>1</td>
       <td>
-        paymentMethodToken
+        payment_method_token
       </td>
       <td>
         <code title="string">
@@ -1739,7 +1621,7 @@ depending on which processor was used</p></td>
           <span>uint64</span>
         </code>
       </td>
-      <td class="content"><p>Donation level.</p></td>
+      <td class="content"><p>Donation level: 1 for a one-time donation, 100 for a gift donation</p></td>
       
     </tr>
     
@@ -1861,16 +1743,19 @@ depending on which processor was used</p></td>
             2
           </td>
           <td>
-            amount_below_minimum
+            invalid_selection
           </td>
           <td>
-            <code title="org.signal.chat.purchase.AmountBelowMinimumError">
+            <code title="org.signal.chat.errors.FailedPrecondition">
               
-              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.AmountBelowMinimumError"><span title="org.signal.chat.purchase.AmountBelowMinimumError">org.signal.chat.purchase.AmountBelowMinimumError</span>
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
     </a>
             </code>
           </td>
-          <td class="content"><p>The amount is below the minimum for the currency</p></td>
+          <td class="content"><p>The currency is not supported for PayPal, or the amount is below the
+currency's minimum. The violated constraint may be present in the product
+configuration, clients can attempt a refresh of
+ProductConfiguration/GetConfiguration before giving up.</p></td>
           
         </tr>
       
@@ -1881,52 +1766,12 @@ depending on which processor was used</p></td>
             3
           </td>
           <td>
-            unsupported_currency
+            payment_required
           </td>
           <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
+            <code title="org.signal.chat.purchase.PaymentRequired">
               
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The requested currency is not supported for PayPal</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            4
-          </td>
-          <td>
-            unsupported_level
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The requested level is not a valid one-time donation level</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            5
-          </td>
-          <td>
-            charge_failure
-          </td>
-          <td>
-            <code title="org.signal.chat.purchase.ChargeFailure">
-              
-              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ChargeFailure"><span title="org.signal.chat.purchase.ChargeFailure">org.signal.chat.purchase.ChargeFailure</span>
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.PaymentRequired"><span title="org.signal.chat.purchase.PaymentRequired">org.signal.chat.purchase.PaymentRequired</span>
     </a>
             </code>
           </td>
@@ -2278,302 +2123,6 @@ depending on which processor was used</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateBoostRequest">
-  <span>
-    <a href="#message-org.signal.chat.purchase.CreateBoostRequest" title="org.signal.chat.purchase.CreateBoostRequest">message CreateBoostRequest</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        currency
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>ISO 4217 currency code, case-insensitive (e.g. "usd", "EUR")</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        amount
-      </td>
-      <td>
-        <code title="uint64">
-          
-          <span>uint64</span>
-        </code>
-      </td>
-      <td class="content"><p>The amount to pay in the <a href="https://docs.stripe.com/currencies#minor-units">currency's minor unit</a></p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>3</td>
-      <td>
-        level
-      </td>
-      <td>
-        <code title="uint64">
-          
-          <span>uint64</span>
-        </code>
-      </td>
-      <td class="content"><p>The level for the boost payment</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>4</td>
-      <td>
-        payment_method
-      </td>
-      <td>
-        <code title="org.signal.chat.purchase.PaymentMethod">
-          
-          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentMethod"><span title="org.signal.chat.purchase.PaymentMethod">org.signal.chat.purchase.PaymentMethod</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>The payment method</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>5</td>
-      <td>
-        donation_permit
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>A donation permit retrieved from Donations.createDonationPermit</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateBoostResponse">
-  <span>
-    <a href="#message-org.signal.chat.purchase.CreateBoostResponse" title="org.signal.chat.purchase.CreateBoostResponse">message CreateBoostResponse</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof response</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            1
-          </td>
-          <td>
-            client_secret
-          </td>
-          <td>
-            <code title="string">
-              
-              <span>string</span>
-            </code>
-          </td>
-          <td class="content"><p>A client secret that can be used to complete a stripe PaymentIntent</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            amount_below_minimum
-          </td>
-          <td>
-            <code title="org.signal.chat.purchase.AmountBelowMinimumError">
-              
-              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.AmountBelowMinimumError"><span title="org.signal.chat.purchase.AmountBelowMinimumError">org.signal.chat.purchase.AmountBelowMinimumError</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The amount is below the minimum for the currency</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            3
-          </td>
-          <td>
-            amount_above_sepa_limit
-          </td>
-          <td>
-            <code title="org.signal.chat.purchase.AmountAboveSepaLimitError">
-              
-              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.AmountAboveSepaLimitError"><span title="org.signal.chat.purchase.AmountAboveSepaLimitError">org.signal.chat.purchase.AmountAboveSepaLimitError</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The amount exceeds the maximum for SEPA Direct Debit</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            4
-          </td>
-          <td>
-            unsupported_currency
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The requested currency is not supported for the given payment method</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            5
-          </td>
-          <td>
-            unsupported_level
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The requested level is not a valid one-time donation level</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            6
-          </td>
-          <td>
-            permit_rejected
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedZkAuthentication">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>Donation permit was invalid or already spent</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            7
-          </td>
-          <td>
-            invalid_amount
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The amount in the specified currency is not supported by the payment provider</p></td>
-          
-        </tr>
-      
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
 <h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateLoginReceiptCredentialRequest">
   <span>
     <a href="#message-org.signal.chat.purchase.CreateLoginReceiptCredentialRequest" title="org.signal.chat.purchase.CreateLoginReceiptCredentialRequest">message CreateLoginReceiptCredentialRequest</a>
@@ -2610,8 +2159,7 @@ depending on which processor was used</p></td>
     </a>
         </code>
       </td>
-      <td class="content"><p>The payment processor. Currently, only GOOGLE_PLAY_BILLING and
-APPLE_APP_STORE are supported.</p></td>
+      <td class="content"><p>The payment processor</p></td>
       
     </tr>
     
@@ -2930,7 +2478,7 @@ following properties:</p>
           <span>uint64</span>
         </code>
       </td>
-      <td class="content"><p>Donation level.</p></td>
+      <td class="content"><p>Donation level: 1 for a one-time donation, 100 for a gift donation</p></td>
       
     </tr>
     
@@ -3037,27 +2585,7 @@ following properties:</p>
             2
           </td>
           <td>
-            amount_below_minimum
-          </td>
-          <td>
-            <code title="org.signal.chat.purchase.AmountBelowMinimumError">
-              
-              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.AmountBelowMinimumError"><span title="org.signal.chat.purchase.AmountBelowMinimumError">org.signal.chat.purchase.AmountBelowMinimumError</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The amount is below the minimum for the currency</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            3
-          </td>
-          <td>
-            unsupported_currency
+            invalid_selection
           </td>
           <td>
             <code title="org.signal.chat.errors.FailedPrecondition">
@@ -3066,27 +2594,10 @@ following properties:</p>
     </a>
             </code>
           </td>
-          <td class="content"><p>The requested currency is not supported for PayPal</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            4
-          </td>
-          <td>
-            unsupported_level
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The requested level is not a valid one-time donation level</p></td>
+          <td class="content"><p>The currency is not supported for PayPal, or the amount is below the
+currency's minimum. The violated constraint may be present in the product
+configuration, clients can attempt a refresh of
+ProductConfiguration/GetConfiguration before giving up.</p></td>
           
         </tr>
       
@@ -3196,7 +2707,7 @@ following properties:</p>
     <tr>
       <td>1</td>
       <td>
-        subscriberId
+        subscriber_id
       </td>
       <td>
         <code title="bytes">
@@ -3211,7 +2722,7 @@ following properties:</p>
     <tr>
       <td>2</td>
       <td>
-        returnUrl
+        return_url
       </td>
       <td>
         <code title="string">
@@ -3226,7 +2737,7 @@ following properties:</p>
     <tr>
       <td>3</td>
       <td>
-        cancelUrl
+        cancel_url
       </td>
       <td>
         <code title="string">
@@ -3386,7 +2897,7 @@ the subscription</p></td>
     <tr>
       <td>1</td>
       <td>
-        approvalUrl
+        approval_url
       </td>
       <td>
         <code title="string">
@@ -3424,9 +2935,230 @@ the subscription</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePaymentMethodRequest">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateStripeBoostRequest">
   <span>
-    <a href="#message-org.signal.chat.purchase.CreatePaymentMethodRequest" title="org.signal.chat.purchase.CreatePaymentMethodRequest">message CreatePaymentMethodRequest</a>
+    <a href="#message-org.signal.chat.purchase.CreateStripeBoostRequest" title="org.signal.chat.purchase.CreateStripeBoostRequest">message CreateStripeBoostRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        currency
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>ISO 4217 currency code, case-insensitive (e.g. "usd", "EUR")</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        amount
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The amount to pay in the <a href="https://docs.stripe.com/currencies#minor-units">currency's minor unit</a></p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        level
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The level for the boost payment: 1 for a one-time donation, 100 for a gift donation</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        payment_method
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.PaymentMethod">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentMethod"><span title="org.signal.chat.purchase.PaymentMethod">org.signal.chat.purchase.PaymentMethod</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The payment method. Only card, SEPA Direct Debit, and iDEAL are supported.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        donation_permit
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A donation permit retrieved from Donations.createDonationPermit</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateStripeBoostResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreateStripeBoostResponse" title="org.signal.chat.purchase.CreateStripeBoostResponse">message CreateStripeBoostResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            client_secret
+          </td>
+          <td>
+            <code title="string">
+              
+              <span>string</span>
+            </code>
+          </td>
+          <td class="content"><p>A client secret that can be used to complete a stripe PaymentIntent</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            invalid_selection
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The currency is not supported for the payment method, or the amount is
+outside the configured limits (e.g. below the currency's minimum, above
+the SEPA Direct Debit maximum, above the processor's currency maximum).
+The violated constraint may be present in the product configuration,
+clients can attempt a refresh of ProductConfiguration/GetConfiguration
+before giving up.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            permit_rejected
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Donation permit was invalid or already spent</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateStripePaymentMethodRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreateStripePaymentMethodRequest" title="org.signal.chat.purchase.CreateStripePaymentMethodRequest">message CreateStripePaymentMethodRequest</a>
   
   </span>
   
@@ -3459,8 +3191,7 @@ the subscription</p></td>
           <span>bytes</span>
         </code>
       </td>
-      <td class="content"><p>Only PAYMENT_METHOD_CARD, PAYMENT_METHOD_SEPA_DEBIT, and PAYMENT_METHOD_IDEAL are supported;
-other values will result in an INVALID_ARGUMENT error.</p></td>
+      <td class="content"></td>
       
     </tr>
     
@@ -3476,7 +3207,7 @@ other values will result in an INVALID_ARGUMENT error.</p></td>
     </a>
         </code>
       </td>
-      <td class="content"></td>
+      <td class="content"><p>The payment method. Only card, SEPA Direct Debit, and iDEAL are supported.</p></td>
       
     </tr>
     
@@ -3506,9 +3237,9 @@ other values will result in an INVALID_ARGUMENT error.</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePaymentMethodResponse">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateStripePaymentMethodResponse">
   <span>
-    <a href="#message-org.signal.chat.purchase.CreatePaymentMethodResponse" title="org.signal.chat.purchase.CreatePaymentMethodResponse">message CreatePaymentMethodResponse</a>
+    <a href="#message-org.signal.chat.purchase.CreateStripePaymentMethodResponse" title="org.signal.chat.purchase.CreateStripePaymentMethodResponse">message CreateStripePaymentMethodResponse</a>
   
   </span>
   
@@ -3551,9 +3282,9 @@ other values will result in an INVALID_ARGUMENT error.</p></td>
             result
           </td>
           <td>
-            <code title="org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">
+            <code title="org.signal.chat.purchase.CreateStripePaymentMethodResponse.CreateStripePaymentMethodResult">
               
-              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult"><span title="org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult</span>
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateStripePaymentMethodResponse.CreateStripePaymentMethodResult"><span title="org.signal.chat.purchase.CreateStripePaymentMethodResponse.CreateStripePaymentMethodResult">org.signal.chat.purchase.CreateStripePaymentMethodResponse.CreateStripePaymentMethodResult</span>
     </a>
             </code>
           </td>
@@ -3633,11 +3364,11 @@ the subscription</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateStripePaymentMethodResponse.CreateStripePaymentMethodResult">
   <span>
-    <a href="#message-org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult" title="org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">message CreatePaymentMethodResult</a>
+    <a href="#message-org.signal.chat.purchase.CreateStripePaymentMethodResponse.CreateStripePaymentMethodResult" title="org.signal.chat.purchase.CreateStripePaymentMethodResponse.CreateStripePaymentMethodResult">message CreateStripePaymentMethodResult</a>
   
-    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePaymentMethodResponse"><span title="org.signal.chat.purchase.CreatePaymentMethodResponse">org.signal.chat.purchase.CreatePaymentMethodResponse</span>
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateStripePaymentMethodResponse"><span title="org.signal.chat.purchase.CreateStripePaymentMethodResponse">org.signal.chat.purchase.CreateStripePaymentMethodResponse</span>
     </a>)</span>
   
   </span>
@@ -3663,28 +3394,12 @@ the subscription</p></td>
     <tr>
       <td>1</td>
       <td>
-        clientSecret
+        client_secret
       </td>
       <td>
         <code title="string">
           
           <span>string</span>
-        </code>
-      </td>
-      <td class="content"></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        paymentProvider
-      </td>
-      <td>
-        <code title="org.signal.chat.purchase.PaymentProvider">
-          
-          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentProvider"><span title="org.signal.chat.purchase.PaymentProvider">org.signal.chat.purchase.PaymentProvider</span>
-    </a>
         </code>
       </td>
       <td class="content"></td>
@@ -3846,7 +3561,7 @@ currency's minor unit</p></td>
     <tr>
       <td>1</td>
       <td>
-        subscriberId
+        subscriber_id
       </td>
       <td>
         <code title="bytes">
@@ -4249,7 +3964,7 @@ currency's minor unit</p></td>
     <tr>
       <td>1</td>
       <td>
-        subscriberId
+        subscriber_id
       </td>
       <td>
         <code title="bytes">
@@ -4264,7 +3979,7 @@ currency's minor unit</p></td>
     <tr>
       <td>2</td>
       <td>
-        receiptCredentialRequest
+        receipt_credential_request
       </td>
       <td>
         <code title="bytes">
@@ -4463,7 +4178,7 @@ currency's minor unit</p></td>
     <tr>
       <td>1</td>
       <td>
-        receiptCredentialResponse
+        receipt_credential_response
       </td>
       <td>
         <code title="bytes">
@@ -4513,7 +4228,7 @@ currency's minor unit</p></td>
     <tr>
       <td>1</td>
       <td>
-        subscriberId
+        subscriber_id
       </td>
       <td>
         <code title="bytes">
@@ -4687,11 +4402,11 @@ via RemoteConfiguration.GetBadges.</p></td>
         badge_duration_seconds
       </td>
       <td>
-        <code title="uint64">
+        <code title="uint32">
           
             optional
           
-          <span>uint64</span>
+          <span>uint32</span>
         </code>
       </td>
       <td class="content"><p>The duration for which a badge is valid. Present only for
@@ -4945,7 +4660,7 @@ one-time (boost, gift) badges</p></td>
     <tr>
       <td>1</td>
       <td>
-        setupIntentId
+        setup_intent_id
       </td>
       <td>
         <code title="string">
@@ -4995,7 +4710,7 @@ one-time (boost, gift) badges</p></td>
     <tr>
       <td>1</td>
       <td>
-        subscriberId
+        subscriber_id
       </td>
       <td>
         <code title="bytes">
@@ -5170,7 +4885,7 @@ one-time (boost, gift) badges</p></td>
             3
           </td>
           <td>
-            payment_method_not_set_up
+            failed_precondition
           </td>
           <td>
             <code title="org.signal.chat.errors.FailedPrecondition">
@@ -5179,8 +4894,11 @@ one-time (boost, gift) badges</p></td>
     </a>
             </code>
           </td>
-          <td class="content"><p>No payment method has been created for the subscriber, or the provided
-payment method has not finished being set up with the processor</p></td>
+          <td class="content"><p>The request could not be applied in the subscriber's current state. This
+typically indicates a client bug or an out-of-date client. Either
+- No payment method has been created for the subscriber
+- The provided payment method has not finished being set up with the
+  processor</p></td>
           
         </tr>
       
@@ -5222,7 +4940,7 @@ payment method has not finished being set up with the processor</p></td>
     <tr>
       <td>1</td>
       <td>
-        subscriberId
+        subscriber_id
       </td>
       <td>
         <code title="bytes">
@@ -5402,9 +5120,9 @@ the subscription</p></td>
             payment_required
           </td>
           <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
+            <code title="org.signal.chat.purchase.PaymentRequired">
               
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.PaymentRequired"><span title="org.signal.chat.purchase.PaymentRequired">org.signal.chat.purchase.PaymentRequired</span>
     </a>
             </code>
           </td>
@@ -5525,7 +5243,7 @@ transaction is not supported for use at this endpoint</p></td>
     <tr>
       <td>1</td>
       <td>
-        subscriberId
+        subscriber_id
       </td>
       <td>
         <code title="bytes">
@@ -5570,7 +5288,7 @@ transaction is not supported for use at this endpoint</p></td>
     <tr>
       <td>4</td>
       <td>
-        idempotencyKey
+        idempotency_key
       </td>
       <td>
         <code title="string">
@@ -5674,7 +5392,7 @@ transaction is not supported for use at this endpoint</p></td>
             3
           </td>
           <td>
-            payment_method_not_set_up
+            failed_precondition
           </td>
           <td>
             <code title="org.signal.chat.errors.FailedPrecondition">
@@ -5683,7 +5401,12 @@ transaction is not supported for use at this endpoint</p></td>
     </a>
             </code>
           </td>
-          <td class="content"><p>No payment method has been created for the subscriber</p></td>
+          <td class="content"><p>The request could not be applied in the subscriber's current state. This
+typically indicates a client bug or an out-of-date client. Some examples:
+ - the client failed to first set up a payment method
+ - the requested level cannot be transitioned to from the existing level
+ - the payment needs additional authorization before processing
+The FailedPrecondition will contain the specific reason for the failure.</p></td>
           
         </tr>
       
@@ -5694,7 +5417,7 @@ transaction is not supported for use at this endpoint</p></td>
             4
           </td>
           <td>
-            unsupported_operation
+            invalid_selection
           </td>
           <td>
             <code title="org.signal.chat.errors.FailedPrecondition">
@@ -5703,7 +5426,10 @@ transaction is not supported for use at this endpoint</p></td>
     </a>
             </code>
           </td>
-          <td class="content"><p>The payment processor does not support this operation</p></td>
+          <td class="content"><p>The request contained a currency or level that is not supported. The
+violated constraint may be present in the product configuration, clients
+can attempt a refresh of ProductConfiguration/GetConfiguration before
+giving up.</p></td>
           
         </tr>
       
@@ -5714,116 +5440,17 @@ transaction is not supported for use at this endpoint</p></td>
             5
           </td>
           <td>
-            unsupported_level
+            payment_required
           </td>
           <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
+            <code title="org.signal.chat.purchase.PaymentRequired">
               
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.PaymentRequired"><span title="org.signal.chat.purchase.PaymentRequired">org.signal.chat.purchase.PaymentRequired</span>
     </a>
             </code>
           </td>
-          <td class="content"><p>The requested level was invalid</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            6
-          </td>
-          <td>
-            unsupported_currency
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The requested currency was invalid</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            7
-          </td>
-          <td>
-            payment_requires_action
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The card could not be charged</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            8
-          </td>
-          <td>
-            invalid_level_transition
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>Cannot transition from existing level to the requested level</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            9
-          </td>
-          <td>
-            invalid_idempotency_key
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedPrecondition">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The idempotency key was invalid or re-used with a modified request</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            10
-          </td>
-          <td>
-            charge_failure
-          </td>
-          <td>
-            <code title="org.signal.chat.purchase.ChargeFailure">
-              
-              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ChargeFailure"><span title="org.signal.chat.purchase.ChargeFailure">org.signal.chat.purchase.ChargeFailure</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The payment failed; see charge failure details</p></td>
+          <td class="content"><p>The payment method could not be charged. If the processor declined the
+charge, charge_failure will be present.</p></td>
           
         </tr>
       
@@ -5868,7 +5495,7 @@ transaction is not supported for use at this endpoint</p></td>
     <tr>
       <td>1</td>
       <td>
-        paymentMethodToken
+        payment_method_token
       </td>
       <td>
         <code title="string">
