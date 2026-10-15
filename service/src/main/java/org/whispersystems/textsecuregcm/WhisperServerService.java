@@ -75,6 +75,7 @@ import org.eclipse.jetty.ee10.websocket.server.config.JettyWebSocketServletConta
 import org.eclipse.jetty.websocket.core.WebSocketExtensionRegistry;
 import org.eclipse.jetty.websocket.core.server.WebSocketServerComponents;
 import org.glassfish.jersey.server.ServerProperties;
+import org.signal.chat.require.Auth;
 import org.signal.i18n.HeaderControlledResourceBundleLookup;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
@@ -197,6 +198,7 @@ import org.whispersystems.textsecuregcm.grpc.net.ManagedGrpcServer;
 import org.whispersystems.textsecuregcm.grpc.net.OmnibusH2Server;
 import org.whispersystems.textsecuregcm.grpc.net.OmnibusRouter;
 import org.whispersystems.textsecuregcm.grpc.net.SniMapper;
+import org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
@@ -1201,6 +1203,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             concurrentCallLimitingInterceptor))
         .toList();
 
+    verifyServiceAuth(authenticatedServices, Auth.AUTH_ONLY_AUTHENTICATED);
+    verifyServiceAuth(unauthenticatedServices, Auth.AUTH_ONLY_ANONYMOUS);
+
     final ManagedEventLoopGroup<DefaultEventLoopGroup> omnibusLocalEventLoopGroup = new ManagedEventLoopGroup<>(new DefaultEventLoopGroup());
     final ManagedEventLoopGroup<NioEventLoopGroup> omnibusNioEventLoopGroup = new ManagedEventLoopGroup<>(new NioEventLoopGroup());
     final LocalAddress grpcLocalAddress = new LocalAddress("grpc");
@@ -1420,6 +1425,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       webSocketEnvironment.jersey().register(exceptionMapper);
       provisioningEnvironment.jersey().register(exceptionMapper);
     });
+  }
+
+  private static void verifyServiceAuth(final List<ServerServiceDefinition> services, final Auth expectedAuthType) {
+    for (final ServerServiceDefinition service : services) {
+      final Auth authType = ValidatorUtils.serviceAuthExtensionValue(service).orElse(Auth.AUTH_UNSPECIFIED);
+      if (!authType.equals(expectedAuthType)) {
+        throw new IllegalStateException("gRPC service %s is annotated with %s but was registered as %s"
+            .formatted(service.getServiceDescriptor().getName(), authType, expectedAuthType));
+      }
+    }
   }
 
   public static class ExecutorServiceBuilder extends io.dropwizard.lifecycle.setup.ExecutorServiceBuilder {
