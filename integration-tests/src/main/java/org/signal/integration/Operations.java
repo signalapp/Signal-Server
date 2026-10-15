@@ -58,6 +58,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.Request;
 import org.eclipse.jetty.http2.client.HTTP2Client;
 import org.eclipse.jetty.http2.client.transport.HttpClientTransportOverHTTP2;
 import org.eclipse.jetty.io.ClientConnector;
@@ -589,7 +590,17 @@ public final class Operations {
       connector.setSslContextFactory(sslContextFactory);
 
       final HTTP2Client http2Client = new HTTP2Client(connector);
-      final HttpClient httpClient = new HttpClient(new HttpClientTransportOverHTTP2(http2Client));
+      final HttpClient httpClient = new HttpClient(new HttpClientTransportOverHTTP2(http2Client)) {
+        // There is an upstream Jetty bug where an HTTP/2 reader can race against and beat a websocket connection in
+        // reading the first websocket frame. See https://github.com/jetty/jetty.project/issues/15981 for more details.
+        //
+        // As a workaround, register a response content listener that never reads. This stops the HTTP client's default
+        // response content consumer from reading websocket frames off the upgraded HTTP/2 stream.
+        @Override
+        public Request newRequest(final URI uri) {
+          return super.newRequest(uri).onResponseContentSource((_, _) -> {});
+        }
+      };
 
       final WebSocketClient wsClient = new WebSocketClient(httpClient);
       wsClient.start();
