@@ -1290,7 +1290,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
-    webSocketEnvironment.jersey().register(new KeepAliveController(redisMessageAvailabilityManager));
+    webSocketEnvironment.jersey().register(new KeepAliveController(redisMessageAvailabilityManager, experimentEnrollmentManager));
     webSocketEnvironment.jersey().register(new TimestampResponseFilter());
 
     final PersistentTimer persistentTimer = new PersistentTimer(rateLimitersCluster, clock);
@@ -1352,7 +1352,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         webSocketEnvironment.getRequestLog(), Duration.ofMillis(60000));
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager, asnInfoProviderSupplier, clientReleaseManager, provisioningWebsocketTimeoutExecutor, Duration.ofSeconds(90)));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
-    provisioningEnvironment.jersey().register(new KeepAliveController(redisMessageAvailabilityManager));
+    provisioningEnvironment.jersey().register(new KeepAliveController(redisMessageAvailabilityManager, experimentEnrollmentManager));
     provisioningEnvironment.jersey().register(new TimestampResponseFilter());
 
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);

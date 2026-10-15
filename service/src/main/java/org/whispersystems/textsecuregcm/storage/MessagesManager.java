@@ -74,8 +74,7 @@ public class MessagesManager {
   @VisibleForTesting
   static final String MIRROR_READS_EXPERIMENT_NAME = "foundationDbMirrorReads";
 
-  @VisibleForTesting
-  static final String READ_LIVE_MESSAGES_FROM_FOUNDATIONDB_EXPERIMENT_NAME = "foundationDbReadLiveMessages";
+  public static final String READ_LIVE_MESSAGES_FROM_FOUNDATIONDB_EXPERIMENT_NAME = "foundationDbReadLiveMessages";
 
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;

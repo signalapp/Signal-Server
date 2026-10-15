@@ -21,8 +21,10 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.websocket.session.WebSocketSession;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 
@@ -34,13 +36,16 @@ public class KeepAliveController {
   private final Logger logger = LoggerFactory.getLogger(KeepAliveController.class);
 
   private final RedisMessageAvailabilityManager redisMessageAvailabilityManager;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private static final String CLOSED_CONNECTION_AGE_DISTRIBUTION_NAME = name(KeepAliveController.class,
       "closedConnectionAge");
 
 
-  public KeepAliveController(final RedisMessageAvailabilityManager redisMessageAvailabilityManager) {
+  public KeepAliveController(final RedisMessageAvailabilityManager redisMessageAvailabilityManager,
+      final ExperimentEnrollmentManager experimentEnrollmentManager) {
     this.redisMessageAvailabilityManager = redisMessageAvailabilityManager;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   @GET
@@ -48,7 +53,8 @@ public class KeepAliveController {
       @WebSocketSession WebSocketSessionContext context) {
 
     maybeAuth.ifPresent(auth -> {
-      if (!redisMessageAvailabilityManager.isLocallyPresent(auth.accountIdentifier(), auth.deviceId())) {
+      if (!(experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(), MessagesManager.READ_LIVE_MESSAGES_FROM_FOUNDATIONDB_EXPERIMENT_NAME) ||
+          redisMessageAvailabilityManager.isLocallyPresent(auth.accountIdentifier(), auth.deviceId()))) {
 
         final Duration age = Duration.between(context.getClient().getCreated(), Instant.now());
 
