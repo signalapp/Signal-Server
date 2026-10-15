@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
@@ -77,6 +78,7 @@ public class CertificateController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
+  @ManagedAsync
   public DeliveryCertificate getDeliveryCertificate(@Auth AuthenticatedDevice auth,
       @QueryParam("includeE164") @DefaultValue("true") boolean includeE164) {
 
@@ -96,6 +98,7 @@ public class CertificateController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/auth/group")
+  @ManagedAsync
   public GroupCredentials getGroupAuthenticationCredentials(
       @Auth AuthenticatedDevice auth,
       @QueryParam("redemptionStartSeconds") long startSeconds,

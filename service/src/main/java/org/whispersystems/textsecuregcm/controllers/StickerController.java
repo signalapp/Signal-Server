@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.LinkedList;
 import java.util.List;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.StickerPackFormUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.StickerPackFormUploadAttributes.StickerPackFormUploadItem;
@@ -49,6 +50,7 @@ public class StickerController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/pack/form/{count}")
+  @ManagedAsync
   public StickerPackFormUploadAttributes getStickersForm(@Auth AuthenticatedDevice auth,
       @PathParam("count") @Min(1) @Max(201) int stickerCount)
       throws RateLimitExceededException {

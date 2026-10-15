@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -115,6 +116,7 @@ public class SecureValueRecovery2Controller {
   @ApiResponse(responseCode = "200", description = "`JSON` with the check results.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "422", description = "Provided list of SVR2 credentials could not be parsed")
   @ApiResponse(responseCode = "400", description = "`POST` request body is not a valid `JSON`")
+  @ManagedAsync
   public AuthCheckResponseV2 authCheck(
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @Valid final AuthCheckRequest request) {

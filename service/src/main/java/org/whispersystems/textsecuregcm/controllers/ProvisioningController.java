@@ -29,6 +29,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Base64;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -76,6 +77,7 @@ public class ProvisioningController {
   @ApiResponse(responseCode="204", description="The provisioning message was delivered to the given provisioning address")
   @ApiResponse(responseCode="400", description="The provisioning message was too large")
   @ApiResponse(responseCode="404", description="No device with the given provisioning address was connected at the time of the request")
+  @ManagedAsync
   public void sendProvisioningMessage(@Auth final AuthenticatedDevice auth,
 
       @Parameter(description = "The temporary provisioning address to which to send a provisioning message")

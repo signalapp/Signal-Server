@@ -60,6 +60,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.apache.commons.lang3.Strings;
 import org.apache.http.HttpStatus;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
@@ -184,6 +185,7 @@ public class VerificationController {
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed",
       schema = @Schema(implementation = Integer.class)))
+  @ManagedAsync
   public VerificationSessionResponse createSession(@NotNull @Valid final CreateVerificationSessionRequest request,
       @Context final ContainerRequestContext requestContext)
       throws RateLimitExceededException, ObsoletePhoneNumberFormatException {
@@ -263,6 +265,7 @@ public class VerificationController {
           name = "Retry-After",
           description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed",
           schema = @Schema(implementation = Integer.class)))
+  @ManagedAsync
   public VerificationSessionResponse updateSession(
       @PathParam("sessionId") final String encodedSessionId,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
@@ -518,6 +521,7 @@ public class VerificationController {
   @ApiResponse(responseCode = "400", description = "Invalid session ID")
   @ApiResponse(responseCode = "404", description = "Session with the specified ID could not be found")
   @ApiResponse(responseCode = "422", description = "Malformed session ID encoding")
+  @ManagedAsync
   public VerificationSessionResponse getSession(@PathParam("sessionId") final String encodedSessionId) {
 
     final RegistrationServiceSession registrationServiceSession = retrieveRegistrationServiceSession(encodedSessionId);
@@ -564,6 +568,7 @@ public class VerificationController {
       future attempts to request or submit verification codes (since those attempts would be all but guaranteed to fail).
       """,
       content = @Content(schema = @Schema(implementation = RegistrationServiceSenderExceptionMapper.SendVerificationCodeFailureResponse.class)))
+  @ManagedAsync
   public VerificationSessionResponse requestVerificationCode(@PathParam("sessionId") final String encodedSessionId,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @Parameter(in = ParameterIn.HEADER, description = "Ordered list of languages in which the client prefers to receive SMS or voice verification messages") @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE)
@@ -700,6 +705,7 @@ public class VerificationController {
           name = "Retry-After",
           description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed",
           schema = @Schema(implementation = Integer.class)))
+  @ManagedAsync
   public VerificationSessionResponse verifyCode(@PathParam("sessionId") final String encodedSessionId,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @Valid final SubmitVerificationCodeRequest submitVerificationCodeRequest) {

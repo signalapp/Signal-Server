@@ -14,6 +14,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -55,6 +56,7 @@ public class CallLinkController {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  @ManagedAsync
   public CreateCallLinkCredential getCreateAuth(
       final @Auth AuthenticatedDevice auth,
       final @NotNull @Valid GetCreateCallLinkCredentialsRequest request,

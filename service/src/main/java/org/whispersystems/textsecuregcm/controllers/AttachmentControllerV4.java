@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
@@ -99,6 +100,7 @@ public class AttachmentControllerV4 {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  @ManagedAsync
   public AttachmentDescriptorV3 getAttachmentUploadForm(
       @Auth AuthenticatedDevice auth,
       @Parameter(description = "The size of the attachment to upload in bytes")

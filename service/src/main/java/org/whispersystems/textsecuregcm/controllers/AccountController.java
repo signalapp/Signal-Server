@@ -38,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -97,6 +98,7 @@ public class AccountController {
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @ManagedAsync
   public void setGcmRegistrationId(@Auth AuthenticatedDevice auth,
       @NotNull @Valid GcmRegistrationId registrationId) {
 
@@ -118,6 +120,7 @@ public class AccountController {
 
   @DELETE
   @Path("/gcm/")
+  @ManagedAsync
   public void deleteGcmRegistrationId(@Auth AuthenticatedDevice auth) {
     accounts.updateDevice(auth.accountIdentifier(), auth.deviceId(), d -> {
       d.setGcmId(null);
@@ -130,6 +133,7 @@ public class AccountController {
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @ManagedAsync
   public void setApnRegistrationId(@Auth AuthenticatedDevice auth,
       @NotNull @Valid ApnRegistrationId registrationId) {
 
@@ -144,6 +148,7 @@ public class AccountController {
 
   @DELETE
   @Path("/apn/")
+  @ManagedAsync
   public void deleteApnRegistrationId(@Auth AuthenticatedDevice auth) {
     accounts.updateDevice(auth.accountIdentifier(), auth.deviceId(), d -> {
       d.setApnId(null);
@@ -155,6 +160,7 @@ public class AccountController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/registration_lock")
+  @ManagedAsync
   public void setRegistrationLock(@Auth AuthenticatedDevice auth, @NotNull @Valid RegistrationLock accountLock) {
     final SaltedTokenHash credentials = SaltedTokenHash.generateFor(accountLock.registrationLock());
 
@@ -168,6 +174,7 @@ public class AccountController {
 
   @DELETE
   @Path("/registration_lock")
+  @ManagedAsync
   public void removeRegistrationLock(@Auth AuthenticatedDevice auth) {
     accounts.update(auth.accountIdentifier(), a -> a.setRegistrationLock(null, null));
   }
@@ -183,6 +190,7 @@ public class AccountController {
   @ApiResponse(responseCode = "204", description = "Device name changed successfully")
   @ApiResponse(responseCode = "404", description = "No device found with the given ID")
   @ApiResponse(responseCode = "403", description = "Not authorized to change the name of the device with the given ID")
+  @ManagedAsync
   public void setName(@Auth final AuthenticatedDevice auth,
       @NotNull @Valid final DeviceName deviceName,
 
@@ -214,6 +222,7 @@ public class AccountController {
   @Path("/attributes/")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @ManagedAsync
   public void setAccountAttributes(
       @Auth AuthenticatedDevice auth,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String signalAgent,
@@ -260,6 +269,7 @@ public class AccountController {
   @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
+  @ManagedAsync
   public AccountIdentityResponse whoAmI(@Auth final AuthenticatedDevice auth) {
     final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
@@ -278,6 +288,7 @@ public class AccountController {
   )
   @ApiResponse(responseCode = "204", description = "Username successfully deleted.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  @ManagedAsync
   public void deleteUsernameHash(@Auth final AuthenticatedDevice auth) {
     accounts.clearUsernameHash(auth.accountIdentifier());
   }
@@ -298,6 +309,7 @@ public class AccountController {
   @ApiResponse(responseCode = "409", description = "All username hashes from the list are taken.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  @ManagedAsync
   public ReserveUsernameHashResponse reserveUsernameHash(
       @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final ReserveUsernameHashRequest usernameRequest) throws RateLimitExceededException {
@@ -337,6 +349,7 @@ public class AccountController {
   @ApiResponse(responseCode = "410", description = "Username hash not available (username can't be used).")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  @ManagedAsync
   public UsernameHashResponse confirmUsernameHash(
       @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final ConfirmUsernameHashRequest confirmRequest) throws RateLimitExceededException {
@@ -417,6 +430,7 @@ public class AccountController {
   @ApiResponse(responseCode = "409", description = "Username is not set for the account.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  @ManagedAsync
   public UsernameLinkHandle updateUsernameLink(
       @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final EncryptedUsername encryptedUsername) throws RateLimitExceededException {
@@ -454,6 +468,7 @@ public class AccountController {
   @ApiResponse(responseCode = "204", description = "Username Link successfully deleted.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
+  @ManagedAsync
   public void deleteUsernameLink(@Auth final AuthenticatedDevice auth) throws RateLimitExceededException {
     // check ratelimiter for username link operations
     rateLimiters.forDescriptor(RateLimiters.For.USERNAME_LINK_OPERATION).validate(auth.accountIdentifier());
@@ -503,6 +518,7 @@ public class AccountController {
   @HEAD
   @Path("/account/{identifier}")
   @RateLimitedByIp(RateLimiters.For.CHECK_ACCOUNT_EXISTENCE)
+  @ManagedAsync
   public Response accountExists(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
 
@@ -519,6 +535,7 @@ public class AccountController {
 
   @DELETE
   @Path("/me")
+  @ManagedAsync
   public void deleteAccount(@Auth AuthenticatedDevice auth) {
     accounts.delete(auth.accountIdentifier(), AccountsManager.DeletionReason.USER_REQUEST);
   }

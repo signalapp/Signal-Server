@@ -31,6 +31,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.io.IOException;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -88,6 +89,7 @@ public class ChallengeController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  @ManagedAsync
   public Response handleChallengeResponse(@Auth final AuthenticatedDevice auth,
       @Valid final AnswerChallengeRequest answerRequest,
       @Context final ContainerRequestContext requestContext,
@@ -182,6 +184,7 @@ public class ChallengeController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  @ManagedAsync
   public Response requestPushChallenge(@Auth final AuthenticatedDevice auth,
       @Context ContainerRequestContext requestContext) {
 

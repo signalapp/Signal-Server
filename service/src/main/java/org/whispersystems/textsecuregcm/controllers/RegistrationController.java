@@ -45,6 +45,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
@@ -161,6 +162,7 @@ public class RegistrationController {
           """,
       content = @Content(schema = @Schema(implementation = MfaFailureExceptionMapper.MfaFailureResponse.class)))
   @ApiResponse(responseCode = "499", description = "Client must support post-quantum ratchet")
+  @ManagedAsync
   public AccountCreationResponse register(
       @Parameter(
           in = ParameterIn.HEADER,

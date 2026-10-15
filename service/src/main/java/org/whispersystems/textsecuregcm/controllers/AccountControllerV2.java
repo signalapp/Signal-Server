@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ChangesPhoneNumber;
 import org.whispersystems.textsecuregcm.auth.InvalidRegistrationSessionException;
@@ -84,6 +85,7 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  @ManagedAsync
   public AccountIdentityResponse changeNumber(@Auth final AuthenticatedDevice authenticatedDevice,
       @NotNull @Valid final ChangeNumberRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString,
@@ -151,6 +153,7 @@ public class AccountControllerV2 {
   @Produces(MediaType.APPLICATION_JSON)
   @Operation(summary = "Sets whether the account should be discoverable by phone number in the directory.")
   @ApiResponse(responseCode = "204", description = "The setting was successfully updated.")
+  @ManagedAsync
   public void setPhoneNumberDiscoverability(
       @Auth AuthenticatedDevice auth,
       @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability) {
@@ -171,6 +174,7 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "200",
       description = "Response with data report. A plain text representation is a field in the response.",
       useReturnTypeSchema = true)
+  @ManagedAsync
   public AccountDataReportResponse getAccountDataReport(@Auth final AuthenticatedDevice auth) {
 
     final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())

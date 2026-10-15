@@ -170,6 +170,7 @@ public class ProfileController {
   @ApiResponse(responseCode = "403", description = "The request contained a payment address, but payments are not supported in the region of the account’s phone number or the caller's ASN if the account does not have a phone number.")
   @ApiResponse(responseCode = "412", description = "The requesting account has the profiles_v2 capability")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
+  @ManagedAsync
   public Response setProfile(@Auth AuthenticatedDevice auth,
       @NotNull @Valid CreateProfileRequest request,
       @Context final ContainerRequestContext requestContext) {
@@ -278,6 +279,7 @@ public class ProfileController {
   @ApiResponse(responseCode = "401", description = "Not authorized to access this profile.")
   @ApiResponse(responseCode = "404", description = "Profile or account not found.")
   @ApiResponse(responseCode = "429", description = "Rate limit exceeded.")
+  @ManagedAsync
   public ExpiringProfileKeyCredentialProfileResponse getProfile(
       @Auth Optional<AuthenticatedDevice> maybeAuthenticatedDevice,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,

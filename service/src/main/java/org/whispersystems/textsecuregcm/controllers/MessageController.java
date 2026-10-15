@@ -463,6 +463,7 @@ public class MessageController {
   @ApiResponse(
       responseCode = "410", description = "Mismatched registration ids supplied for some recipient devices",
       content = @Content(schema = @Schema(implementation = AccountStaleDevices[].class)))
+  @ManagedAsync
   public Response sendMultiRecipientMessage(
       @Deprecated
       @Parameter(description="The bitwise xor of the unidentified access keys for every recipient of the message. Will be replaced with group send endorsements")
@@ -729,6 +730,7 @@ public class MessageController {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Path("/report/{source}/{messageGuid}")
+  @ManagedAsync
   public Response reportSpamMessage(
       @Auth AuthenticatedDevice auth,
       @PathParam("source") UUID source,

@@ -24,6 +24,7 @@ import jakarta.ws.rs.core.Response;
 import java.util.HexFormat;
 import java.util.Map;
 import javax.annotation.Nullable;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.RemoteConfigurationResponse;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
@@ -52,6 +53,7 @@ public class RemoteConfigController {
   @ApiResponse(responseCode = "304", description = "There is no change since the last fetch", content = {})
   @ApiResponse(responseCode = "401", description = "This request requires authentication", content = {})
 
+  @ManagedAsync
   public Response getAll(
       @Auth AuthenticatedDevice auth,
 

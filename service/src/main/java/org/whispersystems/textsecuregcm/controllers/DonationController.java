@@ -160,6 +160,7 @@ public class DonationController {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
   @ApiResponse(responseCode = "429", description = "Rate-limited; reduce requested permit count and/or try again after the prescribed delay")
+  @ManagedAsync
   public CreateDonationPermitResponse createPermits(@Auth final AuthenticatedDevice auth,
       @NotNull @Valid final CreateDonationPermitsRequest request) throws RateLimitExceededException {
 
