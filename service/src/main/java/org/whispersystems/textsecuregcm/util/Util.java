@@ -39,7 +39,8 @@ public class Util {
   public static final String REGION_NOT_APPLICABLE = "n/a";
 
   // Keep in sync with registration-service's FictitiousNumberVerificationCodeSender, which sends verification codes
-  // for these numbers to a datastore instead of an SMS/voice provider
+  // for these numbers to a datastore instead of an SMS/voice provider; see
+  // https://github.com/signalapp/registration-service/blob/cbace936454c1f5e62590d75eaa42ecd2b54f6ee/src/main/java/org/signal/registration/sender/fictitious/FictitiousNumberVerificationCodeSender.java#L43-L52
   private static final List<Pattern> FICTITIOUS_NUMBER_PATTERNS = List.of(
       // NANPA fictitious numbers
       Pattern.compile("\\+1[0-9]{3}55501[0-9]{2}"),
