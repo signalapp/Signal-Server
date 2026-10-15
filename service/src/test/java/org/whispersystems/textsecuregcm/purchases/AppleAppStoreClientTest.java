@@ -24,10 +24,12 @@ import com.apple.itunes.storekit.model.StatusResponse;
 import com.apple.itunes.storekit.model.TransactionInfoResponse;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
+import com.apple.itunes.storekit.verification.VerificationStatus;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 
 class AppleAppStoreClientTest {
@@ -228,6 +231,37 @@ class AppleAppStoreClientTest {
     verify(expectedVerifier).verifyAndDecodeTransaction(SIGNED_TX_INFO);
     verify(expectedVerifier).verifyAndDecodeRenewalInfo(SIGNED_RENEWAL_INFO);
     verifyNoInteractions(unexpectedVerifier);
+  }
+
+  @Test
+  public void verifySubscriptionRetryableFailure() throws VerificationException {
+    when(productionSignedDataVerifier.verifyAndDecodeTransaction(SIGNED_TX_INFO))
+        .thenThrow(new VerificationException(VerificationStatus.RETRYABLE_VERIFICATION_FAILURE))
+        .thenReturn(new JWSTransactionDecodedPayload().productId(PRODUCT_ID));
+    when(productionSignedDataVerifier.verifyAndDecodeRenewalInfo(SIGNED_RENEWAL_INFO))
+        .thenReturn(new JWSRenewalInfoDecodedPayload());
+
+    apiWrapper.verifySubscription(Environment.PRODUCTION, new LastTransactionsItem()
+        .originalTransactionId(ORIGINAL_TX_ID)
+        .signedRenewalInfo(SIGNED_RENEWAL_INFO)
+        .signedTransactionInfo(SIGNED_TX_INFO));
+
+    verify(productionSignedDataVerifier, Mockito.times(2))
+        .verifyAndDecodeTransaction(SIGNED_TX_INFO);
+  }
+
+  @Test
+  public void verifySubscriptionInvalidChain() throws VerificationException {
+    when(productionSignedDataVerifier.verifyAndDecodeTransaction(SIGNED_TX_INFO))
+        .thenThrow(new VerificationException(VerificationStatus.INVALID_CHAIN));
+
+    assertThatExceptionOfType(UncheckedIOException.class).isThrownBy(() ->
+        apiWrapper.verifySubscription(Environment.PRODUCTION, new LastTransactionsItem()
+            .originalTransactionId(ORIGINAL_TX_ID)
+            .signedRenewalInfo(SIGNED_RENEWAL_INFO)
+            .signedTransactionInfo(SIGNED_TX_INFO)));
+
+    verify(productionSignedDataVerifier).verifyAndDecodeTransaction(SIGNED_TX_INFO);
   }
 
   /// Indicates how many times to throw an exception on calls to [ConfigurableFinder#lookup]

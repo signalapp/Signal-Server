@@ -15,6 +15,7 @@ import com.apple.itunes.storekit.model.StatusResponse;
 import com.apple.itunes.storekit.model.TransactionInfoResponse;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
+import com.apple.itunes.storekit.verification.VerificationStatus;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -27,6 +28,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import io.micrometer.core.instrument.Tags;
@@ -113,10 +115,10 @@ public class AppleAppStoreClient {
       default -> throw new IllegalStateException("Unexpected environment: " + environment);
     };
     try {
-      return new AppleAppStoreDecodedTransaction(
+      return verifyWithRetry(() -> new AppleAppStoreDecodedTransaction(
           tx,
           signedDataVerifier.verifyAndDecodeTransaction(tx.getSignedTransactionInfo()),
-          signedDataVerifier.verifyAndDecodeRenewalInfo(tx.getSignedRenewalInfo()));
+          signedDataVerifier.verifyAndDecodeRenewalInfo(tx.getSignedRenewalInfo())));
     } catch (VerificationException e) {
       throw new UncheckedIOException(new IOException("Failed to verify payload from App Store Server", e));
     }
@@ -146,7 +148,8 @@ public class AppleAppStoreClient {
       return Optional.of(lookupByTransactionId(transactionId, errorTags, (environment, txId) -> {
         try {
           final TransactionInfoResponse transactionInfo = client(environment).getTransactionInfo(txId);
-          return verifier(environment).verifyAndDecodeTransaction(transactionInfo.getSignedTransactionInfo());
+          return verifyWithRetry(() ->
+              verifier(environment).verifyAndDecodeTransaction(transactionInfo.getSignedTransactionInfo()));
         } catch (VerificationException e) {
           throw new IOException("Failed to verify payload from App Store Server", e);
         }
@@ -217,6 +220,16 @@ public class AppleAppStoreClient {
     }
   }
 
+  private <T> T verifyWithRetry(final Callable<T> verification) throws VerificationException {
+    try {
+      return retry.executeCallable(verification);
+    } catch (VerificationException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   private AppStoreServerAPIClient client(final Environment environment) {
     return switch (environment) {
       case SANDBOX -> sandboxApiClient;
@@ -247,6 +260,9 @@ public class AppleAppStoreClient {
   }
 
   private static boolean shouldRetry(Throwable e) {
+    if (e instanceof VerificationException verificationException) {
+      return verificationException.getStatus() == VerificationStatus.RETRYABLE_VERIFICATION_FAILURE;
+    }
     return e instanceof APIException apiException && switch (apiException.getApiError()) {
       case ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE, GENERAL_INTERNAL_RETRYABLE, APP_NOT_FOUND_RETRYABLE, ACCOUNT_NOT_FOUND_RETRYABLE -> true;
       case null, default -> false;
