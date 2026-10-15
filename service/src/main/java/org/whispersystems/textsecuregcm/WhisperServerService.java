@@ -1151,9 +1151,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new PaymentsGrpcService(currencyManager),
             new ChallengeGrpcService(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
             new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new, donationPermitsManager, rateLimiters),
-            new ProductConfigurationGrpcService(config.getSubscription(), config.getOneTimeDonations(),
-                config.getLoginPurchase(), List.of(stripeManager, braintreeManager),
-                config.getBackupConfiguration().maxTotalMediaSize()),
             new RemoteConfigurationGrpcService(remoteConfigsManager, profileBadgeConverter,
                 config.getBadges().getBadges().stream()
                     .map(BadgeConfiguration::getId)
@@ -1183,6 +1180,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC()), rateLimiters),
             new SubscriptionsGrpcService(clock, config.getSubscription(), subscriptionManager, donationPermitsManager,
                 stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager, bankMandateTranslator),
+            new ProductConfigurationGrpcService(config.getSubscription(), config.getOneTimeDonations(),
+                config.getLoginPurchase(), List.of(stripeManager, braintreeManager),
+                config.getBackupConfiguration().maxTotalMediaSize()),
             new OneTimeDonationsGrpcService(config.getOneTimeDonations(), stripeManager, braintreeManager,
                 payPalDonationsTranslator, oneTimeDonationsManager, issuedReceiptsManager,
                 zkReceiptOperations, clock, rateLimiters, donationPermitsManager))
