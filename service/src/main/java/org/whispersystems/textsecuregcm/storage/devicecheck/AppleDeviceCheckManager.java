@@ -204,7 +204,7 @@ public class AppleDeviceCheckManager {
         new DCAssertionParameters(new DCServerProperty(teamId, bundleId, new DefaultChallenge(request)), appleDevice);
 
     try {
-      deviceCheckManager.validate(dcAssertionRequest, dcAssertionParameters);
+      deviceCheckManager.validate(AppAttestAssertionConverter.parseAppleAssertion(dcAssertionRequest), dcAssertionParameters);
     } catch (MaliciousCounterValueException e) {
       // We will only accept assertions that have a sign count greater than the last assertion we saw. Step 5 here:
       // https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server#Verify-the-assertion
