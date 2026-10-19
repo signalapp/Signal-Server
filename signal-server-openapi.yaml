@@ -2141,19 +2141,11 @@ paths:
       tags:
       - Keep Alive
       operationId: getKeepAlive
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: "#/components/schemas/WebSocketSessionContext"
       responses:
         default:
           description: default response
           content:
             '*/*': {}
-      security:
-      - authenticatedAccount: []
-      - {}
   /v1/keepalive/provisioning:
     get:
       tags:
@@ -5335,26 +5327,6 @@ components:
           type: boolean
           description: "if true, and the new badge is visible, it should be the primary\
             \ badge on the profile"
-    WebSocketClient:
-      type: object
-      properties:
-        created:
-          type: string
-          format: date-time
-        open:
-          type: boolean
-        remoteAddress:
-          type: object
-        userAgent:
-          type: string
-    WebSocketSessionContext:
-      type: object
-      properties:
-        authenticated:
-          type: object
-          nullable: true
-        client:
-          $ref: "#/components/schemas/WebSocketClient"
     KeyTransparencyDistinguishedKeyResponse:
       required:
       - serializedResponse
@@ -5885,12 +5857,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        spendId:
-          type: string
-          format: byte
         expiration:
           type: string
           format: date-time
+        spendId:
+          type: string
+          format: byte
         internalContentsForJNI:
           type: string
           format: byte
