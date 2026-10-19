@@ -14,11 +14,14 @@ import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -57,11 +60,13 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.storage.FoundationDbClusterExtension;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
+import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -78,16 +83,19 @@ class MessageDispatcherIntegrationTest {
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
+  @RegisterExtension
+  static FoundationDbClusterExtension FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension(1);
+
   private static ExecutorService sharedExecutorService;
+  private static ScheduledExecutorService sharedScheduledExecutorService;
   private static Scheduler messageDeliveryScheduler;
 
+  private FoundationDbMessageStore foundationDbMessageStore;
   private MessagesDynamoDb messagesDynamoDb;
   private MessagesCache messagesCache;
   private RedisMessageAvailabilityManager redisMessageAvailabilityManager;
-  private ReportMessageManager reportMessageManager;
   private Account account;
   private Device device;
-  private ClientReleaseManager clientReleaseManager;
   private MessageDispatcher messageDispatcher;
 
   private long serialTimestamp = System.currentTimeMillis();
@@ -95,6 +103,7 @@ class MessageDispatcherIntegrationTest {
   @BeforeAll
   static void beforeAll() {
     sharedExecutorService = Executors.newSingleThreadExecutor();
+    sharedScheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
   }
 
@@ -113,10 +122,22 @@ class MessageDispatcherIntegrationTest {
         sharedExecutorService);
     redisMessageAvailabilityManager = new RedisMessageAvailabilityManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         sharedExecutorService, sharedExecutorService);
-    reportMessageManager = mock(ReportMessageManager.class);
     account = mock(Account.class);
     device = mock(Device.class);
-    clientReleaseManager = mock(ClientReleaseManager.class);
+
+    final byte[] versionstampCipherKey = new byte[16];
+    new SecureRandom().nextBytes(versionstampCipherKey);
+
+    final VersionstampUUIDCipher versionstampUUIDCipher = new VersionstampUUIDCipher(0, versionstampCipherKey);
+
+    foundationDbMessageStore = new FoundationDbMessageStore(
+        Map.of(0, Arrays.asList(FOUNDATION_DB_EXTENSION.getDatabases())),
+        0,
+        versionstampUUIDCipher,
+        sharedScheduledExecutorService,
+        Clock.systemUTC(),
+        Duration.ofSeconds(5),
+        10);
 
     when(account.getNumber()).thenReturn(Optional.of("+18005551234"));
     when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
@@ -126,28 +147,33 @@ class MessageDispatcherIntegrationTest {
 
     messageDispatcher = new MessageDispatcher(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, mock(FoundationDbMessageStore.class), redisMessageAvailabilityManager, reportMessageManager,
+        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager,
+            mock(ReportMessageManager.class),
             sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class)),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
         mock(DisconnectionRequestManager.class),
-        clientReleaseManager);
+        mock(ClientReleaseManager.class));
   }
 
   @AfterEach
-  void tearDown() throws Exception {
+  void tearDown() {
     redisMessageAvailabilityManager.stop();
-
   }
 
   @AfterAll
   static void afterAll() throws InterruptedException {
     sharedExecutorService.shutdown();
+    sharedScheduledExecutorService.shutdown();
     final Mono<Void> schedulerShutdownMono = messageDeliveryScheduler.disposeGracefully();
 
     //noinspection ResultOfMethodCallIgnored
     sharedExecutorService.awaitTermination(2, TimeUnit.SECONDS);
+
+    //noinspection ResultOfMethodCallIgnored
+    sharedScheduledExecutorService.awaitTermination(2, TimeUnit.SECONDS);
+
     schedulerShutdownMono.timeout(Duration.ofSeconds(2))
         .onErrorResume(TimeoutException.class, _ -> Mono.fromRunnable(() -> messageDeliveryScheduler.dispose()))
         .block();
@@ -156,12 +182,13 @@ class MessageDispatcherIntegrationTest {
 
   @ParameterizedTest
   @CsvSource({
-      "207, 173",
-      "323, 0",
-      "0, 221",
+      "207, 173, 77",
+      "323, 0, 0",
+      "0, 221, 0",
+      "0, 0, 87"
   })
-  void testProcessStoredMessages(final int persistedMessageCount, final int cachedMessageCount) {
-    final List<Envelope> expectedMessages = fillRandomMessages(persistedMessageCount, cachedMessageCount);
+  void testProcessStoredMessages(final int persistedMessageCount, final int cachedMessageCount, final int foundationDbMessageCount) {
+    final List<Envelope> expectedMessages = fillRandomMessages(persistedMessageCount, cachedMessageCount, foundationDbMessageCount);
     final Sinks.Many<UUID> acks = Sinks.many().unicast().onBackpressureBuffer();
     final List<Envelope> receivedMessages = messageDispatcher
         .getMessages(true, null, account, device, acks.asFlux())
@@ -178,7 +205,7 @@ class MessageDispatcherIntegrationTest {
     final int persistedMessageCount = 77;
     final int cachedMessageCount = 104;
 
-    final List<Envelope> expectedMessages = fillRandomMessages(persistedMessageCount, cachedMessageCount);
+    final List<Envelope> expectedMessages = fillRandomMessages(persistedMessageCount, cachedMessageCount, 0);
     final AtomicInteger remainingMessages = new AtomicInteger(persistedMessageCount + cachedMessageCount);
     final int additionalMessageCount = 67;
 
@@ -191,10 +218,10 @@ class MessageDispatcherIntegrationTest {
           acks.tryEmitNext(UUIDUtil.fromByteString(envelope.getServerGuid()));
           if (remainingMessages.addAndGet(-1) == 60) {
             sharedExecutorService
-                .submit(() -> expectedMessages.addAll(fillRandomMessages(0, additionalMessageCount)));
+                .submit(() -> expectedMessages.addAll(fillRandomMessages(0, 0, additionalMessageCount)));
           }
         })
-        .take(persistedMessageCount +  cachedMessageCount + additionalMessageCount)
+        .take(persistedMessageCount + cachedMessageCount + additionalMessageCount)
         .collectList()
         .block(Duration.ofSeconds(15));
     assertEquals(expectedMessages.size(), receivedMessages.size());
@@ -206,25 +233,26 @@ class MessageDispatcherIntegrationTest {
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;
 
-    final Set<Envelope> receivedMessages = Collections.newSetFromMap(new ConcurrentHashMap<Envelope, Boolean>());
-    final List<Envelope> expectedMessages = fillRandomMessages(persistedMessageCount, cachedMessageCount);
+    final Set<Envelope> receivedMessages = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    final List<Envelope> expectedMessages = fillRandomMessages(persistedMessageCount, cachedMessageCount, 0);
     final TestPublisher<UUID> acks = TestPublisher.create();
     final Exception thrown = assertThrows(Exception.class, () -> messageDispatcher
         .getMessages(true, null, account, device, acks.flux())
         .doOnNext(response -> {
-          assertTrue(redisMessageAvailabilityManager.isLocallyPresent(account.getAccountIdentifier(),
-              device.getId()));
+          assertFalse(redisMessageAvailabilityManager.isLocallyPresent(account.getAccountIdentifier(), device.getId()),
+              "Client should not be present until initial queue is cleared");
           receivedMessages.add(response.getEnvelope());
           acks.error(new IOException("test exception"));
         })
         .collectList()
         .block());
+
     assertInstanceOf(IOException.class, thrown.getCause());
     assertTrue(expectedMessages.containsAll(receivedMessages));
     assertFalse(redisMessageAvailabilityManager.isLocallyPresent(account.getAccountIdentifier(), device.getId()));
   }
 
-  private List<Envelope> fillRandomMessages(final int persistedMessageCount, final int cachedMessageCount) {
+  private List<Envelope> fillRandomMessages(final int persistedMessageCount, final int cachedMessageCount, final int foundationDbMessageCount) {
 
     final List<Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
     for (int i = 0; i < persistedMessageCount; i++) {
@@ -240,6 +268,26 @@ class MessageDispatcherIntegrationTest {
       messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
       expectedMessages.add(envelope);
     }
+
+    for (int i = 0; i < foundationDbMessageCount; i++) {
+      final Envelope envelope = generateRandomMessage(UUID.randomUUID())
+          .toBuilder()
+          .clearServerGuid()
+          .build();
+
+      final UUID messageGuid = foundationDbMessageStore.insert(new AciServiceIdentifier(account.getAccountIdentifier()),
+              Map.of(device.getId(), envelope))
+          .join()
+          .get(device.getId())
+          .messageGuid()
+          .orElseThrow();
+
+      expectedMessages.add(envelope
+          .toBuilder()
+          .setServerGuid(UUIDUtil.toByteString(messageGuid))
+          .build());
+    }
+
     return expectedMessages;
   }
 

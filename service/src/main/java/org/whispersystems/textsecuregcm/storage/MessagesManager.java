@@ -7,13 +7,11 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.apple.foundationdb.FDBException;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,17 +63,6 @@ public class MessagesManager {
 
   private static final String INSERT_FDB_EXCEPTIONS_COUNTER_NAME = name(MessagesManager.class, "insertExceptions");
 
-  @VisibleForTesting
-  static final String MIRROR_INSERTS_EXPERIMENT_NAME = "foundationDbMirrorInserts";
-
-  @VisibleForTesting
-  static final String MIRROR_DELETIONS_EXPERIMENT_NAME = "foundationDbMirrorDeletions";
-
-  @VisibleForTesting
-  static final String MIRROR_READS_EXPERIMENT_NAME = "foundationDbMirrorReads";
-
-  public static final String READ_LIVE_MESSAGES_FROM_FOUNDATIONDB_EXPERIMENT_NAME = "foundationDbReadLiveMessages";
-
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
   private final FoundationDbMessageStore foundationDbMessageStore;
@@ -122,45 +109,48 @@ public class MessagesManager {
   private CompletableFuture<Map<Byte, Boolean>> insertAsync(final UUID accountIdentifier, final Map<Byte, Envelope> messagesByDeviceId) {
     final Map<Byte, Boolean> devicePresenceById = new ConcurrentHashMap<>();
 
-    final CompletableFuture<Map<Byte, FoundationDbMessageStore.InsertResult>> foundationDbInsertFuture;
+    // Multi-recipient messages will have both a "shared MRM key" and actual message content; we only need/want the
+    // latter for FoundationDB
+    final Map<Byte, Envelope> minimizedMessagesByDeviceId = messagesByDeviceId.entrySet().stream()
+        .collect(Collectors.toUnmodifiableMap(
+            Map.Entry::getKey,
+            entry -> entry.getValue().toBuilder().clearSharedMrmKey().build()));
 
-    if (experimentEnrollmentManager.isEnrolled(accountIdentifier, MIRROR_INSERTS_EXPERIMENT_NAME)) {
-      // Multi-recipient messages will have both a "shared MRM key" and actual message content; we only need/want the
-      // latter for FoundationDB
-      final Map<Byte, Envelope> minimizedMessagesByDeviceId = messagesByDeviceId.entrySet().stream()
-          .collect(Collectors.toUnmodifiableMap(
-              Map.Entry::getKey,
-              entry -> entry.getValue().toBuilder().clearSharedMrmKey().build()));
-
-      foundationDbInsertFuture =
-          foundationDbMessageStore.insert(new AciServiceIdentifier(accountIdentifier), minimizedMessagesByDeviceId)
-              .exceptionally(e -> {
-                if (ExceptionUtils.unwrap(e) instanceof final FDBException fdbException) {
-                  Metrics.counter(INSERT_FDB_EXCEPTIONS_COUNTER_NAME, "code", String.valueOf(fdbException.getCode()))
-                      .increment();
-                } else {
-                  if (!ExceptionUtils.isBreakerOpen(e)) {
-                    logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
-                        minimizedMessagesByDeviceId.size(),
-                        accountIdentifier,
-                        e);
-                  }
+    final CompletableFuture<Map<Byte, FoundationDbMessageStore.InsertResult>> foundationDbInsertFuture =
+        foundationDbMessageStore.insert(new AciServiceIdentifier(accountIdentifier), minimizedMessagesByDeviceId)
+            .exceptionally(e -> {
+              if (ExceptionUtils.unwrap(e) instanceof final FDBException fdbException) {
+                Metrics.counter(INSERT_FDB_EXCEPTIONS_COUNTER_NAME, "code", String.valueOf(fdbException.getCode()))
+                    .increment();
+              } else {
+                if (!ExceptionUtils.isBreakerOpen(e)) {
+                  logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
+                      minimizedMessagesByDeviceId.size(),
+                      accountIdentifier,
+                      e);
                 }
+              }
 
-                throw ExceptionUtils.wrap(e);
-              });
-    } else {
-      foundationDbInsertFuture = CompletableFuture.completedFuture(Collections.emptyMap());
-    }
+              throw ExceptionUtils.wrap(e);
+            });
 
     return foundationDbInsertFuture.thenCompose(foundationDbInsertResults -> {
-      final boolean useFoundationDbPresence =
-          experimentEnrollmentManager.isEnrolled(accountIdentifier, READ_LIVE_MESSAGES_FROM_FOUNDATIONDB_EXPERIMENT_NAME);
+      foundationDbInsertResults.forEach((deviceId, insertResult) ->
+          devicePresenceById.put(deviceId, insertResult.present()));
 
-      if (useFoundationDbPresence) {
-        foundationDbInsertResults.forEach((deviceId, insertResult) ->
-            devicePresenceById.put(deviceId, insertResult.present()));
-      }
+      messagesByDeviceId.forEach((deviceId, message) -> {
+        if (message.hasSourceServiceId()) {
+          final ServiceIdentifier sourceServiceIdentifier =
+              ServiceIdentifier.fromByteString(message.getSourceServiceId());
+
+          if (!accountIdentifier.equals(sourceServiceIdentifier.uuid()) && message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
+            foundationDbInsertResults.get(deviceId).messageGuid().ifPresent(messageGuid -> {
+              // Note that this is an asynchronous, best-effort, fire-and-forget operation
+              reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
+            });
+          }
+        }
+      });
 
       return CompletableFuture.allOf(messagesByDeviceId.entrySet().stream()
           .map(deviceIdAndMessage -> {
@@ -178,20 +168,6 @@ public class MessagesManager {
 
             return messagesCache.insert(messageGuid, accountIdentifier, deviceId, message)
                 .thenAccept(present -> {
-                  if (message.hasSourceServiceId()) {
-                    final ServiceIdentifier sourceServiceIdentifier =
-                        ServiceIdentifier.fromByteString(message.getSourceServiceId());
-
-                    if (!accountIdentifier.equals(sourceServiceIdentifier.uuid()) && message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
-                      // Note that this is an asynchronous, best-effort, fire-and-forget operation
-                      reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
-                    }
-                  }
-
-                  if (!useFoundationDbPresence) {
-                    devicePresenceById.put(deviceId, present);
-                  }
-
                   if (foundationDbInsertResults.containsKey(deviceId)) {
                     Metrics.counter(PRESENCE_MATCH_COUNTER_NAME,
                             "match", String.valueOf(present == foundationDbInsertResults.get(deviceId).present()))
@@ -305,24 +281,11 @@ public class MessagesManager {
   }
 
   public MessageStream getMessages(final UUID destinationUuid, final Device destinationDevice) {
-    if (experimentEnrollmentManager.isEnrolled(destinationUuid, READ_LIVE_MESSAGES_FROM_FOUNDATIONDB_EXPERIMENT_NAME)) {
-      return new ConcatenatingMessageStream(
-          new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
-              destinationUuid, destinationDevice, true),
-          foundationDbMessageStore.getMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId())
-      );
-    }
-
-    final RedisDynamoDbMessageStream redisDynamoDbMessageStream =
+    return new ConcatenatingMessageStream(
         new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
-            destinationUuid, destinationDevice, false);
-
-    return new MirroringMessageStream(
-        redisDynamoDbMessageStream,
-        foundationDbMessageStore.getMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId()),
-        experimentEnrollmentManager,
-        destinationUuid,
-        destinationDevice.getId());
+            destinationUuid, destinationDevice, true),
+        foundationDbMessageStore.getMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId())
+    );
   }
 
   Publisher<Envelope> getMessagesForDevice(final UUID destinationUuid, final Device destinationDevice) {
@@ -334,33 +297,29 @@ public class MessagesManager {
   }
 
   public CompletableFuture<Void> clear(final UUID destinationUuid) {
-    if (experimentEnrollmentManager.isEnrolled(destinationUuid, MessagesManager.MIRROR_DELETIONS_EXPERIMENT_NAME)) {
-      messageDeletionExecutor.execute(() -> {
-        try {
-          foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid));
-        } catch (final Exception e) {
-          if (!ExceptionUtils.isBreakerOpen(e)) {
-            logger.warn("Failed to clear messages for {}", destinationUuid, e);
-          }
+    messageDeletionExecutor.execute(() -> {
+      try {
+        foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid));
+      } catch (final Exception e) {
+        if (!ExceptionUtils.isBreakerOpen(e)) {
+          logger.warn("Failed to clear messages for {}", destinationUuid, e);
         }
-      });
-    }
+      }
+    });
 
     return messagesCache.clear(destinationUuid);
   }
 
   public CompletableFuture<Void> clear(final UUID destinationUuid, final byte deviceId) {
-    if (experimentEnrollmentManager.isEnrolled(destinationUuid, MessagesManager.MIRROR_DELETIONS_EXPERIMENT_NAME)) {
-      messageDeletionExecutor.execute(() -> {
-        try {
-          foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid), deviceId);
-        } catch (final Exception e) {
-          if (!ExceptionUtils.isBreakerOpen(e)) {
-            logger.warn("Failed to clear messages for {}:{}", destinationUuid, deviceId, e);
-          }
+    messageDeletionExecutor.execute(() -> {
+      try {
+        foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid), deviceId);
+      } catch (final Exception e) {
+        if (!ExceptionUtils.isBreakerOpen(e)) {
+          logger.warn("Failed to clear messages for {}:{}", destinationUuid, deviceId, e);
         }
-      });
-    }
+      }
+    });
 
     return messagesCache.clear(destinationUuid, deviceId);
   }

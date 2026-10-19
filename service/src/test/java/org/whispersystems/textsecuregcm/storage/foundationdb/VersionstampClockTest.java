@@ -19,7 +19,7 @@ import com.apple.foundationdb.tuple.Versionstamp;
 
 class VersionstampClockTest {
   @RegisterExtension
-  static FoundationDbClusterExtension FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension(1);
+  static FoundationDbClusterExtension FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension();
 
   private final TestClock clock = TestClock.now();
   private final VersionstampClock versionstampClock = new VersionstampClock(

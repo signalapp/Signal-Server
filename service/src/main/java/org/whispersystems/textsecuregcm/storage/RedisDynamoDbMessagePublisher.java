@@ -227,9 +227,14 @@ class RedisDynamoDbMessagePublisher implements MessageAvailabilityListener, Flow
 
   synchronized void handleMessageAcknowledged() {
     acknowledgedEntries += 1;
-    assert acknowledgedEntries <= publishedEntries;
 
-    maybeGenerateMessageSource();
+    if (!terminated) {
+      // As a temporary migration measure, we may receive additional acknowledgements after the stream has terminated
+      // (i.e. we're mirroring deletions from FoundationDB)
+      assert acknowledgedEntries <= publishedEntries;
+
+      maybeGenerateMessageSource();
+    }
   }
 
   private synchronized boolean maybeSendQueueEmptySignal() {

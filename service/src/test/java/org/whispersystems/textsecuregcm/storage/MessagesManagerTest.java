@@ -24,7 +24,6 @@ import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.ByteString;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,8 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.InvalidVersionException;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
@@ -62,7 +60,6 @@ class MessagesManagerTest {
   private MessagesCache messagesCache;
   private FoundationDbMessageStore foundationDbMessageStore;
   private ReportMessageManager reportMessageManager;
-  private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private static final TestClock CLOCK = TestClock.pinned(Instant.now());
 
@@ -74,38 +71,33 @@ class MessagesManagerTest {
     messagesCache = mock(MessagesCache.class);
     foundationDbMessageStore = mock(FoundationDbMessageStore.class);
     reportMessageManager = mock(ReportMessageManager.class);
-    experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
     when(messagesCache.insert(any(), any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(true));
 
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore,
         mock(RedisMessageAvailabilityManager.class), reportMessageManager, Executors.newSingleThreadExecutor(), CLOCK,
-        experimentEnrollmentManager);
+        mock(ExperimentEnrollmentManager.class));
   }
 
-  @CartesianTest
-  void insert(@CartesianTest.Enum Envelope.Type envelopeType, @CartesianTest.Values(booleans = {true, false}) final boolean mirrorInsert) {
+  @ParameterizedTest
+  @EnumSource(Envelope.Type.class)
+  void insert(final Envelope.Type envelopeType) {
     final UUID sourceAci = UUID.randomUUID();
     final Envelope message = Envelope.newBuilder()
         .setSourceServiceId(new AciServiceIdentifier(sourceAci).toCompactByteString())
         .setType(envelopeType)
         .build();
 
-    if (mirrorInsert) {
-      when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(MessagesManager.MIRROR_INSERTS_EXPERIMENT_NAME)))
-          .thenReturn(true);
+    when(foundationDbMessageStore.insert(any(), any()))
+        .thenAnswer(invocation -> {
+          final Map<Byte, Envelope> messagesByDeviceId = invocation.getArgument(1);
 
-      when(foundationDbMessageStore.insert(any(), any()))
-          .thenAnswer(invocation -> {
-            final Map<Byte, Envelope> messagesByDeviceId = invocation.getArgument(1);
-
-            return CompletableFuture.completedFuture(messagesByDeviceId.keySet().stream()
-                .collect(Collectors.toMap(deviceId -> deviceId,
-                    _ -> new FoundationDbMessageStore.InsertResult(Optional.of(Versionstamp.fromBytes(new byte[12])),
-                        Optional.of(MessageGuidUtil.generateRandomV8UUID()),
-                        true))));
-          });
-    }
+          return CompletableFuture.completedFuture(messagesByDeviceId.keySet().stream()
+              .collect(Collectors.toMap(deviceId -> deviceId,
+                  _ -> new FoundationDbMessageStore.InsertResult(Optional.of(Versionstamp.fromBytes(new byte[12])),
+                      Optional.of(MessageGuidUtil.generateRandomV8UUID()),
+                      true))));
+        });
 
     final UUID destinationUuid = UUID.randomUUID();
 
@@ -121,9 +113,9 @@ class MessagesManagerTest {
 
     verifyNoMoreInteractions(reportMessageManager);
 
-    verify(foundationDbMessageStore, times(mirrorInsert ? 2 : 0)).insert(any(), any());
+    verify(foundationDbMessageStore, times(2)).insert(any(), any());
     verify(messagesCache, times(2))
-        .insert(argThat(messageGuid -> messageGuid.version() == (mirrorInsert ? 8 : 4)),
+        .insert(argThat(messageGuid -> messageGuid.version() == 8),
             eq(destinationUuid),
             eq(Device.PRIMARY_ID),
             any());
@@ -135,9 +127,6 @@ class MessagesManagerTest {
     final Envelope message = Envelope.newBuilder()
         .setSourceServiceId(new AciServiceIdentifier(sourceAci).toCompactByteString())
         .build();
-
-    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(MessagesManager.MIRROR_INSERTS_EXPERIMENT_NAME)))
-        .thenReturn(true);
 
     when(foundationDbMessageStore.insert(any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException()));
@@ -173,24 +162,18 @@ class MessagesManagerTest {
     return new UUID(mostSignificantBits, ThreadLocalRandom.current().nextLong());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void insertMultiRecipientMessage(final boolean mirrorInsert) throws InvalidMessageException, InvalidVersionException {
-    if (mirrorInsert) {
-      when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(MessagesManager.MIRROR_INSERTS_EXPERIMENT_NAME)))
-          .thenReturn(true);
+  @Test
+  void insertMultiRecipientMessage() throws InvalidMessageException, InvalidVersionException {
+    when(foundationDbMessageStore.insert(any(), any()))
+        .thenAnswer(invocation -> {
+          final Map<Byte, Envelope> messagesByDeviceId = invocation.getArgument(1);
 
-      when(foundationDbMessageStore.insert(any(), any()))
-          .thenAnswer(invocation -> {
-            final Map<Byte, Envelope> messagesByDeviceId = invocation.getArgument(1);
-
-            return CompletableFuture.completedFuture(messagesByDeviceId.keySet().stream()
-                .collect(Collectors.toMap(deviceId -> deviceId,
-                    _ -> new FoundationDbMessageStore.InsertResult(Optional.of(Versionstamp.fromBytes(new byte[12])),
-                        Optional.of(generateRandomV8UUID()),
-                        true))));
-          });
-    }
+          return CompletableFuture.completedFuture(messagesByDeviceId.keySet().stream()
+              .collect(Collectors.toMap(deviceId -> deviceId,
+                  _ -> new FoundationDbMessageStore.InsertResult(Optional.of(Versionstamp.fromBytes(new byte[12])),
+                      Optional.of(generateRandomV8UUID()),
+                      true))));
+        });
 
     final AciServiceIdentifier singleDeviceAccountAciServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     final PniServiceIdentifier singleDeviceAccountPniServiceIdentifier = new PniServiceIdentifier(UUID.randomUUID());
@@ -230,28 +213,13 @@ class MessagesManagerTest {
 
     final Map<Account, Map<Byte, Boolean>> expectedPresenceByAccountAndDeviceId = Map.of(
         singleDeviceAccount, Map.of(Device.PRIMARY_ID, true),
-        multiDeviceAccount, Map.of(Device.PRIMARY_ID, false, (byte) (Device.PRIMARY_ID + 1), true)
-    );
-
-    final Map<UUID, Map<Byte, Boolean>> presenceByAccountIdentifierAndDeviceId = Map.of(
-        singleDeviceAccountAciServiceIdentifier.uuid(), Map.of(Device.PRIMARY_ID, true),
-        multiDeviceAccountAciServiceIdentifier.uuid(), Map.of(Device.PRIMARY_ID, false, (byte) (Device.PRIMARY_ID + 1), true)
+        multiDeviceAccount, Map.of(Device.PRIMARY_ID, true, (byte) (Device.PRIMARY_ID + 1), true)
     );
 
     final byte[] sharedMrmKey = "shared-mrm-key".getBytes(StandardCharsets.UTF_8);
 
     when(messagesCache.insertSharedMultiRecipientMessagePayload(eq(multiRecipientMessage), any()))
         .thenReturn(CompletableFuture.completedFuture(sharedMrmKey));
-
-    when(messagesCache.insert(any(), any(), anyByte(), any()))
-        .thenAnswer(invocation -> {
-          final UUID accountIdentifier = invocation.getArgument(1);
-          final byte deviceId = invocation.getArgument(2);
-
-          return CompletableFuture.completedFuture(
-              presenceByAccountIdentifierAndDeviceId.getOrDefault(accountIdentifier, Collections.emptyMap())
-                  .getOrDefault(deviceId, false));
-        });
 
     final long clientTimestamp = System.currentTimeMillis();
     final boolean isStory = ThreadLocalRandom.current().nextBoolean();
@@ -293,37 +261,33 @@ class MessagesManagerTest {
         anyByte(),
         any());
 
-    if (mirrorInsert) {
-      final Envelope prototypeExpectedFoundationDbMessage = prototypeExpectedMessage.toBuilder().clearSharedMrmKey().build();
+    final Envelope prototypeExpectedFoundationDbMessage = prototypeExpectedMessage.toBuilder().clearSharedMrmKey().build();
 
-      verify(foundationDbMessageStore).insert(singleDeviceAccountAciServiceIdentifier,
-          Map.of(Device.PRIMARY_ID, prototypeExpectedFoundationDbMessage.toBuilder()
-              .setDestinationServiceId(singleDeviceAccountAciServiceIdentifier.toCompactByteString())
-              .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(multiRecipientMessage.getRecipients().get(new ServiceId.Aci(singleDeviceAccountAciServiceIdentifier.uuid())))))
-                  .build()));
+    verify(foundationDbMessageStore).insert(singleDeviceAccountAciServiceIdentifier,
+        Map.of(Device.PRIMARY_ID, prototypeExpectedFoundationDbMessage.toBuilder()
+            .setDestinationServiceId(singleDeviceAccountAciServiceIdentifier.toCompactByteString())
+            .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(multiRecipientMessage.getRecipients().get(new ServiceId.Aci(singleDeviceAccountAciServiceIdentifier.uuid())))))
+                .build()));
 
-      verify(foundationDbMessageStore).insert(singleDeviceAccountAciServiceIdentifier,
-          Map.of(Device.PRIMARY_ID, prototypeExpectedFoundationDbMessage.toBuilder()
-              .setDestinationServiceId(singleDeviceAccountPniServiceIdentifier.toCompactByteString())
-              .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(multiRecipientMessage.getRecipients().get(new ServiceId.Pni(singleDeviceAccountPniServiceIdentifier.uuid())))))
-              .build()));
+    verify(foundationDbMessageStore).insert(singleDeviceAccountAciServiceIdentifier,
+        Map.of(Device.PRIMARY_ID, prototypeExpectedFoundationDbMessage.toBuilder()
+            .setDestinationServiceId(singleDeviceAccountPniServiceIdentifier.toCompactByteString())
+            .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(multiRecipientMessage.getRecipients().get(new ServiceId.Pni(singleDeviceAccountPniServiceIdentifier.uuid())))))
+            .build()));
 
-      verify(foundationDbMessageStore).insert(multiDeviceAccountAciServiceIdentifier,
-          Map.of(
-              Device.PRIMARY_ID, prototypeExpectedFoundationDbMessage.toBuilder()
-                  .setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toCompactByteString())
-                  .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(multiRecipientMessage.getRecipients().get(new ServiceId.Aci(multiDeviceAccountAciServiceIdentifier.uuid())))))
-                  .build(),
-              (byte) (Device.PRIMARY_ID + 1), prototypeExpectedFoundationDbMessage.toBuilder()
-                  .setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toCompactByteString())
-                  .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(multiRecipientMessage.getRecipients().get(new ServiceId.Aci(multiDeviceAccountAciServiceIdentifier.uuid())))))
-                  .build())
-          );
+    verify(foundationDbMessageStore).insert(multiDeviceAccountAciServiceIdentifier,
+        Map.of(
+            Device.PRIMARY_ID, prototypeExpectedFoundationDbMessage.toBuilder()
+                .setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toCompactByteString())
+                .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(multiRecipientMessage.getRecipients().get(new ServiceId.Aci(multiDeviceAccountAciServiceIdentifier.uuid())))))
+                .build(),
+            (byte) (Device.PRIMARY_ID + 1), prototypeExpectedFoundationDbMessage.toBuilder()
+                .setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toCompactByteString())
+                .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(multiRecipientMessage.getRecipients().get(new ServiceId.Aci(multiDeviceAccountAciServiceIdentifier.uuid())))))
+                .build())
+        );
 
       verify(foundationDbMessageStore, never()).insert(eq(unresolvedAccountAciServiceIdentifier), any());
-    } else {
-      verifyNoInteractions(foundationDbMessageStore);
-    }
   }
 
   @ParameterizedTest
