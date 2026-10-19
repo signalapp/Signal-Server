@@ -1266,6 +1266,58 @@ class FoundationDbMessageStoreTest {
         .verify();
   }
 
+  @Test
+  void hasMessages() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deviceId = Device.PRIMARY_ID;
+
+    assertFalse(foundationDbMessageStore.hasMessages(aci, deviceId).join());
+
+    foundationDbMessageStore.insert(aci, Map.of(deviceId, generateRandomMessage(false))).join();
+
+    assertTrue(foundationDbMessageStore.hasMessages(aci, deviceId).join());
+  }
+
+  @Test
+  void mayHaveUrgentMessages() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deviceId = Device.PRIMARY_ID;
+
+    assertFalse(foundationDbMessageStore.mayHaveUrgentMessages(aci, deviceId).join());
+
+    foundationDbMessageStore.insert(aci, Map.of(deviceId, generateRandomMessage(false).toBuilder()
+            .setUrgent(false)
+            .build()))
+        .join();
+
+    assertFalse(foundationDbMessageStore.mayHaveUrgentMessages(aci, deviceId).join());
+
+    foundationDbMessageStore.insert(aci, Map.of(deviceId, generateRandomMessage(false).toBuilder()
+            .setUrgent(true)
+            .build()))
+        .join();
+
+    assertTrue(foundationDbMessageStore.mayHaveUrgentMessages(aci, deviceId).join());
+  }
+
+  @Test
+  void getEarliestUndeliveredMessageTimestamp() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deviceId = Device.PRIMARY_ID;
+
+    assertEquals(Optional.empty(),
+        foundationDbMessageStore.getEarliestUndeliveredMessageTimestamp(aci, deviceId).join());
+
+    final long earliestTimestamp = System.currentTimeMillis();
+    final AtomicLong incrementingTimestamp = new AtomicLong(earliestTimestamp);
+
+    generateAndInsertMessages(aci, deviceId, DEFAULT_EPOCH, 3, incrementingTimestamp::getAndIncrement);
+    generateAndInsertMessages(aci, deviceId, FUTURE_EPOCH, 3, incrementingTimestamp::getAndIncrement);
+
+    assertEquals(Optional.of(Instant.ofEpochMilli(earliestTimestamp)),
+        foundationDbMessageStore.getEarliestUndeliveredMessageTimestamp(aci, deviceId).join());
+  }
+
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
     return generateRandomMessage(ephemeral, contentSize, CLOCK.millis());
   }

@@ -16,7 +16,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -38,11 +37,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.InvalidVersionException;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.ServiceId;
+import org.testcontainers.shaded.org.checkerframework.checker.nullness.qual.Nullable;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -60,6 +61,7 @@ class MessagesManagerTest {
   private MessagesCache messagesCache;
   private FoundationDbMessageStore foundationDbMessageStore;
   private ReportMessageManager reportMessageManager;
+  private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private static final TestClock CLOCK = TestClock.pinned(Instant.now());
 
@@ -71,22 +73,31 @@ class MessagesManagerTest {
     messagesCache = mock(MessagesCache.class);
     foundationDbMessageStore = mock(FoundationDbMessageStore.class);
     reportMessageManager = mock(ReportMessageManager.class);
+    experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
     when(messagesCache.insert(any(), any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(true));
 
-    messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore,
-        mock(RedisMessageAvailabilityManager.class), reportMessageManager, Executors.newSingleThreadExecutor(), CLOCK,
-        mock(ExperimentEnrollmentManager.class));
+    messagesManager = new MessagesManager(messagesDynamoDb,
+        messagesCache,
+        foundationDbMessageStore,
+        mock(RedisMessageAvailabilityManager.class),
+        reportMessageManager,
+        Executors.newSingleThreadExecutor(),
+        CLOCK,
+        experimentEnrollmentManager);
   }
 
-  @ParameterizedTest
-  @EnumSource(Envelope.Type.class)
-  void insert(final Envelope.Type envelopeType) {
+  @CartesianTest
+  void insert(@CartesianTest.Enum final Envelope.Type envelopeType,
+      @CartesianTest.Values(booleans = {true, false}) final boolean exclusiveFoundationDbWrite) {
     final UUID sourceAci = UUID.randomUUID();
     final Envelope message = Envelope.newBuilder()
         .setSourceServiceId(new AciServiceIdentifier(sourceAci).toCompactByteString())
         .setType(envelopeType)
         .build();
+
+    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(MessagesManager.EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME)))
+        .thenReturn(exclusiveFoundationDbWrite);
 
     when(foundationDbMessageStore.insert(any(), any()))
         .thenAnswer(invocation -> {
@@ -114,11 +125,16 @@ class MessagesManagerTest {
     verifyNoMoreInteractions(reportMessageManager);
 
     verify(foundationDbMessageStore, times(2)).insert(any(), any());
-    verify(messagesCache, times(2))
-        .insert(argThat(messageGuid -> messageGuid.version() == 8),
-            eq(destinationUuid),
-            eq(Device.PRIMARY_ID),
-            any());
+
+    if (exclusiveFoundationDbWrite) {
+      verify(messagesCache, never()).insert(any(), any(), anyByte(), any());
+    } else {
+      verify(messagesCache, times(2))
+          .insert(argThat(messageGuid -> messageGuid.version() == 8),
+              eq(destinationUuid),
+              eq(Device.PRIMARY_ID),
+              any());
+    }
   }
 
   @Test
@@ -162,8 +178,12 @@ class MessagesManagerTest {
     return new UUID(mostSignificantBits, ThreadLocalRandom.current().nextLong());
   }
 
-  @Test
-  void insertMultiRecipientMessage() throws InvalidMessageException, InvalidVersionException {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void insertMultiRecipientMessage(final boolean exclusiveFoundationDbWrite) throws InvalidMessageException, InvalidVersionException {
+    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(MessagesManager.EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME)))
+        .thenReturn(exclusiveFoundationDbWrite);
+
     when(foundationDbMessageStore.insert(any(), any()))
         .thenAnswer(invocation -> {
           final Map<Byte, Envelope> messagesByDeviceId = invocation.getArgument(1);
@@ -241,25 +261,29 @@ class MessagesManagerTest {
     assertEquals(expectedPresenceByAccountAndDeviceId,
         messagesManager.insertMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, clientTimestamp, isStory, isEphemeral, isUrgent).join());
 
-    verify(messagesCache).insert(any(),
-        eq(singleDeviceAccountAciServiceIdentifier.uuid()),
-        eq(Device.PRIMARY_ID),
-        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountAciServiceIdentifier.toCompactByteString()).build()));
+    if (exclusiveFoundationDbWrite) {
+      verify(messagesCache, never()).insert(any(), any(), anyByte(), any());
+    } else {
+      verify(messagesCache).insert(any(),
+          eq(singleDeviceAccountAciServiceIdentifier.uuid()),
+          eq(Device.PRIMARY_ID),
+          eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountAciServiceIdentifier.toCompactByteString()).build()));
 
-    verify(messagesCache).insert(any(),
-        eq(singleDeviceAccountAciServiceIdentifier.uuid()),
-        eq(Device.PRIMARY_ID),
-        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountPniServiceIdentifier.toCompactByteString()).build()));
+      verify(messagesCache).insert(any(),
+          eq(singleDeviceAccountAciServiceIdentifier.uuid()),
+          eq(Device.PRIMARY_ID),
+          eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountPniServiceIdentifier.toCompactByteString()).build()));
 
-    verify(messagesCache).insert(any(),
-        eq(multiDeviceAccountAciServiceIdentifier.uuid()),
-        eq((byte) (Device.PRIMARY_ID + 1)),
-        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toCompactByteString()).build()));
+      verify(messagesCache).insert(any(),
+          eq(multiDeviceAccountAciServiceIdentifier.uuid()),
+          eq((byte) (Device.PRIMARY_ID + 1)),
+          eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toCompactByteString()).build()));
 
-    verify(messagesCache, never()).insert(any(),
-        eq(unresolvedAccountAciServiceIdentifier.uuid()),
-        anyByte(),
-        any());
+      verify(messagesCache, never()).insert(any(),
+          eq(unresolvedAccountAciServiceIdentifier.uuid()),
+          anyByte(),
+          any());
+    }
 
     final Envelope prototypeExpectedFoundationDbMessage = prototypeExpectedMessage.toBuilder().clearSharedMrmKey().build();
 
@@ -290,14 +314,11 @@ class MessagesManagerTest {
       verify(foundationDbMessageStore, never()).insert(eq(unresolvedAccountAciServiceIdentifier), any());
   }
 
-  @ParameterizedTest
-  @CsvSource({
-      "false, false, false",
-      "false, true, true",
-      "true, false, true",
-      "true, true, true"
-  })
-  void mayHaveMessages(final boolean hasCachedMessages, final boolean hasPersistedMessages, final boolean expectMayHaveMessages) {
+  @CartesianTest
+  void mayHaveMessages(@CartesianTest.Values(booleans = {true, false}) final boolean hasCachedMessages,
+      @CartesianTest.Values(booleans = {true, false}) final boolean hasPersistedMessages,
+      @CartesianTest.Values(booleans = {true, false}) final boolean hasFoundationDbMessages) {
+
     final UUID accountIdentifier = UUID.randomUUID();
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
@@ -308,32 +329,42 @@ class MessagesManagerTest {
     when(messagesDynamoDb.mayHaveMessages(accountIdentifier, device))
         .thenReturn(CompletableFuture.completedFuture(hasPersistedMessages));
 
-    if (hasCachedMessages) {
-      verifyNoInteractions(messagesDynamoDb);
-    }
+    when(foundationDbMessageStore.hasMessages(new AciServiceIdentifier(accountIdentifier), Device.PRIMARY_ID))
+        .thenReturn(CompletableFuture.completedFuture(hasFoundationDbMessages));
 
-    assertEquals(expectMayHaveMessages, messagesManager.mayHaveMessages(accountIdentifier, device).join());
+    assertEquals(hasCachedMessages || hasPersistedMessages || hasFoundationDbMessages,
+        messagesManager.mayHaveMessages(accountIdentifier, device).join());
   }
 
   @ParameterizedTest
   @CsvSource({
-      ",,",
-      "1,,1",
-      ",1,1",
-      "2,1,1",
-      "1,2,2"
+      ",,,",
+      "1,,,1",
+      ",1,,1",
+      "2,1,,1",
+      "1,2,,2",
+      "1,2,3,2",
+      ",,3,3"
   })
-  public void oldestMessageTimestamp(Long oldestCached, Long oldestPersisted, Long expected) {
+  public void oldestMessageTimestamp(@Nullable final Long oldestCached,
+      @Nullable final Long oldestPersisted,
+      @Nullable final Long oldestInFoundationDb,
+      @Nullable final Long expected) {
     final UUID accountIdentifier = UUID.randomUUID();
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
     when(messagesCache.getEarliestUndeliveredTimestamp(accountIdentifier, Device.PRIMARY_ID))
         .thenReturn(oldestCached == null ? Mono.empty() : Mono.just(oldestCached));
+
     when(messagesDynamoDb.load(accountIdentifier, device, 1))
         .thenReturn(oldestPersisted == null
             ? Mono.empty()
             : Mono.just(Envelope.newBuilder().setServerTimestamp(oldestPersisted).build()));
+
+    when(foundationDbMessageStore.getEarliestUndeliveredMessageTimestamp(new AciServiceIdentifier(accountIdentifier), Device.PRIMARY_ID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.ofNullable(oldestInFoundationDb).map(Instant::ofEpochMilli)));
+
     final Optional<Instant> earliest =
         messagesManager.getEarliestUndeliveredTimestampForDevice(accountIdentifier, device).join();
     assertEquals(Optional.ofNullable(expected).map(Instant::ofEpochMilli), earliest);

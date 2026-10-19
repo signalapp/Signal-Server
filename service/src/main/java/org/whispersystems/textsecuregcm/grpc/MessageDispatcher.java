@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -38,7 +37,6 @@ import reactor.adapter.JdkFlowAdapter;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Signal;
 import reactor.core.publisher.Sinks;
 
 /// A MessageDispatcher is used to stream messages to an authenticated device and coordinates message acknowledgement,

@@ -7,11 +7,13 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.apple.foundationdb.FDBException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,13 +57,13 @@ public class MessagesManager {
   private static final Counter PERSIST_MESSAGE_BYTES_COUNTER = Metrics.counter(
       name(MessagesManager.class, "persistMessageBytes"));
 
-  private static final String MAY_HAVE_MESSAGES_COUNTER_NAME =
-      MetricsUtil.name(MessagesManager.class, "mayHaveMessages");
-
   private static final String PRESENCE_MATCH_COUNTER_NAME =
       MetricsUtil.name(MessagesManager.class, "presenceMatch");
 
   private static final String INSERT_FDB_EXCEPTIONS_COUNTER_NAME = name(MessagesManager.class, "insertExceptions");
+
+  @VisibleForTesting
+  static final String EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME = "foundationDbExclusiveInsert";
 
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
@@ -152,6 +154,10 @@ public class MessagesManager {
         }
       });
 
+      if (experimentEnrollmentManager.isEnrolled(accountIdentifier, EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME)) {
+        return CompletableFuture.completedFuture(null);
+      }
+
       return CompletableFuture.allOf(messagesByDeviceId.entrySet().stream()
           .map(deviceIdAndMessage -> {
             final byte deviceId = deviceIdAndMessage.getKey();
@@ -207,7 +213,13 @@ public class MessagesManager {
 
     final long serverTimestamp = clock.millis();
 
-    return insertSharedMultiRecipientMessagePayload(multiRecipientMessage, resolvedRecipients.keySet())
+    // Don't insert shared payloads for recipients enrolled in the "only insert into FoundationDB" experiment
+    final Set<SealedSenderMultiRecipientMessage.Recipient> unenrolledResolvedRecipients = resolvedRecipients.entrySet().stream()
+        .filter(entry -> !experimentEnrollmentManager.isEnrolled(entry.getValue().getAccountIdentifier(), EXCLUSIVE_FOUNDATIONDB_INSERT_EXPERIMENT_NAME))
+        .map(Map.Entry::getKey)
+        .collect(Collectors.toSet());
+
+    return insertSharedMultiRecipientMessagePayload(multiRecipientMessage, unenrolledResolvedRecipients)
         .thenCompose(maybeSharedMrmKey -> {
           final Envelope.Builder envelopeBuilder = Envelope.newBuilder()
               .setType(Envelope.Type.UNIDENTIFIED_SENDER)
@@ -251,33 +263,24 @@ public class MessagesManager {
   }
 
   public CompletableFuture<Boolean> mayHavePersistedMessages(final UUID destinationUuid, final Device destinationDevice) {
-    return messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice);
+    return foundationDbMessageStore.hasMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId())
+        .thenCombine(messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice), (a, b) -> a || b);
   }
 
   public CompletableFuture<Boolean> mayHaveMessages(final UUID destinationUuid, final Device destinationDevice) {
-    return messagesCache.hasMessagesAsync(destinationUuid, destinationDevice.getId())
-        .thenCombine(messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice),
-            (mayHaveCachedMessages, mayHavePersistedMessages) -> {
-              final String outcome;
+    @SuppressWarnings("unchecked") final CompletableFuture<Boolean>[] mayHaveMessagesFutures = new CompletableFuture[] {
+        foundationDbMessageStore.hasMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId()),
+        messagesCache.hasMessagesAsync(destinationUuid, destinationDevice.getId()),
+        messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice)
+    };
 
-              if (mayHaveCachedMessages && mayHavePersistedMessages) {
-                outcome = "both";
-              } else if (mayHaveCachedMessages) {
-                outcome = "cached";
-              } else if (mayHavePersistedMessages) {
-                outcome = "persisted";
-              } else {
-                outcome = "none";
-              }
-
-              Metrics.counter(MAY_HAVE_MESSAGES_COUNTER_NAME, "outcome", outcome).increment();
-
-              return mayHaveCachedMessages || mayHavePersistedMessages;
-            });
+    return CompletableFuture.allOf(mayHaveMessagesFutures)
+        .thenApply(_ -> Arrays.stream(mayHaveMessagesFutures).anyMatch(CompletableFuture::resultNow));
   }
 
   public CompletableFuture<Boolean> mayHaveUrgentPersistedMessages(final UUID destinationUuid, final Device destinationDevice) {
-    return messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice);
+    return foundationDbMessageStore.mayHaveUrgentMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId())
+        .thenCombine(messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice), (a, b) -> a || b);
   }
 
   public MessageStream getMessages(final UUID destinationUuid, final Device destinationDevice) {
@@ -368,7 +371,10 @@ public class MessagesManager {
     // If there's any message in the persisted layer, return the oldest
     return Mono.from(messagesDynamoDb.load(destinationUuid, destinationDevice, 1)).map(Envelope::getServerTimestamp)
         // If not, return the oldest message in the cache
-        .switchIfEmpty(messagesCache.getEarliestUndeliveredTimestamp(destinationUuid, destinationDevice.getId()))
+        .switchIfEmpty(Mono.defer(() -> messagesCache.getEarliestUndeliveredTimestamp(destinationUuid, destinationDevice.getId())))
+        // And if there are none there, then check FoundationDB
+        .switchIfEmpty(Mono.fromFuture(() -> foundationDbMessageStore.getEarliestUndeliveredMessageTimestamp(new AciServiceIdentifier(destinationUuid), destinationDevice.getId()))
+            .mapNotNull(maybeTimestamp -> maybeTimestamp.map(Instant::toEpochMilli).orElse(null)))
         .map(epochMilli -> Optional.of(Instant.ofEpochMilli(epochMilli)))
         .switchIfEmpty(Mono.just(Optional.empty()))
         .toFuture();

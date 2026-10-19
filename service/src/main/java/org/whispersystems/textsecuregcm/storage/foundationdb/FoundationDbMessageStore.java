@@ -92,6 +92,9 @@ public class FoundationDbMessageStore {
   @VisibleForTesting
   static final Duration PRESENCE_STALE_THRESHOLD = Duration.ofMinutes(5);
 
+  @VisibleForTesting
+  static final int MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT = 20;
+
   /// The (approximate) transaction size beyond which we do not add more messages in a transaction. The estimated size
   /// includes only message payloads (and not key reads/writes) which we assume will dominate the total
   /// transaction size. Note that the FDB [docs](https://apple.github.io/foundationdb/known-limitations.html) currently
@@ -484,6 +487,80 @@ public class FoundationDbMessageStore {
         doAfterCleanup,
         presenceRenewalExecutorService,
         clock);
+  }
+
+  /// Checks whether the message queue belonging to a specific device contains any messages.
+  ///
+  /// @param aci      the account identifier for the queue to check
+  /// @param deviceId the account-specific device identifier for the queue to check
+  ///
+  /// @return a future that yields `true` if the identified queue contains any messages or `false` if the queue is empty
+  public CompletableFuture<Boolean> hasMessages(final AciServiceIdentifier aci, final byte deviceId) {
+    return getDistinctDatabasesForAci(aci)
+        .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
+                transaction.getRange(getDeviceSubspace(aci, deviceId).range(), 1).asList(),
+            FaultTolerantDatabase.Context.GET_HAS_MESSAGES)))
+            .map(keyValues -> !keyValues.isEmpty())
+        .any(hasMessages -> hasMessages)
+        .toFuture();
+  }
+
+  /// Checks whether the message queue belonging to a specific device contains an urgent message within the first
+  /// {@value MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT} messages.
+  ///
+  /// @param aci      the account identifier for the queue to check
+  /// @param deviceId the account-specific device identifier for the queue to check
+  ///
+  /// @return a future that yields `true` if the identified queue contains an urgent message within a sample or `false`
+  /// otherwise
+  public CompletableFuture<Boolean> mayHaveUrgentMessages(final AciServiceIdentifier aci, final byte deviceId) {
+    return getDistinctDatabasesForAci(aci)
+        .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
+                transaction.getRange(getDeviceSubspace(aci, deviceId).range(), MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT).asList(),
+            FaultTolerantDatabase.Context.GET_HAS_URGENT_MESSAGES))
+            .flatMapMany(keyValues -> Flux.fromIterable(keyValues)
+                .<MessageProtos.Envelope>handle((keyValue, sink) -> {
+                  try {
+                    sink.next(MessageProtos.Envelope.parseFrom(keyValue.getValue()));
+                  } catch (final InvalidProtocolBufferException e) {
+                    sink.error(e);
+                  }
+                })))
+        .any(MessageProtos.Envelope::getUrgent)
+        .toFuture();
+  }
+
+  /// Gets the server timestamp of the earliest message in the queue for a specific device
+  ///
+  /// @param aci      the account identifier for the queue to check
+  /// @param deviceId the account-specific device identifier for the queue to check
+  ///
+  /// @return a future that yields the server timestamp of the earliest message in the queue, or empty if the queue
+  /// contains no messages
+  public CompletableFuture<Optional<Instant>> getEarliestUndeliveredMessageTimestamp(final AciServiceIdentifier aci,
+      final byte deviceId) {
+
+    return getDistinctDatabasesForAci(aci)
+        .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
+                    transaction.getRange(getDeviceSubspace(aci, deviceId).range(), 1).asList(),
+                FaultTolerantDatabase.Context.GET_EARLIEST_TIMESTAMP))
+            .mapNotNull(keyValues -> {
+              if (keyValues.isEmpty()) {
+                return null;
+              }
+
+              try {
+                return Instant.ofEpochMilli(MessageProtos.Envelope.parseFrom(keyValues.getFirst().getValue())
+                    .getServerTimestamp());
+              } catch (final InvalidProtocolBufferException e) {
+                throw new UncheckedIOException(e);
+              }
+            }))
+        .sort()
+        .next()
+        .map(Optional::of)
+        .switchIfEmpty(Mono.just(Optional.empty()))
+        .toFuture();
   }
 
   /// Record the versionstamp for the current time in each database's versionstamp clock.
