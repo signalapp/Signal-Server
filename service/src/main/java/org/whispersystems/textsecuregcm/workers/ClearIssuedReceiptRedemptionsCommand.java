@@ -68,8 +68,8 @@ public class ClearIssuedReceiptRedemptionsCommand extends AbstractCommandWithDep
       };
       final SubscriptionPaymentProcessor.ReceiptItem receiptItem = processor.getReceiptItem(subscriber.subscriptionId);
       final boolean deleted = issuedReceiptsManager.clearIssuance(receiptItem.itemId(), processorType);
-      logger.info("Deleted issuances for receiptItem: {}, subscriberId: {}, hadExistingIssuances: {}",
-          receiptItem.itemId(), subscriberId, deleted);
+      logger.info("Deleted issuances for receiptItem: {}, subscriberId: {}***, hadExistingIssuances: {}",
+          receiptItem.itemId(), subscriberId.substring(0, subscriberId.length() / 2), deleted);
     } catch (Exception ex) {
       logger.warn("Removal Exception", ex);
       throw new RuntimeException(ex);
