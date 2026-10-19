@@ -498,7 +498,7 @@ public class FoundationDbMessageStore {
   public CompletableFuture<Boolean> hasMessages(final AciServiceIdentifier aci, final byte deviceId) {
     return getDistinctDatabasesForAci(aci)
         .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
-                transaction.getRange(getDeviceSubspace(aci, deviceId).range(), 1).asList(),
+                transaction.getRange(getDeviceQueueSubspace(aci, deviceId).range(), 1).asList(),
             FaultTolerantDatabase.Context.GET_HAS_MESSAGES)))
             .map(keyValues -> !keyValues.isEmpty())
         .any(hasMessages -> hasMessages)
@@ -516,7 +516,7 @@ public class FoundationDbMessageStore {
   public CompletableFuture<Boolean> mayHaveUrgentMessages(final AciServiceIdentifier aci, final byte deviceId) {
     return getDistinctDatabasesForAci(aci)
         .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
-                transaction.getRange(getDeviceSubspace(aci, deviceId).range(), MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT).asList(),
+                transaction.getRange(getDeviceQueueSubspace(aci, deviceId).range(), MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT).asList(),
             FaultTolerantDatabase.Context.GET_HAS_URGENT_MESSAGES))
             .flatMapMany(keyValues -> Flux.fromIterable(keyValues)
                 .<MessageProtos.Envelope>handle((keyValue, sink) -> {

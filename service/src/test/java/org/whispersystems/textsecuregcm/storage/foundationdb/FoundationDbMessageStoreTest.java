@@ -1266,10 +1266,15 @@ class FoundationDbMessageStoreTest {
         .verify();
   }
 
-  @Test
-  void hasMessages() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void hasMessages(final boolean present) {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final byte deviceId = Device.PRIMARY_ID;
+
+    if (present) {
+      writePresenceKey(aci, deviceId, 0);
+    }
 
     assertFalse(foundationDbMessageStore.hasMessages(aci, deviceId).join());
 
@@ -1278,10 +1283,15 @@ class FoundationDbMessageStoreTest {
     assertTrue(foundationDbMessageStore.hasMessages(aci, deviceId).join());
   }
 
-  @Test
-  void mayHaveUrgentMessages() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void mayHaveUrgentMessages(final boolean present) {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final byte deviceId = Device.PRIMARY_ID;
+
+    if (present) {
+      writePresenceKey(aci, deviceId, 0);
+    }
 
     assertFalse(foundationDbMessageStore.mayHaveUrgentMessages(aci, deviceId).join());
 
@@ -1300,10 +1310,15 @@ class FoundationDbMessageStoreTest {
     assertTrue(foundationDbMessageStore.mayHaveUrgentMessages(aci, deviceId).join());
   }
 
-  @Test
-  void getEarliestUndeliveredMessageTimestamp() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void getEarliestUndeliveredMessageTimestamp(final boolean present) {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final byte deviceId = Device.PRIMARY_ID;
+
+    if (present) {
+      writePresenceKey(aci, deviceId, 0);
+    }
 
     assertEquals(Optional.empty(),
         foundationDbMessageStore.getEarliestUndeliveredMessageTimestamp(aci, deviceId).join());
