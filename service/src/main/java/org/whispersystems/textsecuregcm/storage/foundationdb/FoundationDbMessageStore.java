@@ -542,7 +542,7 @@ public class FoundationDbMessageStore {
 
     return getDistinctDatabasesForAci(aci)
         .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
-                    transaction.getRange(getDeviceSubspace(aci, deviceId).range(), 1).asList(),
+                    transaction.getRange(getDeviceQueueSubspace(aci, deviceId).range(), 1).asList(),
                 FaultTolerantDatabase.Context.GET_EARLIEST_TIMESTAMP))
             .mapNotNull(keyValues -> {
               if (keyValues.isEmpty()) {
