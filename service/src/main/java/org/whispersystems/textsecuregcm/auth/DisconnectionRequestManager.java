@@ -209,14 +209,22 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
     }
 
     deviceIds.forEach(deviceId -> {
-      listeners.getOrDefault(new AccountIdentifierAndDeviceId(accountIdentifier, deviceId), Collections.emptyList())
-          .forEach(listener -> listenerEventExecutor.execute(() -> {
-            try {
-              listener.handleDisconnectionRequest();
-            } catch (final Exception e) {
-              logger.warn("Listener failed to handle disconnection request", e);
-            }
-          }));
+      final ArrayList<DisconnectionRequestListener> listenersForDevice = new ArrayList<>();
+
+      // This is a little weird, but it's a thread-safe way to get an immutable copy of the list of listeners for a
+      // given device
+      listeners.computeIfPresent(new AccountIdentifierAndDeviceId(accountIdentifier, deviceId), (_, existingListeners) -> {
+        listenersForDevice.addAll(existingListeners);
+        return existingListeners;
+      });
+
+      listenersForDevice.forEach(listener -> listenerEventExecutor.execute(() -> {
+        try {
+          listener.handleDisconnectionRequest();
+        } catch (final Exception e) {
+          logger.warn("Listener failed to handle disconnection request", e);
+        }
+      }));
     });
   }
 }
