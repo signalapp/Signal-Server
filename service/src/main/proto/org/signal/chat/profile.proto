@@ -120,8 +120,10 @@ message SetProfileRequest {
   bytes version = 1 [(require.exactlySize) = 32];
 
   // The ciphertext of a serialized Profile protobuf. Required.
-  // 937 max length = 909 plaintext serialization + 28 bytes encryption overhead
-  bytes data = 2 [(require.nonEmpty) = true, (require.size).max = 937];
+  // 1486 max length = 1202 plaintext serialization
+  //                 + 256-byte external padding PKCS#7
+  //                 + 28 bytes encryption overhead
+  bytes data = 2 [(require.nonEmpty) = true, (require.size).max = 1486];
 
   // The SHA-256 hash of the Profile ciphertext being replaced.
   // This is used an optimistic lock against concurrent changes.

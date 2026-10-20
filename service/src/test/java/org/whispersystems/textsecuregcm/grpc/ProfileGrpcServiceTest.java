@@ -98,6 +98,7 @@ import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
@@ -108,7 +109,6 @@ import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.storage.VersionedProfileV1;
 import org.whispersystems.textsecuregcm.storage.WriteConflictException;
-import org.whispersystems.textsecuregcm.purchases.ReceiptLevel;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
@@ -973,13 +973,11 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     assertTrue(statusRuntimeException.getStatus().getDescription().toLowerCase(Locale.ROOT).contains("commitment"));
   }
 
-  @ParameterizedTest
-  @ValueSource(ints = {0, 1, 16, 32})
-  void testProfileSerialized(int aboutEmojiLength) {
+  @Test
+  void testProfileSerialized() {
 
-    // This test demonstrates the calculation for the (require.size).max = 909 + 28
-    // in profiles.proto, as well as how padding calculation results in a constant size.
-    //
+    // This test demonstrates the calculation for the (require.size).max = 1202 + 256 + 28
+    // in profiles.proto
     // This should be largely integrated into libsignal in the future.
 
     // in gRPC, field + varint length encoding has:
@@ -987,21 +985,21 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     // varint: 1 byte for length < 128, 2 bytes for < 16,384
     final int serializedSize =
         1 + 257 + 2 +
+        1 + 257 + 2 +
         1 + 512 + 2 +
-        1 + aboutEmojiLength +  1 +
-        1 + 64 + 1 +
-        1 + 1 +
-        1 + (64 - (257 + 512 + aboutEmojiLength + 64 + 1) % 64) + 1;
+        1 + 32 +  1 +
+        1 + 128 + 2 +
+        1 + 1;
 
-    assertEquals(909, serializedSize);
+    assertEquals(1202, serializedSize);
 
     final PlaintextProfileData data = PlaintextProfileData.newBuilder()
-        .setNameBytes(ByteString.copyFrom(new byte[257]))
+        .setGivenNameBytes(ByteString.copyFrom(new byte[257]))
+        .setFamilyNameBytes(ByteString.copyFrom(new byte[257]))
         .setAboutBytes(ByteString.copyFrom(new byte[512]))
-        .setAboutEmojiBytes(ByteString.copyFrom(new byte[aboutEmojiLength]))
-        .setAvatarBytes(ByteString.copyFrom(new byte[64]))
+        .setAboutEmojiBytes(ByteString.copyFrom(new byte[32]))
+        .setAvatarBytes(ByteString.copyFrom(new byte[128]))
         .setPhoneNumberSharing(true)
-        .setPadding(ByteString.copyFrom(new byte[64 - (257 + 512 + aboutEmojiLength + 64 + 1) % 64]))
         .build();
 
     assertEquals(serializedSize, data.getSerializedSize());
