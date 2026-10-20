@@ -5,6 +5,7 @@
 package org.signal.integration;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.github.resilience4j.retry.Retry;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
@@ -19,6 +20,7 @@ import org.eclipse.jetty.websocket.api.Callback;
 import org.eclipse.jetty.websocket.api.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.websocket.messages.WebSocketMessage;
@@ -30,6 +32,10 @@ import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFa
 public class WebsocketClientSession implements Session.Listener.AutoDemanding {
 
   private static final Logger log = LoggerFactory.getLogger(WebsocketClientSession.class);
+  private static final Retry REQUEST_RETRY = Retry.of("integration-test-websocket-request",
+      new RetryConfiguration().<WebSocketResponseMessage>toRetryConfigBuilder()
+          .retryOnResult(response -> response.getStatus() >= 500)
+          .build());
   private final WebSocketMessageFactory messageFactory = new ProtobufWebSocketMessageFactory();
   private final AtomicLong requestId = new AtomicLong();
   private final ConcurrentHashMap<Long, CompletableFuture<WebSocketResponseMessage>> responseFutures = new ConcurrentHashMap<>();
@@ -95,18 +101,20 @@ public class WebsocketClientSession implements Session.Listener.AutoDemanding {
       final String path,
       final List<String> headers,
       final T body) {
-    final Session session = opened.join();
-    final long id = requestId.incrementAndGet();
-    final CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
-    responseFutures.put(id, future);
-    final Optional<byte[]> maybeBody = Optional.ofNullable(body).map(Operations::encodeJsonBody);
-    final byte[] bytes = messageFactory.createRequest(Optional.of(id), verb, path, headers, maybeBody).toByteArray();
-    session.sendBinary(ByteBuffer.wrap(bytes), Callback.from(() -> {}, throwable -> {
-      if (responseFutures.remove(id) != null) {
-        future.completeExceptionally(throwable);
-      }
-    }));
-    return future.join();
+    return REQUEST_RETRY.executeSupplier(() -> {
+      final Session session = opened.join();
+      final long id = requestId.incrementAndGet();
+      final CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
+      responseFutures.put(id, future);
+      final Optional<byte[]> maybeBody = Optional.ofNullable(body).map(Operations::encodeJsonBody);
+      final byte[] bytes = messageFactory.createRequest(Optional.of(id), verb, path, headers, maybeBody).toByteArray();
+      session.sendBinary(ByteBuffer.wrap(bytes), Callback.from(() -> {}, throwable -> {
+        if (responseFutures.remove(id) != null) {
+          future.completeExceptionally(throwable);
+        }
+      }));
+      return future.join();
+    });
   }
 
   public List<MessageProtos.Envelope> getReceivedEnvelopes() {

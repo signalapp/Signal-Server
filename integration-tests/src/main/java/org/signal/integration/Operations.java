@@ -20,6 +20,7 @@ import com.webauthn4j.data.client.challenge.DefaultChallenge;
 import com.webauthn4j.test.client.ClientPlatform;
 import io.dropwizard.configuration.ConfigurationValidationException;
 import io.dropwizard.jersey.validation.Validators;
+import io.github.resilience4j.retry.Retry;
 import io.grpc.ChannelCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.Grpc;
@@ -51,11 +52,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.Request;
@@ -63,6 +67,7 @@ import org.eclipse.jetty.http2.client.HTTP2Client;
 import org.eclipse.jetty.http2.client.transport.HttpClientTransportOverHTTP2;
 import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.eclipse.jetty.websocket.api.exceptions.UpgradeException;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.signal.integration.config.Config;
@@ -83,6 +88,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.grpc.RequireAuthenticationInterceptor;
+import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
@@ -96,6 +102,7 @@ import org.whispersystems.textsecuregcm.storage.TotpManager;
 import org.whispersystems.textsecuregcm.util.CertificateUtil;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.HttpUtils;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ThrowingSupplier;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -118,8 +125,21 @@ public final class Operations {
 
   private static final ManagedChannel GRPC_CHANNEL = buildGrpcChannel();
 
+  private static final Retry WEBSOCKET_CONNECT_RETRY = Retry.of("integration-test-websocket-connect",
+      new RetryConfiguration().toRetryConfigBuilder()
+          .retryOnException(Operations::isRetryableConnectFailure)
+          .build());
   private Operations() {
     // utility class
+  }
+
+  static boolean isRetryableConnectFailure(final Throwable e) {
+    final Throwable cause = e instanceof ExecutionException ? e.getCause() : e;
+    if (cause instanceof UpgradeException upgradeException) {
+      return upgradeException.getResponseStatusCode() >= 500
+          || ExceptionUtils.getRootCause(upgradeException) instanceof TimeoutException;
+    }
+    return cause instanceof IOException;
   }
 
   public record Receipt(ReceiptSerial serial, ReceiptCredential credential) {}
@@ -443,6 +463,15 @@ public final class Operations {
       final ChannelCredentials credentials = TlsChannelCredentials.newBuilder().trustManager(rootCertInputStream).build();
       return Grpc.newChannelBuilderForAddress(GRPC_DOMAIN, 443, credentials)
           .userAgent(USER_AGENT)
+          .defaultServiceConfig(Map.of("methodConfig", List.of(Map.of(
+              "name", List.of(Map.of()),
+              "retryPolicy", Map.of(
+                  "maxAttempts", 3.0,
+                  "initialBackoff", "0.5s",
+                  "maxBackoff", "2s",
+                  "backoffMultiplier", 2.0,
+                  "retryableStatusCodes", List.of("UNAVAILABLE"))))))
+          .enableRetry()
           .build();
     } catch (final IOException e) {
       throw new UncheckedIOException(e);
@@ -572,9 +601,15 @@ public final class Operations {
 
   private static FaultTolerantHttpClient buildClient() {
     try {
-      return FaultTolerantHttpClient.newBuilder("integration-test", Executors.newFixedThreadPool(16))
+      final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("integration-test", Executors.newFixedThreadPool(16))
           .withTrustedServerCertificates(CONFIG.rootCerts().toArray(String[]::new))
+          .withRetry(null, Executors.newSingleThreadScheduledExecutor())
           .build();
+      // FaultTolerantHttpClient doesn't expose its Retry; it's the only one registered in this JVM
+      ResilienceUtil.getRetryRegistry().getAllRetries().forEach(retry -> retry.getEventPublisher()
+          .onRetry(event -> logger.warn("Retrying {} after {} failed attempt(s)",
+              event.getName(), event.getNumberOfRetryAttempts(), event.getLastThrowable())));
+      return client;
     } catch (final CertificateException e) {
       throw new RuntimeException(e);
     }
@@ -625,16 +660,19 @@ public final class Operations {
 
     final URI uri = URI.create("wss://" + GRPC_DOMAIN + path);
     final ClientUpgradeRequest request = new ClientUpgradeRequest(uri);
+    request.setTimeout(5, TimeUnit.SECONDS);
     headers.forEach(request::setHeader);
 
-    final WebsocketClientSession listener = new WebsocketClientSession();
     try {
-      WEB_SOCKET_CLIENT.connect(listener, request).get(5, TimeUnit.SECONDS);
+      return WEBSOCKET_CONNECT_RETRY.executeCallable(() -> {
+        final WebsocketClientSession session = new WebsocketClientSession();
+        WEB_SOCKET_CLIENT.connect(session, request).get();
+        logger.info("Successfully connected to websocket on {}", uri);
+        return session;
+      });
     } catch (Exception e) {
       throw new IOException(e);
     }
-    logger.info("Successfully connected to websocket on {}", uri);
-    return listener;
   }
 
   private static Config loadConfigFromClasspath(final String filename) {
