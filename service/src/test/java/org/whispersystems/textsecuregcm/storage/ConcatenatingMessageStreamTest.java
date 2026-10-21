@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStream;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
@@ -65,14 +67,60 @@ class ConcatenatingMessageStreamTest {
     final UUID v4Uuid = UUID.randomUUID();
     final long serverTimestamp = System.currentTimeMillis();
 
-    concatenatingMessageStream.acknowledgeMessage(v4Uuid, serverTimestamp).join();
+    when(dynamoDbMessageStream.getMessages())
+        .thenReturn(JdkFlowAdapter.publisherToFlowPublisher(Flux.just(new MessageStreamEntry.Envelope(MessageProtos.Envelope.newBuilder()
+            .setServerGuid(UUIDUtil.toByteString(v4Uuid))
+            .setServerTimestamp(serverTimestamp)
+            .build()))));
+
+    final UUID v8UUID = MessageGuidUtil.generateRandomV8UUID();
+
+    when(foundationDbMessageStream.getMessages())
+        .thenReturn(JdkFlowAdapter.publisherToFlowPublisher(Flux.just(new MessageStreamEntry.Envelope(MessageProtos.Envelope.newBuilder()
+            .setServerGuid(UUIDUtil.toByteString(v8UUID))
+            .setServerTimestamp(serverTimestamp)
+            .build()))));
+
+    JdkFlowAdapter.flowPublisherToFlux(concatenatingMessageStream.getMessages())
+        .filter(messageStreamEntry -> messageStreamEntry instanceof MessageStreamEntry.Envelope)
+        .cast(MessageStreamEntry.Envelope.class)
+        .doOnNext(envelopeEntry -> concatenatingMessageStream.acknowledgeMessage(
+            UUIDUtil.fromByteString(envelopeEntry.message().getServerGuid()),
+            envelopeEntry.message().getServerTimestamp()))
+        .then()
+        .block();
+
     verify(dynamoDbMessageStream).acknowledgeMessage(v4Uuid, serverTimestamp);
     verify(foundationDbMessageStream, never()).acknowledgeMessage(eq(v4Uuid), anyLong());
 
-    final UUID v8Uuid = MessageGuidUtil.generateRandomV8UUID();
+    verify(dynamoDbMessageStream).acknowledgeMessage(v8UUID, serverTimestamp);
+    verify(foundationDbMessageStream).acknowledgeMessage(v8UUID, serverTimestamp);
+  }
 
-    concatenatingMessageStream.acknowledgeMessage(v8Uuid, serverTimestamp).join();
-    verify(dynamoDbMessageStream).acknowledgeMessage(v8Uuid, serverTimestamp);
-    verify(foundationDbMessageStream).acknowledgeMessage(v8Uuid, serverTimestamp);
+  @Test
+  void acknowledgeMessageDynamoDbEmpty() {
+    when(dynamoDbMessageStream.getMessages())
+        .thenReturn(JdkFlowAdapter.publisherToFlowPublisher(Flux.empty()));
+
+    final UUID v8UUID = MessageGuidUtil.generateRandomV8UUID();
+    final long serverTimestamp = System.currentTimeMillis();
+
+    when(foundationDbMessageStream.getMessages())
+        .thenReturn(JdkFlowAdapter.publisherToFlowPublisher(Flux.just(new MessageStreamEntry.Envelope(MessageProtos.Envelope.newBuilder()
+            .setServerGuid(UUIDUtil.toByteString(v8UUID))
+            .setServerTimestamp(serverTimestamp)
+            .build()))));
+
+    JdkFlowAdapter.flowPublisherToFlux(concatenatingMessageStream.getMessages())
+        .filter(messageStreamEntry -> messageStreamEntry instanceof MessageStreamEntry.Envelope)
+        .cast(MessageStreamEntry.Envelope.class)
+        .doOnNext(envelopeEntry -> concatenatingMessageStream.acknowledgeMessage(
+            UUIDUtil.fromByteString(envelopeEntry.message().getServerGuid()),
+            envelopeEntry.message().getServerTimestamp()))
+        .then()
+        .block();
+
+    verify(dynamoDbMessageStream, never()).acknowledgeMessage(any(), anyLong());
+    verify(foundationDbMessageStream).acknowledgeMessage(v8UUID, serverTimestamp);
   }
 }
