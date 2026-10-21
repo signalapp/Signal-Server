@@ -30,7 +30,7 @@ import reactor.core.publisher.Flux;
 
 class ClearExpiredFoundationDbMessagesCommandTest {
 
-  private MessagesManager messagesManager = mock(MessagesManager.class);
+  private final MessagesManager messagesManager = mock(MessagesManager.class);
 
   private static class TestClearExpiredFoundationDbMessagesCommand extends ClearExpiredFoundationDbMessagesCommand {
 
@@ -44,8 +44,7 @@ class ClearExpiredFoundationDbMessagesCommandTest {
 
       super(clock);
 
-      this.commandDependencies = new CommandDependencies(null, null, null, null, messagesManager, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-          null, null);
+      this.commandDependencies = new CommandDependencies(null, null, null, messagesManager, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
       this.dryRun = dryRun;
     }
 

@@ -238,11 +238,6 @@ svrb:
       9Kxq0DY7RCEpdHMCKcOL
       -----END CERTIFICATE-----
 
-messageCache: # Redis server configuration for message store cache
-  persistDelayMinutes: 1
-  cluster:
-    type: local
-
 attachments:
   maxAttachmentUploadSizeInBytes: 1024
   maxMessageBackupUploadSizeInBytes: 1024

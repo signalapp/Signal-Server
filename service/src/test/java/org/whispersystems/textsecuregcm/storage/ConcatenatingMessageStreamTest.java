@@ -25,17 +25,17 @@ import reactor.test.StepVerifier;
 
 class ConcatenatingMessageStreamTest {
 
-  private RedisDynamoDbMessageStream redisDynamoDbMessageStream;
+  private DynamoDbMessageStream dynamoDbMessageStream;
   private FoundationDbMessageStream foundationDbMessageStream;
 
   private ConcatenatingMessageStream concatenatingMessageStream;
 
   @BeforeEach
   void setUp() {
-    redisDynamoDbMessageStream = mock(RedisDynamoDbMessageStream.class);
+    dynamoDbMessageStream = mock(DynamoDbMessageStream.class);
     foundationDbMessageStream = mock(FoundationDbMessageStream.class);
 
-    concatenatingMessageStream = new ConcatenatingMessageStream(redisDynamoDbMessageStream, foundationDbMessageStream);
+    concatenatingMessageStream = new ConcatenatingMessageStream(dynamoDbMessageStream, foundationDbMessageStream);
   }
 
   @Test
@@ -47,7 +47,7 @@ class ConcatenatingMessageStreamTest {
         .toList();
 
     for (int i = 0; i < messageCount; i++) {
-      when(redisDynamoDbMessageStream.getMessages())
+      when(dynamoDbMessageStream.getMessages())
           .thenReturn(JdkFlowAdapter.publisherToFlowPublisher(Flux.fromIterable(messageStreamEntries.subList(0, i))));
 
       when(foundationDbMessageStream.getMessages())
@@ -66,13 +66,13 @@ class ConcatenatingMessageStreamTest {
     final long serverTimestamp = System.currentTimeMillis();
 
     concatenatingMessageStream.acknowledgeMessage(v4Uuid, serverTimestamp).join();
-    verify(redisDynamoDbMessageStream).acknowledgeMessage(v4Uuid, serverTimestamp);
+    verify(dynamoDbMessageStream).acknowledgeMessage(v4Uuid, serverTimestamp);
     verify(foundationDbMessageStream, never()).acknowledgeMessage(eq(v4Uuid), anyLong());
 
     final UUID v8Uuid = MessageGuidUtil.generateRandomV8UUID();
 
     concatenatingMessageStream.acknowledgeMessage(v8Uuid, serverTimestamp).join();
-    verify(redisDynamoDbMessageStream).acknowledgeMessage(v8Uuid, serverTimestamp);
+    verify(dynamoDbMessageStream).acknowledgeMessage(v8Uuid, serverTimestamp);
     verify(foundationDbMessageStream).acknowledgeMessage(v8Uuid, serverTimestamp);
   }
 }

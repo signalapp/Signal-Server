@@ -47,7 +47,6 @@ import org.whispersystems.textsecuregcm.configuration.KeyTransparencyServiceConf
 import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.LoginPurchaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OpenTelemetryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PagedSingleUseKEMPreKeyStoreConfiguration;
@@ -189,11 +188,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private FaultTolerantRedisClusterFactory rateLimitersCluster;
-
-  @NotNull
-  @Valid
-  @JsonProperty
-  private MessageCacheConfiguration messageCache;
 
   @Valid
   @NotNull
@@ -479,10 +473,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public SecureStorageServiceConfiguration getSecureStorageServiceConfiguration() {
     return storageService;
-  }
-
-  public MessageCacheConfiguration getMessageCacheConfiguration() {
-    return messageCache;
   }
 
   public FaultTolerantRedisClusterFactory getPushSchedulerCluster() {

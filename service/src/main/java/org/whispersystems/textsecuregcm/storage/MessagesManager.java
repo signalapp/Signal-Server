@@ -4,12 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 import com.apple.foundationdb.FDBException;
 import com.google.protobuf.ByteString;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
@@ -19,61 +15,39 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.reactivestreams.Publisher;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
-import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import reactor.core.observability.micrometer.Micrometer;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public class MessagesManager {
 
-  final String GET_MESSAGES_FOR_DEVICE_FLUX_NAME = name(MessagesManager.class, "getMessagesForDevice");
-
   private static final Logger logger = LoggerFactory.getLogger(MessagesManager.class);
 
-  private static final Counter PERSIST_MESSAGE_COUNTER = Metrics.counter(
-      name(MessagesManager.class, "persistMessage"));
-
-  private static final Counter PERSIST_MESSAGE_BYTES_COUNTER = Metrics.counter(
-      name(MessagesManager.class, "persistMessageBytes"));
-
   private final MessagesDynamoDb messagesDynamoDb;
-  private final MessagesCache messagesCache;
   private final FoundationDbMessageStore foundationDbMessageStore;
-  private final RedisMessageAvailabilityManager redisMessageAvailabilityManager;
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService messageDeletionExecutor;
   private final Clock clock;
 
   public MessagesManager(
       final MessagesDynamoDb messagesDynamoDb,
-      final MessagesCache messagesCache,
       final FoundationDbMessageStore foundationDbMessageStore,
-      final RedisMessageAvailabilityManager redisMessageAvailabilityManager,
       final ReportMessageManager reportMessageManager,
       final ExecutorService messageDeletionExecutor,
       final Clock clock) {
 
     this.messagesDynamoDb = messagesDynamoDb;
-    this.messagesCache = messagesCache;
     this.foundationDbMessageStore = foundationDbMessageStore;
-    this.redisMessageAvailabilityManager = redisMessageAvailabilityManager;
     this.reportMessageManager = reportMessageManager;
     this.messageDeletionExecutor = messageDeletionExecutor;
     this.clock = clock;
@@ -85,9 +59,7 @@ public class MessagesManager {
    * @param accountIdentifier the account identifier for the destination queue
    * @param messagesByDeviceId a map of device IDs to messages
    *
-   * @return a map of device IDs to a device's presence state (i.e. if the device has an active event listener)
-   *
-   * @see RedisMessageAvailabilityManager
+   * @return a map of device IDs to a device's presence state
    */
   public Map<Byte, Boolean> insert(final UUID accountIdentifier, final Map<Byte, Envelope> messagesByDeviceId) {
     return insertAsync(accountIdentifier, messagesByDeviceId).join();
@@ -139,10 +111,7 @@ public class MessagesManager {
    *                              connections to a Signal server or {@code false} otherwise
    * @param isUrgent              {@code true} if the given message is urgent or {@code false} otherwise
    *
-   * @return a map of accounts to maps of device IDs to a device's presence state (i.e. if the device has an active
-   * event listener)
-   *
-   * @see RedisMessageAvailabilityManager
+   * @return a map of accounts to maps of device IDs to a device's presence state
    */
   public CompletableFuture<Map<Account, Map<Byte, Boolean>>> insertMultiRecipientMessage(
       final SealedSenderMultiRecipientMessage multiRecipientMessage,
@@ -199,7 +168,6 @@ public class MessagesManager {
   public CompletableFuture<Boolean> mayHaveMessages(final UUID destinationUuid, final Device destinationDevice) {
     @SuppressWarnings("unchecked") final CompletableFuture<Boolean>[] mayHaveMessagesFutures = new CompletableFuture[] {
         foundationDbMessageStore.hasMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId()),
-        messagesCache.hasMessagesAsync(destinationUuid, destinationDevice.getId()),
         messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice)
     };
 
@@ -214,22 +182,13 @@ public class MessagesManager {
 
   public MessageStream getMessages(final UUID destinationUuid, final Device destinationDevice) {
     return new ConcatenatingMessageStream(
-        new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
-            destinationUuid, destinationDevice, true),
+        new DynamoDbMessageStream(messagesDynamoDb, destinationUuid, destinationDevice),
         foundationDbMessageStore.getMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId())
     );
   }
 
-  Publisher<Envelope> getMessagesForDevice(final UUID destinationUuid, final Device destinationDevice) {
-    return Flux.concat(
-            messagesDynamoDb.load(destinationUuid, destinationDevice, null),
-            messagesCache.get(destinationUuid, destinationDevice.getId()))
-        .name(GET_MESSAGES_FOR_DEVICE_FLUX_NAME)
-        .tap(Micrometer.metrics(Metrics.globalRegistry));
-  }
-
   public CompletableFuture<Void> clear(final UUID destinationUuid) {
-    messageDeletionExecutor.execute(() -> {
+    return CompletableFuture.runAsync(() -> {
       try {
         foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid));
       } catch (final Exception e) {
@@ -237,13 +196,11 @@ public class MessagesManager {
           logger.warn("Failed to clear messages for {}", destinationUuid, e);
         }
       }
-    });
-
-    return messagesCache.clear(destinationUuid);
+    }, messageDeletionExecutor);
   }
 
   public CompletableFuture<Void> clear(final UUID destinationUuid, final byte deviceId) {
-    messageDeletionExecutor.execute(() -> {
+    return CompletableFuture.runAsync(() -> {
       try {
         foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid), deviceId);
       } catch (final Exception e) {
@@ -251,56 +208,12 @@ public class MessagesManager {
           logger.warn("Failed to clear messages for {}:{}", destinationUuid, deviceId, e);
         }
       }
-    });
-
-    return messagesCache.clear(destinationUuid, deviceId);
-  }
-
-  public CompletableFuture<Optional<RemovedMessage>> delete(final UUID destinationUuid,
-      final Device destinationDevice,
-      final UUID guid,
-      final long serverTimestamp) {
-
-    return messagesCache.remove(destinationUuid, destinationDevice.getId(), guid)
-        .thenComposeAsync(removed -> removed
-            .map(_ -> CompletableFuture.completedFuture(removed))
-            .orElseGet(() -> messagesDynamoDb.deleteMessage(destinationUuid, destinationDevice, guid, serverTimestamp)
-                .thenApply(maybeEnvelope -> maybeEnvelope.map(RemovedMessage::fromEnvelope))
-            ), messageDeletionExecutor);
-  }
-
-  /**
-   * @return the number of messages successfully removed from the cache.
-   */
-  public int persistMessages(
-      final UUID destinationUuid,
-      final Device destinationDevice,
-      final List<Envelope> messages) {
-
-    messagesDynamoDb.store(messages, destinationUuid, destinationDevice);
-
-    final List<UUID> messageGuids = messages.stream().map(message -> UUIDUtil.fromByteString(message.getServerGuid()))
-        .collect(Collectors.toList());
-    int messagesRemovedFromCache = 0;
-    try {
-      messagesRemovedFromCache = messagesCache.remove(destinationUuid, destinationDevice.getId(), messageGuids)
-          .get(30, TimeUnit.SECONDS).size();
-      PERSIST_MESSAGE_COUNTER.increment(messages.size());
-      PERSIST_MESSAGE_BYTES_COUNTER.increment(messages.stream()
-          .mapToInt(Envelope::getSerializedSize)
-          .sum());
-
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      logger.warn("Failed to remove messages from cache", e);
-    }
-    return messagesRemovedFromCache;
+    }, messageDeletionExecutor);
   }
 
   public CompletableFuture<Optional<Instant>> getEarliestUndeliveredTimestampForDevice(UUID destinationUuid, Device destinationDevice) {
     // If there's any message in the persisted layer, return the oldest
     return Mono.from(messagesDynamoDb.load(destinationUuid, destinationDevice, 1)).map(Envelope::getServerTimestamp)
-        // If not, return the oldest message in the cache
-        .switchIfEmpty(Mono.defer(() -> messagesCache.getEarliestUndeliveredTimestamp(destinationUuid, destinationDevice.getId())))
         // And if there are none there, then check FoundationDB
         .switchIfEmpty(Mono.fromFuture(() -> foundationDbMessageStore.getEarliestUndeliveredMessageTimestamp(new AciServiceIdentifier(destinationUuid), destinationDevice.getId()))
             .mapNotNull(maybeTimestamp -> maybeTimestamp.map(Instant::toEpochMilli).orElse(null)))

@@ -61,7 +61,6 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -70,7 +69,6 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.storage.FoundationDbClusterExtension;
-import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -90,9 +88,6 @@ class WebSocketConnectionIntegrationTest {
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.MESSAGES);
 
   @RegisterExtension
-  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
-
-  @RegisterExtension
   static final FoundationDbClusterExtension FOUNDATION_DB_EXTENSION;
 
   static {
@@ -105,8 +100,6 @@ class WebSocketConnectionIntegrationTest {
   private ExecutorService sharedExecutorService;
   private FoundationDbMessageStore foundationDbMessageStore;
   private MessagesDynamoDb messagesDynamoDb;
-  private MessagesCache messagesCache;
-  private RedisMessageAvailabilityManager redisMessageAvailabilityManager;
   private ReportMessageManager reportMessageManager;
   private Account account;
   private Device device;
@@ -133,12 +126,9 @@ class WebSocketConnectionIntegrationTest {
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
-    messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, sharedExecutorService, mock(ScheduledExecutorService.class), Clock.systemUTC());
     messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(7),
         sharedExecutorService);
-    redisMessageAvailabilityManager = new RedisMessageAvailabilityManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService, sharedExecutorService);
     reportMessageManager = mock(ReportMessageManager.class);
     account = mock(Account.class);
     device = mock(Device.class);
@@ -162,14 +152,10 @@ class WebSocketConnectionIntegrationTest {
     when(account.getNumber()).thenReturn(Optional.of("+18005551234"));
     when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
-
-    redisMessageAvailabilityManager.start();
   }
 
   @AfterEach
   void tearDown() throws Exception {
-    redisMessageAvailabilityManager.stop();
-
     sharedExecutorService.shutdown();
     final Mono<Void> schedulerShutdownMono = messageDeliveryScheduler.disposeGracefully();
 
@@ -194,10 +180,10 @@ class WebSocketConnectionIntegrationTest {
       "323, 0",
       "0, 221",
   })
-  void testProcessStoredMessages(final int persistedMessageCount, final int cachedMessageCount) {
+  void testProcessStoredMessages(final int dynamoDbMessageCount, final int foundationDbMessageCount) {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
+        new MessagesManager(messagesDynamoDb, foundationDbMessageStore, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
@@ -209,14 +195,14 @@ class WebSocketConnectionIntegrationTest {
         mock(ExperimentEnrollmentManager.class)
     );
 
-    final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
+    final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(dynamoDbMessageCount + foundationDbMessageCount);
 
     assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
 
       {
-        final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(persistedMessageCount);
+        final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(dynamoDbMessageCount);
 
-        for (int i = 0; i < persistedMessageCount; i++) {
+        for (int i = 0; i < dynamoDbMessageCount; i++) {
           final MessageProtos.Envelope envelope = generateRandomMessage(UUID.randomUUID());
 
           persistedMessages.add(envelope);
@@ -226,12 +212,23 @@ class WebSocketConnectionIntegrationTest {
         messagesDynamoDb.store(persistedMessages, account.getAccountIdentifier(), device);
       }
 
-      for (int i = 0; i < cachedMessageCount; i++) {
-        final UUID messageGuid = UUID.randomUUID();
-        final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
+      for (int i = 0; i < foundationDbMessageCount; i++) {
+        final Envelope envelope = generateRandomMessage(UUID.randomUUID())
+            .toBuilder()
+            .clearServerGuid()
+            .build();
 
-        messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
-        expectedMessages.add(envelope);
+        final UUID messageGuid = foundationDbMessageStore.insert(new AciServiceIdentifier(account.getAccountIdentifier()),
+                Map.of(device.getId(), envelope))
+            .join()
+            .get(device.getId())
+            .messageGuid()
+            .orElseThrow();
+
+        expectedMessages.add(envelope
+            .toBuilder()
+            .setServerGuid(UUIDUtil.toByteString(messageGuid))
+            .build());
       }
 
       final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
@@ -248,7 +245,7 @@ class WebSocketConnectionIntegrationTest {
       verify(webSocketClient, timeout(10_000))
           .sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(), eq(Optional.empty()));
 
-      verify(webSocketClient, times(persistedMessageCount + cachedMessageCount))
+      verify(webSocketClient, times(dynamoDbMessageCount + foundationDbMessageCount))
           .sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
 
       final List<MessageProtos.Envelope> sentMessages = new ArrayList<>();
@@ -271,7 +268,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessagesMultipleSegments() {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
+        new MessagesManager(messagesDynamoDb, foundationDbMessageStore, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
@@ -283,17 +280,17 @@ class WebSocketConnectionIntegrationTest {
         mock(ExperimentEnrollmentManager.class)
     );
 
-    final int persistedMessageCount = 77;
-    final int cachedMessageCount = 104;
+    final int dynamoDbMessageCount = 77;
+    final int initialFoundationDbMessageCount = 104;
 
-    final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
+    final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(dynamoDbMessageCount + initialFoundationDbMessageCount);
 
     assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
 
       {
-        final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(persistedMessageCount);
+        final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(dynamoDbMessageCount);
 
-        for (int i = 0; i < persistedMessageCount; i++) {
+        for (int i = 0; i < dynamoDbMessageCount; i++) {
           final MessageProtos.Envelope envelope = generateRandomMessage(UUID.randomUUID());
 
           persistedMessages.add(envelope);
@@ -303,17 +300,28 @@ class WebSocketConnectionIntegrationTest {
         messagesDynamoDb.store(persistedMessages, account.getAccountIdentifier(), device);
       }
 
-      for (int i = 0; i < cachedMessageCount; i++) {
-        final UUID messageGuid = UUID.randomUUID();
-        final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
+      for (int i = 0; i < initialFoundationDbMessageCount; i++) {
+        final Envelope envelope = generateRandomMessage(UUID.randomUUID())
+            .toBuilder()
+            .clearServerGuid()
+            .build();
 
-        messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
-        expectedMessages.add(envelope);
+        final UUID messageGuid = foundationDbMessageStore.insert(new AciServiceIdentifier(account.getAccountIdentifier()),
+                Map.of(device.getId(), envelope))
+            .join()
+            .get(device.getId())
+            .messageGuid()
+            .orElseThrow();
+
+        expectedMessages.add(envelope
+            .toBuilder()
+            .setServerGuid(UUIDUtil.toByteString(messageGuid))
+            .build());
       }
 
       final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
 
-      final AtomicInteger remainingMessages = new AtomicInteger(persistedMessageCount + cachedMessageCount);
+      final AtomicInteger remainingMessages = new AtomicInteger(dynamoDbMessageCount + initialFoundationDbMessageCount);
       final int additionalMessageCount = 67;
 
       when(successResponse.getStatus()).thenReturn(200);
@@ -353,7 +361,7 @@ class WebSocketConnectionIntegrationTest {
       verify(webSocketClient, timeout(10_000))
           .sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(), eq(Optional.empty()));
 
-      verify(webSocketClient, timeout(10_000).times(persistedMessageCount + cachedMessageCount + additionalMessageCount))
+      verify(webSocketClient, timeout(10_000).times(dynamoDbMessageCount + initialFoundationDbMessageCount + additionalMessageCount))
           .sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
 
       final List<MessageProtos.Envelope> sentMessages = new ArrayList<>();
@@ -376,7 +384,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessagesClientClosed() {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
+        new MessagesManager(messagesDynamoDb, foundationDbMessageStore, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
@@ -388,17 +396,17 @@ class WebSocketConnectionIntegrationTest {
         mock(ExperimentEnrollmentManager.class)
     );
 
-    final int persistedMessageCount = 207;
-    final int cachedMessageCount = 173;
+    final int dynamoDBMessageCount = 207;
+    final int foundationDbMessageCount = 173;
 
-    final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
+    final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(dynamoDBMessageCount + foundationDbMessageCount);
 
     assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
 
       {
-        final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(persistedMessageCount);
+        final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(dynamoDBMessageCount);
 
-        for (int i = 0; i < persistedMessageCount; i++) {
+        for (int i = 0; i < dynamoDBMessageCount; i++) {
           final MessageProtos.Envelope envelope = generateRandomMessage(UUID.randomUUID());
           persistedMessages.add(envelope);
           expectedMessages.add(envelope);
@@ -407,12 +415,23 @@ class WebSocketConnectionIntegrationTest {
         messagesDynamoDb.store(persistedMessages, account.getAccountIdentifier(), device);
       }
 
-      for (int i = 0; i < cachedMessageCount; i++) {
-        final UUID messageGuid = UUID.randomUUID();
-        final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
-        messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
+      for (int i = 0; i < foundationDbMessageCount; i++) {
+        final Envelope envelope = generateRandomMessage(UUID.randomUUID())
+            .toBuilder()
+            .clearServerGuid()
+            .build();
 
-        expectedMessages.add(envelope);
+        final UUID messageGuid = foundationDbMessageStore.insert(new AciServiceIdentifier(account.getAccountIdentifier()),
+                Map.of(device.getId(), envelope))
+            .join()
+            .get(device.getId())
+            .messageGuid()
+            .orElseThrow();
+
+        expectedMessages.add(envelope
+            .toBuilder()
+            .setServerGuid(UUIDUtil.toByteString(messageGuid))
+            .build());
       }
 
       when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any()))
@@ -423,7 +442,7 @@ class WebSocketConnectionIntegrationTest {
       //noinspection unchecked
       final ArgumentCaptor<Optional<byte[]>> messageBodyCaptor = ArgumentCaptor.forClass(Optional.class);
 
-      verify(webSocketClient, atMost(persistedMessageCount + cachedMessageCount)).sendRequest(eq("PUT"),
+      verify(webSocketClient, atMost(dynamoDBMessageCount + foundationDbMessageCount)).sendRequest(eq("PUT"),
           eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
       verify(webSocketClient, never()).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(),
           eq(Optional.empty()));

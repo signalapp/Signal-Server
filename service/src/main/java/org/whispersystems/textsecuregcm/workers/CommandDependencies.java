@@ -53,7 +53,6 @@ import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
-import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -68,7 +67,6 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbRecoveryManager;
 import org.whispersystems.textsecuregcm.storage.FoundationDbVersion;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
-import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PagedSingleUseKEMPreKeyStore;
@@ -110,7 +108,6 @@ public record CommandDependencies(
     AccountsManager accountsManager,
     ProfilesManager profilesManager,
     ReportMessageManager reportMessageManager,
-    MessagesCache messagesCache,
     MessagesManager messagesManager,
     KeysManager keysManager,
     PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager,
@@ -330,8 +327,6 @@ public record CommandDependencies(
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),
         messageDeletionExecutor);
-    FaultTolerantRedisClusterClient messagesCluster = configuration.getMessageCacheConfiguration()
-        .getRedisClusterConfiguration().build("messages", redisClientResourcesBuilder);
     FaultTolerantRedisClusterClient rateLimitersCluster = configuration.getRateLimitersCluster().build("rate_limiters",
         redisClientResourcesBuilder);
     SecureValueRecoveryClient secureValueRecovery2Client = new SecureValueRecoveryClient(
@@ -350,8 +345,6 @@ public record CommandDependencies(
         storageServiceExecutor, retryExecutor, configuration.getSecureStorageServiceConfiguration());
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient,
         disconnectionRequestListenerExecutor, retryExecutor);
-    MessagesCache messagesCache = new MessagesCache(messagesCluster,
-        messageDeliveryScheduler, messageDeletionExecutor, retryExecutor, Clock.systemUTC());
     final FoundationDbMessageStore foundationDbMessageStore = new FoundationDbMessageStore(messageDatabasesByEpoch,
         configuration.getFoundationDbMessagesConfiguration().activeEpoch(),
         new VersionstampUUIDCipher(configuration.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey(),
@@ -367,11 +360,8 @@ public record CommandDependencies(
         configuration.getReportMessageConfiguration().getReportTtl());
     ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
         configuration.getReportMessageConfiguration().getCounterTtl());
-    RedisMessageAvailabilityManager redisMessageAvailabilityManager =
-        new RedisMessageAvailabilityManager(messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
     final MessagesManager messagesManager =
-        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager,
-            reportMessageManager, messageDeletionExecutor, Clock.systemUTC());
+        new MessagesManager(messagesDynamoDb, foundationDbMessageStore, reportMessageManager, messageDeletionExecutor, Clock.systemUTC());
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     PhoneNumberRecoveryPasswordsManager phoneNumberRecoveryPasswordsManager =
@@ -465,14 +455,12 @@ public record CommandDependencies(
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(disconnectionRequestManager);
-    environment.lifecycle().manage(redisMessageAvailabilityManager);
     environment.lifecycle().manage(new ManagedAwsCrt());
 
     return new CommandDependencies(
         accountsManager,
         profilesManager,
         reportMessageManager,
-        messagesCache,
         messagesManager,
         keys,
         phoneNumberRecoveryPasswordsManager,

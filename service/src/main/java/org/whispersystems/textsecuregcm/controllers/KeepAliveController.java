@@ -25,5 +25,4 @@ public class KeepAliveController {
   public Response getProvisioningKeepAlive() {
     return Response.ok().build();
   }
-
 }

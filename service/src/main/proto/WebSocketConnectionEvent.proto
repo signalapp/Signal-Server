@@ -10,11 +10,10 @@ option java_package = "org.whispersystems.textsecuregcm.push";
 option java_multiple_files = true;
 
 message ClientEvent {
-  reserved 3;
+  reserved 3, 4;
   oneof event {
     NewMessageAvailableEvent new_message_available = 1;
     ClientConnectedEvent client_connected = 2;
-    MessagesPersistedEvent messages_persisted = 4;
   }
 }
 
@@ -29,11 +28,4 @@ message NewMessageAvailableEvent {
  */
 message ClientConnectedEvent {
   bytes server_id = 1;
-}
-
-/**
- * Indicates that messages for the client have been persisted from short-term
- * storage to long-term storage.
- */
-message MessagesPersistedEvent {
 }

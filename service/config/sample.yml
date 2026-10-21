@@ -230,11 +230,6 @@ svrb:
       AAAAAAAAAAAAAAAAAAAA
       -----END CERTIFICATE-----
 
-messageCache: # Redis server configuration for message store cache
-  persistDelayMinutes: 1
-  cluster:
-    configurationUri: redis://redis.example.com:6379/
-
 attachments:
   maxAttachmentUploadSizeInBytes: 1024
   maxMessageBackupUploadSizeInBytes: 1024

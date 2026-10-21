@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vdurmont.semver4j.Semver;
 import java.time.Duration;
 import java.util.Collections;
@@ -35,7 +34,7 @@ class DynamicConfigurationTest {
       """;
 
   @Test
-  void testParseExperimentConfig() throws JsonProcessingException {
+  void testParseExperimentConfig() {
     {
       final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
@@ -125,7 +124,7 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseE164Experiments() throws JsonProcessingException {
+  void testParseE164Experiments() {
     {
       final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
@@ -207,7 +206,7 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseRemoteDeprecationConfig() throws JsonProcessingException {
+  void testParseRemoteDeprecationConfig() {
     {
       final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
@@ -246,7 +245,7 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParsePaymentsConfiguration() throws JsonProcessingException {
+  void testParsePaymentsConfiguration() {
     {
       final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
@@ -271,7 +270,7 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseCaptchaConfiguration() throws JsonProcessingException {
+  void testParseCaptchaConfiguration() {
     {
       final String emptyConfigYaml = "test: true";
 
@@ -319,7 +318,7 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseLimits() throws JsonProcessingException {
+  void testParseLimits() {
     final String limitsConfig = REQUIRED_CONFIG.concat("""
         limits:
           rateLimitReset:
@@ -334,43 +333,4 @@ class DynamicConfigurationTest {
     assertThat(resetRateLimiterConfig.bucketSize()).isEqualTo(17);
     assertThat(resetRateLimiterConfig.permitRegenerationDuration()).isEqualTo(Duration.ofNanos(4_000));
   }
-
-  @Test
-  void testMessagePersister() throws JsonProcessingException {
-    {
-      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
-      final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
-
-      assertTrue(emptyConfig.getMessagePersisterConfiguration().isPersistenceEnabled());
-    }
-
-    {
-      final String messagePersisterEnabledYaml = REQUIRED_CONFIG.concat("""
-          messagePersister:
-            persistenceEnabled: true
-            dedicatedProcessEnabled: true
-          """);
-
-      final DynamicConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(messagePersisterEnabledYaml, DynamicConfiguration.class)
-              .orElseThrow();
-
-      assertTrue(config.getMessagePersisterConfiguration().isPersistenceEnabled());
-    }
-
-    {
-      final String messagePersisterDisabledYaml = REQUIRED_CONFIG.concat("""
-          messagePersister:
-            persistenceEnabled: false
-          """);
-
-      final DynamicConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(messagePersisterDisabledYaml, DynamicConfiguration.class)
-              .orElseThrow();
-
-      assertFalse(config.getMessagePersisterConfiguration().isPersistenceEnabled());
-    }
-  }
-
 }

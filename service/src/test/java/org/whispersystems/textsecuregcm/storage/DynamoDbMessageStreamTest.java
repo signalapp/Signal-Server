@@ -6,10 +6,8 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -22,12 +20,10 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
-class RedisDynamoDbMessageStreamTest {
+class DynamoDbMessageStreamTest {
 
   private MessagesDynamoDb messagesDynamoDb;
-  private MessagesCache messagesCache;
-
-  private RedisDynamoDbMessageStream redisDynamoDbMessageStream;
+  private DynamoDbMessageStream dynamoDbMessageStream;
 
   private Device device;
 
@@ -37,21 +33,15 @@ class RedisDynamoDbMessageStreamTest {
   @BeforeEach
   void setUp() {
     messagesDynamoDb = mock(MessagesDynamoDb.class);
-    messagesCache = mock(MessagesCache.class);
 
     device = mock(Device.class);
     when(device.getId()).thenReturn(DEVICE_ID);
 
-    redisDynamoDbMessageStream = new RedisDynamoDbMessageStream(messagesDynamoDb,
-        messagesCache,
+    dynamoDbMessageStream = new DynamoDbMessageStream(messagesDynamoDb,
         ACCOUNT_IDENTIFIER,
-        device,
-        mock(RedisDynamoDbMessagePublisher.class));
+        device);
 
     when(messagesDynamoDb.deleteMessage(any(), any(), any(), anyLong()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-
-    when(messagesCache.remove(any(), anyByte(), any(UUID.class)))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
   }
 
@@ -64,24 +54,9 @@ class RedisDynamoDbMessageStreamTest {
     when(messagesDynamoDb.deleteMessage(ACCOUNT_IDENTIFIER, device, messageGuid, serverTimestamp))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(message)));
 
-    redisDynamoDbMessageStream.acknowledgeMessage(messageGuid, serverTimestamp).join();
+    dynamoDbMessageStream.acknowledgeMessage(messageGuid, serverTimestamp).join();
 
-    verify(messagesCache).remove(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid);
     verify(messagesDynamoDb).deleteMessage(ACCOUNT_IDENTIFIER, device, messageGuid, serverTimestamp);
-  }
-
-  @Test
-  void acknowledgeMessageRedis() {
-    final MessageProtos.Envelope message = generateMessage();
-    final UUID messageGuid = UUIDUtil.fromByteString(message.getServerGuid());
-
-    when(messagesCache.remove(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(RemovedMessage.fromEnvelope(message))));
-
-    redisDynamoDbMessageStream.acknowledgeMessage(messageGuid, message.getServerTimestamp()).join();
-
-    verify(messagesCache).remove(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid);
-    verify(messagesDynamoDb, never()).deleteMessage(any(), any(), any(), anyLong());
   }
 
   private static MessageProtos.Envelope generateMessage() {

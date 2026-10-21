@@ -5,7 +5,6 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,7 +33,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,8 +49,6 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
-import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -60,7 +56,6 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.storage.FoundationDbClusterExtension;
-import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -80,9 +75,6 @@ class MessageDispatcherIntegrationTest {
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.MESSAGES);
 
   @RegisterExtension
-  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
-
-  @RegisterExtension
   static FoundationDbClusterExtension FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension(1);
 
   private static ExecutorService sharedExecutorService;
@@ -91,8 +83,6 @@ class MessageDispatcherIntegrationTest {
 
   private FoundationDbMessageStore foundationDbMessageStore;
   private MessagesDynamoDb messagesDynamoDb;
-  private MessagesCache messagesCache;
-  private RedisMessageAvailabilityManager redisMessageAvailabilityManager;
   private Account account;
   private Device device;
   private MessageDispatcher messageDispatcher;
@@ -114,13 +104,9 @@ class MessageDispatcherIntegrationTest {
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
-    messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, sharedExecutorService, mock(ScheduledExecutorService.class), Clock.systemUTC());
     messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(7),
         sharedExecutorService);
-    redisMessageAvailabilityManager = new RedisMessageAvailabilityManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        sharedExecutorService, sharedExecutorService);
     account = mock(Account.class);
     device = mock(Device.class);
 
@@ -142,11 +128,9 @@ class MessageDispatcherIntegrationTest {
     when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
-    redisMessageAvailabilityManager.start();
-
     messageDispatcher = new MessageDispatcher(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager,
+        new MessagesManager(messagesDynamoDb, foundationDbMessageStore,
             mock(ReportMessageManager.class),
             sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
@@ -154,11 +138,6 @@ class MessageDispatcherIntegrationTest {
         mock(PushNotificationScheduler.class),
         mock(DisconnectionRequestManager.class),
         mock(ClientReleaseManager.class));
-  }
-
-  @AfterEach
-  void tearDown() {
-    redisMessageAvailabilityManager.stop();
   }
 
   @AfterAll
@@ -181,13 +160,12 @@ class MessageDispatcherIntegrationTest {
 
   @ParameterizedTest
   @CsvSource({
-      "207, 173, 77",
-      "323, 0, 0",
-      "0, 221, 0",
-      "0, 0, 87"
+      "207, 77",
+      "323, 0",
+      "0, 87"
   })
-  void testProcessStoredMessages(final int persistedMessageCount, final int cachedMessageCount, final int foundationDbMessageCount) {
-    final List<Envelope> expectedMessages = fillRandomMessages(persistedMessageCount, cachedMessageCount, foundationDbMessageCount);
+  void testProcessStoredMessages(final int dynamoDbMessageCount, final int foundationDbMessageCount) {
+    final List<Envelope> expectedMessages = fillRandomMessages(dynamoDbMessageCount, foundationDbMessageCount);
     final Sinks.Many<UUID> acks = Sinks.many().unicast().onBackpressureBuffer();
     final List<Envelope> receivedMessages = messageDispatcher
         .getMessages(true, null, account, device, acks.asFlux())
@@ -201,11 +179,10 @@ class MessageDispatcherIntegrationTest {
 
   @Test
   void testProcessStoredMessagesMultipleSegments() {
-    final int persistedMessageCount = 77;
-    final int cachedMessageCount = 104;
+    final int dynamoDbMessageCount = 77;
 
-    final List<Envelope> expectedMessages = fillRandomMessages(persistedMessageCount, cachedMessageCount, 0);
-    final AtomicInteger remainingMessages = new AtomicInteger(persistedMessageCount + cachedMessageCount);
+    final List<Envelope> expectedMessages = fillRandomMessages(dynamoDbMessageCount, 0);
+    final AtomicInteger remainingMessages = new AtomicInteger(dynamoDbMessageCount);
     final int additionalMessageCount = 67;
 
     final Sinks.Many<UUID> acks = Sinks.many().unicast().onBackpressureBuffer();
@@ -217,10 +194,10 @@ class MessageDispatcherIntegrationTest {
           acks.tryEmitNext(UUIDUtil.fromByteString(envelope.getServerGuid()));
           if (remainingMessages.addAndGet(-1) == 60) {
             sharedExecutorService
-                .submit(() -> expectedMessages.addAll(fillRandomMessages(0, 0, additionalMessageCount)));
+                .submit(() -> expectedMessages.addAll(fillRandomMessages( 0, additionalMessageCount)));
           }
         })
-        .take(persistedMessageCount + cachedMessageCount + additionalMessageCount)
+        .take(dynamoDbMessageCount + additionalMessageCount)
         .collectList()
         .block(Duration.ofSeconds(15));
     assertEquals(expectedMessages.size(), receivedMessages.size());
@@ -229,17 +206,14 @@ class MessageDispatcherIntegrationTest {
 
   @Test
   void testProcessStoredMessagesClientClosed() {
-    final int persistedMessageCount = 207;
-    final int cachedMessageCount = 173;
+    final int dynamoDbMessageCount = 207;
 
     final Set<Envelope> receivedMessages = Collections.newSetFromMap(new ConcurrentHashMap<>());
-    final List<Envelope> expectedMessages = fillRandomMessages(persistedMessageCount, cachedMessageCount, 0);
+    final List<Envelope> expectedMessages = fillRandomMessages(dynamoDbMessageCount, 0);
     final TestPublisher<UUID> acks = TestPublisher.create();
     final Exception thrown = assertThrows(Exception.class, () -> messageDispatcher
         .getMessages(true, null, account, device, acks.flux())
         .doOnNext(response -> {
-          assertFalse(redisMessageAvailabilityManager.isLocallyPresent(account.getAccountIdentifier(), device.getId()),
-              "Client should not be present until initial queue is cleared");
           receivedMessages.add(response.getEnvelope());
           acks.error(new IOException("test exception"));
         })
@@ -248,25 +222,18 @@ class MessageDispatcherIntegrationTest {
 
     assertInstanceOf(IOException.class, thrown.getCause());
     assertTrue(expectedMessages.containsAll(receivedMessages));
-    assertFalse(redisMessageAvailabilityManager.isLocallyPresent(account.getAccountIdentifier(), device.getId()));
   }
 
-  private List<Envelope> fillRandomMessages(final int persistedMessageCount, final int cachedMessageCount, final int foundationDbMessageCount) {
+  private List<Envelope> fillRandomMessages(final int dynamoDbMessageCount, final int foundationDbMessageCount) {
 
-    final List<Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
-    for (int i = 0; i < persistedMessageCount; i++) {
+    final List<Envelope> expectedMessages = new ArrayList<>(dynamoDbMessageCount + foundationDbMessageCount);
+
+    for (int i = 0; i < dynamoDbMessageCount; i++) {
       final Envelope envelope = generateRandomMessage(UUID.randomUUID());
       expectedMessages.add(envelope);
     }
+
     messagesDynamoDb.store(expectedMessages, account.getAccountIdentifier(), device);
-
-    for (int i = 0; i < cachedMessageCount; i++) {
-      final UUID messageGuid = UUID.randomUUID();
-      final Envelope envelope = generateRandomMessage(messageGuid);
-
-      messagesCache.insert(messageGuid, account.getAccountIdentifier(), device.getId(), envelope).join();
-      expectedMessages.add(envelope);
-    }
 
     for (int i = 0; i < foundationDbMessageCount; i++) {
       final Envelope envelope = generateRandomMessage(UUID.randomUUID())

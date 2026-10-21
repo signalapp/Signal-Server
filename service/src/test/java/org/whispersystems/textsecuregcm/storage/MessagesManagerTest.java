@@ -9,8 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyByte;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -47,7 +45,6 @@ import org.testcontainers.shaded.org.checkerframework.checker.nullness.qual.Null
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
-import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.tests.util.MultiRecipientMessageHelper;
 import org.whispersystems.textsecuregcm.tests.util.TestRecipient;
@@ -57,7 +54,6 @@ import reactor.core.publisher.Mono;
 class MessagesManagerTest {
 
   private MessagesDynamoDb messagesDynamoDb;
-  private MessagesCache messagesCache;
   private FoundationDbMessageStore foundationDbMessageStore;
   private ReportMessageManager reportMessageManager;
 
@@ -68,16 +64,11 @@ class MessagesManagerTest {
   @BeforeEach
   void setUp() {
     messagesDynamoDb = mock(MessagesDynamoDb.class);
-    messagesCache = mock(MessagesCache.class);
     foundationDbMessageStore = mock(FoundationDbMessageStore.class);
     reportMessageManager = mock(ReportMessageManager.class);
 
-    when(messagesCache.insert(any(), any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(true));
-
     messagesManager = new MessagesManager(messagesDynamoDb,
-        messagesCache,
         foundationDbMessageStore,
-        mock(RedisMessageAvailabilityManager.class),
         reportMessageManager,
         Executors.newSingleThreadExecutor(),
         CLOCK);
@@ -118,7 +109,6 @@ class MessagesManagerTest {
     verifyNoMoreInteractions(reportMessageManager);
 
     verify(foundationDbMessageStore, times(2)).insert(any(), any());
-    verify(messagesCache, never()).insert(any(), any(), anyByte(), any());
   }
 
   @Test
@@ -140,11 +130,6 @@ class MessagesManagerTest {
     assertInstanceOf(RuntimeException.class, completionException.getCause());
 
     verify(foundationDbMessageStore).insert(any(), any());
-    verify(messagesCache, never())
-        .insert(argThat(messageGuid -> messageGuid.version() == 4),
-            eq(destinationUuid),
-            eq(Device.PRIMARY_ID),
-            any());
   }
 
   private static UUID generateRandomV8UUID() {
@@ -218,9 +203,6 @@ class MessagesManagerTest {
 
     final byte[] sharedMrmKey = "shared-mrm-key".getBytes(StandardCharsets.UTF_8);
 
-    when(messagesCache.insertSharedMultiRecipientMessagePayload(eq(multiRecipientMessage), any()))
-        .thenReturn(CompletableFuture.completedFuture(sharedMrmKey));
-
     final long clientTimestamp = System.currentTimeMillis();
     final boolean isStory = ThreadLocalRandom.current().nextBoolean();
     final boolean isEphemeral = ThreadLocalRandom.current().nextBoolean();
@@ -240,8 +222,6 @@ class MessagesManagerTest {
 
     assertEquals(expectedPresenceByAccountAndDeviceId,
         messagesManager.insertMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, clientTimestamp, isStory, isEphemeral, isUrgent).join());
-
-    verify(messagesCache, never()).insert(any(), any(), anyByte(), any());
 
     final Envelope prototypeExpectedFoundationDbMessage = prototypeExpectedMessage.toBuilder().clearSharedMrmKey().build();
 
@@ -273,16 +253,12 @@ class MessagesManagerTest {
   }
 
   @CartesianTest
-  void mayHaveMessages(@CartesianTest.Values(booleans = {true, false}) final boolean hasCachedMessages,
-      @CartesianTest.Values(booleans = {true, false}) final boolean hasPersistedMessages,
+  void mayHaveMessages(@CartesianTest.Values(booleans = {true, false}) final boolean hasPersistedMessages,
       @CartesianTest.Values(booleans = {true, false}) final boolean hasFoundationDbMessages) {
 
     final UUID accountIdentifier = UUID.randomUUID();
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
-
-    when(messagesCache.hasMessagesAsync(accountIdentifier, Device.PRIMARY_ID))
-        .thenReturn(CompletableFuture.completedFuture(hasCachedMessages));
 
     when(messagesDynamoDb.mayHaveMessages(accountIdentifier, device))
         .thenReturn(CompletableFuture.completedFuture(hasPersistedMessages));
@@ -290,30 +266,24 @@ class MessagesManagerTest {
     when(foundationDbMessageStore.hasMessages(new AciServiceIdentifier(accountIdentifier), Device.PRIMARY_ID))
         .thenReturn(CompletableFuture.completedFuture(hasFoundationDbMessages));
 
-    assertEquals(hasCachedMessages || hasPersistedMessages || hasFoundationDbMessages,
+    assertEquals(hasPersistedMessages || hasFoundationDbMessages,
         messagesManager.mayHaveMessages(accountIdentifier, device).join());
   }
 
   @ParameterizedTest
   @CsvSource({
-      ",,,",
-      "1,,,1",
-      ",1,,1",
-      "2,1,,1",
-      "1,2,,2",
-      "1,2,3,2",
-      ",,3,3"
+      ",,",
+      "1,,1",
+      "2,,2",
+      "2,3,2",
+      ",3,3"
   })
-  public void oldestMessageTimestamp(@Nullable final Long oldestCached,
-      @Nullable final Long oldestPersisted,
+  public void oldestMessageTimestamp(@Nullable final Long oldestPersisted,
       @Nullable final Long oldestInFoundationDb,
       @Nullable final Long expected) {
     final UUID accountIdentifier = UUID.randomUUID();
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
-
-    when(messagesCache.getEarliestUndeliveredTimestamp(accountIdentifier, Device.PRIMARY_ID))
-        .thenReturn(oldestCached == null ? Mono.empty() : Mono.just(oldestCached));
 
     when(messagesDynamoDb.load(accountIdentifier, device, 1))
         .thenReturn(oldestPersisted == null

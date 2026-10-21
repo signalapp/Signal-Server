@@ -18,23 +18,23 @@ import java.util.concurrent.Flow;
 
 public class ConcatenatingMessageStream implements MessageStream {
 
-  private final RedisDynamoDbMessageStream redisDynamoDbMessageStream;
+  private final DynamoDbMessageStream dynamoDbMessageStream;
   private final FoundationDbMessageStream foundationDbMessageStream;
 
   private static final Counter CONFLICTING_CONSUMER_COUNTER =
       Metrics.counter(MetricsUtil.name(ConcatenatingMessageStream.class, "conflictingConsumer"));
 
-  public ConcatenatingMessageStream(final RedisDynamoDbMessageStream redisDynamoDbMessageStream,
+  public ConcatenatingMessageStream(final DynamoDbMessageStream dynamoDbMessageStream,
       final FoundationDbMessageStream foundationDbMessageStream) {
 
-    this.redisDynamoDbMessageStream = redisDynamoDbMessageStream;
+    this.dynamoDbMessageStream = dynamoDbMessageStream;
     this.foundationDbMessageStream = foundationDbMessageStream;
   }
 
   @Override
   public Flow.Publisher<MessageStreamEntry> getMessages() {
     return JdkFlowAdapter.publisherToFlowPublisher(Flux.concat(
-        JdkFlowAdapter.flowPublisherToFlux(redisDynamoDbMessageStream.getMessages()),
+        JdkFlowAdapter.flowPublisherToFlux(dynamoDbMessageStream.getMessages()),
         JdkFlowAdapter.flowPublisherToFlux(foundationDbMessageStream.getMessages()))
         .doOnError(throwable -> {
           if (ExceptionUtils.unwrap(throwable) instanceof ConflictingMessageConsumerException) {
@@ -46,7 +46,7 @@ public class ConcatenatingMessageStream implements MessageStream {
   @Override
   public CompletableFuture<Void> acknowledgeMessage(final UUID messageGuid, final long serverTimestamp) {
     return CompletableFuture.allOf(
-        redisDynamoDbMessageStream.acknowledgeMessage(messageGuid, serverTimestamp),
+        dynamoDbMessageStream.acknowledgeMessage(messageGuid, serverTimestamp),
         messageGuid.version() == 8
             ? foundationDbMessageStream.acknowledgeMessage(messageGuid, serverTimestamp)
             : CompletableFuture.completedFuture(null));

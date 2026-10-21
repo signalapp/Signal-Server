@@ -43,10 +43,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  DynamicMessagePersisterConfiguration messagePersister = new DynamicMessagePersisterConfiguration();
-
-  @JsonProperty
-  @Valid
   DynamicMessageDeliveryConfiguration messageDelivery = new DynamicMessageDeliveryConfiguration();
 
   @JsonProperty
@@ -113,10 +109,6 @@ public class DynamicConfiguration {
 
   public DynamicCaptchaConfiguration getCaptchaConfiguration() {
     return captcha;
-  }
-
-  public DynamicMessagePersisterConfiguration getMessagePersisterConfiguration() {
-    return messagePersister;
   }
 
   public DynamicMessageDeliveryConfiguration getMessageDeliveryConfiguration() {
