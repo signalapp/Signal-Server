@@ -2424,7 +2424,9 @@ is required to call Profiles.SetProfile</p>
         </code>
       </td>
       <td class="content"><p>The ciphertext of a serialized Profile protobuf. Required.
-937 max length = 909 plaintext serialization + 28 bytes encryption overhead</p></td>
+1486 max length = 1202 plaintext serialization
+                + 256-byte external padding PKCS#7
+                + 28 bytes encryption overhead</p></td>
       
     </tr>
     
