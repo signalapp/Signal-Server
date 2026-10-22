@@ -112,6 +112,8 @@ class OmnibusH2ServerTest {
   /// filled with the byte `b`
   private static final String FIXED_RESPONSE_PATH_PREFIX = "/fixed-response/";
 
+  private static final String TEST_DOMAIN = "foo.example.com";
+
   private static NioEventLoopGroup nioEventLoopGroup;
   private static DefaultEventLoopGroup localEventLoopGroup;
 
@@ -127,7 +129,7 @@ class OmnibusH2ServerTest {
     final Instant now = Instant.now();
 
     final char[] keyStorePassword = RandomStringUtils.insecure().nextAlphanumeric(16).toCharArray();
-    final String domain = "foo.example.com";
+    final String domain = TEST_DOMAIN;
 
     final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 
@@ -168,6 +170,8 @@ class OmnibusH2ServerTest {
   static void tearDownAfterAll() throws InterruptedException {
     localEventLoopGroup.shutdownGracefully(1, 1000, TimeUnit.MILLISECONDS).sync();
     nioEventLoopGroup.shutdownGracefully(1, 1000, TimeUnit.MILLISECONDS).sync();
+
+    ReferenceCountUtil.release(sniMapping.map(TEST_DOMAIN));
   }
 
   @ParameterizedTest
@@ -777,6 +781,7 @@ class OmnibusH2ServerTest {
   private static SslContext sslContext() {
     try {
       return SslContextBuilder.forClient()
+          .sslProvider(SslProvider.JDK)
           .trustManager(InsecureTrustManagerFactory.INSTANCE)
           .applicationProtocolConfig(new ApplicationProtocolConfig(
               ApplicationProtocolConfig.Protocol.ALPN,
