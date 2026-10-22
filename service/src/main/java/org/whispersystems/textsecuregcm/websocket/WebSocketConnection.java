@@ -54,6 +54,7 @@ import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.Disposable;
 import reactor.core.observability.micrometer.Micrometer;
+import reactor.core.publisher.Hooks;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
@@ -81,6 +82,7 @@ public class WebSocketConnection {
   private static final Duration CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY = Duration.ofMinutes(1);
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
+  private static final Logger droppedErrorLogger = LoggerFactory.getLogger("droppedError");
 
   private final ReceiptSender receiptSender;
   private final MessagesManager messagesManager;
@@ -270,6 +272,16 @@ public class WebSocketConnection {
           return result;
         })
         .thenRun(() -> messageMetrics.measureSendMessageDuration(MessageMetrics.WEBSOCKET_CHANNEL, userAgent, sample));
+  }
+
+  /// Registers a global hook that discards exceptions caused by closed connections and logs everything else.
+  /// Hooks are additive and should therefore be called exactly once at startup.
+  public static void registerDroppedErrorHook() {
+    Hooks.onErrorDropped(throwable -> {
+      if (!WebSocketConnection.isConnectionClosedException(ExceptionUtils.unwrap(throwable))) {
+        droppedErrorLogger.error("Dropped error", throwable);
+      }
+    });
   }
 
   @VisibleForTesting

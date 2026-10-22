@@ -327,6 +327,7 @@ import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.NoContextTakeoverPerMessageDeflateExtension;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
+import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.textsecuregcm.workers.BackupMetricsCommand;
 import org.whispersystems.textsecuregcm.workers.BackupUsageRecalculationCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
@@ -1348,6 +1349,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     provisioningEnvironment.jersey().register(new KeepAliveController());
     provisioningEnvironment.jersey().register(new TimestampResponseFilter());
+
+    WebSocketConnection.registerDroppedErrorHook();
 
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);
 
