@@ -730,6 +730,7 @@ class OmnibusH2ServerTest {
   /// Makes an H2 connection to the omnibus at `server` on which new H2 streams can be opened
   private Channel connectToOmnibus(final OmnibusH2Server server, @Nullable final HAProxyMessage proxyHeader) {
     final SslContext clientSsl = sslContext();
+    final CompletableFuture<Void> pipelineConfigured = new CompletableFuture<>();
 
     final Bootstrap clientBootstrap = new Bootstrap()
         .group(nioEventLoopGroup)
@@ -741,22 +742,33 @@ class OmnibusH2ServerTest {
           @Override
           protected void initChannel(final SocketChannel ch) {
             ch.pipeline().addLast(HAProxyMessageEncoder.INSTANCE);
+            ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+              @Override
+              public void channelActive(final ChannelHandlerContext ctx) {
+                // The TLS and HTTP/2 handlers can't be added until after the proxy header is written
+                if (proxyHeader != null) {
+                  ctx.writeAndFlush(proxyHeader);
+                }
+                ctx.pipeline().remove(HAProxyMessageEncoder.INSTANCE);
+                ctx.pipeline().remove(this);
+                ctx.pipeline().addLast(clientSsl.newHandler(ctx.alloc(), server.getLocalAddress().getHostName(), server.getLocalAddress().getPort()));
+                ctx.pipeline().addLast(Http2FrameCodecBuilder.forClient()
+                    .initialSettings(Http2Settings.defaultSettings())
+                    .build());
+                ctx.pipeline().addLast(new Http2MultiplexHandler(new ChannelInboundHandlerAdapter()));
+                pipelineConfigured.complete(null);
+              }
+            });
           }
         });
     final Channel ch = clientBootstrap.connect(server.getLocalAddress())
         .syncUninterruptibly()
         .channel();
-    if (proxyHeader != null) {
-      ch.writeAndFlush(proxyHeader).syncUninterruptibly();
-    }
-    ch.pipeline().remove(HAProxyMessageEncoder.INSTANCE);
-    ch.pipeline().addLast(clientSsl.newHandler(ch.alloc(), server.getLocalAddress().getHostName(), server.getLocalAddress().getPort()));
-    ch.pipeline().addLast(Http2FrameCodecBuilder.forClient()
-        .initialSettings(Http2Settings.defaultSettings())
-        .build());
-    ch.pipeline().addLast(new Http2MultiplexHandler(new ChannelInboundHandlerAdapter()));
+    // The connect future completes before channelActive fires, so wait until streams can actually be opened
+    pipelineConfigured.orTimeout(5, TimeUnit.SECONDS).join();
     return ch;
   }
+
 
   private Channel connectToOmnibus(final OmnibusH2Server server) {
     return connectToOmnibus(server, null);
