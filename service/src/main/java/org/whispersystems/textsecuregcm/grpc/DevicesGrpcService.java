@@ -12,6 +12,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.signal.chat.device.ChangeDevicePasswordRequest;
+import org.signal.chat.device.ChangeDevicePasswordResponse;
 import org.signal.chat.device.ClearPushTokenRequest;
 import org.signal.chat.device.ClearPushTokenResponse;
 import org.signal.chat.device.GetDevicesRequest;
@@ -28,7 +30,6 @@ import org.signal.chat.device.SimpleDevicesGrpc;
 import org.signal.chat.errors.NotFound;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -182,6 +183,23 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
         device -> device.setCapabilities(capabilities));
 
     return SetCapabilitiesResponse.getDefaultInstance();
+  }
+
+  @Override
+  public ChangeDevicePasswordResponse changeDevicePassword(final ChangeDevicePasswordRequest request) {
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
+
+    if (request.getNewPassword().isBlank()) {
+      throw GrpcExceptions.fieldViolation("new_password", "password must not be blank");
+    }
+
+    if (!accountsManager.updateDevicePassword(authenticatedDevice.accountIdentifier(), authenticatedDevice.deviceId(),
+        request.getNewPassword())) {
+
+      throw GrpcExceptions.invalidCredentials("invalid credentials");
+    }
+
+    return ChangeDevicePasswordResponse.getDefaultInstance();
   }
 
   private Account getAuthenticatedAccount() {

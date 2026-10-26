@@ -71,6 +71,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
+import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.webauthn.AuthenticationCeremonyParameters;
 import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyParameters;
 import org.whispersystems.textsecuregcm.auth.webauthn.RegistrationCeremonyResult;
@@ -1375,6 +1376,43 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
       }).orElse(false);
     });
+  }
+
+  /// Sets a new password for the given device and requests disconnection for all authenticated device connections.
+  ///
+  ///
+  /// @return `true` if the password was changed or `false` if the device no longer exists or its credentials
+  /// have been locked
+  public boolean updateDevicePassword(final UUID accountIdentifier, final byte deviceId, final String newPassword) {
+
+    final SaltedTokenHash newCredentials = SaltedTokenHash.generateFor(newPassword);
+
+    final Account updatedAccount = update(accountIdentifier, a -> {
+
+      final Optional<Device> maybeDevice = a.getDevice(deviceId);
+
+      return maybeDevice.map(d -> {
+
+        if (d.hasLockedCredentials()) {
+          return false;
+        }
+
+        d.setAuthTokenHash(newCredentials);
+
+        return true;
+
+      }).orElse(false);
+    });
+
+    final boolean passwordChanged = updatedAccount.getDevice(deviceId)
+        .map(d -> d.getAuthTokenHash().equals(newCredentials))
+        .orElse(false);
+
+    if (passwordChanged) {
+      disconnectionRequestManager.requestDisconnection(accountIdentifier, List.of(deviceId));
+    }
+
+    return passwordChanged;
   }
 
   /**

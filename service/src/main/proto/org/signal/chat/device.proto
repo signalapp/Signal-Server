@@ -46,6 +46,9 @@ service Devices {
 
   // Declares that the authenticated device supports certain features.
   rpc SetCapabilities(SetCapabilitiesRequest) returns (SetCapabilitiesResponse) {}
+
+  // Changes the password for the currently authenticated device.
+  rpc ChangeDevicePassword(ChangeDevicePasswordRequest) returns (ChangeDevicePasswordResponse) {}
 }
 
 message GetDevicesRequest {}
@@ -136,3 +139,9 @@ message SetCapabilitiesRequest {
 }
 
 message SetCapabilitiesResponse {}
+
+message ChangeDevicePasswordRequest {
+  string new_password = 1 [(require.size) = {min: 32; max: 255}];
+}
+
+message ChangeDevicePasswordResponse {}

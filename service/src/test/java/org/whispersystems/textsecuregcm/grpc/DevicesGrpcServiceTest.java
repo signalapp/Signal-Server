@@ -36,6 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
+import org.signal.chat.device.ChangeDevicePasswordRequest;
 import org.signal.chat.device.ClearPushTokenRequest;
 import org.signal.chat.device.ClearPushTokenResponse;
 import org.signal.chat.device.DevicesGrpc;
@@ -503,5 +504,61 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     }
 
     verify(device).setCapabilities(expectedCapabilities);
+  }
+
+  @Test
+  void changeDevicePassword() {
+    final byte deviceId = 127;
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
+
+    final String newPassword = RandomStringUtils.insecure().nextAlphanumeric(32);
+
+    when(accountsManager.updateDevicePassword(any(), anyByte(), any())).thenReturn(true);
+
+    authenticatedServiceStub().changeDevicePassword(ChangeDevicePasswordRequest.newBuilder()
+        .setNewPassword(newPassword)
+        .build());
+
+    verify(accountsManager).updateDevicePassword(AUTHENTICATED_ACI, deviceId, newPassword);
+  }
+
+  @Test
+  void changeDevicePasswordNotChanged() {
+    when(accountsManager.updateDevicePassword(any(), anyByte(), any())).thenReturn(false);
+
+    assertStatusException(Status.UNAUTHENTICATED,
+        () -> authenticatedServiceStub().changeDevicePassword(ChangeDevicePasswordRequest.newBuilder()
+            .setNewPassword(RandomStringUtils.insecure().nextAlphanumeric(32))
+            .build()));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void changeDevicePasswordIllegalArgument(final ChangeDevicePasswordRequest request) {
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().changeDevicePassword(request));
+    verify(accountsManager, never()).updateDevicePassword(any(), anyByte(), any());
+  }
+
+  private static Stream<Arguments> changeDevicePasswordIllegalArgument() {
+    return Stream.of(
+        Arguments.argumentSet("No new password",
+            ChangeDevicePasswordRequest.newBuilder()
+                .build()),
+
+        Arguments.argumentSet("New password too short",
+            ChangeDevicePasswordRequest.newBuilder()
+                .setNewPassword(RandomStringUtils.insecure().nextAlphanumeric(31))
+                .build()),
+
+        Arguments.argumentSet("New password blank",
+            ChangeDevicePasswordRequest.newBuilder()
+                .setNewPassword(" ".repeat(64))
+                .build()),
+
+        Arguments.argumentSet("New password too long",
+            ChangeDevicePasswordRequest.newBuilder()
+                .setNewPassword(RandomStringUtils.insecure().nextAlphanumeric(256))
+                .build())
+    );
   }
 }

@@ -1415,6 +1415,54 @@ class AccountsManagerTest {
   }
 
   @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testUpdateDevicePassword(final boolean credentialsLocked) {
+    final Account account = AccountsHelper.generateTestAccount(null, UUID.randomUUID(), null, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
+
+    final String newPassword = RandomStringUtils.insecure().nextAlphanumeric(32);
+
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    device.setAuthTokenHash(SaltedTokenHash.generateFor("old-password"));
+    account.addDevice(device);
+
+    if (credentialsLocked) {
+      device.lockAuthTokenHash();
+    }
+    final SaltedTokenHash lockedCredentials = device.getAuthTokenHash();
+
+    assertEquals(!credentialsLocked, accountsManager.updateDevicePassword(account.getAccountIdentifier(),
+        Device.PRIMARY_ID, newPassword));
+
+    if (credentialsLocked) {
+      assertEquals(lockedCredentials, device.getAuthTokenHash());
+      assertTrue(device.hasLockedCredentials());
+
+      verify(accounts, never()).update(any());
+      verifyNoInteractions(disconnectionRequestManager);
+    } else {
+      assertTrue(device.getAuthTokenHash().verify(newPassword));
+
+      verify(accounts).update(account);
+      verify(disconnectionRequestManager)
+          .requestDisconnection(account.getAccountIdentifier(), List.of(Device.PRIMARY_ID));
+    }
+  }
+
+  @Test
+  void testUpdateDevicePasswordDeviceNotFound() {
+    final Account account = AccountsHelper.generateTestAccount(null, UUID.randomUUID(), null, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
+    final byte unknownDeviceId = 2;
+
+    assertFalse(accountsManager.updateDevicePassword(account.getAccountIdentifier(), unknownDeviceId, "new-password"));
+
+    verify(accounts, never()).update(any());
+    verifyNoInteractions(disconnectionRequestManager);
+  }
+
+  @ParameterizedTest
   @CsvSource({
       "+14152222222,+14153333333",
 
