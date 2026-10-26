@@ -73,7 +73,7 @@ public class BackupsGrpcService extends SimpleBackupsGrpc.BackupsImplBase {
     final Account account = authenticatedAccount();
     final Device device = account
         .getDevice(authenticatedDevice.deviceId())
-        .orElseThrow(Status.UNAUTHENTICATED::asRuntimeException);
+        .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
     backupAuthManager.commitBackupId(account, device, messagesCredentialRequest, mediaCredentialRequest);
     return SetBackupIdResponse.getDefaultInstance();
   }
@@ -162,7 +162,7 @@ public class BackupsGrpcService extends SimpleBackupsGrpc.BackupsImplBase {
   private Account authenticatedAccount() {
     return accountManager
         .getByAccountIdentifier(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier())
-        .orElseThrow(Status.UNAUTHENTICATED::asRuntimeException);
+        .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
   }
 
   private interface Deserializer<T> {

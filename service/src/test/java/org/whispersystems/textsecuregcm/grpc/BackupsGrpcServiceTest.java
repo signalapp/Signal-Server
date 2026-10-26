@@ -170,6 +170,30 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
     );
   }
 
+  @Test
+  void setBackupIdMissingAccount() {
+    when(accountsManager.getByAccountIdentifier(any())).thenReturn(Optional.empty());
+
+    GrpcTestUtils.assertStatusException(
+        Status.UNAUTHENTICATED, () -> authenticatedServiceStub().setBackupId(SetBackupIdRequest.newBuilder()
+            .setMediaBackupAuthCredentialRequest(ByteString.copyFrom(mediaAuthCredRequest.serialize()))
+            .setMessagesBackupAuthCredentialRequest(ByteString.copyFrom(messagesAuthCredRequest.serialize()))
+            .build())
+    );
+  }
+
+  @Test
+  void setBackupIdMissingDevice() {
+    when(account.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.empty());
+
+    GrpcTestUtils.assertStatusException(
+        Status.UNAUTHENTICATED, () -> authenticatedServiceStub().setBackupId(SetBackupIdRequest.newBuilder()
+            .setMediaBackupAuthCredentialRequest(ByteString.copyFrom(mediaAuthCredRequest.serialize()))
+            .setMessagesBackupAuthCredentialRequest(ByteString.copyFrom(messagesAuthCredRequest.serialize()))
+            .build())
+    );
+  }
+
   public static Stream<Arguments> redeemReceipt() {
     return Stream.of(
         Arguments.of(null, RedeemReceiptResponse.ResponseCase.SUCCESS),
