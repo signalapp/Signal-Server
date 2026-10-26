@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
+import io.grpc.Status;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -36,6 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +54,7 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -69,6 +72,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import reactor.test.StepVerifier;
 import reactor.test.publisher.TestPublisher;
 
 @Timeout(value = 30, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
@@ -80,6 +84,9 @@ class MessageDispatcherIntegrationTest {
   @RegisterExtension
   static FoundationDbClusterExtension FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension(1);
 
+  @RegisterExtension
+  static final RedisServerExtension REDIS_EXTENSION = RedisServerExtension.builder().build();
+
   private static ExecutorService sharedExecutorService;
   private static ScheduledExecutorService sharedScheduledExecutorService;
   private static Scheduler messageDeliveryScheduler;
@@ -89,6 +96,7 @@ class MessageDispatcherIntegrationTest {
   private Account account;
   private Device device;
   private MessageDispatcher messageDispatcher;
+  private DisconnectionRequestManager disconnectionRequestManager;
 
   private long serialTimestamp = System.currentTimeMillis();
 
@@ -131,6 +139,11 @@ class MessageDispatcherIntegrationTest {
     when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
+    disconnectionRequestManager = new DisconnectionRequestManager(REDIS_EXTENSION.getRedisClient(),
+        Runnable::run,
+        mock(ScheduledExecutorService.class));
+    disconnectionRequestManager.start();
+
     messageDispatcher = new MessageDispatcher(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, foundationDbMessageStore,
@@ -139,8 +152,13 @@ class MessageDispatcherIntegrationTest {
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
-        mock(DisconnectionRequestManager.class),
+        disconnectionRequestManager,
         mock(ClientReleaseManager.class));
+  }
+
+  @AfterEach
+  void tearDown() {
+    disconnectionRequestManager.stop();
   }
 
   @AfterAll
@@ -227,6 +245,29 @@ class MessageDispatcherIntegrationTest {
 
     assertInstanceOf(IOException.class, thrown.getCause());
     assertTrue(expectedMessages.containsAll(receivedMessages));
+  }
+
+  @Test
+  void testAccountDeletedWhileConnected() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(account.getAccountIdentifier());
+    final Envelope envelope = generateRandomMessage(UUID.randomUUID()).toBuilder().clearServerGuid().build();
+    final Sinks.Many<UUID> acks = Sinks.many().unicast().onBackpressureBuffer();
+
+    StepVerifier.create(messageDispatcher.getMessages(true, null, account, device, acks.asFlux()))
+        .expectNextMatches(GetMessagesResponse::hasQueueEmpty)
+        // Clearing deletes the watch key, which wakes our stream only if the key exists. Make sure we have written a
+        // watch key by sending a message while we're present to make the interaction with clear more interesting.
+        .then(() -> foundationDbMessageStore.insert(aci, Map.of(device.getId(), envelope)).join())
+        .expectNextMatches(GetMessagesResponse::hasEnvelope)
+        // Emulate an account delete
+        .then(() -> foundationDbMessageStore.clearAll(aci))
+        // Increase the chance that the stream observes the effects of the clear before the disconnection
+        .thenAwait(Duration.ofMillis(1))
+        .then(() -> disconnectionRequestManager.requestDisconnection(aci.uuid(), List.of(device.getId()))
+            .toCompletableFuture().join())
+        .expectErrorSatisfies(throwable ->
+            assertEquals(Status.Code.UNAUTHENTICATED, Status.fromThrowable(throwable).getCode()))
+        .verify(Duration.ofSeconds(5));
   }
 
   private List<Envelope> fillRandomMessages(final int dynamoDbMessageCount, final int foundationDbMessageCount) {

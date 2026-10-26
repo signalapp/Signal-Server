@@ -316,7 +316,22 @@ class FoundationDbMessagePublisher {
             // This is an unbounded publisher and we've established presence, so we should check for conflicts
             checkPresenceFuture = transaction.get(presenceKey)
                 .thenAccept(presenceValue -> {
+                  if (presenceValue == null) {
+                    // We wrote a presence key earlier, but now it is gone. Two possibilities:
+                    // 1. The queue was cleared by an account/device delete. We should eventually get a disconnection
+                    //    request so we should stay present until then.
+                    // 2. Someone else connected, wrote their own presence key, and then disconnected (nulling the key),
+                    //    without us ever noticing an update to messagesAvailableWatchKey. Though we briefly did
+                    //    conflict, we're not conflicting any more so we can continue.
+                    // In either case, we can try to re-establish our presence (unless we've already been disposed)
+                    if (!isTerminated()) {
+                      setPresence(transaction);
+                    }
+                    return;
+                  }
+
                   if (isPresenceContested(presenceValue)) {
+                    // Someone else established presence over us
                     throw new CompletionException(new ConflictingMessageConsumerException());
                   }
                 });
@@ -413,7 +428,7 @@ class FoundationDbMessagePublisher {
 
   private synchronized void setWatch(final Transaction transaction) {
     assert messagesAvailableWatchKey != null;
-    if (state == State.TERMINATED || state == State.ERROR) {
+    if (isTerminated()) {
       // If we're already in a terminal state, we don't want to set a watch that would leak
       return;
     }
@@ -490,14 +505,18 @@ class FoundationDbMessagePublisher {
   }
 
   private synchronized CompletableFuture<Void> renewPresence() {
-    if (state == State.TERMINATED || state == State.ERROR) {
+    if (isTerminated()) {
       return CompletableFuture.failedFuture(new IllegalStateException("Publisher already terminated"));
     }
 
     return database.runAsync(transaction -> {
-      transaction.set(presenceKey, FoundationDbMessageStore.getPresenceValue(clock.instant(), streamId));
+      setPresence(transaction);
       return CompletableFuture.completedFuture(null);
     }, FaultTolerantDatabase.Context.SET_PRESENCE);
+  }
+
+  private void setPresence(final Transaction transaction) {
+    transaction.set(presenceKey, FoundationDbMessageStore.getPresenceValue(clock.instant(), streamId));
   }
 
   @VisibleForTesting
@@ -507,7 +526,10 @@ class FoundationDbMessagePublisher {
 
       renewPresenceFuture.whenComplete((_, _) ->
           database.runAsync(transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
-                if (!isPresenceContested(presenceValue)) {
+                if (presenceValue == null || !isPresenceContested(presenceValue)) {
+                  // Note: we still try to set the value to null even if it is already null. This way we would still
+                  // cause a FoundationDB transaction conflict with a concurrent presence renewal that was updating
+                  // from null to something else.
                   transaction.clear(presenceKey);
                 }
               }), FaultTolerantDatabase.Context.CLEAR_PRESENCE)
@@ -519,19 +541,19 @@ class FoundationDbMessagePublisher {
     }
   }
 
+  /// @return true if a publisher other than us has claimed presence
   private boolean isPresenceContested(final byte[] presenceValue) {
-    if (presenceValue == null) {
-      // Some other process has cleared our presence key, so we must assume a conflict somewhere
-      return true;
-    }
-
     return streamId != FoundationDbMessageStore.getPresenceStreamId(presenceValue) ||
         !Arrays.equals(FoundationDbMessageStore.getPresenceServerId(presenceValue), FoundationDbMessageStore.getServerId());
   }
 
+  private synchronized boolean isTerminated() {
+    return state == State.TERMINATED || state == State.ERROR;
+  }
+
   @VisibleForTesting
   synchronized void terminateWithError(final Throwable throwable) {
-    if (state != State.TERMINATED && state != State.ERROR && !emitter.isCancelled()) {
+    if (!isTerminated() && !emitter.isCancelled()) {
       setState(State.ERROR, Event.INTERNAL_TRIGGER);
       emitter.error(throwable);
     }
@@ -540,7 +562,7 @@ class FoundationDbMessagePublisher {
   private synchronized void onDispose() {
     // Unless the state machine is an already terminal state, directly set state to "terminated", since there's no point
     // in evaluating the state machine when there's no live subscription.
-    if (state != State.TERMINATED && state != State.ERROR) {
+    if (!isTerminated()) {
       setState(State.TERMINATED, Event.INTERNAL_TRIGGER);
     }
     cancelWatch();

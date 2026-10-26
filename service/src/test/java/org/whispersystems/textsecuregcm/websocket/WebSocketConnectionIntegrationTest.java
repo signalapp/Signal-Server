@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.mock;
@@ -52,6 +53,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.BulkheadConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -63,7 +65,7 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -99,6 +101,9 @@ class WebSocketConnectionIntegrationTest {
     FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension(1, new CircuitBreakerConfiguration(), bulkheadConfiguration);
   }
 
+  @RegisterExtension
+  static final RedisServerExtension REDIS_EXTENSION = RedisServerExtension.builder().build();
+
   private ExecutorService sharedExecutorService;
   private FoundationDbMessageStore foundationDbMessageStore;
   private MessagesDynamoDb messagesDynamoDb;
@@ -108,6 +113,7 @@ class WebSocketConnectionIntegrationTest {
   private WebSocketClient webSocketClient;
   private Scheduler messageDeliveryScheduler;
   private ClientReleaseManager clientReleaseManager;
+  private DisconnectionRequestManager disconnectionRequestManager;
 
   private long serialTimestamp = System.currentTimeMillis();
 
@@ -154,10 +160,16 @@ class WebSocketConnectionIntegrationTest {
     when(account.getNumber()).thenReturn(Optional.of("+18005551234"));
     when(account.getAccountIdentifier()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
+
+    disconnectionRequestManager = new DisconnectionRequestManager(REDIS_EXTENSION.getRedisClient(),
+        Runnable::run,
+        mock(ScheduledExecutorService.class));
+    disconnectionRequestManager.start();
   }
 
   @AfterEach
   void tearDown() throws Exception {
+    disconnectionRequestManager.stop();
     sharedExecutorService.shutdown();
     final Mono<Void> schedulerShutdownMono = messageDeliveryScheduler.disposeGracefully();
 
@@ -466,6 +478,54 @@ class WebSocketConnectionIntegrationTest {
 
       assertTrue(expectedMessages.containsAll(sentMessages));
     });
+  }
+
+  @Test
+  void testAccountDeletedWhileConnected() {
+    final MessagesManager messagesManager =
+        new MessagesManager(messagesDynamoDb, foundationDbMessageStore, reportMessageManager, sharedExecutorService, Clock.systemUTC());
+
+    disconnectionRequestManager.addListener(account.getAccountIdentifier(), device.getId(),
+        new WebSocketDisconnectionRequestListener(new MessageMetrics(), webSocketClient, false));
+
+    final WebSocketConnection webSocketConnection = new WebSocketConnection(
+        mock(ReceiptSender.class),
+        messagesManager,
+        new MessageMetrics(),
+        mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
+        account,
+        device,
+        webSocketClient,
+        messageDeliveryScheduler,
+        clientReleaseManager,
+        mock(ExperimentEnrollmentManager.class));
+
+    final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
+    when(successResponse.getStatus()).thenReturn(200);
+    when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any()))
+        .thenReturn(CompletableFuture.completedFuture(successResponse));
+
+    webSocketConnection.start();
+
+    verify(webSocketClient, timeout(Duration.ofSeconds(5).toMillis()))
+        .sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(), eq(Optional.empty()));
+
+    // Clearing deletes the watch key, which wakes our stream only if the key exists. Make sure we have written a watch
+    // key by sending a message while we're present to make the interaction with clear more interesting.
+    foundationDbMessageStore.insert(new AciServiceIdentifier(account.getAccountIdentifier()),
+            Map.of(device.getId(), generateRandomMessage(UUID.randomUUID()).toBuilder().clearServerGuid().build()))
+        .join();
+    verify(webSocketClient, timeout(Duration.ofSeconds(5).toMillis()))
+        .sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any());
+
+    // Emulates an account delete
+    messagesManager.clear(account.getAccountIdentifier()).join();
+    disconnectionRequestManager.requestDisconnection(account.getAccountIdentifier(), List.of(device.getId()))
+        .toCompletableFuture().join();
+
+    verify(webSocketClient, timeout(Duration.ofSeconds(5).toMillis())).close(eq(4401), anyString());
+    verify(webSocketClient, never()).close(eq(4409), anyString());
   }
 
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid) {
