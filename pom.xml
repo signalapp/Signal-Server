@@ -45,8 +45,8 @@
   </modules>
 
   <properties>
-    <aws.sdk2.version>2.55.14</aws.sdk2.version>
-    <braintree.version>3.54.0</braintree.version>
+    <aws.sdk2.version>2.57.3</aws.sdk2.version>
+    <braintree.version>3.55.1</braintree.version>
     <commons-csv.version>1.14.1</commons-csv.version>
     <commons-io.version>2.22.0</commons-io.version>
     <dropwizard.version>5.0.2</dropwizard.version>
@@ -60,7 +60,7 @@
     <guava.version>33.7.2-jre</guava.version>
     <!-- several libraries (AWS, Google Cloud) use Apache httpclient transitively, and we need to align them -->
     <httpclient.version>4.5.14</httpclient.version>
-    <jackson.version>2.22.3</jackson.version>
+    <jackson.version>2.22.4</jackson.version>
     <java-otp.version>1.0.0</java-otp.version>
     <jetty.version>12.1.9</jetty.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
@@ -69,22 +69,22 @@
     <!-- dropwizard references a constant removed in 1.6. See also: dependabot.yml -->
     <logback.version>1.5.38</logback.version>
     <logback-access-common.version>2.0.15</logback-access-common.version>
-    <lettuce.version>7.8.0.RELEASE</lettuce.version>
-    <libphonenumber.version>9.0.41</libphonenumber.version>
+    <lettuce.version>7.9.0.RELEASE</lettuce.version>
+    <libphonenumber.version>9.0.42</libphonenumber.version>
     <logstash.logback.version>9.0</logstash.logback.version>
     <log4j-bom.version>2.26.1</log4j-bom.version>
     <luajava.version>4.1.0</luajava.version>
-    <micrometer.version>1.17.1</micrometer.version>
+    <micrometer.version>1.17.2</micrometer.version>
     <netty.version>4.2.19.Final</netty.version>
     <!-- netty-bom doesn't manage the BoringSSL uber-jar; keep in sync with netty's tcnative.version -->
     <netty-tcnative.version>2.0.84.Final</netty-tcnative.version>
     <!-- Instrumentation releases target upstream opentelemetry versions and include that BOM by reference -->
-    <opentelemetry-instrumentation.version>2.32.0</opentelemetry-instrumentation.version>
+    <opentelemetry-instrumentation.version>2.33.0</opentelemetry-instrumentation.version>
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
     <!-- the latest 4.x should be fine https://central.sonatype.com/artifact/com.google.protobuf/protobuf-java/versions -->
     <protobuf.version>4.36.2</protobuf.version>
     <pushy.version>0.15.6</pushy.version>
-    <reactor-bom.version>2025.0.7</reactor-bom.version> <!-- 3.8.4, see https://github.com/reactor/reactor#bom-versioning-scheme -->
+    <reactor-bom.version>2025.0.8</reactor-bom.version> <!-- 3.8.4, see https://github.com/reactor/reactor#bom-versioning-scheme -->
     <resilience4j.version>2.4.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
     <simple-grpc.version>0.2.1</simple-grpc.version>
@@ -313,7 +313,7 @@
       <dependency>
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
-        <version>0.105.0</version>
+        <version>0.105.4</version>
       </dependency>
       <dependency>
         <groupId>org.signal</groupId>
@@ -490,12 +490,12 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.6.0</version>
+          <version>3.6.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>3.6.0</version>
+          <version>3.6.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
