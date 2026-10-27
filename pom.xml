@@ -47,6 +47,10 @@
   <properties>
     <aws.sdk2.version>2.57.3</aws.sdk2.version>
     <braintree.version>3.55.1</braintree.version>
+    <!-- Weird stuff happens with parameter annotation counts under Java 27 with versions of Byte Buddy older than
+    1.18.9, so we need to pull in a newer version than we'd get via Dropwizard -> Mockito -> Byte Buddy. We can drop
+    this when Dropwizard updates and pulls in a newer version of Byte Buddy. -->
+    <byte-buddy.version>1.18.15-jdk5</byte-buddy.version>
     <commons-csv.version>1.14.1</commons-csv.version>
     <commons-io.version>2.22.0</commons-io.version>
     <dropwizard.version>5.0.2</dropwizard.version>
@@ -175,6 +179,16 @@
         <version>${dropwizard.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy</artifactId>
+        <version>${byte-buddy.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy-agent</artifactId>
+        <version>${byte-buddy.version}</version>
       </dependency>
       <!-- Needed for gRPC with Java 9+ -->
       <dependency>
