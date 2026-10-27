@@ -15,7 +15,7 @@ public class BulkheadConfiguration {
 
   @JsonProperty
   @Min(1)
-  private int maxConcurrentCalls = BulkheadConfig.DEFAULT_MAX_CONCURRENT_CALLS;
+  private int maxConcurrentCalls = 256;
 
   @JsonProperty
   @NotNull
