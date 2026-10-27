@@ -4,22 +4,21 @@
  */
 package org.whispersystems.textsecuregcm.grpc.net;
 
-import java.net.SocketAddress;
 import java.util.Map;
 
 public class OmnibusRouter {
 
-  private final Map<String, SocketAddress> routes;
-  private final SocketAddress defaultBackend;
+  private final Map<String, H2ConnectionFactory> routesByPath;
+  private final H2ConnectionFactory defaultBackend;
 
-  public OmnibusRouter(final Map<String, SocketAddress> routes, final SocketAddress defaultBackend) {
-    this.routes = routes;
+  public OmnibusRouter(final Map<String, H2ConnectionFactory> routesByPath, final H2ConnectionFactory defaultBackend) {
+    this.routesByPath = routesByPath;
     this.defaultBackend = defaultBackend;
   }
 
-  SocketAddress match(final String fullPath) {
+  H2ConnectionFactory match(final String fullPath) {
     final int queryIndex = fullPath.indexOf('?');
     final String path = queryIndex >= 0 ? fullPath.substring(0, queryIndex) : fullPath;
-    return routes.getOrDefault(path, defaultBackend);
+    return routesByPath.getOrDefault(path, defaultBackend);
   }
 }

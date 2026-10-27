@@ -14,9 +14,9 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.DefaultEventLoopGroup;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleUserEventChannelHandler;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.DecoderException;
@@ -67,8 +67,7 @@ public class OmnibusH2Server implements Managed {
   private final OmnibusRouter router;
   private final Supplier<DynamicOmnibusConfiguration> configurationSupplier;
   private final Duration idleTimeout;
-  private final DefaultEventLoopGroup localEventLoopGroup;
-  private final NioEventLoopGroup nioEventLoopGroup;
+  private final EventLoopGroup nioEventLoopGroup;
   private final SocketAddress bindAddress;
 
   private Channel serverChannel;
@@ -77,16 +76,14 @@ public class OmnibusH2Server implements Managed {
   ///
   /// @param sslContextBySni       If not null, a mapping between domain (SNI) and the appropriate SslContext to use for
   ///                              that SNI. If null, the server will not include TLS (h2c with prior-knowledge)
-  /// @param nioEventLoopGroup     Event loop to use for all NIO channel pipelines
-  /// @param localEventLoopGroup   Event loop to use for all local channel pipelines
+  /// @param nioEventLoopGroup     An Event loop with a [NioIoHandler#newFactory()] to use for all NIO channel pipelines
   /// @param bindAddress           The address the server should listen on
   /// @param router                How the server should select backends based on request paths
   /// @param configurationSupplier Dynamic configuration supplier
   /// @param idleTimeout           How long to wait before terminating idle TCP connections
   public OmnibusH2Server(
       final @Nullable Mapping<String, SslContext> sslContextBySni,
-      final NioEventLoopGroup nioEventLoopGroup,
-      final DefaultEventLoopGroup localEventLoopGroup,
+      final EventLoopGroup nioEventLoopGroup,
       final SocketAddress bindAddress,
       final OmnibusRouter router,
       final Supplier<DynamicOmnibusConfiguration> configurationSupplier,
@@ -94,7 +91,6 @@ public class OmnibusH2Server implements Managed {
     this.sslContextBySni = sslContextBySni;
     this.configurationSupplier = configurationSupplier;
     this.nioEventLoopGroup = nioEventLoopGroup;
-    this.localEventLoopGroup = localEventLoopGroup;
     this.bindAddress = bindAddress;
     this.router = router;
     this.idleTimeout = idleTimeout;
@@ -184,7 +180,7 @@ public class OmnibusH2Server implements Managed {
     pipeline.addLast(new Http2MultiplexHandler(new ChannelInitializer<Http2StreamChannel>() {
       @Override
       protected void initChannel(final Http2StreamChannel ch) {
-        ch.pipeline().addLast(new OmnibusH2StreamHandler(nioEventLoopGroup, localEventLoopGroup, router));
+        ch.pipeline().addLast(new OmnibusH2StreamHandler(router));
       }
     }));
     pipeline.addLast(SESSION_EXCEPTION_HANDLER);

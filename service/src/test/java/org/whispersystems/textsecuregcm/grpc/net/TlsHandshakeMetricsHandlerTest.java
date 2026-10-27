@@ -18,10 +18,11 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.DefaultEventLoopGroup;
-import io.netty.channel.MultithreadEventLoopGroup;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
+import io.netty.channel.local.LocalIoHandler;
 import io.netty.channel.local.LocalServerChannel;
 import io.netty.handler.ssl.SniHandler;
 import io.netty.handler.ssl.SslContext;
@@ -62,7 +63,7 @@ class TlsHandshakeMetricsHandlerTest {
 
   private static final String DOMAIN = "example.org";
 
-  private static MultithreadEventLoopGroup eventLoopGroup;
+  private static EventLoopGroup eventLoopGroup;
   private static byte[] keyStoreBytes;
   private static String keyStorePassword;
 
@@ -94,7 +95,7 @@ class TlsHandshakeMetricsHandlerTest {
     keyStoreBytes = byteArrayOutputStream.toByteArray();
     keyStorePassword = new String(password);
 
-    eventLoopGroup = new DefaultEventLoopGroup();
+    eventLoopGroup = new MultiThreadIoEventLoopGroup(LocalIoHandler.newFactory());
   }
 
   @BeforeEach

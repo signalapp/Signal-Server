@@ -15,10 +15,12 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.DefaultEventLoopGroup;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.SimpleUserEventChannelHandler;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
+import io.netty.channel.local.LocalIoHandler;
 import io.netty.channel.local.LocalServerChannel;
 import io.netty.handler.ssl.SniHandler;
 import io.netty.handler.ssl.SslContext;
@@ -73,7 +75,7 @@ class SniMapperTest {
       CertificateBuilder.Algorithm.rsa2048
   };
 
-  private static DefaultEventLoopGroup eventLoopGroup;
+  private static EventLoopGroup eventLoopGroup;
   private static final Map<SslProvider, Mapping<String, SslContext>> sniMappingsByProvider =
       new EnumMap<>(SslProvider.class);
 
@@ -113,7 +115,7 @@ class SniMapperTest {
           new ByteArrayInputStream(byteArrayOutputStream.toByteArray()), new String(keyStorePassword), sslProvider));
     }
 
-    eventLoopGroup = new DefaultEventLoopGroup();
+    eventLoopGroup = new MultiThreadIoEventLoopGroup(LocalIoHandler.newFactory());
   }
 
   private void startServer(final SslProvider sslProvider) throws InterruptedException {

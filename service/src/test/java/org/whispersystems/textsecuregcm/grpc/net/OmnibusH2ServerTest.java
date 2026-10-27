@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.dropwizard.util.DataSize;
@@ -16,12 +17,13 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.SimpleUserEventChannelHandler;
 import io.netty.channel.local.LocalAddress;
+import io.netty.channel.local.LocalIoHandler;
 import io.netty.channel.local.LocalServerChannel;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioChannelOption;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -66,7 +68,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,8 +116,8 @@ class OmnibusH2ServerTest {
 
   private static final String TEST_DOMAIN = "foo.example.com";
 
-  private static NioEventLoopGroup nioEventLoopGroup;
-  private static DefaultEventLoopGroup localEventLoopGroup;
+  private static EventLoopGroup nioEventLoopGroup;
+  private static EventLoopGroup localEventLoopGroup;
 
   private static Mapping<String, SslContext> sniMapping;
 
@@ -147,8 +149,8 @@ class OmnibusH2ServerTest {
     sniMapping = SniMapper.buildSniMapping(new ByteArrayInputStream(byteArrayOutputStream.toByteArray()),
         new String(keyStorePassword), SslProvider.OPENSSL);
 
-    nioEventLoopGroup = new NioEventLoopGroup();
-    localEventLoopGroup = new DefaultEventLoopGroup();
+    nioEventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+    localEventLoopGroup = new MultiThreadIoEventLoopGroup(LocalIoHandler.newFactory());
   }
 
   @BeforeEach
@@ -177,9 +179,10 @@ class OmnibusH2ServerTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void defaultBackend(final boolean localChannel) throws Exception {
-    final OmnibusH2Server server = startOmnibusServer(
-        Map.of(PATH, startBackendServer(localChannel, PATH_BACKEND_IDENTITY)),
-        startBackendServer(localChannel, DEFAULT_BACKEND_IDENTITY));
+    final OmnibusH2Server server = omnibusServer()
+        .addRoute(PATH, backendServer().localChannel(localChannel).identity(PATH_BACKEND_IDENTITY))
+        .addDefault(backendServer().localChannel(localChannel))
+        .start();
     final String response = sendRequestThroughOmnibus(connectToOmnibus(server), "/a/different/path");
     assertEquals(DEFAULT_BACKEND_IDENTITY, response);
   }
@@ -191,7 +194,7 @@ class OmnibusH2ServerTest {
     final HAProxyMessage proxyMessage = usePpv2
         ? new HAProxyMessage(HAProxyProtocolVersion.V2, HAProxyCommand.PROXY, HAProxyProxiedProtocol.TCP4, expectedSource, "127.0.0.2", 1234, 5678)
         : null;
-    final OmnibusH2Server server = startOmnibusServer(startBackendServer(true, DEFAULT_BACKEND_IDENTITY));
+    final OmnibusH2Server server = omnibusServer().start();
     final Channel h2Connection = connectToOmnibus(server, proxyMessage);
     final String xForwardedFor = sendRequestThroughOmnibus(h2Connection, "/forwarded-for");
     assertEquals(expectedSource, xForwardedFor);
@@ -201,9 +204,9 @@ class OmnibusH2ServerTest {
   void pathBackend(
       @CartesianTest.Values(booleans = {false, true}) final boolean localChannel,
       @CartesianTest.Values(strings = {"/v1/path/", "/v1/path/?foo=bar", "/v1/path/?foo=bar&baz=quux"}) final String path) throws Exception {
-    final OmnibusH2Server server = startOmnibusServer(
-        Map.of(PATH, startBackendServer(localChannel, PATH_BACKEND_IDENTITY)),
-        startBackendServer(true, DEFAULT_BACKEND_IDENTITY));
+    final OmnibusH2Server server = omnibusServer()
+        .addRoute(PATH, backendServer().localChannel(localChannel).identity(PATH_BACKEND_IDENTITY))
+        .start();
     final String response = sendRequestThroughOmnibus(connectToOmnibus(server), path);
     assertEquals(PATH_BACKEND_IDENTITY, response);
   }
@@ -212,9 +215,10 @@ class OmnibusH2ServerTest {
   void multipleStreamsOnSameConnection(
       @CartesianTest.Values(booleans = {true, false}) final boolean defaultLocalChannel,
       @CartesianTest.Values(booleans = {true, false}) final boolean prefixLocalChannel) throws Exception {
-    final OmnibusH2Server server = startOmnibusServer(
-        Map.of(PATH, startBackendServer(prefixLocalChannel, PATH_BACKEND_IDENTITY)),
-        startBackendServer(defaultLocalChannel, DEFAULT_BACKEND_IDENTITY));
+    final OmnibusH2Server server = omnibusServer()
+        .addRoute(PATH, backendServer().localChannel(prefixLocalChannel).identity(PATH_BACKEND_IDENTITY))
+        .addDefault(backendServer().localChannel(defaultLocalChannel))
+        .start();
     final Channel h2Connection = connectToOmnibus(server);
     final int numStreams = 10;
 
@@ -239,11 +243,11 @@ class OmnibusH2ServerTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void backendDownStreamReset(final boolean localChannel) throws Exception {
-    final Channel backend = startBackendServer(localChannel, DEFAULT_BACKEND_IDENTITY);
-    final OmnibusH2Server server = startOmnibusServer(backend);
+    final BackendServerBuilder backend = backendServer().localChannel(localChannel);
+    final OmnibusH2Server server = omnibusServer().addDefault(backend).start();
 
     // Kill the default backend so connection attempts from the omnibus fail
-    backend.close().syncUninterruptibly();
+    backend.channel().close().syncUninterruptibly();
 
     final Channel h2Connection = connectToOmnibus(server);
     final CompletableFuture<Http2HeadersFrame> headersFuture = new CompletableFuture<>();
@@ -275,7 +279,7 @@ class OmnibusH2ServerTest {
   void backendCloseClosesClientStream(
       @CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
       @CartesianTest.Values(strings = {"/goaway", "/reset"}) final String path) throws Exception {
-    final OmnibusH2Server server = startOmnibusServer(startBackendServer(localChannel, DEFAULT_BACKEND_IDENTITY));
+    final OmnibusH2Server server = omnibusServer().addDefault(backendServer().localChannel(localChannel)).start();
     final Channel h2Connection = connectToOmnibus(server);
 
     final CompletableFuture<Http2ResetFrame> resetFuture = new CompletableFuture<>();
@@ -301,7 +305,7 @@ class OmnibusH2ServerTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void queuedDataFrames(final boolean localChannel) throws Exception {
-    final OmnibusH2Server server = startOmnibusServer(startBackendServer(localChannel, DEFAULT_BACKEND_IDENTITY));
+    final OmnibusH2Server server = omnibusServer().addDefault(backendServer().localChannel(localChannel)).start();
     final Channel h2Connection = connectToOmnibus(server);
     final CompletableFuture<byte[]> responseFuture = new CompletableFuture<>();
     final Http2StreamChannel stream = new Http2StreamChannelBootstrap(h2Connection)
@@ -341,8 +345,11 @@ class OmnibusH2ServerTest {
   @ValueSource(booleans = {true, false})
   void clientDisconnectClosesBackendConnections(final boolean localChannel) throws Exception {
     final CompletableFuture<Channel> backendH2Connection = new CompletableFuture<>();
-    final Channel backendServerChannel = startBackendServer(localChannel, DEFAULT_BACKEND_IDENTITY, backendH2Connection::complete, _ -> {});
-    final OmnibusH2Server server = startOmnibusServer(backendServerChannel);
+    final OmnibusH2Server server = omnibusServer()
+        .addDefault(backendServer()
+            .localChannel(localChannel)
+            .h2ChannelInit(backendH2Connection::complete))
+        .start();
     final Channel h2Connection = connectToOmnibus(server);
 
     final Http2StreamChannelBootstrap streamBootstrap = new Http2StreamChannelBootstrap(h2Connection);
@@ -373,12 +380,15 @@ class OmnibusH2ServerTest {
   @ValueSource(booleans = {true, false})
   void requestBackpressure(final boolean localChannel) throws Exception {
     final AtomicReference<Channel> backendStreamChannel = new AtomicReference<>();
-    final Channel backendServer = startBackendServer(localChannel, "request-backpressure", _ -> {
-    }, ch -> {
-      ch.config().setAutoRead(false);
-      backendStreamChannel.set(ch);
-    });
-    final OmnibusH2Server omnibusH2Server = startOmnibusServer(backendServer);
+    final OmnibusH2Server omnibusH2Server = omnibusServer()
+        .addDefault(backendServer()
+            .localChannel(localChannel)
+            .identity("request-backpressure")
+            .h2StreamInit(ch -> {
+              ch.config().setAutoRead(false);
+              backendStreamChannel.set(ch);
+            }))
+        .start();
     final Channel h2Connection = connectToOmnibus(omnibusH2Server, null);
 
     // We'll take the client channel becoming unwritable as backpressure signal
@@ -457,21 +467,25 @@ class OmnibusH2ServerTest {
     final CountDownLatch backendStreamUnwritable = new CountDownLatch(1);
     final AtomicLong pendingWhenUnwritable = new AtomicLong();
 
-    final OmnibusH2Server server = startOmnibusServer(startBackendServer(localChannel, "response-backpressure",
-        _ -> {}, ch -> {
-          ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
-            @Override
-            public void channelWritabilityChanged(final ChannelHandlerContext backendStreamCtx) {
-              if (!backendStreamCtx.channel().isWritable() && backendStreamUnwritable.getCount() > 0) {
-                // A change in writability on the backend stream means we introduced backpressure
-                pendingWhenUnwritable.set(backendStreamCtx.channel().bytesBeforeWritable());
-                backendStreamUnwritable.countDown();
-              }
-              backendStreamCtx.fireChannelWritabilityChanged();
-            }
-          });
-          backendStreamInitialized.countDown();
-        }));
+    final OmnibusH2Server server = omnibusServer()
+        .addDefault(backendServer()
+            .localChannel(localChannel)
+            .identity("response-backpressure")
+            .h2StreamInit(ch -> {
+              ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                @Override
+                public void channelWritabilityChanged(final ChannelHandlerContext backendStreamCtx) {
+                  if (!backendStreamCtx.channel().isWritable() && backendStreamUnwritable.getCount() > 0) {
+                    // A change in writability on the backend stream means we introduced backpressure
+                    pendingWhenUnwritable.set(backendStreamCtx.channel().bytesBeforeWritable());
+                    backendStreamUnwritable.countDown();
+                  }
+                  backendStreamCtx.fireChannelWritabilityChanged();
+                }
+              });
+              backendStreamInitialized.countDown();
+            }))
+        .start();
     final Channel h2Connection = connectToOmnibus(server);
 
     final AtomicReference<Http2StreamChannel> clientStream = new AtomicReference<>();
@@ -503,8 +517,10 @@ class OmnibusH2ServerTest {
   @ValueSource(booleans = {true, false})
   void idleTest(final boolean localChannel) throws Exception {
     final Duration timeout = Duration.ofMillis(500);
-    final OmnibusH2Server timeoutServer =
-        startOmnibusServer(Collections.emptyMap(), startBackendServer(localChannel, DEFAULT_BACKEND_IDENTITY), timeout);
+    final OmnibusH2Server timeoutServer = omnibusServer()
+        .addDefault(backendServer().localChannel(localChannel))
+        .idleTimeout(timeout)
+        .start();
     final Channel channel = connectToOmnibus(timeoutServer, null);
 
     // Send a request to make sure idleTimeouts work even after a stream / backend connection has been established
@@ -519,9 +535,9 @@ class OmnibusH2ServerTest {
   @Test
   void loadShed() throws Exception {
     dynamicConfiguration.set(new DynamicOmnibusConfiguration(BigDecimal.ONE));
-    final OmnibusH2Server server = startOmnibusServer(
-        Map.of(PATH, startBackendServer(true, PATH_BACKEND_IDENTITY)),
-        startBackendServer(true, DEFAULT_BACKEND_IDENTITY));
+    final OmnibusH2Server server = omnibusServer()
+        .addRoute(PATH, backendServer().identity(PATH_BACKEND_IDENTITY))
+        .start();
 
     final CompletableFuture<Http2GoAwayFrame> goAwayFuture = new CompletableFuture<>();
     final Bootstrap clientBootstrap = new Bootstrap()
@@ -570,8 +586,8 @@ class OmnibusH2ServerTest {
       @CartesianTest.Values(ints = {10}) final int repetitions) throws Exception {
 
     // Use two threads to make sure that our connections are working concurrently
-    final NioEventLoopGroup nioEventLoopGroup = new NioEventLoopGroup(2);
-    final DefaultEventLoopGroup localEventLoopGroup = new DefaultEventLoopGroup(2);
+    final EventLoopGroup nioEventLoopGroup = new MultiThreadIoEventLoopGroup(2, NioIoHandler.newFactory());
+    final EventLoopGroup localEventLoopGroup = new MultiThreadIoEventLoopGroup(2, LocalIoHandler.newFactory());
 
     groupsToShutDown.add(nioEventLoopGroup);
     groupsToShutDown.add(localEventLoopGroup);
@@ -581,11 +597,10 @@ class OmnibusH2ServerTest {
     try {
       final int responseSize = Math.toIntExact(DataSize.kibibytes(responseSizeKib).toBytes());
 
-      final OmnibusH2Server server = startOmnibusServer(nioEventLoopGroup, localEventLoopGroup,
-          Collections.emptyMap(),
-          startBackendServer(localChannel ? localEventLoopGroup : nioEventLoopGroup, localChannel,
-              DEFAULT_BACKEND_IDENTITY, _ -> {}, _ -> {}),
-          Duration.ofMinutes(1));
+      final OmnibusH2Server server = omnibusServer()
+          .eventLoopGroups(nioEventLoopGroup, localEventLoopGroup)
+          .addDefault(backendServer().localChannel(localChannel))
+          .start();
 
       for (int i = 0; i < connections; i++) {
         clientConnections.add(connectToOmnibus(server));
@@ -650,85 +665,140 @@ class OmnibusH2ServerTest {
     return body;
   }
 
-  /// Start an OmnibusH2Server. The returned server and provided backends will be torn down in [#tearDown()]
-  ///
-  /// @param routes A map of prefixes and the corresponding backend server channels the omnibus will target
-  /// @param defaultBackend The target backend if no prefix routes match the request path
-  /// @param timeout The omnibus idle timeout
-  private OmnibusH2Server startOmnibusServer(final Map<String, Channel> routes, final Channel defaultBackend, final Duration timeout) throws Exception {
-    return startOmnibusServer(nioEventLoopGroup, localEventLoopGroup, routes, defaultBackend, timeout);
+  /// A builder for an OmnibusH2Server. The started server and its backends will be torn down in [#tearDown()]
+  private OmnibusServerBuilder omnibusServer() {
+    return new OmnibusServerBuilder();
   }
 
-  private OmnibusH2Server startOmnibusServer(
-      final NioEventLoopGroup nioEventLoopGroup,
-      final DefaultEventLoopGroup localEventLoopGroup,
-      final Map<String, Channel> routes,
-      final Channel defaultBackend,
-      final Duration timeout) throws Exception {
-    backendChannelsToShutDown.addAll(routes.values());
-    backendChannelsToShutDown.add(defaultBackend);
+  private class OmnibusServerBuilder {
 
-    final OmnibusH2Server server = new OmnibusH2Server(
-        sniMapping,
-        nioEventLoopGroup,
-        localEventLoopGroup,
-        new InetSocketAddress("127.0.0.1", 0),
-        new OmnibusRouter(routes.entrySet().stream().collect(Collectors.toMap(
-            Map.Entry::getKey,
-            e -> e.getValue().localAddress())),
-            defaultBackend.localAddress()),
-        dynamicConfiguration::get,
-        timeout);
-    server.start();
-    omnibusH2ServersToShutDown.add(server);
-    return server;
+    private final Map<String, BackendServerBuilder> routes = new HashMap<>();
+    private BackendServerBuilder defaultBackend = backendServer();
+    private Duration idleTimeout = Duration.ofMinutes(1);
+    private EventLoopGroup nioEventLoopGroup = OmnibusH2ServerTest.nioEventLoopGroup;
+    private EventLoopGroup localEventLoopGroup = OmnibusH2ServerTest.localEventLoopGroup;
+
+    /// Requests with paths starting with `prefix` will go to `backend`
+    OmnibusServerBuilder addRoute(final String prefix, final BackendServerBuilder backend) {
+      routes.put(prefix, backend);
+      return this;
+    }
+
+    /// Requests that don't match any route will go to `backend`. Defaults to [#backendServer()].
+    OmnibusServerBuilder addDefault(final BackendServerBuilder backend) {
+      this.defaultBackend = backend;
+      return this;
+    }
+
+    /// Defaults to 1 minute
+    OmnibusServerBuilder idleTimeout(final Duration idleTimeout) {
+      this.idleTimeout = idleTimeout;
+      return this;
+    }
+
+    /// The event loop groups used by the omnibus and its backends. Defaults to the shared event loop groups.
+    OmnibusServerBuilder eventLoopGroups(final EventLoopGroup nioEventLoopGroup,
+        final EventLoopGroup localEventLoopGroup) {
+      this.nioEventLoopGroup = nioEventLoopGroup;
+      this.localEventLoopGroup = localEventLoopGroup;
+      return this;
+    }
+
+    /// Start the backends and then the omnibus
+    OmnibusH2Server start() throws Exception {
+      final OmnibusRouter router = new OmnibusRouter(routes.entrySet().stream().collect(Collectors.toMap(
+          Map.Entry::getKey,
+          e -> startBackend(e.getValue()))),
+          startBackend(defaultBackend));
+
+      final OmnibusH2Server server = new OmnibusH2Server(
+          sniMapping,
+          nioEventLoopGroup,
+          new InetSocketAddress("127.0.0.1", 0),
+          router,
+          dynamicConfiguration::get,
+          idleTimeout);
+      server.start();
+      omnibusH2ServersToShutDown.add(server);
+      return server;
+    }
+
+    private H2ConnectionFactory startBackend(final BackendServerBuilder backend) {
+      final EventLoopGroup eventLoopGroup = backend.localChannel ? localEventLoopGroup : nioEventLoopGroup;
+      final Channel channel = backend.start(eventLoopGroup);
+      backendChannelsToShutDown.add(channel);
+      return new UnpooledH2ConnectionFactory(channel.localAddress(), eventLoopGroup);
+    }
   }
 
-  private OmnibusH2Server startOmnibusServer(final Channel defaultBackend) throws Exception {
-    return startOmnibusServer(Collections.emptyMap(), defaultBackend, Duration.ofMinutes(1));
+  /// A builder for a h2c server that can be used as a target of the omnibus. The server is started by
+  /// [OmnibusServerBuilder#start()].
+  private BackendServerBuilder backendServer() {
+    return new BackendServerBuilder();
   }
 
-  private OmnibusH2Server startOmnibusServer(final Map<String, Channel> routes, final Channel defaultBackend) throws Exception {
-    return startOmnibusServer(routes, defaultBackend, Duration.ofMinutes(1));
-  }
+  private class BackendServerBuilder {
 
-  /// Start a h2c server that can be used as a target of the omnibus
-  ///
-  /// @param localChannel whether the omnibus should target this backend via a LocalChannel or an NioChannel
-  /// @param identity how the backend should respond to identity requests
-  /// @param h2ChannelInit a Consumer that will be called every time a new HTTP/2 connection is made to this server
-  /// @param h2StreamInit a Consumer that will be called every time a new HTTP/2 stream is created on this server
-  private Channel startBackendServer(final boolean localChannel, final String identity, Consumer<Channel> h2ChannelInit, Consumer<Channel> h2StreamInit)  {
-    return startBackendServer(localChannel ? localEventLoopGroup : nioEventLoopGroup,
-        localChannel, identity, h2ChannelInit, h2StreamInit);
-  }
+    private boolean localChannel = true;
+    private String identity = DEFAULT_BACKEND_IDENTITY;
+    private Consumer<Channel> h2ChannelInit = _ -> {};
+    private Consumer<Channel> h2StreamInit = _ -> {};
+    @Nullable
+    private Channel channel = null;
 
-  private Channel startBackendServer(final EventLoopGroup eventLoopGroup, final boolean localChannel,
-      final String identity, Consumer<Channel> h2ChannelInit, Consumer<Channel> h2StreamInit)  {
-    return new ServerBootstrap()
-        .group(eventLoopGroup, eventLoopGroup)
-        .channel(localChannel ? LocalServerChannel.class : NioServerSocketChannel.class)
-        .childHandler(new ChannelInitializer<>() {
-          @Override
-          protected void initChannel(final Channel ch) {
-            h2ChannelInit.accept(ch);
-            ch.pipeline().addLast(Http2FrameCodecBuilder.forServer().build());
-            ch.pipeline().addLast(new Http2MultiplexHandler(new ChannelInitializer<Http2StreamChannel>() {
-              @Override
-              protected void initChannel(final Http2StreamChannel ch) {
-                h2StreamInit.accept(ch);
-                ch.pipeline().addLast(new TestHandler(identity));
-              }
-            }));
-          }
-        })
-        .bind(localChannel ? new LocalAddress(identity) : new InetSocketAddress("127.0.0.1", 0))
-        .syncUninterruptibly()
-        .channel();
-  }
+    /// Whether the omnibus should target this backend via a LocalChannel or an NioChannel. Defaults to true.
+    BackendServerBuilder localChannel(final boolean localChannel) {
+      this.localChannel = localChannel;
+      return this;
+    }
 
-  private Channel startBackendServer(final boolean localChannel, final String identity)  {
-    return startBackendServer(localChannel, identity, _ -> {}, _ -> {});
+    /// How the backend should respond to identity requests. Defaults to [#DEFAULT_BACKEND_IDENTITY].
+    BackendServerBuilder identity(final String identity) {
+      this.identity = identity;
+      return this;
+    }
+
+    /// A Consumer that will be called every time a new HTTP/2 connection is made to this server
+    BackendServerBuilder h2ChannelInit(final Consumer<Channel> h2ChannelInit) {
+      this.h2ChannelInit = h2ChannelInit;
+      return this;
+    }
+
+    /// A Consumer that will be called every time a new HTTP/2 stream is created on this server
+    BackendServerBuilder h2StreamInit(final Consumer<Channel> h2StreamInit) {
+      this.h2StreamInit = h2StreamInit;
+      return this;
+    }
+
+    /// The backend's server channel, once it has started
+    Channel channel() {
+      assertNotNull(channel, "backend has not started");
+      return channel;
+    }
+
+    private Channel start(final EventLoopGroup eventLoopGroup) {
+      channel = new ServerBootstrap()
+          .group(eventLoopGroup, eventLoopGroup)
+          .channel(localChannel ? LocalServerChannel.class : NioServerSocketChannel.class)
+          .childHandler(new ChannelInitializer<>() {
+            @Override
+            protected void initChannel(final Channel ch) {
+              h2ChannelInit.accept(ch);
+              ch.pipeline().addLast(Http2FrameCodecBuilder.forServer().build());
+              ch.pipeline().addLast(new Http2MultiplexHandler(new ChannelInitializer<Http2StreamChannel>() {
+                @Override
+                protected void initChannel(final Http2StreamChannel ch) {
+                  h2StreamInit.accept(ch);
+                  ch.pipeline().addLast(new TestHandler(identity));
+                }
+              }));
+            }
+          })
+          .bind(localChannel ? new LocalAddress(identity) : new InetSocketAddress("127.0.0.1", 0))
+          .syncUninterruptibly()
+          .channel();
+      return channel;
+    }
   }
 
   /// Makes an H2 connection to the omnibus at `server` on which new H2 streams can be opened
