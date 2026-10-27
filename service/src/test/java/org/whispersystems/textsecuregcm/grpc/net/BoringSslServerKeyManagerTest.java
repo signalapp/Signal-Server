@@ -6,11 +6,14 @@ package org.whispersystems.textsecuregcm.grpc.net;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import io.netty.util.test.LeakPresenceExtension;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+@ExtendWith(LeakPresenceExtension.class)
 class BoringSslServerKeyManagerTest {
 
   @ParameterizedTest

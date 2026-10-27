@@ -30,6 +30,8 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.pkitesting.CertificateBuilder;
 import io.netty.pkitesting.X509Bundle;
 import io.netty.util.Mapping;
+import io.netty.util.ReferenceCountUtil;
+import io.netty.util.test.LeakPresenceExtension;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.security.KeyStore;
@@ -53,11 +55,13 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+@ExtendWith(LeakPresenceExtension.class)
 class SniMapperTest {
 
   // Configuration for precomputed keystore blob defined in sni-mapper-test-keystore.p12
@@ -139,6 +143,10 @@ class SniMapperTest {
   @AfterAll
   static void tearDownAfterAll() throws InterruptedException {
     eventLoopGroup.shutdownGracefully(1, 1000, TimeUnit.MILLISECONDS).sync();
+    sniMappingsByProvider.values().forEach(sniMapping -> {
+      ReferenceCountUtil.release(sniMapping.map(FOO_DOMAIN));
+      ReferenceCountUtil.release(sniMapping.map(BAR_DOMAIN));
+    });
   }
 
   @ParameterizedTest

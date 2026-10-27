@@ -33,6 +33,8 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.pkitesting.CertificateBuilder;
 import io.netty.pkitesting.X509Bundle;
 import io.netty.util.Mapping;
+import io.netty.util.ReferenceCountUtil;
+import io.netty.util.test.LeakPresenceExtension;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.security.KeyStore;
@@ -51,9 +53,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+@ExtendWith(LeakPresenceExtension.class)
 class TlsHandshakeMetricsHandlerTest {
 
   private static final String DOMAIN = "example.org";
@@ -64,6 +68,7 @@ class TlsHandshakeMetricsHandlerTest {
 
   private SimpleMeterRegistry meterRegistry;
   private SslContext clientSslContext;
+  private Mapping<String, SslContext> sniMapping;
   private Channel serverChannel;
 
   /// Completed by the server once the handshake event has passed the metrics handler
@@ -108,6 +113,9 @@ class TlsHandshakeMetricsHandlerTest {
     if (serverChannel != null) {
       serverChannel.close().sync();
     }
+    if (sniMapping != null) {
+      ReferenceCountUtil.release(sniMapping.map(DOMAIN));
+    }
   }
 
   @AfterAll
@@ -118,7 +126,8 @@ class TlsHandshakeMetricsHandlerTest {
   @ParameterizedTest
   @EnumSource(value = SslProvider.class, names = {"JDK", "OPENSSL"})
   void handshake(final SslProvider sslProvider) throws Exception {
-    final AtomicReference<Channel> lastServerChildChannel = startServer(buildSniMapping(sslProvider));
+    sniMapping = buildSniMapping(sslProvider);
+    final AtomicReference<Channel> lastServerChildChannel = startServer(sniMapping);
     connect(null);
 
     assertEquals(1, getCount(true));
@@ -130,7 +139,8 @@ class TlsHandshakeMetricsHandlerTest {
   @ParameterizedTest
   @EnumSource(value = SslProvider.class, names = {"JDK", "OPENSSL"})
   void failedHandshake(final SslProvider sslProvider) throws Exception {
-    startServer(buildSniMapping(sslProvider));
+    sniMapping = buildSniMapping(sslProvider);
+    startServer(sniMapping);
 
     // The server only holds an Ed25519 key
     connect(new String[] { "rsa_pss_rsae_sha256" });
