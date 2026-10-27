@@ -35,10 +35,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -323,12 +325,14 @@ class WebSocketConnectionIntegrationTest {
 
       final AtomicInteger remainingMessages = new AtomicInteger(dynamoDbMessageCount + initialFoundationDbMessageCount);
       final int additionalMessageCount = 67;
+      final AtomicReference<Future<List<Envelope>>> additionalMessagesFuture = new AtomicReference<>();
 
       when(successResponse.getStatus()).thenReturn(200);
       when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any()))
           .thenAnswer(_ -> {
             if (remainingMessages.decrementAndGet() == 60) {
-              sharedExecutorService.submit(() -> {
+              additionalMessagesFuture.set(sharedExecutorService.submit(() -> {
+                final List<Envelope> additionalMessages = new ArrayList<>(additionalMessageCount);
                 for (int i = 0; i < additionalMessageCount; i++) {
                   final Envelope envelope = generateRandomMessage(UUID.randomUUID())
                       .toBuilder()
@@ -343,11 +347,12 @@ class WebSocketConnectionIntegrationTest {
                           .messageGuid()
                           .orElseThrow();
 
-                  expectedMessages.add(envelope.toBuilder()
+                  additionalMessages.add(envelope.toBuilder()
                       .setServerGuid(UUIDUtil.toByteString(messageGuid))
                       .build());
                 }
-              });
+                return additionalMessages;
+              }));
             }
 
             return CompletableFuture.completedFuture(successResponse);
@@ -363,6 +368,8 @@ class WebSocketConnectionIntegrationTest {
 
       verify(webSocketClient, timeout(10_000).times(dynamoDbMessageCount + initialFoundationDbMessageCount + additionalMessageCount))
           .sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
+
+      expectedMessages.addAll(additionalMessagesFuture.get().get(15, TimeUnit.SECONDS));
 
       final List<MessageProtos.Envelope> sentMessages = new ArrayList<>();
 

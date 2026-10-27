@@ -25,12 +25,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -178,13 +181,14 @@ class MessageDispatcherIntegrationTest {
   }
 
   @Test
-  void testProcessStoredMessagesMultipleSegments() {
+  void testProcessStoredMessagesMultipleSegments() throws ExecutionException, InterruptedException, TimeoutException {
     final int dynamoDbMessageCount = 77;
 
     final List<Envelope> expectedMessages = fillRandomMessages(dynamoDbMessageCount, 0);
     final AtomicInteger remainingMessages = new AtomicInteger(dynamoDbMessageCount);
     final int additionalMessageCount = 67;
 
+    final AtomicReference<Future<List<Envelope>>> additionalMessagesFuture = new AtomicReference<>();
     final Sinks.Many<UUID> acks = Sinks.many().unicast().onBackpressureBuffer();
     final List<Envelope> receivedMessages = messageDispatcher
         .getMessages(true, null, account, device, acks.asFlux())
@@ -193,13 +197,14 @@ class MessageDispatcherIntegrationTest {
         .doOnNext(envelope -> {
           acks.tryEmitNext(UUIDUtil.fromByteString(envelope.getServerGuid()));
           if (remainingMessages.addAndGet(-1) == 60) {
-            sharedExecutorService
-                .submit(() -> expectedMessages.addAll(fillRandomMessages( 0, additionalMessageCount)));
+            additionalMessagesFuture.set(sharedExecutorService.submit(() ->
+                fillRandomMessages(0, additionalMessageCount)));
           }
         })
         .take(dynamoDbMessageCount + additionalMessageCount)
         .collectList()
         .block(Duration.ofSeconds(15));
+    expectedMessages.addAll(additionalMessagesFuture.get().get(15, TimeUnit.SECONDS));
     assertEquals(expectedMessages.size(), receivedMessages.size());
     assertEquals(expectedMessages, receivedMessages);
   }
