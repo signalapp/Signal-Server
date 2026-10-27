@@ -12,6 +12,7 @@ import io.micrometer.core.instrument.Timer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
@@ -27,6 +28,7 @@ import io.netty.util.concurrent.EventExecutor;
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,16 +46,26 @@ public class UnpooledH2ConnectionFactory implements H2ConnectionFactory {
   private final Class<? extends Channel> channelClass;
   private final EventLoopGroup eventLoopGroup;
   private final Set<EventExecutor> eventLoops;
+  @Nullable
+  private final ChannelHandler connectionHandler;
 
   public UnpooledH2ConnectionFactory(final SocketAddress targetAddress, final EventLoopGroup eventLoopGroup) {
+    this(targetAddress, eventLoopGroup, null);
+  }
+
+  UnpooledH2ConnectionFactory(
+      final SocketAddress targetAddress,
+      final EventLoopGroup eventLoopGroup,
+      @Nullable final ChannelHandler connectionHandler) {
     this.targetAddress = targetAddress;
     this.channelClass = targetAddress instanceof LocalAddress ? LocalChannel.class : NioSocketChannel.class;
     this.eventLoopGroup = eventLoopGroup;
     this.eventLoops = ImmutableSet.copyOf(eventLoopGroup);
+    this.connectionHandler = connectionHandler;
   }
 
   @Override
-  public ChannelFuture getConnection(final EventLoop callerEventLoop) {
+  public ChannelFuture getConnectionChannelFuture(final EventLoop callerEventLoop) {
     // Make a new H2 connection to the target backend
     final Timer.Sample connectSample = Timer.start();
 
@@ -70,6 +82,9 @@ public class UnpooledH2ConnectionFactory implements H2ConnectionFactory {
             // Http2MultiplexHandler takes handler that is added to new inbound streams. A client Http2MultiplexHandler
             // like we're defining here should never receive an inbound H2 stream so we can just pass a noop handler
             ch.pipeline().addLast(new Http2MultiplexHandler(new NoopInboundStreamHandler()));
+            if (connectionHandler != null) {
+              ch.pipeline().addLast(connectionHandler);
+            }
             ch.pipeline().addLast(BACKEND_CONNECTION_EXCEPTION_HANDLER);
           }
         })
@@ -79,6 +94,12 @@ public class UnpooledH2ConnectionFactory implements H2ConnectionFactory {
               .tag(BACKEND_TAG, targetAddress.toString())
               .tag("outcome", connectFuture.isSuccess() ? "success" : "failure")
               .register(Metrics.globalRegistry)));
+  }
+
+  @Override
+  public void release(final Channel connection) {
+    // Each connection only ever carries one stream
+    connection.close();
   }
 
   @Override

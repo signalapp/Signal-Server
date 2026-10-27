@@ -199,6 +199,7 @@ import org.whispersystems.textsecuregcm.grpc.net.ManagedEventLoopGroup;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedGrpcServer;
 import org.whispersystems.textsecuregcm.grpc.net.OmnibusH2Server;
 import org.whispersystems.textsecuregcm.grpc.net.OmnibusRouter;
+import org.whispersystems.textsecuregcm.grpc.net.PooledH2ConnectionFactory;
 import org.whispersystems.textsecuregcm.grpc.net.SniMapper;
 import org.whispersystems.textsecuregcm.grpc.net.UnpooledH2ConnectionFactory;
 import org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils;
@@ -1220,7 +1221,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final SocketAddress websocketAddress =
         new InetSocketAddress(config.getGrpc().websocketAddress(), config.getGrpc().websocketPort());
-    final H2ConnectionFactory grpcH2ConnectionFactory = new UnpooledH2ConnectionFactory(grpcLocalAddress, omnibusLocalEventLoopGroup.getEventLoopGroup());
+    final H2ConnectionFactory grpcH2ConnectionFactory = new PooledH2ConnectionFactory(grpcLocalAddress,
+        omnibusLocalEventLoopGroup.getEventLoopGroup());
     final H2ConnectionFactory websocketH2ConnectionFactory = new UnpooledH2ConnectionFactory(websocketAddress, omnibusNioEventLoopGroup.getEventLoopGroup());
     final OmnibusRouter omnibusRouter = new OmnibusRouter(Map.of(
         websocketServletPath, websocketH2ConnectionFactory,

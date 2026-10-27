@@ -4,6 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.grpc.net;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoop;
 import java.net.SocketAddress;
@@ -14,7 +15,10 @@ public interface H2ConnectionFactory {
   /// Retrieve a h2 connection to [#address()]
   ///
   /// @param callerEventLoop The event loop of the channel making this call
-  ChannelFuture getConnection(final EventLoop callerEventLoop);
+  ChannelFuture getConnectionChannelFuture(final EventLoop callerEventLoop);
+
+  /// Release a connection previously acquired via [#getConnectionChannelFuture]
+  void release(final Channel connection);
 
   /// @return The [SocketAddress] that this factory targets
   SocketAddress address();

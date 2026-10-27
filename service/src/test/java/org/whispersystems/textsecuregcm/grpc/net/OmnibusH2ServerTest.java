@@ -38,6 +38,8 @@ import io.netty.handler.codec.http2.DefaultHttp2GoAwayFrame;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.DefaultHttp2HeadersFrame;
 import io.netty.handler.codec.http2.DefaultHttp2ResetFrame;
+import io.netty.handler.codec.http2.DefaultHttp2WindowUpdateFrame;
+import io.netty.handler.codec.http2.Http2CodecUtil;
 import io.netty.handler.codec.http2.Http2DataFrame;
 import io.netty.handler.codec.http2.Http2Error;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
@@ -176,11 +178,14 @@ class OmnibusH2ServerTest {
     ReferenceCountUtil.release(sniMapping.map(TEST_DOMAIN));
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void defaultBackend(final boolean localChannel) throws Exception {
+  @CartesianTest
+  void defaultBackend(
+      @CartesianTest.Values(booleans = {false, true}) final boolean localChannel,
+      @CartesianTest.Values(booleans = {false, true}) final boolean pooled)
+      throws Exception {
     final OmnibusH2Server server = omnibusServer()
         .addRoute(PATH, backendServer().localChannel(localChannel).identity(PATH_BACKEND_IDENTITY))
+        .pooled(pooled)
         .addDefault(backendServer().localChannel(localChannel))
         .start();
     final String response = sendRequestThroughOmnibus(connectToOmnibus(server), "/a/different/path");
@@ -203,9 +208,11 @@ class OmnibusH2ServerTest {
   @CartesianTest
   void pathBackend(
       @CartesianTest.Values(booleans = {false, true}) final boolean localChannel,
+      @CartesianTest.Values(booleans = {false, true}) final boolean pooled,
       @CartesianTest.Values(strings = {"/v1/path/", "/v1/path/?foo=bar", "/v1/path/?foo=bar&baz=quux"}) final String path) throws Exception {
     final OmnibusH2Server server = omnibusServer()
         .addRoute(PATH, backendServer().localChannel(localChannel).identity(PATH_BACKEND_IDENTITY))
+        .pooled(pooled)
         .start();
     final String response = sendRequestThroughOmnibus(connectToOmnibus(server), path);
     assertEquals(PATH_BACKEND_IDENTITY, response);
@@ -240,11 +247,12 @@ class OmnibusH2ServerTest {
     }
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void backendDownStreamReset(final boolean localChannel) throws Exception {
+  @CartesianTest
+  void backendDownStreamReset(
+      @CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
+      @CartesianTest.Values(booleans = {true, false}) final boolean pooled) throws Exception {
     final BackendServerBuilder backend = backendServer().localChannel(localChannel);
-    final OmnibusH2Server server = omnibusServer().addDefault(backend).start();
+    final OmnibusH2Server server = omnibusServer().addDefault(backend).pooled(pooled).start();
 
     // Kill the default backend so connection attempts from the omnibus fail
     backend.channel().close().syncUninterruptibly();
@@ -278,8 +286,12 @@ class OmnibusH2ServerTest {
   @CartesianTest
   void backendCloseClosesClientStream(
       @CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
+      @CartesianTest.Values(booleans = {true, false}) final boolean pooled,
       @CartesianTest.Values(strings = {"/goaway", "/reset"}) final String path) throws Exception {
-    final OmnibusH2Server server = omnibusServer().addDefault(backendServer().localChannel(localChannel)).start();
+    final OmnibusH2Server server = omnibusServer()
+        .addDefault(backendServer().localChannel(localChannel))
+        .pooled(pooled)
+        .start();
     final Channel h2Connection = connectToOmnibus(server);
 
     final CompletableFuture<Http2ResetFrame> resetFuture = new CompletableFuture<>();
@@ -302,10 +314,14 @@ class OmnibusH2ServerTest {
     assertTrue(h2Connection.isActive());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void queuedDataFrames(final boolean localChannel) throws Exception {
-    final OmnibusH2Server server = omnibusServer().addDefault(backendServer().localChannel(localChannel)).start();
+  @CartesianTest
+  void queuedDataFrames(
+      @CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
+      @CartesianTest.Values(booleans = {true, false}) final boolean pooled) throws Exception {
+    final OmnibusH2Server server = omnibusServer()
+        .addDefault(backendServer().localChannel(localChannel))
+        .pooled(pooled)
+        .start();
     final Channel h2Connection = connectToOmnibus(server);
     final CompletableFuture<byte[]> responseFuture = new CompletableFuture<>();
     final Http2StreamChannel stream = new Http2StreamChannelBootstrap(h2Connection)
@@ -341,14 +357,18 @@ class OmnibusH2ServerTest {
     h2Connection.close().syncUninterruptibly();
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void clientDisconnectClosesBackendConnections(final boolean localChannel) throws Exception {
+  @CartesianTest
+  void clientDisconnectClosesBackendStreams(
+      @CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
+      @CartesianTest.Values(booleans = {true, false}) final boolean pooled) throws Exception {
     final CompletableFuture<Channel> backendH2Connection = new CompletableFuture<>();
+    final CompletableFuture<Channel> backendH2Stream = new CompletableFuture<>();
     final OmnibusH2Server server = omnibusServer()
         .addDefault(backendServer()
             .localChannel(localChannel)
-            .h2ChannelInit(backendH2Connection::complete))
+            .h2ChannelInit(backendH2Connection::complete)
+            .h2StreamInit(backendH2Stream::complete))
+        .pooled(pooled)
         .start();
     final Channel h2Connection = connectToOmnibus(server);
 
@@ -367,18 +387,20 @@ class OmnibusH2ServerTest {
         .authority("localhost");
     stream.writeAndFlush(new DefaultHttp2HeadersFrame(headers, false)).syncUninterruptibly();
 
-    assertFalse(
-        backendH2Connection.join().closeFuture().awaitUninterruptibly(10, TimeUnit.MILLISECONDS),
-        "Channel should be open");
+    final Channel backendStream = backendH2Stream.get(5, TimeUnit.SECONDS);
+    assertFalse(backendStream.closeFuture().awaitUninterruptibly(10, TimeUnit.MILLISECONDS), "Stream should be open");
 
-    // All backend connections the omnibus opened on behalf of this client should close if we disconnect the client
+    // All backend streams the omnibus opened on behalf of this client should close if we disconnect the client
     h2Connection.close().syncUninterruptibly();
-    assertTrue(backendH2Connection.join().closeFuture().await(5, TimeUnit.SECONDS));
+    assertTrue(backendStream.closeFuture().await(5, TimeUnit.SECONDS));
+
+    // Pooled connections are shared with other clients, so only unpooled connections should close
+    assertEquals(!pooled, backendH2Connection.join().closeFuture().await(pooled ? 100 : 5000, TimeUnit.MILLISECONDS));
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void requestBackpressure(final boolean localChannel) throws Exception {
+  @CartesianTest
+  void requestBackpressure(@CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
+      @CartesianTest.Values(booleans = {true, false}) final boolean pooled) throws Exception {
     final AtomicReference<Channel> backendStreamChannel = new AtomicReference<>();
     final OmnibusH2Server omnibusH2Server = omnibusServer()
         .addDefault(backendServer()
@@ -388,6 +410,7 @@ class OmnibusH2ServerTest {
               ch.config().setAutoRead(false);
               backendStreamChannel.set(ch);
             }))
+        .pooled(pooled)
         .start();
     final Channel h2Connection = connectToOmnibus(omnibusH2Server, null);
 
@@ -455,6 +478,7 @@ class OmnibusH2ServerTest {
 
   @CartesianTest
   void responseBackpressure(@CartesianTest.Values(booleans = {true, false}) final boolean localChannel,
+      @CartesianTest.Values(booleans = {true, false}) final boolean pooled,
       @CartesianTest.Values(ints = {193, 512, 2048}) final int responseSizeKib) throws Exception {
 
     final int responseSize = Math.toIntExact(DataSize.kibibytes(responseSizeKib).toBytes());
@@ -485,6 +509,7 @@ class OmnibusH2ServerTest {
               });
               backendStreamInitialized.countDown();
             }))
+        .pooled(pooled)
         .start();
     final Channel h2Connection = connectToOmnibus(server);
 
@@ -509,6 +534,49 @@ class OmnibusH2ServerTest {
     clientStream.get().config().setAutoRead(true);
 
     assertArrayEquals(expectedBody(responseSize, (byte) 1), response.get(5, TimeUnit.SECONDS));
+
+    h2Connection.close().syncUninterruptibly();
+  }
+
+  @Test
+  void pausedStreamDoesNotStallPooledConnection() throws Exception {
+    final CountDownLatch backendStreamUnwritable = new CountDownLatch(1);
+    final OmnibusH2Server server = omnibusServer()
+        .addDefault(backendServer()
+            .h2StreamInit(ch -> ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+              @Override
+              public void channelWritabilityChanged(final ChannelHandlerContext ctx) {
+                if (!ctx.channel().isWritable()) {
+                  backendStreamUnwritable.countDown();
+                }
+                ctx.fireChannelWritabilityChanged();
+              }
+            })))
+        .pooled(true)
+        .start();
+    final Channel h2Connection = connectToOmnibus(server);
+
+    // Open our own connection-level window, so the paused stream doesn't stall our connection to the omnibus
+    h2Connection.writeAndFlush(
+        new DefaultHttp2WindowUpdateFrame(Integer.MAX_VALUE - Http2CodecUtil.DEFAULT_WINDOW_SIZE)).syncUninterruptibly();
+
+    // Force one of the streams to go unwritable
+    final AtomicReference<Channel> pausedStream = new AtomicReference<>();
+    final int pausedResponseSize = Math.toIntExact(DataSize.mebibytes(1).toBytes());
+    final CompletableFuture<byte[]> pausedResponse = request(h2Connection, pausedResponseSize, (byte) 1, ch -> {
+      ch.config().setAutoRead(false);
+      pausedStream.set(ch);
+    });
+    assertTrue(backendStreamUnwritable.await(5, TimeUnit.SECONDS), "failed to introduce backpressure");
+
+    // A different stream should not be affected
+    final int responseSize = Math.toIntExact(DataSize.kibibytes(1).toBytes());
+    assertArrayEquals(expectedBody(responseSize, (byte) 2),
+        request(h2Connection, responseSize, (byte) 2, _ -> {}).get(5, TimeUnit.SECONDS));
+    assertFalse(pausedResponse.isDone());
+
+    pausedStream.get().eventLoop().execute(() -> pausedStream.get().config().setAutoRead(true));
+    assertArrayEquals(expectedBody(pausedResponseSize, (byte) 1), pausedResponse.get(5, TimeUnit.SECONDS));
 
     h2Connection.close().syncUninterruptibly();
   }
@@ -600,6 +668,7 @@ class OmnibusH2ServerTest {
       final OmnibusH2Server server = omnibusServer()
           .eventLoopGroups(nioEventLoopGroup, localEventLoopGroup)
           .addDefault(backendServer().localChannel(localChannel))
+          .pooled(false)
           .start();
 
       for (int i = 0; i < connections; i++) {
@@ -675,6 +744,7 @@ class OmnibusH2ServerTest {
     private final Map<String, BackendServerBuilder> routes = new HashMap<>();
     private BackendServerBuilder defaultBackend = backendServer();
     private Duration idleTimeout = Duration.ofMinutes(1);
+    private boolean pooled = true;
     private EventLoopGroup nioEventLoopGroup = OmnibusH2ServerTest.nioEventLoopGroup;
     private EventLoopGroup localEventLoopGroup = OmnibusH2ServerTest.localEventLoopGroup;
 
@@ -693,6 +763,12 @@ class OmnibusH2ServerTest {
     /// Defaults to 1 minute
     OmnibusServerBuilder idleTimeout(final Duration idleTimeout) {
       this.idleTimeout = idleTimeout;
+      return this;
+    }
+
+    /// Whether to connect to backends via pooled h2 connections. Defaults to true.
+    OmnibusServerBuilder pooled(final boolean pooled) {
+      this.pooled = pooled;
       return this;
     }
 
@@ -727,7 +803,9 @@ class OmnibusH2ServerTest {
       final EventLoopGroup eventLoopGroup = backend.localChannel ? localEventLoopGroup : nioEventLoopGroup;
       final Channel channel = backend.start(eventLoopGroup);
       backendChannelsToShutDown.add(channel);
-      return new UnpooledH2ConnectionFactory(channel.localAddress(), eventLoopGroup);
+      return pooled
+          ? new PooledH2ConnectionFactory(channel.localAddress(), eventLoopGroup, Duration.ofDays(1))
+          : new UnpooledH2ConnectionFactory(channel.localAddress(), eventLoopGroup);
     }
   }
 

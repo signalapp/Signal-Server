@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 ///
 /// When this handler receives an H2 header for a new stream-id=X on our parent H2 connection it will
 /// - Receive the stream-id=X header and check the path to determine the correct backend
-/// - Make a new H2 connection to the backend
+/// - Get or create an H2 connection to the backend
 /// - Forward the header with stream-id=Y to the backend
 /// - Install a [H2FrameProxyHandler] on the backend stream pipeline that forwards the received stream-id=Y frames from
 ///   the backend back to the client on stream-id=X
@@ -84,7 +84,7 @@ public class OmnibusH2StreamHandler extends ChannelInboundHandlerAdapter {
         : ((InetSocketAddress) ctx.channel().remoteAddress()).getHostString());
 
     // Make an H2 connection to the target backend
-    connectionFactory.getConnection(ctx.channel().eventLoop())
+    connectionFactory.getConnectionChannelFuture(ctx.channel().eventLoop())
         .addListener((ChannelFuture connectFuture) -> {
           if (!connectFuture.isSuccess()) {
             // Close the client stream with a 502: Bad Gateway if the backend wasn't available
@@ -93,25 +93,28 @@ public class OmnibusH2StreamHandler extends ChannelInboundHandlerAdapter {
                 .writeAndFlush(new DefaultHttp2HeadersFrame(
                     new DefaultHttp2Headers().status("502"), true))
                 .addListener(ChannelFutureListener.CLOSE);
+            connectionFactory.release(connectFuture.channel());
             return;
           }
 
           // Connected, open a new H2 stream to the backend so we can proxy the client's frames
           logger.trace("Opening a HTTP/2 stream to the backend {}", backendTag);
           final Channel backendConnection = connectFuture.channel();
-          createBackendProxyStream(ctx, backendConnection, headersFrame, backendTag);
+          createBackendProxyStream(ctx, connectionFactory, backendConnection, headersFrame, backendTag);
         });
   }
 
   /// Create a proxy stream on the provided `backendConnection` that forwards H2 frames to/from the client H2 stream.
   ///
   /// @param clientStreamCtx   The context for a client H2 stream that targets the backend
+  /// @param connectionFactory The factory `backendConnection` came from
   /// @param backendConnection An established H2 connection [Channel], on which a new h2 stream will be opened
   /// @param headersFrame      The first `headersFrame` from the client h2 stream that should be forwarded to the new
   ///                          backend stream
   /// @param backendTag        The backend this stream targets, for metrics
   private void createBackendProxyStream(
       final ChannelHandlerContext clientStreamCtx,
+      final H2ConnectionFactory connectionFactory,
       final Channel backendConnection,
       final Http2HeadersFrame headersFrame,
       final String backendTag) {
@@ -125,15 +128,13 @@ public class OmnibusH2StreamHandler extends ChannelInboundHandlerAdapter {
             clientStreamCtx.channel()
                 .writeAndFlush(new DefaultHttp2ResetFrame(Http2Error.INTERNAL_ERROR))
                 .addListener(ChannelFutureListener.CLOSE);
-            backendConnection.close();
+            connectionFactory.release(backendConnection);
             return;
           }
 
           final Http2StreamChannel backendStream = streamFuture.getNow();
 
-          // Close the entire H2 connection whenever the stream we just opened closes. We only plan on using
-          // a single stream on this connection.
-          backendStream.closeFuture().addListener(_ -> backendConnection.close());
+          backendStream.closeFuture().addListener(_ -> connectionFactory.release(backendConnection));
 
           // We're going to modify the inbound H2 stream channel, which runs on a different eventloop than the
           // outbound channel we've made to the backend. We have to submit our updates back to the inbound
@@ -142,7 +143,7 @@ public class OmnibusH2StreamHandler extends ChannelInboundHandlerAdapter {
 
             if (!clientStreamCtx.channel().isActive()) {
               // The client disconnected already and the client pipeline is already torn down.
-              backendConnection.close();
+              backendStream.close();
               return;
             }
 
