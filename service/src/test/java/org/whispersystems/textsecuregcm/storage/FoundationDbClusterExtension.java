@@ -48,7 +48,8 @@ public class FoundationDbClusterExtension implements AutoCloseable, BeforeAllCal
 
   @Override
   public void beforeAll(final ExtensionContext context) throws IOException {
-    final String resilienceConfigurationName = "foundationdb-test-" + RandomStringUtils.insecure().nextAlphanumeric(6);
+    final String resilienceSuffix = RandomStringUtils.insecure().nextAlphanumeric(6);
+    final String resilienceConfigurationName = "foundationdb-test-" + resilienceSuffix;
 
     ResilienceUtil.getCircuitBreakerRegistry().addConfiguration(resilienceConfigurationName,
         circuitBreakerConfiguration.toCircuitBreakerConfig());
@@ -61,11 +62,15 @@ public class FoundationDbClusterExtension implements AutoCloseable, BeforeAllCal
 
       for (int i = 0; i < databaseLifecycleManagers.length; i++) {
         final FoundationDbDatabaseLifecycleManager databaseLifecycleManager = serviceContainerNamePrefix != null
-                ? new ServiceContainerFoundationDbDatabaseLifecycleManager(serviceContainerNamePrefix + i)
-                : new TestcontainersFoundationDbDatabaseLifecycleManager();
+            ? new ServiceContainerFoundationDbDatabaseLifecycleManager(serviceContainerNamePrefix + i)
+            : new TestcontainersFoundationDbDatabaseLifecycleManager();
         databaseLifecycleManager.initializeDatabase(FDB.selectAPIVersion(FoundationDbVersion.getFoundationDbApiVersion()));
         databaseLifecycleManagers[i] = databaseLifecycleManager;
-        databases[i] = new FaultTolerantDatabase(databaseLifecycleManager.getDatabase(), String.format("messages-%d", i), resilienceConfigurationName, resilienceConfigurationName);
+
+        // Circuit breakers and bulkheads are cached by name in static registries that outlive individual test
+        // classes, so use a unique name to make sure this extension's configuration actually takes effect
+        databases[i] = new FaultTolerantDatabase(databaseLifecycleManager.getDatabase(),
+            String.format("messages-%d-%s", i, resilienceSuffix), resilienceConfigurationName, resilienceConfigurationName);
       }
 
     }

@@ -47,6 +47,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.signal.chat.messages.GetMessagesResponse;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
+import org.whispersystems.textsecuregcm.configuration.BulkheadConfiguration;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -82,7 +84,14 @@ class MessageDispatcherIntegrationTest {
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.MESSAGES);
 
   @RegisterExtension
-  static FoundationDbClusterExtension FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension(1);
+  static final FoundationDbClusterExtension FOUNDATION_DB_EXTENSION;
+
+  static {
+    final BulkheadConfiguration bulkheadConfiguration = new BulkheadConfiguration();
+    bulkheadConfiguration.setMaxConcurrentCalls(256);
+
+    FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension(1, new CircuitBreakerConfiguration(), bulkheadConfiguration);
+  }
 
   @RegisterExtension
   static final RedisServerExtension REDIS_EXTENSION = RedisServerExtension.builder().build();
