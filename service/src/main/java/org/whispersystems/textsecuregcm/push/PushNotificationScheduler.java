@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -38,7 +37,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
-import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Mono;
 
@@ -49,7 +47,6 @@ public class PushNotificationScheduler implements Managed {
   private static final String PENDING_BACKGROUND_APN_NOTIFICATIONS_KEY_PREFIX = "PENDING_BACKGROUND_APN";
   private static final String PENDING_BACKGROUND_FCM_NOTIFICATIONS_KEY_PREFIX = "PENDING_BACKGROUND_FCM";
   private static final String LAST_BACKGROUND_NOTIFICATION_TIMESTAMP_KEY_PREFIX = "LAST_BACKGROUND_NOTIFICATION";
-  private static final String PENDING_DELAYED_NOTIFICATIONS_KEY_PREFIX = "DELAYED";
 
   @VisibleForTesting
   static final String NEXT_SLOT_TO_PROCESS_KEY = "pending_notification_next_slot";
@@ -59,16 +56,12 @@ public class PushNotificationScheduler implements Managed {
   private static final String BACKGROUND_NOTIFICATION_SCHEDULED_COUNTER_NAME = name(PushNotificationScheduler.class, "backgroundNotification", "scheduled");
   private static final String BACKGROUND_NOTIFICATION_SENT_COUNTER_NAME = name(PushNotificationScheduler.class, "backgroundNotification", "sent");
 
-  private static final String DELAYED_NOTIFICATION_SCHEDULED_COUNTER_NAME = name(PushNotificationScheduler.class, "delayedNotificationScheduled");
-  private static final String DELAYED_NOTIFICATION_SENT_COUNTER_NAME = name(PushNotificationScheduler.class, "delayedNotificationSent");
-  private static final String TOKEN_TYPE_TAG = "tokenType";
   private static final String ACCEPTED_TAG = "accepted";
 
   private final APNSender apnSender;
   private final FcmSender fcmSender;
   private final AccountsManager accountsManager;
   private final FaultTolerantRedisClusterClient pushSchedulingCluster;
-  private final ScheduledExecutorService retryExecutor;
   private final Clock clock;
 
   private final ClusterLuaScript scheduleBackgroundNotificationScript;
@@ -79,8 +72,6 @@ public class PushNotificationScheduler implements Managed {
   static final Duration BACKGROUND_NOTIFICATION_PERIOD = Duration.ofMinutes(20);
 
   private final AtomicBoolean running = new AtomicBoolean(false);
-
-  private static final String RETRY_NAME = ResilienceUtil.name(PushNotificationScheduler.class);
 
   class NotificationWorker implements Runnable {
 
@@ -118,8 +109,7 @@ public class PushNotificationScheduler implements Managed {
           connection.sync().incr(NEXT_SLOT_TO_PROCESS_KEY)) % SlotHash.SLOT_COUNT);
 
       return processScheduledBackgroundNotifications(PushNotification.TokenType.APN, slot)
-          + processScheduledBackgroundNotifications(PushNotification.TokenType.FCM, slot)
-          + processScheduledDelayedNotifications(slot);
+          + processScheduledBackgroundNotifications(PushNotification.TokenType.FCM, slot);
     }
 
     @VisibleForTesting
@@ -128,12 +118,6 @@ public class PushNotificationScheduler implements Managed {
           (account, device) -> sendBackgroundNotification(tokenType, account, device));
     }
 
-
-    @VisibleForTesting
-    long processScheduledDelayedNotifications(final int slot) {
-      return processScheduledNotifications(getDelayedNotificationQueueKey(slot),
-          PushNotificationScheduler.this::sendDelayedNotification);
-    }
 
     private long processScheduledNotifications(final String queueKey,
         final BiFunction<Account, Device, CompletableFuture<Void>> sendNotificationFunction) {
@@ -163,8 +147,7 @@ public class PushNotificationScheduler implements Managed {
       final FcmSender fcmSender,
       final AccountsManager accountsManager,
       final int dedicatedProcessWorkerThreadCount,
-      final int workerMaxConcurrency,
-      final ScheduledExecutorService retryExecutor) throws IOException {
+      final int workerMaxConcurrency) throws IOException {
 
     this(pushSchedulingCluster,
         apnSender,
@@ -172,8 +155,7 @@ public class PushNotificationScheduler implements Managed {
         accountsManager,
         Clock.systemUTC(),
         dedicatedProcessWorkerThreadCount,
-        workerMaxConcurrency,
-        retryExecutor);
+        workerMaxConcurrency);
   }
 
   @VisibleForTesting
@@ -183,8 +165,7 @@ public class PushNotificationScheduler implements Managed {
       final AccountsManager accountsManager,
       final Clock clock,
       final int dedicatedProcessThreadCount,
-      final int workerMaxConcurrency,
-      final ScheduledExecutorService retryExecutor) throws IOException {
+      final int workerMaxConcurrency) throws IOException {
 
     this.apnSender = apnSender;
     this.fcmSender = fcmSender;
@@ -196,7 +177,6 @@ public class PushNotificationScheduler implements Managed {
         "lua/apn/schedule_background_notification.lua", ScriptOutputType.VALUE);
 
     this.workerThreads = new Thread[dedicatedProcessThreadCount];
-    this.retryExecutor = retryExecutor;
 
     for (int i = 0; i < this.workerThreads.length; i++) {
       this.workerThreads[i] = new Thread(new NotificationWorker(workerMaxConcurrency), "PushNotificationScheduler-" + i);
@@ -227,31 +207,6 @@ public class PushNotificationScheduler implements Managed {
   }
 
   /**
-   * Schedules a "new message" push notification to be delivered to the given device after at least the given duration.
-   * If another notification had previously been scheduled, calling this method will replace the previously-scheduled
-   * delivery time with the given time.
-   *
-   * @param account the account to which the target device belongs
-   * @param device the device to which to deliver a "new message" push notification
-   * @param minDelay the minimum delay after which to deliver the notification
-   *
-   * @return a future that completes once the notification has been scheduled
-   */
-  public CompletableFuture<Void> scheduleDelayedNotification(final Account account, final Device device, final Duration minDelay) {
-    final long deliveryTime = clock.instant().plus(minDelay).toEpochMilli();
-
-    return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
-        .executeCompletionStage(retryExecutor, () -> pushSchedulingCluster.withCluster(connection ->
-                connection.async().zadd(getDelayedNotificationQueueKey(account, device),
-                    deliveryTime,
-                    encodeAciAndDeviceId(account, device)))
-            .thenRun(() -> Metrics.counter(DELAYED_NOTIFICATION_SCHEDULED_COUNTER_NAME,
-                    TOKEN_TYPE_TAG, getTokenType(device))
-                .increment()))
-        .toCompletableFuture();
-  }
-
-  /**
    * Cancel scheduled notifications for the given account and device.
    *
    * @return A CompletionStage that completes when the scheduled notification has been cancelled.
@@ -259,23 +214,13 @@ public class PushNotificationScheduler implements Managed {
   public CompletionStage<Void> cancelScheduledNotifications(Account account, Device device) {
     return CompletableFuture.allOf(
         cancelBackgroundNotifications(PushNotification.TokenType.FCM, account, device),
-        cancelBackgroundNotifications(PushNotification.TokenType.APN, account, device),
-        cancelDelayedNotifications(account, device));
+        cancelBackgroundNotifications(PushNotification.TokenType.APN, account, device));
   }
 
   @VisibleForTesting
   CompletableFuture<Void> cancelBackgroundNotifications(final PushNotification.TokenType tokenType, final Account account, final Device device) {
     return pushSchedulingCluster.withCluster(connection -> connection.async()
             .zrem(getPendingBackgroundNotificationQueueKey(tokenType, account, device), encodeAciAndDeviceId(account, device)))
-        .thenRun(Util.NOOP)
-        .toCompletableFuture();
-  }
-
-  @VisibleForTesting
-  CompletableFuture<Void> cancelDelayedNotifications(final Account account, final Device device) {
-    return pushSchedulingCluster.withCluster(connection ->
-            connection.async().zrem(getDelayedNotificationQueueKey(account, device),
-                encodeAciAndDeviceId(account, device)))
         .thenRun(Util.NOOP)
         .toCompletableFuture();
   }
@@ -320,32 +265,6 @@ public class PushNotificationScheduler implements Managed {
                 ACCEPTED_TAG, String.valueOf(response.accepted()))
             .increment())
         .toCompletableFuture();
-  }
-
-  @VisibleForTesting
-  CompletableFuture<Void> sendDelayedNotification(final Account account, final Device device) {
-    if (StringUtils.isAllBlank(device.getApnId(), device.getGcmId())) {
-      return CompletableFuture.completedFuture(null);
-    }
-
-    final boolean isApnsDevice = StringUtils.isNotBlank(device.getApnId());
-
-    final PushNotification pushNotification = new PushNotification(
-        isApnsDevice ? device.getApnId() : device.getGcmId(),
-        isApnsDevice ? PushNotification.TokenType.APN : PushNotification.TokenType.FCM,
-        PushNotification.NotificationType.NOTIFICATION,
-        null,
-        account,
-        device,
-        true, null);
-
-    final PushNotificationSender pushNotificationSender = isApnsDevice ? apnSender : fcmSender;
-
-    return pushNotificationSender.sendNotification(pushNotification)
-        .thenAccept(response -> Metrics.counter(DELAYED_NOTIFICATION_SENT_COUNTER_NAME,
-            TOKEN_TYPE_TAG, getTokenType(device),
-            ACCEPTED_TAG, String.valueOf(response.accepted()))
-            .increment());
   }
 
   @VisibleForTesting
@@ -401,15 +320,6 @@ public class PushNotificationScheduler implements Managed {
   }
 
   @VisibleForTesting
-  static String getDelayedNotificationQueueKey(final Account account, final Device device) {
-    return getDelayedNotificationQueueKey(SlotHash.getSlot(encodeAciAndDeviceId(account, device)));
-  }
-
-  private static String getDelayedNotificationQueueKey(final int slot) {
-    return PENDING_DELAYED_NOTIFICATIONS_KEY_PREFIX + "::{" + RedisClusterUtil.getMinimalHashTag(slot) + "}";
-  }
-
-  @VisibleForTesting
   Optional<Instant> getLastBackgroundApnsNotificationTimestamp(final Account account, final Device device) {
     return Optional.ofNullable(
         pushSchedulingCluster.withCluster(connection ->
@@ -424,25 +334,6 @@ public class PushNotificationScheduler implements Managed {
                 connection.sync().zscore(getPendingBackgroundNotificationQueueKey(tokenType, account, device),
                     encodeAciAndDeviceId(account, device))))
         .map(timestamp -> Instant.ofEpochMilli(timestamp.longValue()));
-  }
-
-  @VisibleForTesting
-  Optional<Instant> getNextScheduledDelayedNotificationTimestamp(final Account account, final Device device) {
-    return Optional.ofNullable(
-            pushSchedulingCluster.withCluster(connection ->
-                connection.sync().zscore(getDelayedNotificationQueueKey(account, device),
-                    encodeAciAndDeviceId(account, device))))
-        .map(timestamp -> Instant.ofEpochMilli(timestamp.longValue()));
-  }
-
-  private static String getTokenType(final Device device) {
-    if (StringUtils.isNotBlank(device.getApnId())) {
-      return "apns";
-    } else if (StringUtils.isNotBlank(device.getGcmId())) {
-      return "fcm";
-    } else {
-      return "unknown";
-    }
   }
 
   private static String getPushToken(final PushNotification.TokenType tokenType, final Device device) {

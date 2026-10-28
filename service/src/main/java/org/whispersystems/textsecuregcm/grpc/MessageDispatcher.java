@@ -20,8 +20,8 @@ import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
-import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -64,7 +64,6 @@ public class MessageDispatcher {
   private final MessagesManager messagesManager;
   private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
-  private final PushNotificationScheduler pushNotificationScheduler;
   private final ClientReleaseManager clientReleaseManager;
   private final DisconnectionRequestManager disconnectionRequestManager;
 
@@ -72,14 +71,12 @@ public class MessageDispatcher {
       final MessagesManager messagesManager,
       final MessageMetrics messageMetrics,
       final PushNotificationManager pushNotificationManager,
-      final PushNotificationScheduler pushNotificationScheduler,
       final DisconnectionRequestManager disconnectionRequestManager,
       final ClientReleaseManager clientReleaseManager) {
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
     this.messageMetrics = messageMetrics;
     this.pushNotificationManager = pushNotificationManager;
-    this.pushNotificationScheduler = pushNotificationScheduler;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.clientReleaseManager = clientReleaseManager;
   }
@@ -196,16 +193,18 @@ public class MessageDispatcher {
             pendingAcknowledgementTracker.queueDrained(),
             // Emit an invalid credentials error if we receive a disconnection request
             disconnectionSignal(account, device, userAgent))
-        .doFinally(_ -> maybeSchedulePush(account, device));
+        .doFinally(_ -> maybeSendNewMessagePushNotification(account, device));
   }
 
-  /// If the device potentially has more messages available, schedule a push notification.
-  private void maybeSchedulePush(final Account account, final Device device) {
+  /// If the device potentially has more messages available, send a push notification.
+  private void maybeSendNewMessagePushNotification(final Account account, final Device device) {
     messagesManager.mayHaveMessages(account.getAccountIdentifier(), device)
         .thenAccept(mayHaveMessages -> {
           if (mayHaveMessages) {
-            pushNotificationScheduler.scheduleDelayedNotification(account, device,
-                CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY);
+            try {
+              pushNotificationManager.sendNewMessageNotification(account, device.getId(), true);
+            } catch (NotPushRegisteredException _) {
+            }
           }
         });
   }

@@ -70,13 +70,11 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
             messagesManager,
             messageMetrics,
             pushNotificationManager,
-            pushNotificationScheduler,
             account,
             device,
             client,
             messageDeliveryScheduler,
-            clientReleaseManager,
-            experimentEnrollmentManager)
+            clientReleaseManager)
     );
   }
 

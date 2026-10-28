@@ -16,17 +16,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.lettuce.core.cluster.SlotHash;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -89,7 +86,7 @@ class PushNotificationSchedulerTest {
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
 
     pushNotificationScheduler = new PushNotificationScheduler(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        apnSender, fcmSender, accountsManager, clock, 1, 1, mock(ScheduledExecutorService.class));
+        apnSender, fcmSender, accountsManager, clock, 1, 1);
   }
 
   @ParameterizedTest
@@ -207,51 +204,6 @@ class PushNotificationSchedulerTest {
     verify(apnSender, never()).sendNotification(any());
   }
 
-  @Test
-  void testScheduleDelayedNotification() {
-    clock.pin(Instant.now());
-
-    assertEquals(Optional.empty(),
-        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
-
-    pushNotificationScheduler.scheduleDelayedNotification(account, device, Duration.ofMinutes(1)).join();
-
-    assertEquals(Optional.of(clock.instant().truncatedTo(ChronoUnit.MILLIS).plus(Duration.ofMinutes(1))),
-        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
-
-    pushNotificationScheduler.scheduleDelayedNotification(account, device, Duration.ofMinutes(2)).join();
-
-    assertEquals(Optional.of(clock.instant().truncatedTo(ChronoUnit.MILLIS).plus(Duration.ofMinutes(2))),
-        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
-  }
-
-  @Test
-  void testCancelDelayedNotification() {
-    pushNotificationScheduler.scheduleDelayedNotification(account, device, Duration.ofMinutes(1)).join();
-    pushNotificationScheduler.cancelDelayedNotifications(account, device).join();
-
-    assertEquals(Optional.empty(),
-        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
-  }
-
-  @Test
-  void testProcessScheduledDelayedNotifications() {
-    final PushNotificationScheduler.NotificationWorker worker = pushNotificationScheduler.new NotificationWorker(1);
-    final int slot = SlotHash.getSlot(PushNotificationScheduler.getDelayedNotificationQueueKey(account, device));
-
-    clock.pin(Instant.now());
-
-    pushNotificationScheduler.scheduleDelayedNotification(account, device, Duration.ofMinutes(1)).join();
-
-    assertEquals(0, worker.processScheduledDelayedNotifications(slot));
-
-    clock.pin(clock.instant().plus(Duration.ofMinutes(1)));
-
-    assertEquals(1, worker.processScheduledDelayedNotifications(slot));
-    assertEquals(Optional.empty(),
-        pushNotificationScheduler.getNextScheduledDelayedNotificationTimestamp(account, device));
-  }
-
   @ParameterizedTest
   @CsvSource({
       "1, true",
@@ -266,7 +218,7 @@ class PushNotificationSchedulerTest {
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
     pushNotificationScheduler = new PushNotificationScheduler(redisCluster, apnSender, fcmSender,
-        accountsManager, dedicatedThreadCount, 1, mock(ScheduledExecutorService.class));
+        accountsManager, dedicatedThreadCount, 1);
 
     pushNotificationScheduler.start();
     pushNotificationScheduler.stop();
