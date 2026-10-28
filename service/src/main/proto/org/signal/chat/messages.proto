@@ -95,6 +95,12 @@ message GetMessagesResponse {
     // to deliver newly arrived messages.
     google.protobuf.Empty queue_empty = 2;
   }
+
+  // The time, in milliseconds since the Unix epoch, at which this response
+  // was sent, according to the server's clock. This can be helpful for detecting
+  // clock drift between the client and server, which can be important for
+  // time-sensitive messages.
+  uint64 server_time_epoch_millis = 3;
 }
 
 // Provides methods for sending "sealed sender" messages.

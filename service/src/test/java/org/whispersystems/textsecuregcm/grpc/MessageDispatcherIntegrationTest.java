@@ -160,7 +160,8 @@ class MessageDispatcherIntegrationTest {
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         disconnectionRequestManager,
-        mock(ClientReleaseManager.class));
+        mock(ClientReleaseManager.class),
+        Clock.systemUTC());
   }
 
   @AfterEach

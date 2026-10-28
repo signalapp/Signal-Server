@@ -1112,7 +1112,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final GroupSendTokenUtil groupSendTokenUtil = new GroupSendTokenUtil(groupZkSecretParams, Clock.systemUTC());
     final MessageMetrics messageMetrics = new MessageMetrics();
     final MessageDispatcher messageDispatcher = new MessageDispatcher(receiptSender, messagesManager, messageMetrics,
-        pushNotificationManager, disconnectionRequestManager, clientReleaseManager);
+        pushNotificationManager, disconnectionRequestManager, clientReleaseManager, Clock.systemUTC());
 
     final CertificateGenerator certificateGenerator =
         new CertificateGenerator(config.getDeliveryCertificate().certificate(),

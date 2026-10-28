@@ -9,7 +9,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
-import org.signal.chat.messages.GetMessagesResponse;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
@@ -39,9 +38,8 @@ class PendingAcknowledgementTracker {
   private final ConcurrentHashMap<UUID, UnacknowledgedEnvelope> unacknowledgedEnvelopes = new ConcurrentHashMap<>();
   private final AtomicLong sentMessageCounter = new AtomicLong();
 
-  private final Sinks.One<GetMessagesResponse> queueDrained = Sinks.one();
-  private final ClosableEpoch queueDrainEpoch = new ClosableEpoch(() ->
-      queueDrained.tryEmitValue(MessageDispatcher.QUEUE_EMPTY_RESPONSE));
+  private final Sinks.One<Boolean> queueDrained = Sinks.one();
+  private final ClosableEpoch queueDrainEpoch = new ClosableEpoch(() -> queueDrained.tryEmitValue(true));
   private final Timer.Sample queueDrainStart = Timer.start();
 
   private final MessageMetrics messageMetrics;
@@ -92,7 +90,7 @@ class PendingAcknowledgementTracker {
   ///
   /// @return A mono that completes with a QueueEmpty response when all messages tracked before [#markEndOfQueue] have
   /// been acknowledged.
-  Mono<GetMessagesResponse> queueDrained() {
+  Mono<Boolean> queueDrained() {
     return queueDrained.asMono();
   }
 

@@ -20,7 +20,9 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import io.grpc.Status;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -38,7 +40,6 @@ import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
@@ -52,6 +53,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.publisher.Flux;
@@ -60,13 +62,13 @@ import reactor.test.publisher.TestPublisher;
 
 class MessageDispatcherTest {
 
-  private static final GetMessagesResponse QUEUE_EMPTY =
-      GetMessagesResponse.newBuilder().setQueueEmpty(Empty.getDefaultInstance()).build();
-
   private static final UUID ACI = UUID.randomUUID();
   private static final byte DEVICE_ID = 2;
   private static final int SOURCE_DEVICE_ID = 1;
   private static final String TEST_UA = "test-user-agent";
+  private static final Clock CLOCK = TestClock.pinned(Instant.now());
+  private static final GetMessagesResponse QUEUE_EMPTY =
+      GetMessagesResponse.newBuilder().setQueueEmpty(Empty.getDefaultInstance()).setServerTimeEpochMillis(CLOCK.millis()).build();
 
   private Account account;
   private Device device;
@@ -97,7 +99,8 @@ class MessageDispatcherTest {
         new MessageMetrics(),
         pushNotificationManager,
         disconnectionRequestManager,
-        mock(ClientReleaseManager.class));
+        mock(ClientReleaseManager.class),
+        CLOCK);
   }
 
   @ParameterizedTest
@@ -117,7 +120,7 @@ class MessageDispatcherTest {
         CompletableFuture.completedFuture(mayHaveMoreMessages));
 
     StepVerifier.create(responses)
-        .expectNext(GetMessagesResponse.newBuilder().setEnvelope(expectedEnvelope).build())
+        .expectNext(GetMessagesResponse.newBuilder().setEnvelope(expectedEnvelope).setServerTimeEpochMillis(CLOCK.millis()).build())
         .then(() -> verify(disconnectionRequestManager).addListener(eq(ACI), eq(DEVICE_ID), any()))
         .thenCancel()
         .verify(Duration.ofSeconds(5));
@@ -143,7 +146,7 @@ class MessageDispatcherTest {
     final List<Long> timestamps = messages.stream().map(Envelope::getServerTimestamp).toList();
     final List<GetMessagesResponse> expectedMessages = messages.stream()
         .map(e -> e.toBuilder().clearEphemeral().build())
-        .map(e -> GetMessagesResponse.newBuilder().setEnvelope(e).build())
+        .map(e -> GetMessagesResponse.newBuilder().setEnvelope(e).setServerTimeEpochMillis(CLOCK.millis()).build())
         .toList();
 
     final MessageStream messageStream = mockMessages(messages);
@@ -194,7 +197,7 @@ class MessageDispatcherTest {
         .toList();
     final List<GetMessagesResponse> expectedMessages = messages.stream()
         .map(e -> e.toBuilder().clearEphemeral().build())
-        .map(e -> GetMessagesResponse.newBuilder().setEnvelope(e).build())
+        .map(e -> GetMessagesResponse.newBuilder().setEnvelope(e).setServerTimeEpochMillis(CLOCK.millis()).build())
         .toList();
 
     mockMessages(messages);
@@ -276,7 +279,7 @@ class MessageDispatcherTest {
         dispatcher.getMessages(true, TEST_UA, account, device, Flux.never());
     ArgumentCaptor<DisconnectionRequestListener> listener = ArgumentCaptor.forClass(DisconnectionRequestListener.class);
     StepVerifier.create(responses)
-        .expectNext(GetMessagesResponse.newBuilder().setEnvelope(expectedEnvelope).build())
+        .expectNext(GetMessagesResponse.newBuilder().setEnvelope(expectedEnvelope).setServerTimeEpochMillis(CLOCK.millis()).build())
         .then(() -> {
           verify(disconnectionRequestManager).addListener(eq(ACI), eq(DEVICE_ID), listener.capture());
           listener.getValue().handleDisconnectionRequest();
