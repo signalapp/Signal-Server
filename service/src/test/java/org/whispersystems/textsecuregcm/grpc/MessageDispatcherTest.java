@@ -42,7 +42,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
-import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -77,6 +76,7 @@ class MessageDispatcherTest {
   private PushNotificationManager pushNotificationManager;
   private MessageDispatcher dispatcher;
   private DisconnectionRequestManager disconnectionRequestManager;
+  private PushNotificationScheduler pushNotificationScheduler;
 
   @BeforeEach
   void setUp() {
@@ -89,6 +89,7 @@ class MessageDispatcherTest {
     receiptSender = mock(ReceiptSender.class);
     pushNotificationManager = mock(PushNotificationManager.class);
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
+    pushNotificationScheduler = mock(PushNotificationScheduler.class);
 
     when(device.getId()).thenReturn(DEVICE_ID);
     when(device.isPrimary()).thenReturn(true);
@@ -98,6 +99,7 @@ class MessageDispatcherTest {
         messagesManager,
         new MessageMetrics(),
         pushNotificationManager,
+        pushNotificationScheduler,
         disconnectionRequestManager,
         mock(ClientReleaseManager.class),
         CLOCK);
@@ -105,7 +107,7 @@ class MessageDispatcherTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
-  void drainSingleMessage(final boolean mayHaveMoreMessages) throws NotPushRegisteredException {
+  void drainSingleMessage(final boolean mayHaveMoreMessages) {
     final ServiceIdentifier sourceServiceId = new AciServiceIdentifier(UUID.randomUUID());
     final long timestamp = 17;
 
@@ -128,9 +130,8 @@ class MessageDispatcherTest {
     verify(disconnectionRequestManager).removeListener(eq(ACI), eq(DEVICE_ID), any());
     verify(pushNotificationManager).handleMessagesRetrieved(account, device, TEST_UA);
     verify(messagesManager).mayHaveMessages(ACI, device);
-    verify(pushNotificationManager, times(mayHaveMoreMessages ? 1 : 0))
-        .sendNewMessageNotification(account, device.getId(), true);
-
+    verify(pushNotificationScheduler, times(mayHaveMoreMessages ? 1 : 0))
+        .scheduleDelayedNotification(account, device, MessageDispatcher.CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY);
     verifyNoInteractions(receiptSender);
   }
 

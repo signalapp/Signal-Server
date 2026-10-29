@@ -54,6 +54,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -159,6 +160,7 @@ class MessageDispatcherIntegrationTest {
             sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
         disconnectionRequestManager,
         mock(ClientReleaseManager.class),
         Clock.systemUTC());

@@ -119,11 +119,13 @@ class WebSocketConnectionTest {
         messagesManager,
         new MessageMetrics(),
         mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
         account,
         device,
         client,
         Schedulers.immediate(),
-        clientReleaseManager);
+        clientReleaseManager,
+        mock(ExperimentEnrollmentManager.class));
   }
 
   @Test

@@ -833,7 +833,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     APNSender apnSender = new APNSender(apnSenderExecutor, Clock.systemUTC(), config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
-        apnSender, fcmSender, accountsManager, 0, 0);
+        apnSender, fcmSender, accountsManager, 0, 0, retryExecutor);
     PushNotificationManager pushNotificationManager =
         new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster, retryExecutor);
@@ -1112,7 +1112,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final GroupSendTokenUtil groupSendTokenUtil = new GroupSendTokenUtil(groupZkSecretParams, Clock.systemUTC());
     final MessageMetrics messageMetrics = new MessageMetrics();
     final MessageDispatcher messageDispatcher = new MessageDispatcher(receiptSender, messagesManager, messageMetrics,
-        pushNotificationManager, disconnectionRequestManager, clientReleaseManager, Clock.systemUTC());
+        pushNotificationManager, pushNotificationScheduler, disconnectionRequestManager, clientReleaseManager, Clock.systemUTC());
 
     final CertificateGenerator certificateGenerator =
         new CertificateGenerator(config.getDeliveryCertificate().certificate(),

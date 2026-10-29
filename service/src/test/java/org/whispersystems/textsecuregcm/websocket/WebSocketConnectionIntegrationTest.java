@@ -200,11 +200,13 @@ class WebSocketConnectionIntegrationTest {
         new MessagesManager(messagesDynamoDb, foundationDbMessageStore, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
         account,
         device,
         webSocketClient,
         messageDeliveryScheduler,
-        clientReleaseManager
+        clientReleaseManager,
+        mock(ExperimentEnrollmentManager.class)
     );
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(dynamoDbMessageCount + foundationDbMessageCount);
@@ -283,11 +285,13 @@ class WebSocketConnectionIntegrationTest {
         new MessagesManager(messagesDynamoDb, foundationDbMessageStore, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
         account,
         device,
         webSocketClient,
         messageDeliveryScheduler,
-        clientReleaseManager
+        clientReleaseManager,
+        mock(ExperimentEnrollmentManager.class)
     );
 
     final int dynamoDbMessageCount = 77;
@@ -402,11 +406,13 @@ class WebSocketConnectionIntegrationTest {
         new MessagesManager(messagesDynamoDb, foundationDbMessageStore, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
         account,
         device,
         webSocketClient,
         messageDeliveryScheduler,
-        clientReleaseManager
+        clientReleaseManager,
+        mock(ExperimentEnrollmentManager.class)
     );
 
     final int dynamoDBMessageCount = 207;
@@ -487,11 +493,13 @@ class WebSocketConnectionIntegrationTest {
         messagesManager,
         new MessageMetrics(),
         mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
         account,
         device,
         webSocketClient,
         messageDeliveryScheduler,
-        clientReleaseManager);
+        clientReleaseManager,
+        mock(ExperimentEnrollmentManager.class));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);

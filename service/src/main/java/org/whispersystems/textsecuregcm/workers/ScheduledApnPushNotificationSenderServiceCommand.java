@@ -90,7 +90,8 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
         deps.fcmSender(),
         deps.accountsManager(),
         namespace.getInt(WORKER_COUNT),
-        namespace.getInt(MAX_CONCURRENCY)
+        namespace.getInt(MAX_CONCURRENCY),
+        retryExecutor
     );
 
     environment.lifecycle().manage(pushNotificationScheduler);
