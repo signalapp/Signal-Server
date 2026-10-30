@@ -177,6 +177,7 @@ import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceDefinitions;
 import org.whispersystems.textsecuregcm.grpc.GroupSendTokenUtil;
 import org.whispersystems.textsecuregcm.grpc.GrpcAllowListInterceptor;
+import org.whispersystems.textsecuregcm.grpc.GrpcCompressionInterceptor;
 import org.whispersystems.textsecuregcm.grpc.KeyTransparencyGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
@@ -185,6 +186,7 @@ import org.whispersystems.textsecuregcm.grpc.MessageDispatcher;
 import org.whispersystems.textsecuregcm.grpc.MessagesAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.MessagesGrpcService;
 import org.whispersystems.textsecuregcm.grpc.MetricServerInterceptor;
+import org.whispersystems.textsecuregcm.grpc.MetricServerStreamTracer;
 import org.whispersystems.textsecuregcm.grpc.OneTimeDonationsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProductConfigurationGrpcService;
@@ -1102,6 +1104,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
     final ErrorConformanceInterceptor errorConformanceInterceptor = new ErrorConformanceInterceptor();
     final GrpcAllowListInterceptor grpcAllowListInterceptor = new GrpcAllowListInterceptor(dynamicConfigurationManager);
+    final GrpcCompressionInterceptor grpcCompressionInterceptor = new GrpcCompressionInterceptor(dynamicConfigurationManager);
     final RequestAttributesInterceptor requestAttributesInterceptor = new RequestAttributesInterceptor();
 
     final ValidatingInterceptor validatingInterceptor = new ValidatingInterceptor();
@@ -1158,6 +1161,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             validatingInterceptor,
             errorMappingInterceptor,
             errorConformanceInterceptor,
+            grpcCompressionInterceptor,
             grpcAllowListInterceptor,
             remoteDeprecationFilter,
             metricServerInterceptor,
@@ -1190,6 +1194,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             validatingInterceptor,
             errorMappingInterceptor,
             errorConformanceInterceptor,
+            grpcCompressionInterceptor,
             grpcAllowListInterceptor,
             remoteDeprecationFilter,
             metricServerInterceptor,
@@ -1211,7 +1216,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .channelType(LocalServerChannel.class)
         .bossEventLoopGroup(omnibusLocalEventLoopGroup.getEventLoopGroup())
         .workerEventLoopGroup(omnibusLocalEventLoopGroup.getEventLoopGroup())
-        .executor(ManagedExecutors.newVirtualThreadPerTaskExecutor("managed-grpc-virtual-thread", environment));
+        .executor(ManagedExecutors.newVirtualThreadPerTaskExecutor("managed-grpc-virtual-thread", environment))
+        .addStreamTracerFactory(new MetricServerStreamTracer.Factory());
     authenticatedServices.forEach(serverBuilder::addService);
     unauthenticatedServices.forEach(serverBuilder::addService);
     final ManagedGrpcServer localGrpcServer = new ManagedGrpcServer(serverBuilder.build());

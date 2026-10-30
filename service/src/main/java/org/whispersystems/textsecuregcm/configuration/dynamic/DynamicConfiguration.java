@@ -79,6 +79,10 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
+  private DynamicGrpcCompressionConfiguration grpcCompression = new DynamicGrpcCompressionConfiguration();
+
+  @JsonProperty
+  @Valid
   private DynamicOmnibusConfiguration omnibus = new DynamicOmnibusConfiguration(BigDecimal.ZERO);
 
   @JsonProperty
@@ -149,6 +153,10 @@ public class DynamicConfiguration {
 
   public DynamicGrpcAllowListConfiguration getGrpcAllowList() {
     return grpcAllowList;
+  }
+
+  public DynamicGrpcCompressionConfiguration getGrpcCompression() {
+    return grpcCompression;
   }
 
   public DynamicOmnibusConfiguration getOmnibus() {

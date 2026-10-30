@@ -103,7 +103,7 @@ public class MetricServerInterceptorTest {
   void unary() {
     final EchoServiceGrpc.EchoServiceBlockingStub client = EchoServiceGrpc.newBlockingStub(channel);
     final EchoRequest request = EchoRequest.newBuilder().setPayload(ByteString.copyFromUtf8("hello")).build();
-    final EchoResponse response = client.echo(request);
+    client.echo(request);
 
     final Tags commonTags = Tags.of(
         "platform", "android",
@@ -118,9 +118,6 @@ public class MetricServerInterceptorTest {
 
     final Counter responseCount = find(Counter.class, MetricServerInterceptor.RESPONSE_COUNTER_NAME);
     assertThat(responseCount.count()).isCloseTo(1.0, offset(0.01));
-
-    final Counter responseByteCount = find(Counter.class, MetricServerInterceptor.RESPONSE_BYTES_COUNTER_NAME);
-    assertThat(responseByteCount.count()).isCloseTo(response.getSerializedSize(), offset(0.01));
 
     final Counter rpcCount = find(Counter.class, MetricServerInterceptor.RPC_COUNTER_NAME);
     assertThat(rpcCount.count()).isCloseTo(1.0, offset(0.01));
@@ -169,9 +166,6 @@ public class MetricServerInterceptorTest {
 
     final Counter responseCount = find(Counter.class, MetricServerInterceptor.RESPONSE_COUNTER_NAME);
     assertThat(responseCount.count()).isCloseTo(responses.size(), offset(0.01));
-
-    final Counter responseByteCount = find(Counter.class, MetricServerInterceptor.RESPONSE_BYTES_COUNTER_NAME);
-    assertThat(responseByteCount.count()).isCloseTo(responses.stream().mapToInt(EchoResponse::getSerializedSize).sum(), offset(0.01));
 
     final Counter rpcCount = find(Counter.class, MetricServerInterceptor.RPC_COUNTER_NAME);
     assertThat(rpcCount.count()).isCloseTo(1.0, offset(0.01));

@@ -59,6 +59,7 @@ public class MetricServerInterceptor implements ServerInterceptor {
   static final String REQUEST_BYTES_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "requestBytes");
   @VisibleForTesting
   static final String RESPONSE_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "responseMessage");
+  /// Response bytes as written to the wire (i.e. after compression), as reported by [MetricServerStreamTracer]
   @VisibleForTesting
   static final String RESPONSE_BYTES_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "responseBytes");
   @VisibleForTesting
@@ -113,15 +114,16 @@ public class MetricServerInterceptor implements ServerInterceptor {
   private class MetricServerCall<ReqT, RespT> extends ForwardingServerCall.SimpleForwardingServerCall<ReqT, RespT> {
 
     private final Counter responseMessageCounter;
-    private final Counter responseBytesCounter;
     private final Tags tags;
     private @Nullable String reason = null;
 
     MetricServerCall(final ServerCall<ReqT, RespT> delegate, final Tags tags) {
       super(delegate);
       this.responseMessageCounter = meterRegistry.counter(RESPONSE_COUNTER_NAME, tags);
-      this.responseBytesCounter = meterRegistry.counter(RESPONSE_BYTES_COUNTER_NAME, tags);
       this.tags = tags;
+
+      MetricServerStreamTracer.current().ifPresent(tracer ->
+          tracer.setResponseBytesCounter(meterRegistry.counter(RESPONSE_BYTES_COUNTER_NAME, tags)));
     }
 
     @Override
@@ -142,10 +144,6 @@ public class MetricServerInterceptor implements ServerInterceptor {
     @Override
     public void sendMessage(final RespT responseMessage) {
       this.responseMessageCounter.increment();
-
-      if (responseMessage instanceof GeneratedMessage generatedMessage) {
-        this.responseBytesCounter.increment(generatedMessage.getSerializedSize());
-      }
 
       // Extract the annotated reason (if any) from the message
       final String messageReason = MetricServerCall.reason(responseMessage);
