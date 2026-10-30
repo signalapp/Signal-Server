@@ -5,17 +5,8 @@
 
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
-import jakarta.validation.constraints.NotNull;
-import java.time.Duration;
-
-public record DynamicNotificationConfiguration(@NotNull Duration undeliveredMessagesNotificationDelay) {
+public record DynamicNotificationConfiguration(boolean sendRemainingMessagesNotificationImmediately) {
 
   public static final DynamicNotificationConfiguration DEFAULT =
-      new DynamicNotificationConfiguration(Duration.ofMinutes(1));
-
-  public DynamicNotificationConfiguration {
-    if (undeliveredMessagesNotificationDelay == null) {
-      undeliveredMessagesNotificationDelay = DEFAULT.undeliveredMessagesNotificationDelay();
-    }
-  }
+      new DynamicNotificationConfiguration(false);
 }

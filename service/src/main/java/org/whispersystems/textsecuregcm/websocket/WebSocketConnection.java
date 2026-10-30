@@ -27,12 +27,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -79,6 +79,8 @@ public class WebSocketConnection {
 
   @VisibleForTesting
   static final int MESSAGE_SENDER_MAX_CONCURRENCY = 256;
+
+  private static final Duration CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY = Duration.ofMinutes(1);
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
   private static final Logger droppedErrorLogger = LoggerFactory.getLogger("droppedError");
@@ -193,9 +195,18 @@ public class WebSocketConnection {
     messagesManager.mayHaveMessages(authenticatedAccount.getAccountIdentifier(), authenticatedDevice)
         .thenAccept(mayHaveMessages -> {
           if (mayHaveMessages) {
-            pushNotificationScheduler.scheduleDelayedNotification(authenticatedAccount,
-                authenticatedDevice,
-                dynamicConfigurationManager.getConfiguration().getNotificationConfiguration().undeliveredMessagesNotificationDelay());
+            if (dynamicConfigurationManager.getConfiguration().getNotificationConfiguration().sendRemainingMessagesNotificationImmediately()) {
+              try {
+                pushNotificationManager.sendNewMessageNotification(authenticatedAccount,
+                    authenticatedDevice.getId(),
+                    true);
+              } catch (NotPushRegisteredException _) {
+              }
+            } else {
+              pushNotificationScheduler.scheduleDelayedNotification(authenticatedAccount,
+                  authenticatedDevice,
+                  CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY);
+            }
           }
         });
   }
