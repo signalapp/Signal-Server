@@ -206,7 +206,7 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(ExperimentEnrollmentManager.class)
+        mock(DynamicConfigurationManager.class)
     );
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(dynamoDbMessageCount + foundationDbMessageCount);
@@ -291,7 +291,7 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(ExperimentEnrollmentManager.class)
+        mock(DynamicConfigurationManager.class)
     );
 
     final int dynamoDbMessageCount = 77;
@@ -412,7 +412,7 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(ExperimentEnrollmentManager.class)
+        mock(DynamicConfigurationManager.class)
     );
 
     final int dynamoDBMessageCount = 207;
@@ -499,7 +499,7 @@ class WebSocketConnectionIntegrationTest {
         webSocketClient,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(ExperimentEnrollmentManager.class));
+        mock(DynamicConfigurationManager.class));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);

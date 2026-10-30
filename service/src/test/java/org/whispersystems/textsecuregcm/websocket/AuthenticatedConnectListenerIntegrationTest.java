@@ -62,6 +62,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -131,7 +132,7 @@ class AuthenticatedConnectListenerIntegrationTest {
           Schedulers.boundedElastic(),
           () -> mock(AsnInfoProvider.class),
           mock(ClientReleaseManager.class),
-          mock(ExperimentEnrollmentManager.class));
+          mock(DynamicConfigurationManager.class));
 
       final WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment =
           new WebSocketEnvironment<>(environment, new WebSocketConfiguration());

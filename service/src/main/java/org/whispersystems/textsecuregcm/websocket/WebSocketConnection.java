@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 import org.eclipse.jetty.util.ConstantThrowable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -39,6 +40,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.ConflictingMessageConsumerException;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -78,8 +80,6 @@ public class WebSocketConnection {
   @VisibleForTesting
   static final int MESSAGE_SENDER_MAX_CONCURRENCY = 256;
 
-  private static final Duration CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY = Duration.ofMinutes(1);
-
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
   private static final Logger droppedErrorLogger = LoggerFactory.getLogger("droppedError");
 
@@ -88,7 +88,7 @@ public class WebSocketConnection {
   private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
   private final PushNotificationScheduler pushNotificationScheduler;
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final Account authenticatedAccount;
   private final Device authenticatedDevice;
@@ -114,7 +114,7 @@ public class WebSocketConnection {
       final WebSocketClient client,
       final Scheduler messageDeliveryScheduler,
       final ClientReleaseManager clientReleaseManager,
-      final ExperimentEnrollmentManager experimentEnrollmentManager) {
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
 
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
@@ -126,7 +126,7 @@ public class WebSocketConnection {
     this.client = client;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
 
     this.messageStream =
         messagesManager.getMessages(authenticatedAccount.getAccountIdentifier(), authenticatedDevice);
@@ -195,7 +195,7 @@ public class WebSocketConnection {
           if (mayHaveMessages) {
             pushNotificationScheduler.scheduleDelayedNotification(authenticatedAccount,
                 authenticatedDevice,
-                CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY);
+                dynamicConfigurationManager.getConfiguration().getNotificationConfiguration().undeliveredMessagesNotificationDelay());
           }
         });
   }

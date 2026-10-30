@@ -47,6 +47,10 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
+  DynamicNotificationConfiguration notifications = DynamicNotificationConfiguration.DEFAULT;
+
+  @JsonProperty
+  @Valid
   DynamicRegistrationConfiguration registrationConfiguration = new DynamicRegistrationConfiguration(false);
 
   @JsonProperty
@@ -113,6 +117,10 @@ public class DynamicConfiguration {
 
   public DynamicMessageDeliveryConfiguration getMessageDeliveryConfiguration() {
     return messageDelivery;
+  }
+
+  public DynamicNotificationConfiguration getNotificationConfiguration() {
+    return notifications;
   }
 
   public DynamicRegistrationConfiguration getRegistrationConfiguration() {

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
@@ -24,6 +25,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
@@ -59,7 +61,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final Scheduler messageDeliveryScheduler,
       final Supplier<AsnInfoProvider> asnInfoProviderSupplier,
       final ClientReleaseManager clientReleaseManager,
-      final ExperimentEnrollmentManager experimentEnrollmentManager) {
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
 
     this(accountsManager,
         disconnectionRequestManager,
@@ -76,7 +78,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
             client,
             messageDeliveryScheduler,
             clientReleaseManager,
-            experimentEnrollmentManager)
+            dynamicConfigurationManager)
     );
   }
 

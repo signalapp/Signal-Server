@@ -56,6 +56,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.ConflictingMessageConsumerException;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -125,7 +126,7 @@ class WebSocketConnectionTest {
         client,
         Schedulers.immediate(),
         clientReleaseManager,
-        mock(ExperimentEnrollmentManager.class));
+        mock(DynamicConfigurationManager.class));
   }
 
   @Test
