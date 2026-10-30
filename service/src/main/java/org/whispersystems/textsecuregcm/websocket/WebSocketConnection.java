@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.websocket;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -60,7 +59,7 @@ import reactor.core.scheduler.Scheduler;
 
 public class WebSocketConnection {
 
-  private static final Counter sendFailuresCounter = Metrics.counter(name(WebSocketConnection.class, "sendFailures"));
+  private static final String SEND_FAILURES_COUNTER_NAME = name(WebSocketConnection.class, "sendFailures");
 
   private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME = name(WebSocketConnection.class,
       "clientNonSuccessResponse");
@@ -235,7 +234,8 @@ public class WebSocketConnection {
             List.of(HeaderUtils.getTimestampHeader()), body)
         .whenComplete((ignored, throwable) -> {
           if (throwable != null) {
-            sendFailuresCounter.increment();
+            Metrics.counter(SEND_FAILURES_COUNTER_NAME, EXCEPTION_TYPE_TAG, throwable.getClass().getSimpleName())
+                    .increment();
           } else {
             messageMetrics.measureOutgoingMessageLatency(serverTimestamp,
                 MessageMetrics.WEBSOCKET_CHANNEL,
