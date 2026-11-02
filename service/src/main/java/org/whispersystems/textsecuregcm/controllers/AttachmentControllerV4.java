@@ -9,13 +9,11 @@ import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.GET;
@@ -27,7 +25,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.security.SecureRandom;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.glassfish.jersey.server.ManagedAsync;
@@ -104,30 +101,27 @@ public class AttachmentControllerV4 {
   public AttachmentDescriptorV3 getAttachmentUploadForm(
       @Auth AuthenticatedDevice auth,
       @Parameter(description = "The size of the attachment to upload in bytes")
-      @QueryParam("uploadLength") final @Valid Optional<@Positive Long> maybeUploadLength,
+      @QueryParam("uploadLength") @Positive final long uploadLength,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgent)
       throws RateLimitExceededException {
 
-    final long uploadLength = maybeUploadLength.orElse(maxUploadLength);
     if (uploadLength > maxUploadLength) {
       throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
     }
 
     countRateLimiter.validate(auth.accountIdentifier());
-    if (maybeUploadLength.isPresent()) {
-      // Ideally we'd check these two rate limits transactionally and only update them if both permits were acquired.
-      // However, just undoing the first modification if the second one fails is close enough for our purposes
-      try {
-        bytesRateLimiter.validate(auth.accountIdentifier(), maybeUploadLength.get());
-      } catch (RateLimitExceededException e) {
-        countRateLimiter.restorePermits(auth.accountIdentifier(), 1);
-        throw e;
-      }
+
+    // Ideally we'd check these two rate limits transactionally and only update them if both permits were acquired.
+    // However, just undoing the first modification if the second one fails is close enough for our purposes
+    try {
+      bytesRateLimiter.validate(auth.accountIdentifier(), uploadLength);
+    } catch (RateLimitExceededException e) {
+      countRateLimiter.restorePermits(auth.accountIdentifier(), 1);
+      throw e;
     }
 
     DistributionSummary.builder(ATTACHMENT_SIZE_NAME)
-        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
-            Tag.of("uploadLengthSupplied", Boolean.toString(maybeUploadLength.isPresent()))))
+        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
         .register(Metrics.globalRegistry)
         .record(uploadLength);
 
