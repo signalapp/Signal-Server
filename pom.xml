@@ -79,9 +79,9 @@
     <log4j-bom.version>2.26.1</log4j-bom.version>
     <luajava.version>4.1.0</luajava.version>
     <micrometer.version>1.17.2</micrometer.version>
-    <netty.version>4.2.19.Final</netty.version>
+    <netty.version>4.2.20.Final</netty.version>
     <!-- netty-bom doesn't manage the BoringSSL uber-jar; keep in sync with netty's tcnative.version -->
-    <netty-tcnative.version>2.0.84.Final</netty-tcnative.version>
+    <netty-tcnative.version>2.0.85.Final</netty-tcnative.version>
     <!-- Instrumentation releases target upstream opentelemetry versions and include that BOM by reference -->
     <opentelemetry-instrumentation.version>2.33.0</opentelemetry-instrumentation.version>
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->

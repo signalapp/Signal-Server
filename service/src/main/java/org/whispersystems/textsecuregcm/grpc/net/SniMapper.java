@@ -100,12 +100,7 @@ public class SniMapper {
   private static SslContext buildSslContext(final KeyManagerFactory kmf, final SslProvider sslProvider)
       throws SSLException {
 
-    final SslContextBuilder sslContextBuilder = sslProvider == SslProvider.OPENSSL
-        // work around netty's OpenSSL provider not selecting Ed25519 certificates on its own
-        ? SslContextBuilder.forServer(BoringSslServerKeyManager.wrap(kmf.getKeyManagers()))
-        : SslContextBuilder.forServer(kmf);
-
-    return sslContextBuilder
+    return SslContextBuilder.forServer(kmf)
         .sslProvider(sslProvider)
         .applicationProtocolConfig(new ApplicationProtocolConfig(
             ApplicationProtocolConfig.Protocol.ALPN,
