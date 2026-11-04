@@ -1318,6 +1318,8 @@ paths:
         in: query
         description: The size of the attachment to upload in bytes
         schema:
+          minimum: 0
+          exclusiveMinimum: true
           type: integer
           format: int64
       - name: User-Agent
