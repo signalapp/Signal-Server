@@ -1314,6 +1314,27 @@ class FoundationDbMessageStoreTest {
         foundationDbMessageStore.getEarliestUndeliveredMessageTimestamp(aci, deviceId).join());
   }
 
+  @Test
+  void getReadsSinceHeadAcknowledged() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    final int messageCount = 16;
+
+    for (int i = 0; i < messageCount; i++) {
+      foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join();
+    }
+
+    assertEquals(0, foundationDbMessageStore.getReadsSinceHeadAcknowledged(aci, Device.PRIMARY_ID).join());
+
+    for (int i = 1; i < 3; i++) {
+      JdkFlowAdapter.flowPublisherToFlux(foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, Util.NOOP).getMessages())
+          .take(messageCount)
+          .then()
+          .block();
+
+      assertEquals(i, foundationDbMessageStore.getReadsSinceHeadAcknowledged(aci, Device.PRIMARY_ID).join());
+    }
+  }
+
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
     return generateRandomMessage(ephemeral, contentSize, CLOCK.millis());
   }

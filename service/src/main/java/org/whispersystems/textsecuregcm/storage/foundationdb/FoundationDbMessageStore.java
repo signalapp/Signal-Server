@@ -21,6 +21,7 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -795,6 +796,25 @@ public class FoundationDbMessageStore {
     }, FaultTolerantDatabase.Context.TRIM_QUEUE);
   }
 
+  /// Returns the number of times a subscriber has started reading a message queue without acknowledging the message at
+  /// the head of the queue. In cases where a caller's messages span multiple database shards (i.e. during a migration),
+  /// this method returns the maximum count across all shards.
+  ///
+  /// @param aci the account identifier for which to retrieve a read-without-acknowledging-head count
+  /// @param deviceId the device ID for which to retrieve a read-without-acknowledging-head count
+  ///
+  /// @return the number of times a subscriber has started reading messages from the identified message queue without
+  /// acknowledging the message at the head of the queue
+  @VisibleForTesting
+  CompletableFuture<Long> getReadsSinceHeadAcknowledged(final AciServiceIdentifier aci, final byte deviceId) {
+    return Flux.fromArray(getDistinctDatabasesForAci(aci))
+        .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
+            transaction.get(getReadsSinceHeadAcknowledgedKey(aci, deviceId)), FaultTolerantDatabase.Context.TEST)))
+        .map(countBytes -> ByteBuffer.wrap(countBytes).order(ByteOrder.LITTLE_ENDIAN).getLong())
+        .reduce(0L, Math::max)
+        .toFuture();
+  }
+
   @VisibleForTesting
   public static Subspace getAccountSubspace(final AciServiceIdentifier aci) {
     return getAccountSubspace(MESSAGES_SUBSPACE, aci);
@@ -807,6 +827,10 @@ public class FoundationDbMessageStore {
   @VisibleForTesting
   static byte[] getMessagesAvailableWatchKey(final AciServiceIdentifier aci) {
     return getAccountSubspace(aci).pack("l");
+  }
+
+  static byte[] getReadsSinceHeadAcknowledgedKey(final AciServiceIdentifier aci, final byte deviceId) {
+    return getDeviceSubspace(aci, deviceId).pack("r");
   }
 
   @VisibleForTesting

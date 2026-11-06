@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.storage.foundationdb;
 
 import com.apple.foundationdb.KeySelector;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Versionstamp;
@@ -8,6 +9,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micrometer.core.instrument.Metrics;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,6 +44,8 @@ class FoundationDbMessagePublisher {
   /// The end key at which we stop reading messages. For finite publisher, this is just past the end-of-queue key at the
   /// time the publisher was created. For an infinite publisher, this is the end of subspace range.
   private final KeySelector endKeyExclusive;
+
+  private final byte[] readsSinceHeadAcknowledgedKey;
 
   /// The key that stores the server ID/timestamp indicating when/where the connected client was last known to be
   /// present. Active publishers refresh this key at regular intervals (see [#renewPresenceFuture]).
@@ -87,6 +92,12 @@ class FoundationDbMessagePublisher {
 
   private static final int STREAM_ID_UNASSIGNED = -1;
 
+  // FoundationDB's `ADD` mutation operate on little-endian, 64-bit integers rather than on tuple-encoded integers
+  private static final byte[] ONE_LITTLE_ENDIAN = ByteBuffer.allocate(Long.BYTES)
+      .order(ByteOrder.LITTLE_ENDIAN)
+      .putLong(1L)
+      .array();
+
   private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessagePublisher.class);
 
   private static final String WATCHES_COUNTER = MetricsUtil.name(FoundationDbMessagePublisher.class, "watches");
@@ -131,6 +142,7 @@ class FoundationDbMessagePublisher {
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
       final int streamId,
+      final byte[] readsSinceHeadAcknowledgedKey,
       @Nullable final byte[] presenceKey,
       @Nullable final ScheduledExecutorService presenceRenewalExecutorService,
       @Nullable final byte[] messagesAvailableWatchKey,
@@ -141,6 +153,7 @@ class FoundationDbMessagePublisher {
     this.beginKeyCursor = beginKeyInclusive;
     this.endKeyExclusive = endKeyExclusive;
     this.streamId = streamId;
+    this.readsSinceHeadAcknowledgedKey = readsSinceHeadAcknowledgedKey;
     this.presenceKey = presenceKey;
     this.presenceRenewalExecutorService = presenceRenewalExecutorService;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
@@ -176,13 +189,15 @@ class FoundationDbMessagePublisher {
       final FaultTolerantDatabase database,
       final Clock clock,
       final KeySelector beginKeyInclusive,
-      final KeySelector endKeyExclusive) {
+      final KeySelector endKeyExclusive,
+      final byte[] readsSinceHeadAcknowledgedKey) {
 
     return new FoundationDbMessagePublisher(database,
         clock,
         beginKeyInclusive,
         endKeyExclusive,
         STREAM_ID_UNASSIGNED,
+        readsSinceHeadAcknowledgedKey,
         null,
         null,
         null,
@@ -198,6 +213,7 @@ class FoundationDbMessagePublisher {
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
       final int streamId,
+      final byte[] readsSinceHeadAcknowledgedKey,
       final byte[] presenceKey,
       final ScheduledExecutorService presenceRenewalExecutorService,
       final byte[] messagesAvailableWatchKey) {
@@ -207,6 +223,7 @@ class FoundationDbMessagePublisher {
         beginKeyInclusive,
         endKeyExclusive,
         streamId,
+        readsSinceHeadAcknowledgedKey,
         presenceKey,
         presenceRenewalExecutorService,
         messagesAvailableWatchKey,
@@ -345,7 +362,14 @@ class FoundationDbMessagePublisher {
                   transaction.getRange(beginKeyCursor, endKeyExclusive, maxMessages, false, StreamingMode.EXACT).asList(),
                   (_, keyValues) -> keyValues)
               .thenApply(keyValues -> {
-                if (keyValues.size() < maxMessages && !terminateOnQueueEmpty) {
+                final int keyValuesSize = keyValues.size();
+
+                if (keyValuesSize > 0 && !hasEmittedEntry()) {
+                  // We're about to emit our first message; increment the "sent head of queue since last ACK" counter
+                  incrementReadsSinceHeadAcknowledged(transaction);
+                }
+
+                if (keyValuesSize < maxMessages && !terminateOnQueueEmpty) {
                   setWatch(transaction);
                 }
 
@@ -398,6 +422,10 @@ class FoundationDbMessagePublisher {
     return (int) Math.min(totalRequested - totalEmitted, Integer.MAX_VALUE);
   }
 
+  private synchronized boolean hasEmittedEntry() {
+    return totalEmitted > 0;
+  }
+
   /// Fetch and publish messages. Messages are fetched in batches to avoid excessive memory consumption. After each
   /// fetch operation, [#beginKeyCursor] is updated to the next key we need to start reading from. If the fetch
   /// operation returns fewer items than the batch size, we infer that we have fetched all available messages and
@@ -424,6 +452,10 @@ class FoundationDbMessagePublisher {
   /// @return [Flux] of messages
   public Flux<FoundationDbMessageStreamEntry.Message> getMessages() {
     return this.messagePublisher;
+  }
+
+  private void incrementReadsSinceHeadAcknowledged(final Transaction transaction) {
+    transaction.mutate(MutationType.ADD, readsSinceHeadAcknowledgedKey, ONE_LITTLE_ENDIAN);
   }
 
   private synchronized void setWatch(final Transaction transaction) {

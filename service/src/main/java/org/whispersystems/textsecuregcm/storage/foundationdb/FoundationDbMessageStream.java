@@ -137,7 +137,8 @@ public class FoundationDbMessageStream implements MessageStream {
                                 database,
                                 clock,
                                 KeySelector.firstGreaterOrEqual(deviceQueueSubspace.range().begin),
-                                endOfQueueKeyExclusive)
+                                endOfQueueKeyExclusive,
+                                FoundationDbMessageStore.getReadsSinceHeadAcknowledgedKey(aciServiceIdentifier, deviceId))
                             .getMessages())
                         .orElseGet(Flux::empty)
                         .handle((fdbMessageStreamEntry, sink) -> {
@@ -170,6 +171,7 @@ public class FoundationDbMessageStream implements MessageStream {
                         infinitePublisherBeginKey,
                         KeySelector.firstGreaterThan(deviceQueueSubspace.range().end),
                         NEXT_STREAM_ID.getAndIncrement(),
+                        FoundationDbMessageStore.getReadsSinceHeadAcknowledgedKey(aciServiceIdentifier, deviceId),
                         presenceKey,
                         presenceRenewalExecutorService,
                         messagesAvailableWatchKey).getMessages();
