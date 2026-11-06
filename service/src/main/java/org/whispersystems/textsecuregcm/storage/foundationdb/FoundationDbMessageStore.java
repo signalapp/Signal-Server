@@ -711,7 +711,7 @@ public class FoundationDbMessageStore {
       final long maxQueueSizeBytes,
       final long targetQueueSizeBytes,
       final long rangeSplitChunkSizeBytes,
-      final UnaryOperator<Mono<Boolean>> deleteModifier) {
+      final Function<Mono<Boolean>, Mono<Boolean>> deleteModifier) {
     final Tag platformTag = Tag.of("platform", DevicePlatformUtil.getDevicePlatform(device)
         .map(platform -> platform.name().toLowerCase(Locale.ROOT))
         .orElse("unknown"));
@@ -765,9 +765,9 @@ public class FoundationDbMessageStore {
                       remainingBytesToDelete.addAndGet(-estimatedDeletedBytes);
                       ESTIMATED_TRIMMED_BYTES_COUNTER.increment(estimatedDeletedBytes);
                     })
-                    .flatMap(_ -> Mono.just(true));
+                    .then(Mono.just(true));
 
-                return deleteModifier.apply(deleteMono)
+                return deleteMono.transform(deleteModifier)
                     .onErrorResume(throwable -> {
                       if (!ExceptionUtils.isBreakerOpen(throwable)) {
                         LOGGER.warn("Failed to trim message queue for {}:{}", aci, device.getId(), throwable);

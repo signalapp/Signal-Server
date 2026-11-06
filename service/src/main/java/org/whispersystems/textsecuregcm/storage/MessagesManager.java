@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -263,7 +264,7 @@ public class MessagesManager {
       final long rangeSplitChunkSizeBytes,
       final boolean dryRun) {
     // All trims will be considered successful during a dry run
-    final UnaryOperator<Mono<Boolean>> deleteModifier = dryRun ? _ -> Mono.just(true) : UnaryOperator.identity();
+    final Function<Mono<Boolean>, Mono<Boolean>> deleteModifier = dryRun ? _ -> Mono.just(true) : Function.identity();
     return foundationDbMessageStore.trimQueue(aci, device, maxQueueSizeBytes, targetQueueSizeBytes, rangeSplitChunkSizeBytes, deleteModifier);
   }
 }
