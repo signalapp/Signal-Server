@@ -14,7 +14,9 @@ import java.time.Duration;
 /// @param port             The port to bind the omnibus server to
 /// @param websocketAddress The address of a listening websocket server for handling legacy requests
 /// @param websocketPort    The port of a listening websocket server for handling legacy requests
-/// @param idleTimeout      The duration after which an idle connection may be disconnected
+/// @param idleTimeout      The duration after which a connection the client has not written to may be disconnected.
+///                         Clients are expected to send some periodic write traffic (application-level or h2-level
+///                         pings) to keep otherwise idle connections open
 /// @param h2c              If true, listen for plaintext h2c with prior-knowledge
 /// @param sslProvider      The TLS implementation used to terminate TLS. Defaults to `OPENSSL`.
 public record GrpcConfiguration(
@@ -34,7 +36,7 @@ public record GrpcConfiguration(
       websocketAddress = "localhost";
     }
     if (idleTimeout == null) {
-      idleTimeout = Duration.ofMinutes(5);
+      idleTimeout = Duration.ofSeconds(60);
     }
     if (sslProvider == null) {
       sslProvider = SslProvider.OPENSSL;

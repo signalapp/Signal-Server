@@ -80,7 +80,7 @@ public class OmnibusH2Server implements Managed {
   /// @param bindAddress           The address the server should listen on
   /// @param router                How the server should select backends based on request paths
   /// @param configurationSupplier Dynamic configuration supplier
-  /// @param idleTimeout           How long to wait before terminating idle TCP connections
+  /// @param idleTimeout           How long to wait since the last data was received from the client before terminating TCP connections
   public OmnibusH2Server(
       final @Nullable Mapping<String, SslContext> sslContextBySni,
       final EventLoopGroup nioEventLoopGroup,
@@ -109,7 +109,7 @@ public class OmnibusH2Server implements Managed {
         .childHandler(new ChannelInitializer<SocketChannel>() {
           @Override
           protected void initChannel(final SocketChannel ch) {
-            ch.pipeline().addLast(new IdleStateHandler(0, 0, idleTimeout.toMillis(), TimeUnit.MILLISECONDS));
+            ch.pipeline().addLast(new IdleStateHandler(idleTimeout.toMillis(), 0, 0, TimeUnit.MILLISECONDS));
             ch.pipeline().addLast(new SimpleUserEventChannelHandler<IdleStateEvent>() {
               @Override
               protected void eventReceived(final ChannelHandlerContext ctx, final IdleStateEvent evt) {
