@@ -448,12 +448,10 @@ public class FoundationDbMessageStore {
       final byte deviceId,
       final Runnable doAfterCleanup) {
 
-   final FaultTolerantDatabase[] databasesForQueueByEpoch = getDatabasesByEpochForAci(aci);
-
     return new FoundationDbMessageStream(this,
         aci,
         deviceId,
-        databasesForQueueByEpoch,
+        Arrays.stream(getDatabasesByEpochForAci(aci)).filter(Objects::nonNull).distinct().toArray(FaultTolerantDatabase[]::new),
         new MessageGuidCodec(aci.uuid(), deviceId, versionstampUUIDCipher),
         doAfterCleanup,
         presenceRenewalExecutorService,

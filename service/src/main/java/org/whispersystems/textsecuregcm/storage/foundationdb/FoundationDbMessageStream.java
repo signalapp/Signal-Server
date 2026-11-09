@@ -8,10 +8,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -42,7 +39,7 @@ public class FoundationDbMessageStream implements MessageStream {
   private final Subspace deviceQueueSubspace;
   private final byte[] presenceKey;
   private final byte[] messagesAvailableWatchKey;
-  private final FaultTolerantDatabase[] databasesByEpoch;
+  private final FaultTolerantDatabase[] databases;
   private final MessageGuidCodec messageGuidCodec;
   /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
   private final Flow.Publisher<MessageStreamEntry> messageStreamPublisher;
@@ -71,7 +68,7 @@ public class FoundationDbMessageStream implements MessageStream {
   FoundationDbMessageStream(final FoundationDbMessageStore foundationDbMessageStore,
       final AciServiceIdentifier aciServiceIdentifier,
       final byte deviceId,
-      final FaultTolerantDatabase[] databasesByEpoch,
+      final FaultTolerantDatabase[] databases,
       final MessageGuidCodec messageGuidCodec,
       final Runnable doAfterCleanup,
       final ScheduledExecutorService presenceRenewalExecutorService,
@@ -82,7 +79,7 @@ public class FoundationDbMessageStream implements MessageStream {
     this.deviceQueueSubspace = FoundationDbMessageStore.getDeviceQueueSubspace(aciServiceIdentifier, deviceId);
     this.presenceKey = FoundationDbMessageStore.getPresenceKey(aciServiceIdentifier, deviceId);
     this.messagesAvailableWatchKey = FoundationDbMessageStore.getMessagesAvailableWatchKey(aciServiceIdentifier);
-    this.databasesByEpoch = databasesByEpoch;
+    this.databases = databases;
     this.messageGuidCodec = messageGuidCodec;
     this.messageStreamPublisher = JdkFlowAdapter.publisherToFlowPublisher(createMessagePublisher());
     this.doAfterCleanup = doAfterCleanup;
@@ -124,11 +121,7 @@ public class FoundationDbMessageStream implements MessageStream {
   ///    on [#messagesAvailableWatchKey] which is updated when a new message is available.
   ///    See [FoundationDbMessageStore] for more details on the message insert process.
   private Flux<FoundationDbMessageStreamEntry> createFoundationDbMessagePublisher() {
-    // This may seem like an odd construction since it looks like we could also just do `Flux#fromArray`, but
-    // `Flux#fromArray` cannot handle `null` elements
-    final List<FaultTolerantDatabase> databases = Arrays.stream(databasesByEpoch).filter(Objects::nonNull).distinct().toList();
-
-    return Flux.fromIterable(databases)
+    return Flux.fromArray(this.databases)
         .flatMap(database -> Mono.fromFuture(() -> getEndOfQueueKeyExclusive(database))
             .map(maybeEndOfQueueKeyExclusive -> Tuples.of(database, maybeEndOfQueueKeyExclusive)))
         .collectMap(Tuple2::getT1, Tuple2::getT2)
