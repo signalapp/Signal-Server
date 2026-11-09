@@ -406,35 +406,6 @@ public class FoundationDbMessageStore {
         });
   }
 
-  CompletableFuture<Optional<FoundationDbMessageStreamEntry.Message>> deleteAndGet(final AciServiceIdentifier aci, final byte deviceId, final UUID messageGuid) {
-    return deleteAndGet(aci, deviceId, versionstampUUIDCipher.decryptVersionstamp(messageGuid, aci.uuid(), deviceId));
-  }
-
-  CompletableFuture<Optional<FoundationDbMessageStreamEntry.Message>> deleteAndGet(final AciServiceIdentifier aci, final byte deviceId, final Versionstamp versionstamp) {
-    final Timer.Sample sample = Timer.start();
-
-    final byte[] messageKey = getDeviceQueueSubspace(aci, deviceId).pack(Tuple.from(versionstamp));
-
-    return databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].runAsync(
-            transaction -> transaction.get(messageKey)
-                .thenApply(value -> {
-                  if (value == null) {
-                    return Optional.<byte[]>empty();
-                  }
-                  transaction.clear(messageKey);
-                  return Optional.of(value);
-                }), FaultTolerantDatabase.Context.DELETE_MESSAGE)
-        .whenComplete((_, _) -> sample.stop(DELETE_MESSAGE_TIMER))
-        .thenApply(maybeValue -> maybeValue.map(value -> {
-          DELETE_MESSAGE_COUNTER.increment();
-          try {
-            return new FoundationDbMessageStreamEntry.Message(versionstamp, MessageProtos.Envelope.parseFrom(value));
-          } catch (final InvalidProtocolBufferException e) {
-            throw new UncheckedIOException(e);
-          }
-        }));
-  }
-
   public void clearAll(final AciServiceIdentifier aci) {
     doForAllDatabasesWithMessages(aci, database -> database.run(transaction -> {
       transaction.clear(getAccountSubspace(aci).range());
