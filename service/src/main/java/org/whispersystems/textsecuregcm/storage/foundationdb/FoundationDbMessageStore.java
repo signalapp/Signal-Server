@@ -31,7 +31,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -432,17 +431,6 @@ public class FoundationDbMessageStore {
     return getMessages(aci, deviceId, Util.NOOP);
   }
 
-  FaultTolerantDatabase[] getDatabasesByEpochForAci(final AciServiceIdentifier aci) {
-    // For each configured database epoch, which database held (or holds) the messages for this ACI/device pair?
-    final FaultTolerantDatabase[] databasesForQueueByEpoch = new FaultTolerantDatabase[databasesByEpoch.length];
-
-    for (final int epoch : liveEpochs) {
-      databasesForQueueByEpoch[epoch] = getShardForAci(aci, epoch);
-    }
-
-    return databasesForQueueByEpoch;
-  }
-
   @VisibleForTesting
   FoundationDbMessageStream getMessages(final AciServiceIdentifier aci,
       final byte deviceId,
@@ -451,7 +439,7 @@ public class FoundationDbMessageStore {
     return new FoundationDbMessageStream(this,
         aci,
         deviceId,
-        Arrays.stream(getDatabasesByEpochForAci(aci)).filter(Objects::nonNull).distinct().toArray(FaultTolerantDatabase[]::new),
+        getDistinctDatabasesForAci(aci),
         new MessageGuidCodec(aci.uuid(), deviceId, versionstampUUIDCipher),
         doAfterCleanup,
         presenceRenewalExecutorService,
@@ -465,7 +453,7 @@ public class FoundationDbMessageStore {
   ///
   /// @return a future that yields `true` if the identified queue contains any messages or `false` if the queue is empty
   public CompletableFuture<Boolean> hasMessages(final AciServiceIdentifier aci, final byte deviceId) {
-    return getDistinctDatabasesForAci(aci)
+    return Flux.fromArray(getDistinctDatabasesForAci(aci))
         .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
                 transaction.getRange(getDeviceQueueSubspace(aci, deviceId).range(), 1).asList(),
             FaultTolerantDatabase.Context.GET_HAS_MESSAGES)))
@@ -483,7 +471,7 @@ public class FoundationDbMessageStore {
   /// @return a future that yields `true` if the identified queue contains an urgent message within a sample or `false`
   /// otherwise
   public CompletableFuture<Boolean> mayHaveUrgentMessages(final AciServiceIdentifier aci, final byte deviceId) {
-    return getDistinctDatabasesForAci(aci)
+    return Flux.fromArray(getDistinctDatabasesForAci(aci))
         .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
                 transaction.getRange(getDeviceQueueSubspace(aci, deviceId).range(), MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT).asList(),
             FaultTolerantDatabase.Context.GET_HAS_URGENT_MESSAGES))
@@ -509,7 +497,7 @@ public class FoundationDbMessageStore {
   public CompletableFuture<Optional<Instant>> getEarliestUndeliveredMessageTimestamp(final AciServiceIdentifier aci,
       final byte deviceId) {
 
-    return getDistinctDatabasesForAci(aci)
+    return Flux.fromArray(getDistinctDatabasesForAci(aci))
         .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
                     transaction.getRange(getDeviceQueueSubspace(aci, deviceId).range(), 1).asList(),
                 FaultTolerantDatabase.Context.GET_EARLIEST_TIMESTAMP))
@@ -653,8 +641,17 @@ public class FoundationDbMessageStore {
   @VisibleForTesting
   record QueueSizeAndRangeSplitPoints(long estimatedQueueSize, Map<FaultTolerantDatabase, List<byte[]>> splitPointsByDatabase) {}
 
-  private Flux<FaultTolerantDatabase> getDistinctDatabasesForAci(final AciServiceIdentifier aci) {
-    return Flux.fromStream(Arrays.stream(getDatabasesByEpochForAci(aci)).filter(Objects::nonNull).distinct());
+  private FaultTolerantDatabase[] getDistinctDatabasesForAci(final AciServiceIdentifier aci) {
+    // Optimization: if we only have one live epoch (true most of the time!), we can skip the overhead of working with
+    // a stream
+    if (liveEpochs.length == 1) {
+      return new FaultTolerantDatabase[] { getShardForAci(aci, liveEpochs[0]) };
+    }
+
+    return Arrays.stream(liveEpochs)
+        .mapToObj(epoch -> getShardForAci(aci, epoch))
+        .distinct()
+        .toArray(FaultTolerantDatabase[]::new);
   }
 
   /// Estimates the size of the provided queue in bytes.
@@ -665,7 +662,7 @@ public class FoundationDbMessageStore {
   Mono<Long> estimateQueueSize(final AciServiceIdentifier aci, final byte deviceId) {
     final Range deviceQueueRange = getDeviceQueueSubspace(aci, deviceId).range();
 
-    return getDistinctDatabasesForAci(aci)
+    return Flux.fromArray(getDistinctDatabasesForAci(aci))
         .flatMap(database -> Mono.fromFuture(() -> database.runAsync(transaction -> transaction.getEstimatedRangeSizeBytes(deviceQueueRange), FaultTolerantDatabase.Context.ESTIMATE_QUEUE_SIZE)))
         .reduce(0L, Long::sum);
   }
@@ -681,7 +678,8 @@ public class FoundationDbMessageStore {
       final AciServiceIdentifier aci,
       final byte deviceId,
       final long rangeSplitChunkSize) {
-    return getDistinctDatabasesForAci(aci)
+
+    return Flux.fromArray(getDistinctDatabasesForAci(aci))
         .flatMap(database -> Mono.fromFuture(() -> estimateQueueSizeAndRangeSplitsForDatabase(database, aci, deviceId, rangeSplitChunkSize))
             .map(pair -> Tuples.of(pair.first(), database, pair.second().getKeys())))
         .collect(Collectors.teeing(
