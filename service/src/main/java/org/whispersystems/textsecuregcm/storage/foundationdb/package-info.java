@@ -23,6 +23,7 @@
 /// | |   device was present
 /// | | + {device ID (byte)} (device subspace)
 /// | | | * "p" => presence: server-id || last-seen-time
+/// | | | * "r" => reads since last message acknowledgement: 64-bit integer (little-endian)
 /// | | | + "Q" (device message queue subspace)
 /// | | | | * versionstamp => serialized envelope
 /// ```

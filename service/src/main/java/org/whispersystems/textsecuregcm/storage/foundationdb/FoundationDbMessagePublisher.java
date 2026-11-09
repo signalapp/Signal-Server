@@ -45,7 +45,7 @@ class FoundationDbMessagePublisher {
   /// time the publisher was created. For an infinite publisher, this is the end of subspace range.
   private final KeySelector endKeyExclusive;
 
-  private final byte[] readsSinceHeadAcknowledgedKey;
+  private final byte[] readsSinceLastAcknowledgedMessageKey;
 
   /// The key that stores the server ID/timestamp indicating when/where the connected client was last known to be
   /// present. Active publishers refresh this key at regular intervals (see [#renewPresenceFuture]).
@@ -142,7 +142,7 @@ class FoundationDbMessagePublisher {
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
       final int streamId,
-      final byte[] readsSinceHeadAcknowledgedKey,
+      final byte[] readsSinceLastAcknowledgedMessageKey,
       @Nullable final byte[] presenceKey,
       @Nullable final ScheduledExecutorService presenceRenewalExecutorService,
       @Nullable final byte[] messagesAvailableWatchKey,
@@ -153,7 +153,7 @@ class FoundationDbMessagePublisher {
     this.beginKeyCursor = beginKeyInclusive;
     this.endKeyExclusive = endKeyExclusive;
     this.streamId = streamId;
-    this.readsSinceHeadAcknowledgedKey = readsSinceHeadAcknowledgedKey;
+    this.readsSinceLastAcknowledgedMessageKey = readsSinceLastAcknowledgedMessageKey;
     this.presenceKey = presenceKey;
     this.presenceRenewalExecutorService = presenceRenewalExecutorService;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
@@ -455,7 +455,7 @@ class FoundationDbMessagePublisher {
   }
 
   private void incrementReadsSinceHeadAcknowledged(final Transaction transaction) {
-    transaction.mutate(MutationType.ADD, readsSinceHeadAcknowledgedKey, ONE_LITTLE_ENDIAN);
+    transaction.mutate(MutationType.ADD, readsSinceLastAcknowledgedMessageKey, ONE_LITTLE_ENDIAN);
   }
 
   private synchronized void setWatch(final Transaction transaction) {

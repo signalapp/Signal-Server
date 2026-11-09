@@ -1315,24 +1315,43 @@ class FoundationDbMessageStoreTest {
   }
 
   @Test
-  void getReadsSinceHeadAcknowledged() {
+  void getReadsSinceLastAcknowledgedMessage() {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final int messageCount = 16;
+    final UUID[] messageGuids = new UUID[messageCount];
 
     for (int i = 0; i < messageCount; i++) {
-      foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join();
+      final Map<Byte, FoundationDbMessageStore.InsertResult> insertResults =
+          foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join();
+
+      messageGuids[i] = insertResults.get(Device.PRIMARY_ID).messageGuid().orElseThrow();
     }
 
-    assertEquals(0, foundationDbMessageStore.getReadsSinceHeadAcknowledged(aci, Device.PRIMARY_ID).join());
+    assertEquals(0, foundationDbMessageStore.getReadsSinceLastAcknowledgedMessage(aci, Device.PRIMARY_ID).join(),
+        "Initial \"Reads since last acknowledged message\" count should be zero");
 
-    for (int i = 1; i < 3; i++) {
-      JdkFlowAdapter.flowPublisherToFlux(foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, Util.NOOP).getMessages())
-          .take(messageCount)
-          .then()
-          .block();
+    JdkFlowAdapter.flowPublisherToFlux(foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID).getMessages())
+        .take(messageCount)
+        .then()
+        .block();
 
-      assertEquals(i, foundationDbMessageStore.getReadsSinceHeadAcknowledged(aci, Device.PRIMARY_ID).join());
-    }
+    assertEquals(1, foundationDbMessageStore.getReadsSinceLastAcknowledgedMessage(aci, Device.PRIMARY_ID).join(),
+        "\"Reads since last acknowledged message\" count should increment on first read");
+
+    final FoundationDbMessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID);
+
+    JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages())
+        .take(messageCount)
+        .then()
+        .block();
+
+    assertEquals(2, foundationDbMessageStore.getReadsSinceLastAcknowledgedMessage(aci, Device.PRIMARY_ID).join(),
+        "\"Reads since last acknowledged message\" count should increment on subsequent reads");
+
+    messageStream.acknowledgeMessage(messageGuids[1], 0L).join();
+
+    assertEquals(0, foundationDbMessageStore.getReadsSinceLastAcknowledgedMessage(aci, Device.PRIMARY_ID).join(),
+        "\"Reads since last acknowledged message\" count should reset when acknowledging any message");
   }
 
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
