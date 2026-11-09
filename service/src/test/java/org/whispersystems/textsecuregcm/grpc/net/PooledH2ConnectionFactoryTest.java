@@ -203,16 +203,18 @@ class PooledH2ConnectionFactoryTest {
   /// A future that completes once the factory has seen a GOAWAY on `connection`
   private static CompletableFuture<Void> goAwayRead(final Channel connection) {
     final CompletableFuture<Void> goAwayRead = new CompletableFuture<>();
-    connection.pipeline().addAfter(connection.pipeline().context(Http2MultiplexHandler.class).name(), null,
-        new ChannelInboundHandlerAdapter() {
-          @Override
-          public void channelRead(final ChannelHandlerContext ctx, final Object msg) {
-            ctx.fireChannelRead(msg);
-            if (msg instanceof Http2GoAwayFrame) {
-              goAwayRead.complete(null);
-            }
-          }
-        });
+    connection.eventLoop().submit(() -> connection.pipeline()
+            .addAfter(connection.pipeline().context(Http2MultiplexHandler.class).name(), null,
+                new ChannelInboundHandlerAdapter() {
+                  @Override
+                  public void channelRead(final ChannelHandlerContext ctx, final Object msg) {
+                    ctx.fireChannelRead(msg);
+                    if (msg instanceof Http2GoAwayFrame) {
+                      goAwayRead.complete(null);
+                    }
+                  }
+                }))
+        .syncUninterruptibly();
     return goAwayRead;
   }
 }
