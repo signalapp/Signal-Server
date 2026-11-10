@@ -170,22 +170,22 @@ public class RegistrationServiceClient implements Managed {
             throw new RegistrationServiceException(buildSessionResponseFromMetadata(response.getSessionMetadata()));
 
         case SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_REJECTED ->
-            throw RegistrationServiceSenderException.rejected(response.getError().getMayRetry());
+            throw RegistrationServiceSenderException.rejected(!response.getError().getMayRetry());
 
         case SEND_VERIFICATION_CODE_ERROR_TYPE_SUSPECTED_FRAUD ->
             throw new RegistrationFraudException(
-                RegistrationServiceSenderException.rejected(response.getError().getMayRetry()));
+                RegistrationServiceSenderException.rejected(!response.getError().getMayRetry()));
 
         case SEND_VERIFICATION_CODE_ERROR_TYPE_SENDER_ILLEGAL_ARGUMENT ->
-            throw RegistrationServiceSenderException.illegalArgument(response.getError().getMayRetry());
+            throw RegistrationServiceSenderException.illegalArgument(!response.getError().getMayRetry());
 
         case SEND_VERIFICATION_CODE_ERROR_TYPE_UNSPECIFIED ->
-            throw RegistrationServiceSenderException.unknown(response.getError().getMayRetry());
+            throw RegistrationServiceSenderException.unknown(!response.getError().getMayRetry());
 
         case SEND_VERIFICATION_CODE_ERROR_TYPE_TRANSPORT_NOT_ALLOWED ->
             throw new TransportNotAllowedException(buildSessionResponseFromMetadata(response.getSessionMetadata()));
         case SEND_VERIFICATION_CODE_ERROR_NO_SENDER_AVAILABLE ->
-            throw RegistrationServiceSenderException.unavailable(response.getError().getMayRetry());
+            throw RegistrationServiceSenderException.unavailable(!response.getError().getMayRetry());
 
         default -> throw new RuntimeException("Failed to send verification code: " + response.getError().getErrorType());
       }
