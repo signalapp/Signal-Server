@@ -80,7 +80,7 @@ public class FoundationDbMessageStore {
   private final ScheduledExecutorService presenceRenewalExecutorService;
   private final Clock clock;
 
-  // Per-attempt timeout and retry limit for batch priority transacitons, e.g. expired-message trim.
+  // Per-attempt timeout and retry limit for batch priority transactions, e.g. expired-message trim.
   private final Duration batchPriorityTransactionTimeout;
   private final long batchPriorityTransactionRetryLimit;
 
