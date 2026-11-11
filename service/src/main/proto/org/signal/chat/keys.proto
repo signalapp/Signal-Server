@@ -137,7 +137,7 @@ message DevicePreKeyBundle {
 
   // A one-time KEM pre-key (or a last-resort KEM pre-key) for the targeted
   // account/device/identity.
-  common.KemSignedPreKey kem_one_time_pre_key = 3;
+  common.KemSignedPreKey kem_pre_key = 3;
 
   // The registration ID for the targeted account/device/identity.
   uint32 registration_id = 4;

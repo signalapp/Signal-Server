@@ -597,7 +597,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
               .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
               .setSignature(ByteString.copyFrom(ecSignedPreKey.signature()))
               .build())
-          .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
+          .setKemPreKey(KemSignedPreKey.newBuilder()
               .setKeyId(KeyIdUtil.toUnsignedInt(kemSignedPreKey.keyId()))
               .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
               .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))

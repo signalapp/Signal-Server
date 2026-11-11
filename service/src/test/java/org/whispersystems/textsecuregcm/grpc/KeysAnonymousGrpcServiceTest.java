@@ -137,7 +137,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
             .putDevicePreKeys(Device.PRIMARY_ID, DevicePreKeyBundle.newBuilder()
                 .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
                 .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))
-                .setKemOneTimePreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
+                .setKemPreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
                 .build()))
         .build();
 
@@ -197,7 +197,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
         .putDevicePreKeys(Device.PRIMARY_ID, DevicePreKeyBundle.newBuilder()
             .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
             .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))
-            .setKemOneTimePreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
+            .setKemPreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
             .setRegistrationId(identityType == IdentityType.ACI ? aciRegistrationId : pniRegistrationId)
             .build());
 
@@ -258,7 +258,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
             .putDevicePreKeys(Device.PRIMARY_ID, DevicePreKeyBundle.newBuilder()
                 .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
                 .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))
-                .setKemOneTimePreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
+                .setKemPreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
                 .build()))
         .build();
 

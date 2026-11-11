@@ -104,7 +104,7 @@ class KeysGrpcHelper {
               .setKeyId(KeyIdUtil.toUnsignedInt(devicePreKeys.ecSignedPreKey().keyId()))
               .setPublicKey(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().serializedPublicKey()))
               .setSignature(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().signature())))
-          .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
+          .setKemPreKey(KemSignedPreKey.newBuilder()
               .setKeyId(KeyIdUtil.toUnsignedInt(devicePreKeys.kemSignedPreKey().keyId()))
               .setPublicKey(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().serializedPublicKey()))
               .setSignature(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().signature())))
