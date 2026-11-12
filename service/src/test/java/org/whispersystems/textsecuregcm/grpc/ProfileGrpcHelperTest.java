@@ -15,9 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.signal.chat.common.DeviceCapability;
-import org.signal.chat.profile.ProfileResult;
 import org.signal.chat.profile.AccountInfo;
+import org.signal.chat.profile.ProfileResult;
 
 class ProfileGrpcHelperTest {
 
@@ -84,6 +83,20 @@ class ProfileGrpcHelperTest {
         .build());
 
     assertArrayEquals(unset, explicitlyEmpty);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void cdnUrl(final String baseUrl, final String path) {
+    assertEquals("https://cdn.example.com/profiles/abc", ProfileGrpcHelper.cdnUrl(baseUrl, path));
+  }
+
+  private static Stream<Arguments> cdnUrl() {
+    return Stream.of(
+        Arguments.of("https://cdn.example.com", "profiles/abc"),
+        Arguments.of("https://cdn.example.com/", "profiles/abc"),
+        Arguments.of("https://cdn.example.com", "/profiles/abc"),
+        Arguments.of("https://cdn.example.com/", "/profiles/abc"));
   }
 
   private static ProfileResult.Builder profile() {

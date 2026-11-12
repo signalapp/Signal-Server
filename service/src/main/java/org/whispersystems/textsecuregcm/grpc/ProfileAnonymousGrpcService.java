@@ -11,6 +11,7 @@ import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
 import java.util.Base64;
 import java.util.Optional;
+import org.apache.commons.lang3.Strings;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.chat.errors.NotFound;
@@ -56,6 +57,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
   private final GroupSendTokenUtil groupSendTokenUtil;
 
   private final PostPolicyGenerator policyGenerator;
+  private final String cdnBaseUrl;
 
   private final RateLimiters rateLimiters;
 
@@ -66,6 +68,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
       final ProfilesManager profilesManager,
       final ProfileBadgeConverter profileBadgeConverter,
       final PostPolicyGenerator policyGenerator,
+      final String cdnBaseUrl,
       final GenericServerSecretParams genericServerSecretParams,
       final ServerSecretParams serverSecretParams,
       final RateLimiters rateLimiters,
@@ -74,6 +77,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
         profilesManager,
         profileBadgeConverter,
         policyGenerator,
+        cdnBaseUrl,
         genericServerSecretParams,
         rateLimiters,
         clock,
@@ -86,6 +90,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
       final ProfilesManager profilesManager,
       final ProfileBadgeConverter profileBadgeConverter,
       final PostPolicyGenerator policyGenerator,
+      final String cdnBaseUrl,
       final GenericServerSecretParams genericServerSecretParams,
       final RateLimiters rateLimiters,
       final Clock clock,
@@ -95,6 +100,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
     this.profilesManager = profilesManager;
     this.profileBadgeConverter = profileBadgeConverter;
     this.policyGenerator = policyGenerator;
+    this.cdnBaseUrl = Strings.CS.removeEnd(cdnBaseUrl, "/");
     this.genericServerSecretParams = genericServerSecretParams;
     this.rateLimiters = rateLimiters;
     this.clock = clock;
@@ -133,7 +139,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
 
             // If we didn't find a v2 profile, try a v1 profile
             .or(() -> ProfileGrpcHelper
-                .getProfileV1(account, profilesManager, profileBadgeConverter, version)
+                .getProfileV1(account, profilesManager, profileBadgeConverter, cdnBaseUrl, version)
                 .map(v1Result -> GetProfileAnonymousResponse.newBuilder().setProfileV1(v1Result).build())))
         .orElseGet(() -> GetProfileAnonymousResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build());
 
@@ -238,7 +244,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
 
     return profilesManager.extendAvatarTtlForIdentity(identity)
         .map(extendedPath -> ExtendAvatarTTLResponse.newBuilder()
-            .setPath(extendedPath)
+            .setUrl(ProfileGrpcHelper.cdnUrl(cdnBaseUrl, extendedPath))
             .build())
         .orElseGet(() -> ExtendAvatarTTLResponse.newBuilder()
             .setNotFound(NotFound.getDefaultInstance())

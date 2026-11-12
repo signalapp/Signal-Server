@@ -255,7 +255,8 @@ fcm: # FCM configuration
   credentials: secret://fcm.credentials
 
 cdn:
-  bucket: cdn        # S3 Bucket name
+  baseUrl: https://cdn.example.com  # Public base URL for objects in the bucket
+  bucket: cdn  # S3 Bucket name
   credentials:
     accessKeyId: secret://cdn.accessKey
     secretAccessKey: secret://cdn.accessSecret

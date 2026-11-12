@@ -118,6 +118,8 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcService, ProfileGrpc.ProfileBlockingStub> {
 
+  private static final String CDN_BASE_URL = "https://cdn.example.com";
+
   private static final byte[] VERSION = TestRandomUtil.nextBytes(32);
 
   private static final byte[] VALID_DATA = new byte[128];
@@ -215,6 +217,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         dynamicConfigurationManager,
         badgesConfiguration,
         policyGenerator,
+        CDN_BASE_URL,
         genericServerSecretParams,
         profileBadgeConverter,
         rateLimiters
@@ -653,7 +656,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setName(ByteString.copyFrom(name))
         .setAbout(ByteString.copyFrom(about))
         .setAboutEmoji(ByteString.copyFrom(emoji))
-        .setAvatar(avatar)
+        .setAvatarUrl(CDN_BASE_URL + "/" + avatar)
         .setPhoneNumberSharing(ByteString.copyFrom(phoneNumberSharing))
         .setAccountInfo(AccountInfo.newBuilder()
             .addAllBadgeIds(badgeIds)

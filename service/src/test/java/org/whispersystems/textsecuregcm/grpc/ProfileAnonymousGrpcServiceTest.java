@@ -111,6 +111,8 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileAnonymousGrpcService, ProfileAnonymousGrpc.ProfileAnonymousBlockingStub> {
 
+  private static final String CDN_BASE_URL = "https://cdn.example.com";
+
   private static final ServerSecretParams SERVER_SECRET_PARAMS = ServerSecretParams.generate();
 
   @Mock
@@ -152,6 +154,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         profilesManager,
         profileBadgeConverter,
         new PostPolicyGenerator("us-west-1", "profile-bucket", "accessKey", "accessSecret"),
+        CDN_BASE_URL,
         genericServerSecretParams,
         rateLimiters,
         clock,
@@ -211,7 +214,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         .setName(ByteString.copyFrom(name))
         .setAbout(ByteString.copyFrom(about))
         .setAboutEmoji(ByteString.copyFrom(emoji))
-        .setAvatar(avatar)
+        .setAvatarUrl(CDN_BASE_URL + "/" + avatar)
         .setPhoneNumberSharing(ByteString.copyFrom(phoneNumberSharing))
         .setAccountInfo(AccountInfo.newBuilder()
             .addAllBadgeIds(badgeIds)
@@ -790,9 +793,9 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     final ExtendAvatarTTLResponse response = authenticatedServiceStub().extendAvatarTTL(request);
 
-    assertTrue(response.hasPath());
+    assertTrue(response.hasUrl());
 
-    assertEquals(path, response.getPath());
+    assertEquals(CDN_BASE_URL + "/" + path, response.getUrl());
   }
 
   @Test

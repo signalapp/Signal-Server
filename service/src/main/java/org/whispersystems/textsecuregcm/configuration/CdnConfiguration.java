@@ -12,6 +12,7 @@ import javax.annotation.Nullable;
 import java.net.URI;
 
 public record CdnConfiguration(@NotNull @Valid StaticAwsCredentialsFactory credentials,
+                               @NotBlank String baseUrl,
                                @NotBlank String bucket,
                                @NotBlank String region,
                                @Nullable URI endpointOverride) {

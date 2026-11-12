@@ -289,8 +289,8 @@ message LegacyProfileResult {
   bytes about = 2;
   // The ciphertext of the emoji on the profile.
   bytes about_emoji = 3;
-  // The cdn0 path of the avatar on the profile.
-  string avatar = 4;
+  // The URL of the avatar on the profile.
+  string avatar_url = 4;
   // The ciphertext of the phone-number sharing setting on the profile.
   bytes phone_number_sharing = 5;
   // The ciphertext of the MobileCoin wallet ID on the profile.
@@ -414,7 +414,7 @@ message ExtendAvatarTTLRequest {
 message ExtendAvatarTTLResponse {
   oneof response {
     // The avatar that was extended. May be used as a check against state de-synchronization.
-    string path = 1;
+    string url = 1;
     errors.FailedZkAuthentication invalid_credential_presentation = 2 [(tag.reason) = "invalid_credential_presentation"];
     // the identity does not have an active avatar
     errors.NotFound not_found = 3 [(tag.reason) = "no_active_avatar"];

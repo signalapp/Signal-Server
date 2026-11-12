@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.Optional;
+import org.apache.commons.lang3.Strings;
 import org.bouncycastle.crypto.digests.TupleHash;
 import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.profile.AccountInfo;
@@ -47,9 +48,14 @@ public class ProfileGrpcHelper {
       .setAlgorithm(PostPolicyGenerator.ALGORITHM)
       .build();
 
+  static String cdnUrl(final String cdnBaseUrl, final String path) {
+    return Strings.CS.removeEnd(cdnBaseUrl, "/") + "/" + Strings.CS.removeStart(path, "/");
+  }
+
   static Optional<LegacyProfileResult> getProfileV1(final Account account,
       final ProfilesManager profilesManager,
       final ProfileBadgeConverter profileBadgeConverter,
+      final String cdnBaseUrl,
       final byte[] requestVersion) {
     final Optional<VersionedProfileV1> maybeV1Profile =
         profilesManager.getV1(account.getAccountIdentifier(), HexFormat.of().formatHex(requestVersion));
@@ -74,7 +80,7 @@ public class ProfileGrpcHelper {
       builder.setPhoneNumberSharing(ByteString.copyFrom(v1Profile.phoneNumberSharing()));
     }
     if (v1Profile.avatar() != null) {
-      builder.setAvatar(v1Profile.avatar());
+      builder.setAvatarUrl(cdnUrl(cdnBaseUrl, v1Profile.avatar()));
     }
 
     // If present, include the payment address if the version matches the latest version on Account or the latest

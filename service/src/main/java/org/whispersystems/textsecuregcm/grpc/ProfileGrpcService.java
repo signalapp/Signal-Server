@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.Strings;
 import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.NotFound;
@@ -73,6 +74,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
   private final GenericServerSecretParams genericServerSecretParams;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final RateLimiters rateLimiters;
+  private final String cdnBaseUrl;
 
   private record AvatarData(Optional<String> currentAvatar,
                             Optional<String>  finalAvatar,
@@ -86,6 +88,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final BadgesConfiguration badgesConfiguration,
       final PostPolicyGenerator policyGenerator,
+      final String cdnBaseUrl,
       final GenericServerSecretParams genericServerSecretParams,
       final ProfileBadgeConverter profileBadgeConverter,
       final RateLimiters rateLimiters) {
@@ -97,6 +100,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     this.badgeConfigurationMap = badgesConfiguration.getBadges().stream()
         .collect(Collectors.toMap(BadgeConfiguration::getId, Function.identity()));
     this.policyGenerator = policyGenerator;
+    this.cdnBaseUrl = Strings.CS.removeEnd(cdnBaseUrl, "/");
     this.genericServerSecretParams = genericServerSecretParams;
     this.profileBadgeConverter = profileBadgeConverter;
     this.rateLimiters = rateLimiters;
@@ -268,7 +272,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
 
             // If we didn't find a v2 profile, try a v1 profile
             .or(() -> ProfileGrpcHelper
-                .getProfileV1(account, profilesManager, profileBadgeConverter, version)
+                .getProfileV1(account, profilesManager, profileBadgeConverter, cdnBaseUrl, version)
                 .map(v1Result -> GetProfileResponse.newBuilder().setLegacyProfile(v1Result).build())))
         .orElseGet(() -> GetProfileResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build());
   }
