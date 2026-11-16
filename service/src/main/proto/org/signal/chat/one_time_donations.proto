@@ -30,8 +30,8 @@ service OneTimeDonations {
   // and token.
   //
   // The PayPal approval page presented to the user may be localized. Callers
-  // should set their language preferences via an "Accept-Language" header on
-  // the request:
+  // should set their language preferences via gRPC metadata on the request with
+  // the key "Accept-Language" header:
   // https://datatracker.ietf.org/doc/html/rfc3282#section-3
   rpc CreatePayPalBoost(CreatePayPalBoostRequest) returns (CreatePayPalBoostResponse) {}
 

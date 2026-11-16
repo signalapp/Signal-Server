@@ -25,8 +25,8 @@ service RemoteConfiguration {
   // Returns detailed information for all configured badges, keyed by badge ID.
   //
   // Badge descriptions may contain localized strings. Callers should set their
-  // language preferences via an "Accept-Language" header on the request
-  // https://datatracker.ietf.org/doc/html/rfc3282#section-3
+  // language preferences via gRPC metadata on the request with the key
+  // "Accept-Language": https://datatracker.ietf.org/doc/html/rfc3282#section-3
   //
   // Callers may cache a badges result for up to 1 day before checking (via
   // etag) if there are any new updates.

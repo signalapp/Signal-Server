@@ -39,8 +39,8 @@ service Subscriptions {
   // Returns a PayPal billing agreement approval URL and token that can be used to set up PayPal as a payment method.
   //
   // The presented billing agreement may be localized. Callers should set their
-  // language preferences via an "Accept-Language" header on the request:
-  // https://datatracker.ietf.org/doc/html/rfc3282#section-3
+  // language preferences via gRPC metadata on the request with the key
+  // "Accept-Language": https://datatracker.ietf.org/doc/html/rfc3282#section-3
   rpc CreatePayPalPaymentMethod(CreatePayPalPaymentMethodRequest) returns (CreatePayPalPaymentMethodResponse) {}
 
   // Sets the default payment method for a subscriber.
