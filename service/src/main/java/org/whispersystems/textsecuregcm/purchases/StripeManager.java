@@ -365,7 +365,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor,
           // since badge redemption is untrackable by design and unrevokable, subscription changes must be immediate and
           // not prorated
           .setProrationBehavior(ProrationBehavior.NONE)
-          .setBillingCycleAnchor(BillingCycleAnchor.NOW)
+          .setBillingCycleAnchor(BillingCycleAnchor.builder().setType(BillingCycleAnchor.Type.NOW).build())
           .setOffSession(true)
           .setPaymentBehavior(SubscriptionUpdateParams.PaymentBehavior.ERROR_IF_INCOMPLETE)
           .addAllItem(items)
