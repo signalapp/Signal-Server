@@ -184,7 +184,8 @@ public class KeyTransparencyServiceClient implements Managed {
     channel = Grpc.newChannelBuilderForAddress(host, port, tlsChannelCredentials)
         .idleTimeout(1, TimeUnit.MINUTES)
         .build();
-    stub = KeyTransparencyQueryServiceGrpc.newBlockingStub(channel);
+    stub = KeyTransparencyQueryServiceGrpc.newBlockingStub(channel)
+        .withCompression("gzip");
   }
 
   @Override
