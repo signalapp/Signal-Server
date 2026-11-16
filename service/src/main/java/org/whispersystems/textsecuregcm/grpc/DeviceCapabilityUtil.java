@@ -23,6 +23,7 @@ public class DeviceCapabilityUtil {
       case DEVICE_CAPABILITY_OPTIONAL_PHONE_NUMBER -> DeviceCapability.OPTIONAL_PHONE_NUMBER;
       case DEVICE_CAPABILITY_REPLY_PRIVATELY -> DeviceCapability.REPLY_PRIVATELY;
       case DEVICE_CAPABILITY_CONTACT_DELETE -> DeviceCapability.CONTACT_DELETE;
+      case DEVICE_CAPABILITY_ADMIN_REMOVE_AND_DELETE -> DeviceCapability.ADMIN_REMOVE_AND_DELETE;
       case DEVICE_CAPABILITY_UNSPECIFIED, UNRECOGNIZED ->
           throw GrpcExceptions.invalidArguments("unrecognized device capability");
     };
@@ -39,6 +40,7 @@ public class DeviceCapabilityUtil {
       case OPTIONAL_PHONE_NUMBER -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_OPTIONAL_PHONE_NUMBER;
       case REPLY_PRIVATELY -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_REPLY_PRIVATELY;
       case CONTACT_DELETE -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_CONTACT_DELETE;
+      case ADMIN_REMOVE_AND_DELETE -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_ADMIN_REMOVE_AND_DELETE;
     };
   }
 }

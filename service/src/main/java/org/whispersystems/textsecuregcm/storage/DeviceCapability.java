@@ -21,7 +21,8 @@ public enum DeviceCapability {
   USERNAME_CHANGE_SYNC_MESSAGE("usernameChangeSyncMessage", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.SELF, true, false),
   OPTIONAL_PHONE_NUMBER("optionalPhoneNumber", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.SERVER, false, false),
   REPLY_PRIVATELY("replyPrivately", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.PUBLIC, false, false),
-  CONTACT_DELETE("contactDelete", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.PUBLIC, false, false);
+  CONTACT_DELETE("contactDelete", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.PUBLIC, false, false),
+  ADMIN_REMOVE_AND_DELETE("adminRemoveAndDelete", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.PUBLIC, false, false);
 
   public static final List<DeviceCapability> PUBLIC_VISIBLE_CAPABILITIES = Arrays.stream(DeviceCapability.values())
       .filter(c -> c.accountCapabilityVisibility == AccountCapabilityVisibility.PUBLIC)
