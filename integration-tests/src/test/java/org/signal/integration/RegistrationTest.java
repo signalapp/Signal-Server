@@ -6,6 +6,7 @@
 package org.signal.integration;
 
 import io.micrometer.common.util.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.CreateVerificationSessionRequest;
@@ -54,8 +55,13 @@ public class RegistrationTest {
     // verify code
     final SubmitVerificationCodeRequest submitVerificationCodeRequest = new SubmitVerificationCodeRequest(
         params.verificationCode());
-    final VerificationSessionResponse codeVerified = Operations
+    final Pair<Integer, VerificationSessionResponse> codeVerified = Operations
         .apiPut("/v1/verification/session/%s/code".formatted(sessionId), submitVerificationCodeRequest)
-        .executeExpectSuccess(VerificationSessionResponse.class);
+        .execute(VerificationSessionResponse.class);
+
+    // If we succeeded but then retried a 500, we might have submitted a code when we were already verified
+    Assertions.assertTrue(codeVerified.getLeft() == 200 || codeVerified.getLeft() == 409,
+        "Unexpected response code: " + codeVerified.getLeft());
+    Assertions.assertTrue(codeVerified.getRight().verified());
   }
 }

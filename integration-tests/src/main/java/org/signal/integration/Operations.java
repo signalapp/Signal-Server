@@ -8,6 +8,7 @@ package org.signal.integration;
 import static java.util.Objects.requireNonNull;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.io.Resources;
 import com.google.common.net.HttpHeaders;
 import com.webauthn4j.data.AuthenticatorAssertionResponse;
@@ -56,6 +57,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
@@ -120,6 +122,8 @@ public final class Operations {
   private static final String USER_AGENT = "integration-test";
 
   private static final FaultTolerantHttpClient CLIENT = buildClient();
+
+  private static final FaultTolerantHttpClient NO_RETRY_CLIENT = buildNoRetryClient();
 
   private static final WebSocketClient WEB_SOCKET_CLIENT = buildWebSocketClient();
 
@@ -257,49 +261,65 @@ public final class Operations {
             Optional.empty()));
 
     // we expect (and need) failure with status 441, which will contain the WebAuthn challenge
-    final MfaFailureExceptionMapper.MfaFailureResponse mfaFailureResponse = apiPost("/v1/registration", initialRequest)
+    MfaFailureExceptionMapper.MfaFailureResponse mfaFailureResponse = apiPost("/v1/registration", initialRequest)
         // For a numberless account recovery, the username is the ACI
         .authorized(testUser.aciUuid().toString(), testUser.accountPassword())
         .executeExpectStatusCode(441, MfaFailureExceptionMapper.MfaFailureResponse.class);
 
-    Validate.isTrue(mfaFailureResponse.webAuthnParameters().allowedCredentialIds()
-        .stream()
-        .anyMatch(allowedId -> Arrays.equals(allowedId, credentialId)),
-        "Expected MFA failure to contain credentialId");
+    // Retry a 441 to 3 times. It's possible we burned a challenge on a 500 that actually succeeded, but we didn't see
+    // the response, so we can retry on the new challenge.
+    int attempt = 0;
+    while (true) {
+      attempt++;
+      Validate.isTrue(mfaFailureResponse.webAuthnParameters().allowedCredentialIds()
+          .stream()
+          .anyMatch(allowedId -> Arrays.equals(allowedId, credentialId)),
+          "Expected MFA failure to contain credentialId");
 
-    final PublicKeyCredential<AuthenticatorAssertionResponse, ?> credential =
-        clientPlatform.get(new PublicKeyCredentialRequestOptions(
-            new DefaultChallenge(mfaFailureResponse.webAuthnParameters().challenge()),
-            null,
-            relyingPartyId,
-            List.of(new PublicKeyCredentialDescriptor(PublicKeyCredentialType.PUBLIC_KEY, credentialId, null)),
-            UserVerificationRequirement.DISCOURAGED,
-            null));
+      final PublicKeyCredential<AuthenticatorAssertionResponse, ?> credential =
+          clientPlatform.get(new PublicKeyCredentialRequestOptions(
+              new DefaultChallenge(mfaFailureResponse.webAuthnParameters().challenge()),
+              null,
+              relyingPartyId,
+              List.of(new PublicKeyCredentialDescriptor(PublicKeyCredentialType.PUBLIC_KEY, credentialId, null)),
+              UserVerificationRequirement.DISCOURAGED,
+              null));
 
-    final RegistrationRequest registrationRequest = new RegistrationRequest(null,
-        testUser.registrationPassword(),
-        null,
-        null,
-        webAuthnVerificationResponseJson(credential),
-        recoveredUser.accountAttributes(),
-        true,
-        new IdentityKey(aciIdentityKeyPair.getPublicKey()),
-        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
-        new DeviceActivationRequest(generateSignedECPreKey(1, aciIdentityKeyPair),
-            Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
-            generateSignedKEMPreKey(3, aciIdentityKeyPair),
-            Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
-            Optional.empty(),
-            Optional.empty()));
+      final RegistrationRequest registrationRequest = new RegistrationRequest(null,
+          testUser.registrationPassword(),
+          null,
+          null,
+          webAuthnVerificationResponseJson(credential),
+          recoveredUser.accountAttributes(),
+          true,
+          new IdentityKey(aciIdentityKeyPair.getPublicKey()),
+          new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+          new DeviceActivationRequest(generateSignedECPreKey(1, aciIdentityKeyPair),
+              Optional.of(generateSignedECPreKey(2, pniIdentityKeyPair)),
+              generateSignedKEMPreKey(3, aciIdentityKeyPair),
+              Optional.of(generateSignedKEMPreKey(4, pniIdentityKeyPair)),
+              Optional.empty(),
+              Optional.empty()));
 
-    final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
-        // For a numberless account recovery, the username is the ACI
-        .authorized(testUser.aciUuid().toString(), testUser.accountPassword())
-        .executeExpectSuccess(AccountIdentityResponse.class);
+      final Pair<Integer, JsonNode> registrationResponse = apiPost("/v1/registration", registrationRequest)
+          // For a numberless account recovery, the username is the ACI
+          .authorized(testUser.aciUuid().toString(), testUser.accountPassword())
+          .execute(JsonNode.class);
 
-    recoveredUser.setAciUuid(registrationResponse.uuid());
-    return recoveredUser;
+      if (registrationResponse.getLeft() == 441 && attempt < 3) {
+        mfaFailureResponse = SystemMapper.jsonMapper()
+            .convertValue(registrationResponse.getRight(), MfaFailureExceptionMapper.MfaFailureResponse.class);
+        continue;
+      }
+
+      Validate.isTrue(HttpUtils.isSuccessfulResponse(registrationResponse.getLeft()),
+          "Unexpected response code: %d, body: %s", registrationResponse.getLeft(), registrationResponse.getRight());
+      recoveredUser.setAciUuid(SystemMapper.jsonMapper()
+          .convertValue(registrationResponse.getRight(), AccountIdentityResponse.class).uuid());
+      return recoveredUser;
+    }
   }
+
 
   public static TestUser newRegisteredUser(final String number) {
     final byte[] registrationPassword = populateRandomRecoveryPassword(number);
@@ -347,7 +367,24 @@ public final class Operations {
   }
 
   public static void deleteUser(final TestUser user) {
-    apiDelete("/v1/accounts/me").authorized(user).executeExpectSuccess();
+    final AtomicInteger attempts = new AtomicInteger();
+    final Retry retry = Retry.of("integration-test-delete-user",
+        new RetryConfiguration().<Integer>toRetryConfigBuilder()
+            .retryOnResult(statusCode -> statusCode >= 500)
+            .build());
+    final int statusCode = retry.executeSupplier(() -> {
+      attempts.incrementAndGet();
+      return apiDelete("/v1/accounts/me")
+          .authorized(user)
+          // disable retries, since this endpoint is not idempotent
+          .withoutRetries()
+          .execute()
+          .getLeft();
+    });
+
+    // If we had to retry a 500 where the account was already deleted, we would fail authorization
+    Validate.isTrue(HttpUtils.isSuccessfulResponse(statusCode) || (attempts.get() > 1 && statusCode == 401),
+        "Unexpected response code: %d", statusCode);
   }
 
   public static String peekVerificationSessionPushChallenge(final String sessionId) {
@@ -486,6 +523,7 @@ public final class Operations {
 
     private final List<String> queryParams = new ArrayList<>();
 
+    private boolean retryServerErrors = true;
 
     private RequestBuilder(final HttpRequest.Builder builder, final String endpoint) {
       this.builder = builder;
@@ -520,6 +558,12 @@ public final class Operations {
 
     public RequestBuilder header(final String name, final String value) {
       builder.header(name, value);
+      return this;
+    }
+
+    /// Don't automatically retry 5xx responses, for requests that aren't safe to blindly retry
+    public RequestBuilder withoutRetries() {
+      retryServerErrors = false;
       return this;
     }
 
@@ -572,7 +616,8 @@ public final class Operations {
     private RawResponse executeRaw() {
       builder.uri(serverUri(endpoint, queryParams))
           .header(HttpHeaders.USER_AGENT, USER_AGENT);
-      return CLIENT.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+      return (retryServerErrors ? CLIENT : NO_RETRY_CLIENT)
+          .sendAsync(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
           .whenComplete((response, error) -> {
             if (error != null) {
               logger.error("request error", error);
@@ -610,6 +655,16 @@ public final class Operations {
           .onRetry(event -> logger.warn("Retrying {} after {} failed attempt(s)",
               event.getName(), event.getNumberOfRetryAttempts(), event.getLastThrowable())));
       return client;
+    } catch (final CertificateException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private static FaultTolerantHttpClient buildNoRetryClient() {
+    try {
+      return FaultTolerantHttpClient.newBuilder("integration-test-no-retry", Executors.newFixedThreadPool(16))
+          .withTrustedServerCertificates(CONFIG.rootCerts().toArray(String[]::new))
+          .build();
     } catch (final CertificateException e) {
       throw new RuntimeException(e);
     }
