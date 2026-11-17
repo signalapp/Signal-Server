@@ -230,8 +230,16 @@ message CheckIdentityKeyRequest {
 }
 
 message CheckIdentityKeyResponse {
-  // The service identifier of the account for which there is a mismatch between the client and server identity key fingerprints.
-  common.ServiceIdentifier target_identifier = 1;
-  // The identity key that is stored by the server for the target account/identity type.
-  bytes identity_key = 2;
+
+  oneof response {
+    // The key for the target account/identity type matched.
+    google.protobuf.Empty matched = 1;
+
+    // The identity key that is stored by the server for the target account/identity type.
+    bytes identity_key = 2;
+
+    // Either the target account was not found, or it has no identity key for
+    // the requested identity type.
+    errors.NotFound target_not_found = 3 [(tag.reason) = "not_found"];
+  }
 }

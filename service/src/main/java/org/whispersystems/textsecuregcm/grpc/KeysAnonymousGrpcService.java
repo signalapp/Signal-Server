@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -32,6 +33,8 @@ import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 
 public class KeysAnonymousGrpcService extends SimpleKeysAnonymousGrpc.KeysAnonymousImplBase {
+
+  private static final int CHECK_KEYS_MAX_CONCURRENCY = 16;
 
   private final AccountsManager accountsManager;
   private final KeysManager keysManager;
@@ -99,20 +102,22 @@ public class KeysAnonymousGrpcService extends SimpleKeysAnonymousGrpc.KeysAnonym
     return JdkFlowAdapter.publisherToFlowPublisher(JdkFlowAdapter.flowPublisherToFlux(requests)
         .map(request -> Tuples.of(GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier()),
             request.getFingerprint().toByteArray()))
-        .flatMap(serviceIdentifierAndFingerprint -> Mono.fromFuture(
+        .flatMapSequential(serviceIdentifierAndFingerprint -> Mono.fromFuture(
                 () -> accountsManager.getByServiceIdentifierAsync(serviceIdentifierAndFingerprint.getT1()))
             .map(maybeAccount -> maybeAccount.flatMap(
                 account -> switch (serviceIdentifierAndFingerprint.getT1().identityType()) {
                   case ACI -> Optional.of(account.getAccountIdentityKey());
                   case PNI -> account.getPhoneNumberIdentityKey();
                 }))
-            .flatMap(Mono::justOrEmpty)
-            .filter(identityKey -> !fingerprintMatches(identityKey, serviceIdentifierAndFingerprint.getT2()))
-            .map(identityKey -> CheckIdentityKeyResponse.newBuilder()
-                .setTargetIdentifier(
-                    GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifierAndFingerprint.getT1()))
-                .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
-                .build())));
+            .map(maybeIdentityKey -> {
+              final CheckIdentityKeyResponse.Builder builder = CheckIdentityKeyResponse.newBuilder();
+
+              return maybeIdentityKey.map(identityKey ->
+                      fingerprintMatches(identityKey, serviceIdentifierAndFingerprint.getT2())
+                          ? builder.setMatched(Empty.getDefaultInstance()).build()
+                          : builder.setIdentityKey(ByteString.copyFrom(identityKey.serialize())).build())
+                  .orElseGet(() -> builder.setTargetNotFound(NotFound.getDefaultInstance()).build());
+            }), CHECK_KEYS_MAX_CONCURRENCY));
   }
 
   private static boolean fingerprintMatches(final IdentityKey identityKey, final byte[] fingerprint) {

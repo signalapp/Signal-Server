@@ -26,13 +26,12 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -45,6 +44,7 @@ import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.common.ServiceIdentifier;
+import org.signal.chat.errors.NotFound;
 import org.signal.chat.keys.AccountPreKeyBundles;
 import org.signal.chat.keys.CheckIdentityKeyRequest;
 import org.signal.chat.keys.CheckIdentityKeyResponse;
@@ -54,7 +54,6 @@ import org.signal.chat.keys.GetPreKeysAnonymousResponse;
 import org.signal.chat.keys.GetPreKeysRequest;
 import org.signal.chat.keys.KeysAnonymousGrpc;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
@@ -463,7 +462,6 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final IdentityKey mismatchedPniFingerpringAccountIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
 
     // Complete futures asynchronously to catch potential async/context-propagation issues
-    final Duration futureDelay = Duration.ofMillis(1);
     when(mismatchedAciFingerprintAccount.getAccountIdentityKey()).thenReturn(mismatchedAciFingerprintAccountIdentityKey);
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(mismatchedAciFingerprintAccountIdentifier)))
         .thenReturn(delayedAccount(mismatchedAciFingerprintAccount));
@@ -476,11 +474,21 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(mismatchedPniFingerprintAccountIdentifier)))
         .thenReturn(delayedAccount(mismatchedPniFingerprintAccount));
 
-    final Map<UUID, IdentityKey> expectedResponses = Map.of(
-        mismatchedAciFingerprintAccountIdentifier, mismatchedAciFingerprintAccountIdentityKey,
-        mismatchedPniFingerprintAccountIdentifier, mismatchedPniFingerpringAccountIdentityKey);
+    final List<CheckIdentityKeyResponse> expectedResponses = List.of(
+        CheckIdentityKeyResponse.newBuilder()
+            .setIdentityKey(ByteString.copyFrom(mismatchedAciFingerprintAccountIdentityKey.serialize()))
+            .build(),
+        CheckIdentityKeyResponse.newBuilder()
+            .setMatched(Empty.getDefaultInstance())
+            .build(),
+        CheckIdentityKeyResponse.newBuilder()
+            .setTargetNotFound(NotFound.getDefaultInstance())
+            .build(),
+        CheckIdentityKeyResponse.newBuilder()
+            .setIdentityKey(ByteString.copyFrom(mismatchedPniFingerpringAccountIdentityKey.serialize()))
+            .build());
 
-    final Map<UUID, IdentityKey> responses = new ConcurrentHashMap<>();
+    final List<CheckIdentityKeyResponse> responses = Collections.synchronizedList(new ArrayList<>());
     final CountDownLatch completedLatch = new CountDownLatch(1);
     final AtomicReference<Throwable> error = new AtomicReference<>();
 
@@ -488,13 +496,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
         keysAnonymousStub.checkIdentityKeys(new StreamObserver<>() {
           @Override
           public void onNext(final CheckIdentityKeyResponse checkIdentityKeyResponse) {
-            try {
-              responses.put(
-                  GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(checkIdentityKeyResponse.getTargetIdentifier()).uuid(),
-                  new IdentityKey(checkIdentityKeyResponse.getIdentityKey().toByteArray()));
-            } catch (final InvalidKeyException e) {
-              throw new RuntimeException(e);
-            }
+            responses.add(checkIdentityKeyResponse);
           }
 
           @Override
