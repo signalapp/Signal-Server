@@ -259,25 +259,6 @@ class VerificationControllerTest {
     );
   }
 
-  @Test
-  void createBeninSessionFailure() throws RateLimitExceededException {
-    // libphonenumber 8.13.50 and on generate new-format numbers for Benin
-    final String newFormatBeninE164 = PhoneNumberUtil.getInstance()
-        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
-    final String oldFormatBeninE164 = newFormatBeninE164.replaceFirst("01", "");
-
-    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any(), any(), any()))
-        .thenReturn(new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null, SESSION_EXPIRATION_SECONDS));
-
-    final Invocation.Builder request = resources.getJerseyTest()
-        .target("/v1/verification/session")
-        .request()
-        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1");
-    try (Response response = request.post(Entity.json(createSessionJson(oldFormatBeninE164, "token", "fcm")))) {
-      assertEquals(499, response.getStatus());
-    }
-  }
-
   @ParameterizedTest
   @MethodSource
   void createSessionSuccess(final String pushToken, final String pushTokenType,

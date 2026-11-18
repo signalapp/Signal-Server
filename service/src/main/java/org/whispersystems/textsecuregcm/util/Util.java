@@ -231,17 +231,6 @@ public class Util {
   }
 
   /**
-   * Benin changed phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX on November 30, 2024
-   *
-   * @param phoneNumber the phone number to check.
-   * @return whether the provided phone number is an old-format Benin phone number
-   */
-  public static boolean isOldFormatBeninPhoneNumber(final Phonenumber.PhoneNumber phoneNumber) {
-    return "BJ".equals(PHONE_NUMBER_UTIL.getRegionCodeForNumber(phoneNumber)) &&
-        PHONE_NUMBER_UTIL.getNationalSignificantNumber(phoneNumber).length() == 8;
-  }
-
-  /**
    * @return whether the E164-formatted {@code number} is in a range that registration-service treats as fictitious
    */
   public static boolean isFictitiousNumber(final String number) {
@@ -257,9 +246,6 @@ public class Util {
    */
   public static Phonenumber.PhoneNumber canonicalizePhoneNumber(final Phonenumber.PhoneNumber phoneNumber)
       throws NumberParseException, ObsoletePhoneNumberFormatException {
-    if (isOldFormatBeninPhoneNumber(phoneNumber)) {
-      throw new ObsoletePhoneNumberFormatException("bj");
-    }
     return phoneNumber;
   }
 
