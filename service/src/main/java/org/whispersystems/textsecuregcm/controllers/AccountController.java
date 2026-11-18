@@ -40,6 +40,7 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.usernames.BaseUsernameException;
+import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -356,7 +357,7 @@ public class AccountController {
 
     try {
       usernameHashZkProofVerifier.verifyProof(confirmRequest.zkProof(), confirmRequest.usernameHash());
-    } catch (final BaseUsernameException e) {
+    } catch (final BaseUsernameException | InvalidInputException e) {
       throw new WebApplicationException(Response.status(422).build());
     }
 

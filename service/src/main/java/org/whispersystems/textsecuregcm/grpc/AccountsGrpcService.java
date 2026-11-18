@@ -263,7 +263,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
     try {
       usernameHashZkProofVerifier.verifyProof(request.getZkProof().toByteArray(), request.getUsernameHash().toByteArray());
-    } catch (final BaseUsernameException e) {
+    } catch (final BaseUsernameException | InvalidInputException e) {
       throw GrpcExceptions.invalidArguments("Could not verify proof");
     }
 

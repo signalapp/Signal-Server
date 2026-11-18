@@ -112,6 +112,7 @@ import org.signal.chat.errors.FailedPrecondition;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
+import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ZkCredentialKeyPair;
 import org.signal.libsignal.zkgroup.ZkCredentialPublicKey;
 import org.whispersystems.textsecuregcm.auth.InvalidRegistrationSessionException;
@@ -520,7 +521,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void confirmUsernameHashInvalidProof() throws BaseUsernameException {
+  void confirmUsernameHashInvalidProof() throws BaseUsernameException, InvalidInputException {
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     final byte[] usernameCiphertext = TestRandomUtil.nextBytes(32);

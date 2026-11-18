@@ -66,6 +66,7 @@ import org.signal.libsignal.usernames.BaseUsernameException;
 import org.signal.libsignal.usernames.Username;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.internal.ByteArray;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
@@ -289,7 +290,10 @@ public class AccountTest {
 
     // reserve a username
     final ReserveUsernameHashRequest reserveUsernameHashRequest = new ReserveUsernameHashRequest(
-        candidates.stream().map(Username::getHash).toList());
+        candidates.stream()
+            .map(Username::getHash)
+            .map(ByteArray::serialize)
+            .toList());
     // try unauthorized
     Operations
         .apiPut("/v1/accounts/username_hash/reserve", reserveUsernameHashRequest)
@@ -303,13 +307,13 @@ public class AccountTest {
     // find which one is the reserved username
     final byte[] reservedHash = reserveUsernameHashResponse.usernameHash();
     final Username reservedUsername = candidates.stream()
-        .filter(u -> Arrays.equals(u.getHash(), reservedHash))
+        .filter(u -> Arrays.equals(u.getHash().serialize(), reservedHash))
         .findAny()
         .orElseThrow();
 
     // confirm a username
    final ConfirmUsernameHashRequest confirmUsernameHashRequest = new ConfirmUsernameHashRequest(
-        reservedUsername.getHash(),
+        reservedUsername.getHash().serialize(),
         reservedUsername.generateProof(),
         "cluck cluck i'm a parrot".getBytes()
     );

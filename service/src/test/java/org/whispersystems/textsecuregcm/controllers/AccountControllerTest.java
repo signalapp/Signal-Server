@@ -60,6 +60,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.usernames.BaseUsernameException;
+import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
@@ -675,7 +676,7 @@ class AccountControllerTest {
 
   @Test
   void testConfirmUsernameHash()
-      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException, InvalidInputException {
     Account account = mock(Account.class);
     final UUID uuid = UUID.randomUUID();
     when(account.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH_1));
@@ -713,7 +714,7 @@ class AccountControllerTest {
 
   @Test
   void testConfirmUsernameHashOld()
-      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException, InvalidInputException {
     Account account = mock(Account.class);
     when(account.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH_1));
     when(account.getUsernameLinkHandle()).thenReturn(null);
@@ -737,7 +738,7 @@ class AccountControllerTest {
 
   @Test
   void testConfirmUnreservedUsernameHash()
-      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException, InvalidInputException {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
         .thenThrow(new UsernameReservationNotFoundException());
 
@@ -754,7 +755,7 @@ class AccountControllerTest {
 
   @Test
   void testConfirmLapsedUsernameHash()
-      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException, InvalidInputException {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
         .thenThrow(new UsernameHashNotAvailableException());
 
@@ -805,7 +806,7 @@ class AccountControllerTest {
   }
 
   @Test
-  void testCommitUsernameHashWithInvalidProof() throws BaseUsernameException {
+  void testCommitUsernameHashWithInvalidProof() throws BaseUsernameException, InvalidInputException {
     doThrow(new BaseUsernameException("invalid username")).when(usernameZkProofVerifier).verifyProof(eq(ZK_PROOF), eq(USERNAME_HASH_1));
 
     try (final Response response = resources.getJerseyTest()
