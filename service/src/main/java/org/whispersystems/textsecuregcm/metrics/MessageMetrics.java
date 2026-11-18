@@ -51,6 +51,8 @@ public final class MessageMetrics {
   private static final String DISPLACEMENT_COUNTER_NAME = name(WebSocketConnection.class, "displacement");
   private static final Duration SLOW_DRAIN_THRESHOLD = Duration.ofSeconds(10);
 
+  private static final String SUSPECTED_DELIVERY_LOOP_COUNTER_NAME = name(MessageMetrics.class, "suspectedDeliveryLoop");
+
   private final MeterRegistry metricRegistry;
   private final Counter sendMessageCounter;
   private final Counter bytesSentCounter;
@@ -144,5 +146,17 @@ public final class MessageMetrics {
     sample.stop(Timer.builder(SEND_MESSAGE_DURATION_TIMER_NAME)
         .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("channel", channel)))
         .register(metricRegistry));
+  }
+
+  public static void recordSuspectedDeliveryLoop(final String channel,
+      @Nullable final UserAgent userAgent,
+      final ClientReleaseManager clientReleaseManager) {
+
+    final Tags tags = UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager)
+        .map(Tags::of)
+        .orElseGet(Tags::empty)
+        .and(UserAgentTagUtil.getPlatformTag(userAgent));
+
+    Metrics.counter(SUSPECTED_DELIVERY_LOOP_COUNTER_NAME, tags).increment();
   }
 }

@@ -34,8 +34,10 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.InvalidVersionException;
@@ -296,5 +298,26 @@ class MessagesManagerTest {
     final Optional<Instant> earliest =
         messagesManager.getEarliestUndeliveredTimestampForDevice(accountIdentifier, device).join();
     assertEquals(Optional.ofNullable(expected).map(Instant::ofEpochMilli), earliest);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void hasSuspectedDeliveryLoop(final long readsSinceLastAcknowledgedMessage, final boolean expectSuspectedLoop) {
+    final AciServiceIdentifier aciServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deviceId = Device.PRIMARY_ID;
+
+    when(foundationDbMessageStore.getReadsSinceLastAcknowledgedMessage(aciServiceIdentifier, deviceId))
+        .thenReturn(CompletableFuture.completedFuture(readsSinceLastAcknowledgedMessage));
+
+    assertEquals(expectSuspectedLoop,
+        messagesManager.hasSuspectedDeliveryLoop(aciServiceIdentifier.uuid(), deviceId).join());
+  }
+
+  private static List<Arguments> hasSuspectedDeliveryLoop() {
+    return List.of(
+        Arguments.of(MessagesManager.DELIVERY_LOOP_READ_THRESHOLD - 1, false),
+        Arguments.of(MessagesManager.DELIVERY_LOOP_READ_THRESHOLD, true),
+        Arguments.of(MessagesManager.DELIVERY_LOOP_READ_THRESHOLD + 1, true)
+    );
   }
 }

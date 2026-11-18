@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.websocket;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -43,9 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InOrder;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
@@ -97,6 +96,9 @@ class WebSocketConnectionTest {
     receiptSender = mock(ReceiptSender.class);
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     clientReleaseManager = mock(ClientReleaseManager.class);
+
+    when(messagesManager.hasSuspectedDeliveryLoop(any(), anyByte()))
+        .thenReturn(CompletableFuture.completedFuture(false));
 
     ON_ERROR_DROPPED_COUNTER.set(0);
   }

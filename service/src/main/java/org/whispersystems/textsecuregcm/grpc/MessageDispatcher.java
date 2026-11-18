@@ -8,10 +8,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Empty;
 import io.grpc.StatusRuntimeException;
 import io.micrometer.core.instrument.Metrics;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.signal.chat.messages.GetMessagesResponse;
 import org.signal.chat.messages.GetMessagesStreamClosed;
@@ -48,7 +48,8 @@ public class MessageDispatcher {
   private static final Logger log = LoggerFactory.getLogger(MessageDispatcher.class);
 
   @VisibleForTesting
-  static final int MAX_UNACKED_MESSAGES = 256;
+  static final int DEFAULT_MAX_UNACKED_MESSAGES = 256;
+
   @VisibleForTesting
   static final Duration CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY = Duration.ofMinutes(1);
   private static final int MESSAGE_PUBLISHER_LIMIT_RATE = 100;
@@ -133,10 +134,21 @@ public class MessageDispatcher {
 
     pushNotificationManager.handleMessagesRetrieved(account, device, userAgentString);
 
-    final Flux<GetMessagesResponse> messages = JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages())
-        .name(SEND_MESSAGES_FLUX_NAME)
-        .tap(Micrometer.metrics(Metrics.globalRegistry))
-        .limitRate(MESSAGE_PUBLISHER_LIMIT_RATE)
+    final AtomicInteger maxUnacknowledgedMessages = new AtomicInteger(DEFAULT_MAX_UNACKED_MESSAGES);
+
+    final Flux<GetMessagesResponse> messages = Mono.fromFuture(() -> messagesManager.hasSuspectedDeliveryLoop(account.getAccountIdentifier(), device.getId()))
+        .flatMapMany(hasSuspectedDeliveryLoop -> {
+          if (hasSuspectedDeliveryLoop) {
+            maxUnacknowledgedMessages.set(1);
+            MessageMetrics.recordSuspectedDeliveryLoop(MessageMetrics.GRPC_CHANNEL, userAgent, clientReleaseManager);
+          }
+
+          return JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages())
+              .name(SEND_MESSAGES_FLUX_NAME)
+              .tag("hasSuspectedDeliveryLoop", String.valueOf(hasSuspectedDeliveryLoop))
+              .tap(Micrometer.metrics(Metrics.globalRegistry))
+              .limitRate(maxUnacknowledgedMessages.get());
+        })
         .flatMapSequential(entry -> switch (entry) {
           case MessageStreamEntry.Envelope(final MessageProtos.Envelope envelope) -> {
             final UUID serverGuid = UUIDUtil.fromByteString(envelope.getServerGuid());
@@ -156,7 +168,7 @@ public class MessageDispatcher {
             pendingAcknowledgementTracker.markEndOfQueue();
             yield Mono.empty();
           }
-        }, MAX_UNACKED_MESSAGES)
+        }, maxUnacknowledgedMessages.get())
         .onErrorMap(ConflictingMessageConsumerException.class, _ -> {
           messageMetrics.measureMessageStreamDisplaced(MessageMetrics.GRPC_CHANNEL, userAgent, true);
           return CONFLICTING_STREAM_EXCEPTION;
@@ -165,7 +177,7 @@ public class MessageDispatcher {
     // Only emit envelopes when the permit flux emits a value. Initially it is seeded MAX_UNACKED_MESSAGES permits,
     // after that a permit is emitted every time we receive an ack.
     final Sinks.Many<Boolean> ackPermits = Sinks.many().unicast().onBackpressureBuffer();
-    final Flux<Boolean> permits = Flux.range(0, MAX_UNACKED_MESSAGES)
+    final Flux<Boolean> permits = Flux.range(0, maxUnacknowledgedMessages.get())
         .map(_ -> true)
         .concatWith(ackPermits.asFlux());
     final Mono<GetMessagesResponse> ackCompletions = acknowledgedMessageGuids
@@ -185,7 +197,7 @@ public class MessageDispatcher {
               .doOnSuccess(_ -> unacked.handleMessageAcknowledged())
               // Just have to emit some value that indicates we can release a permit
               .thenReturn(true);
-        }, MAX_UNACKED_MESSAGES)
+        }, maxUnacknowledgedMessages.get())
         .doOnNext(_ -> ackPermits.tryEmitNext(true))
         .ignoreElements()
         .cast(GetMessagesResponse.class);

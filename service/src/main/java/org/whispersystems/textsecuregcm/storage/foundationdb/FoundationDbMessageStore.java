@@ -807,8 +807,7 @@ public class FoundationDbMessageStore {
   ///
   /// @return the number of times a subscriber has started reading messages from the identified message queue since the
   /// last time any message in the queue was acknowledged
-  @VisibleForTesting
-  CompletableFuture<Long> getReadsSinceLastAcknowledgedMessage(final AciServiceIdentifier aci, final byte deviceId) {
+  public CompletableFuture<Long> getReadsSinceLastAcknowledgedMessage(final AciServiceIdentifier aci, final byte deviceId) {
     return Flux.fromArray(getDistinctDatabasesForAci(aci))
         .flatMap(database -> Mono.fromFuture(() -> database.readAsync(transaction ->
             transaction.get(getReadsSinceLastAcknowledgedMessageKey(aci, deviceId)), FaultTolerantDatabase.Context.TEST)))

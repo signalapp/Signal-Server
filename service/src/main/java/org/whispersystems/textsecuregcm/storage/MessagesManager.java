@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.apple.foundationdb.FDBException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import java.time.Clock;
 import java.time.Instant;
@@ -39,6 +40,9 @@ public class MessagesManager {
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService messageDeletionExecutor;
   private final Clock clock;
+
+  @VisibleForTesting
+  static final long DELIVERY_LOOP_READ_THRESHOLD = 10;
 
   public MessagesManager(
       final MessagesDynamoDb messagesDynamoDb,
@@ -221,6 +225,19 @@ public class MessagesManager {
         .map(epochMilli -> Optional.of(Instant.ofEpochMilli(epochMilli)))
         .switchIfEmpty(Mono.just(Optional.empty()))
         .toFuture();
+  }
+
+  /// Checks whether the given device is in a suspected "delivery loop" where it is repeatedly requesting but not
+  /// acknowledging messages.
+  ///
+  /// @param accountIdentifier the identifier of the account to check for a delivery loop
+  /// @param deviceId the ID of the device to check for a delivery loop
+  ///
+  /// @return a future that yields `true` if the identified device is suspected of being stuck in a message delivery
+  /// loop or `false` otherwise
+  public CompletableFuture<Boolean> hasSuspectedDeliveryLoop(final UUID accountIdentifier, final byte deviceId) {
+    return foundationDbMessageStore.getReadsSinceLastAcknowledgedMessage(new AciServiceIdentifier(accountIdentifier), deviceId)
+        .thenApply(readsSinceLastAcknowledgedMessage -> readsSinceLastAcknowledgedMessage >= DELIVERY_LOOP_READ_THRESHOLD);
   }
 
   /// Record versionstamps for the current time in the FoundationDB database(s).

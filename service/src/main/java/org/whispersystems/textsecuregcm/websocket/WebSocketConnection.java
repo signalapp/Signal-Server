@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import javax.annotation.Nullable;
@@ -141,10 +142,21 @@ public class WebSocketConnection {
 
     final Timer.Sample queueDrainStart = Timer.start();
 
-    messageSubscription.set(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages())
-        .name(SEND_MESSAGES_FLUX_NAME)
-        .tap(Micrometer.metrics(Metrics.globalRegistry))
-        .limitRate(MESSAGE_PUBLISHER_LIMIT_RATE)
+    final AtomicInteger maxConcurrency = new AtomicInteger(MESSAGE_SENDER_MAX_CONCURRENCY);
+
+    messageSubscription.set(Mono.fromFuture(() -> messagesManager.hasSuspectedDeliveryLoop(authenticatedAccount.getAccountIdentifier(), authenticatedDevice.getId()))
+        .flatMapMany(hasSuspectedDeliveryLoop -> {
+          if (hasSuspectedDeliveryLoop) {
+            maxConcurrency.set(1);
+            MessageMetrics.recordSuspectedDeliveryLoop(MessageMetrics.WEBSOCKET_CHANNEL, userAgent, clientReleaseManager);
+          }
+
+          return JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages())
+              .name(SEND_MESSAGES_FLUX_NAME)
+              .tag("hasSuspectedDeliveryLoop", String.valueOf(hasSuspectedDeliveryLoop))
+              .tap(Micrometer.metrics(Metrics.globalRegistry))
+              .limitRate(maxConcurrency.get());
+        })
         // We want to handle conflicting connections as soon as possible, and so do this before we start processing
         // messages in the `flatMapSequential` stage below. If we didn't do this first, then we'd wait for clients to
         // process messages before sending the "connected elsewhere" signal, and while that's ultimately not harmful,
@@ -156,7 +168,7 @@ public class WebSocketConnection {
         .flatMapSequential(entry -> switch (entry) {
           case MessageStreamEntry.Envelope envelope -> Mono.fromFuture(() -> sendMessage(envelope.message())).thenReturn(entry);
           case MessageStreamEntry.QueueEmpty _ -> Mono.just(entry);
-        }, MESSAGE_SENDER_MAX_CONCURRENCY)
+        }, maxConcurrency.get())
         .subscribeOn(messageDeliveryScheduler)
         .subscribe(
             entry -> {

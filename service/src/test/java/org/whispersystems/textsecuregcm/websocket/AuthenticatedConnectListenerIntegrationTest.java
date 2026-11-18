@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -50,7 +51,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.PriorityFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -102,6 +102,7 @@ class AuthenticatedConnectListenerIntegrationTest {
   void setUp() throws Exception {
     reset(messagesManager, disconnectionRequestManager, accountsManager, account, device);
     when(messagesManager.mayHaveMessages(any(), any())).thenReturn(CompletableFuture.completedFuture(false));
+    when(messagesManager.hasSuspectedDeliveryLoop(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(false));
     when(account.getNumber()).thenReturn(Optional.of(E164));
     when(account.getAccountIdentifier()).thenReturn(ACCOUNT_UUID);
     when(account.getDevice(DEVICE_ID)).thenReturn(Optional.of(device));
