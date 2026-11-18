@@ -450,7 +450,8 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       @CartesianTest.Values(booleans = {true, false}) final boolean attachmentBackfill,
       @CartesianTest.Values(booleans = {true, false}) final boolean spqr,
       @CartesianTest.Values(booleans = {true, false}) final boolean usernameChangeSyncMessage,
-      @CartesianTest.Values(booleans = {true, false}) final boolean replyPrivately) {
+      @CartesianTest.Values(booleans = {true, false}) final boolean replyPrivately,
+      @CartesianTest.Values(booleans = {true, false}) final boolean contactDelete) {
 
     mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
@@ -483,6 +484,10 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_REPLY_PRIVATELY);
     }
 
+    if (contactDelete) {
+      requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_CONTACT_DELETE);
+    }
+
     final SetCapabilitiesResponse ignored = authenticatedServiceStub().setCapabilities(requestBuilder.build());
 
     final Set<DeviceCapability> expectedCapabilities = new HashSet<>();
@@ -510,6 +515,10 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     if (replyPrivately) {
       expectedCapabilities.add(DeviceCapability.REPLY_PRIVATELY);
+    }
+
+    if (contactDelete) {
+      expectedCapabilities.add(DeviceCapability.CONTACT_DELETE);
     }
 
     verify(device).setCapabilities(expectedCapabilities);
