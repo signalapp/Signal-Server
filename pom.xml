@@ -45,7 +45,7 @@
   </modules>
 
   <properties>
-    <aws.sdk2.version>2.59.0</aws.sdk2.version>
+    <aws.sdk2.version>2.59.1</aws.sdk2.version>
     <braintree.version>3.56.0</braintree.version>
     <!-- Weird stuff happens with parameter annotation counts under Java 27 with versions of Byte Buddy older than
     1.18.9, so we need to pull in a newer version than we'd get via Dropwizard -> Mockito -> Byte Buddy. We can drop
