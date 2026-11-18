@@ -168,7 +168,6 @@ public class ProfileController {
   @ApiResponse(responseCode = "400", description = "Invalid create profile request.")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "The request contained a payment address, but payments are not supported in the region of the account’s phone number or the caller's ASN if the account does not have a phone number.")
-  @ApiResponse(responseCode = "412", description = "The requesting account has the profiles_v2 capability")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
   @ManagedAsync
   public Response setProfile(@Auth AuthenticatedDevice auth,
@@ -177,10 +176,6 @@ public class ProfileController {
 
     final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
-
-    if (account.hasCapability(DeviceCapability.PROFILES_V2)) {
-      return Response.status(Response.Status.PRECONDITION_FAILED).build();
-    }
 
     final Optional<VersionedProfileV1> currentProfile =
         profilesManager.getV1(auth.accountIdentifier(), request.version());

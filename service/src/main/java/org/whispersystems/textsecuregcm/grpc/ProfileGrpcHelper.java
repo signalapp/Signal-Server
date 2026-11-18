@@ -33,7 +33,6 @@ import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.storage.VersionedProfileV1;
@@ -97,9 +96,7 @@ public class ProfileGrpcHelper {
       final ProfileBadgeConverter profileBadgeConverter,
       final byte[] requestVersion) {
 
-    final Optional<VersionedProfile> maybeProfile = account.hasCapability(DeviceCapability.PROFILES_V2)
-        ? profilesManager.get(account.getAccountIdentifier(), requestVersion)
-        : Optional.empty();
+    final Optional<VersionedProfile> maybeProfile = profilesManager.get(account.getAccountIdentifier(), requestVersion);
     if (maybeProfile.isEmpty()) {
       return Optional.empty();
     }
@@ -141,14 +138,8 @@ public class ProfileGrpcHelper {
       final ProfilesManager profilesManager,
       final ServerZkProfileOperations zkProfileOperations) {
 
-    final Optional<VersionedProfile> versionedProfile;
-    if (account.hasCapability(DeviceCapability.PROFILES_V2)) {
-      versionedProfile = profilesManager.get(account.getAccountIdentifier(), version);
-    } else {
-      versionedProfile = Optional.empty();
-    }
-
-    return versionedProfile.map(VersionedProfile::commitment)
+    return profilesManager.get(account.getAccountIdentifier(), version)
+        .map(VersionedProfile::commitment)
         .or(() -> profilesManager.getV1(account.getAccountIdentifier(), HexFormat.of().formatHex(version))
             .map(VersionedProfileV1::commitment))
         .map(commitment -> {
@@ -157,7 +148,8 @@ public class ProfileGrpcHelper {
           try {
             profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(
                 new ProfileKeyCredentialRequest(encodedCredentialRequest),
-                new ProfileKeyCommitment(commitment), new ServiceId.Aci(account.getAccountIdentifier()), zkProfileOperations);
+                new ProfileKeyCommitment(commitment), new ServiceId.Aci(account.getAccountIdentifier()),
+                zkProfileOperations);
           } catch (VerificationFailedException | InvalidInputException e) {
             throw GrpcExceptions.invalidArguments("invalid credential request");
           }

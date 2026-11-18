@@ -103,7 +103,6 @@ import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
@@ -194,7 +193,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(account.getAccountIdentifier()).thenReturn(AUTHENTICATED_ACI);
     when(account.getNumber()).thenReturn(Optional.of(phoneNumber));
     when(account.getBadges()).thenReturn(Collections.emptyList());
-    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
 
     when(profile.paymentAddress()).thenReturn(null);
     when(profile.avatar()).thenReturn("");
@@ -698,7 +696,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     when(account.getAccountIdentifier()).thenReturn(targetAci);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
-    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
     when(account.getAccountIdentityKey()).thenReturn(identityKey);
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
@@ -750,7 +747,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     final UUID targetAci = UUID.randomUUID();
     when(account.getAccountIdentifier()).thenReturn(targetAci);
-    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAci))).thenReturn(Optional.of(account));
 
     when(account.getAccountIdentityKey()).thenReturn(identityKey);

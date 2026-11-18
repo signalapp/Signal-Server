@@ -17,7 +17,6 @@ public enum DeviceCapability {
   TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, AccountCapabilityVisibility.SERVER, false, false),
   ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, AccountCapabilityVisibility.SELF, false, false),
   SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.PUBLIC, true, true),
-  PROFILES_V2("profiles_v2", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.SELF, false, false),
   USERNAME_CHANGE_SYNC_MESSAGE("usernameChangeSyncMessage", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.SELF, true, false),
   OPTIONAL_PHONE_NUMBER("optionalPhoneNumber", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.SERVER, false, false),
   REPLY_PRIVATELY("replyPrivately", AccountCapabilityMode.ALL_DEVICES, AccountCapabilityVisibility.PUBLIC, false, false),

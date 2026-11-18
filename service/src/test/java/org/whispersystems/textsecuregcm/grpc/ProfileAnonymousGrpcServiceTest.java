@@ -98,7 +98,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.storage.VersionedProfileV1;
@@ -264,7 +263,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
     when(account.getAccountIdentityKey()).thenReturn(identityKey);
     when(account.getBadges()).thenReturn(Collections.emptyList());
 
@@ -320,7 +318,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
     when(account.getAccountIdentityKey()).thenReturn(identityKey);
     when(account.getBadges()).thenReturn(Collections.emptyList());
 
@@ -518,7 +515,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
         clientZkProfile.createProfileKeyCredentialRequestContext(new ServiceId.Aci(targetUuid), profileKey);
 
-    when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(hasV2Capability);
     if (hasV2Capability) {
       final VersionedProfile profile = mock(VersionedProfile.class);
       when(profile.commitment()).thenReturn(profileKeyCommitment.serialize());
