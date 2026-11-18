@@ -14,7 +14,6 @@ import com.webauthn4j.appattest.data.DCAttestationParameters;
 import com.webauthn4j.appattest.data.DCAttestationRequest;
 import com.webauthn4j.appattest.server.DCServerProperty;
 import com.webauthn4j.data.attestation.AttestationObject;
-import com.webauthn4j.data.client.challenge.DefaultChallenge;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -74,7 +73,7 @@ public class DeviceCheckTestUtil {
 
   public static DCAppleDevice sampleDevice() {
     final byte[] clientDataHash = sha256(SAMPLE_CHALLENGE.getBytes(StandardCharsets.UTF_8));
-    return validate(SAMPLE_CHALLENGE, clientDataHash, SAMPLE_KEY_ID, SAMPLE_ATTESTATION, SAMPLE_TEAM_ID,
+    return validate(clientDataHash, SAMPLE_KEY_ID, SAMPLE_ATTESTATION, SAMPLE_TEAM_ID,
         SAMPLE_BUNDLE_ID, SAMPLE_TIME);
   }
 
@@ -83,11 +82,11 @@ public class DeviceCheckTestUtil {
     // despite them referring to the value as a challenge
     final byte[] clientDataHash = APPLE_SAMPLE_CHALLENGE.getBytes(StandardCharsets.UTF_8);
 
-    return validate(APPLE_SAMPLE_CHALLENGE, clientDataHash, APPLE_SAMPLE_KEY_ID, APPLE_SAMPLE_ATTESTATION,
+    return validate(clientDataHash, APPLE_SAMPLE_KEY_ID, APPLE_SAMPLE_ATTESTATION,
         APPLE_SAMPLE_TEAM_ID, APPLE_SAMPLE_BUNDLE_ID, APPLE_SAMPLE_TIME);
   }
 
-  private static DCAppleDevice validate(final String challengePlainText, final byte[] clientDataHash,
+  private static DCAppleDevice validate(final byte[] clientDataHash,
       final byte[] keyId, final byte[] attestation, final String teamId, final String bundleId, final Instant now) {
 
     final DCAttestationRequest dcAttestationRequest = new DCAttestationRequest(keyId, attestation, clientDataHash);
@@ -97,9 +96,7 @@ public class DeviceCheckTestUtil {
       instantMock.when(Instant::now).thenReturn(now);
 
       dcAttestationData = appleDeviceCheckManager().validate(dcAttestationRequest, new DCAttestationParameters(
-          new DCServerProperty(
-              teamId, bundleId,
-              new DefaultChallenge(challengePlainText.getBytes(StandardCharsets.UTF_8)))));
+          new DCServerProperty(teamId, bundleId, clientDataHash)));
     }
 
     final AttestationObject attestationObject = dcAttestationData.getAttestationObject();

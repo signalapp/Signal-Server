@@ -138,7 +138,8 @@ public class AppleDeviceCheckManager {
     final DCAttestationData dcAttestationData;
     try {
       dcAttestationData = deviceCheckManager.validate(dcAttestationRequest,
-          new DCAttestationParameters(new DCServerProperty(teamId, bundleId, new DefaultChallenge(challenge))));
+          new DCAttestationParameters(new DCServerProperty(teamId, bundleId,
+              new DefaultChallenge(challenge.getBytes(StandardCharsets.UTF_8)))));
     } catch (VerificationException e) {
       logger.info("Failed to verify attestation", e);
       throw new DeviceCheckVerificationFailedException(e);
