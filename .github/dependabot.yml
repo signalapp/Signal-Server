@@ -28,7 +28,6 @@ updates:
       versions: [">=1.6.0"]
 
     # Dependency convergence sentinels, pinned to specific versions
-    - dependency-name: "tools.jackson.core:jackson-databind"
     - dependency-name: "com.squareup.okio:okio-jvm"
 
   groups:

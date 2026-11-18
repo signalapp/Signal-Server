@@ -188,13 +188,6 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <!-- sentinel for dependency convergence -->
-    <dependency>
-      <groupId>tools.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <!-- update dependabot.yml when this dependency is removed -->
-      <version>3.2.3</version>
-    </dependency>
 
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
