@@ -75,7 +75,6 @@
     <logback-access-common.version>2.0.15</logback-access-common.version>
     <lettuce.version>7.9.0.RELEASE</lettuce.version>
     <libphonenumber.version>9.0.43</libphonenumber.version>
-    <logstash.logback.version>9.0</logstash.logback.version>
     <log4j-bom.version>2.26.1</log4j-bom.version>
     <luajava.version>4.1.0</luajava.version>
     <micrometer.version>1.17.2</micrometer.version>
@@ -266,11 +265,6 @@
         <groupId>io.lettuce</groupId>
         <artifactId>lettuce-core</artifactId>
         <version>${lettuce.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>net.logstash.logback</groupId>
-        <artifactId>logstash-logback-encoder</artifactId>
-        <version>${logstash.logback.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.commons</groupId>

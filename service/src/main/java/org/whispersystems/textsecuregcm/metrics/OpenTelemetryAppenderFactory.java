@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.metrics;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Appender;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import io.dropwizard.logging.common.AbstractAppenderFactory;
 import io.dropwizard.logging.common.async.AsyncAppenderFactory;
@@ -18,9 +17,6 @@ import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppen
 
 @JsonTypeName("otlp")
 public class OpenTelemetryAppenderFactory extends AbstractAppenderFactory<ILoggingEvent> {
-
-  @JsonProperty
-  private String destination;
 
   @Override
   public Appender<ILoggingEvent> build(
@@ -32,8 +28,7 @@ public class OpenTelemetryAppenderFactory extends AbstractAppenderFactory<ILoggi
 
     final OpenTelemetryAppender appender = new OpenTelemetryAppender();
     appender.setCaptureCodeAttributes(true);
-    appender.setCaptureLoggerContext(true);
-    appender.setCaptureLogstashMarkerAttributes(true);
+    appender.setKeyValuePairAttributesIncluded("*");
 
     // The installation of an OpenTelemetry configuration happens in
     // WhisperServerService (or CommandDependencies), in order to let us tie
