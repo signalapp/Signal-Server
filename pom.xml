@@ -56,7 +56,7 @@
     <dropwizard.version>5.0.2</dropwizard.version>
     <!-- Note: We use x86_64 builds without AVX instructions enabled (i.e. FoundationDB versions with even-numbered
     patch versions). -->
-    <foundationdb.version>7.3.76</foundationdb.version>
+    <foundationdb.version>7.3.81</foundationdb.version>
     <foundationdb.api-version>730</foundationdb.api-version>
     <foundationdb.client-library-sha256>af099848721d08904ff9e5d38fade0de24d92e86451ea491d9ab5ce84adcf62a</foundationdb.client-library-sha256>
     <google-cloud-libraries.version>26.93.0</google-cloud-libraries.version>
@@ -66,7 +66,7 @@
     <httpclient.version>4.5.14</httpclient.version>
     <jackson.version>2.23.0</jackson.version>
     <java-otp.version>1.0.0</java-otp.version>
-    <jetty.version>12.1.9</jetty.version>
+    <jetty.version>12.1.15</jetty.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>2.4.21</kotlin.version>
@@ -78,9 +78,9 @@
     <log4j-bom.version>2.26.1</log4j-bom.version>
     <luajava.version>4.1.0</luajava.version>
     <micrometer.version>1.17.2</micrometer.version>
-    <netty.version>4.2.20.Final</netty.version>
+    <netty.version>4.2.21.Final</netty.version>
     <!-- netty-bom doesn't manage the BoringSSL uber-jar; keep in sync with netty's tcnative.version -->
-    <netty-tcnative.version>2.0.85.Final</netty-tcnative.version>
+    <netty-tcnative.version>2.0.86.Final</netty-tcnative.version>
     <!-- Instrumentation releases target upstream opentelemetry versions and include that BOM by reference -->
     <opentelemetry-instrumentation.version>2.33.1</opentelemetry-instrumentation.version>
     <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
