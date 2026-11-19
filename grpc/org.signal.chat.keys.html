@@ -656,37 +656,76 @@ in the UAK that the sender has for the target before actually sending a message.
   </thead>
   <tbody>
     
-    <tr>
-      <td>1</td>
-      <td>
-        target_identifier
-      </td>
-      <td>
-        <code title="org.signal.chat.common.ServiceIdentifier">
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            matched
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The key for the target account/identity type matched.</p></td>
           
-          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            identity_key
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>The identity key that is stored by the server for the target account/identity type.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            target_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
     </a>
-        </code>
-      </td>
-      <td class="content"><p>The service identifier of the account for which there is a mismatch between the client and server identity key fingerprints.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        identity_key
-      </td>
-      <td>
-        <code title="bytes">
+            </code>
+          </td>
+          <td class="content"><p>Either the target account was not found, or it has no identity key for
+the requested identity type.</p></td>
           
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>The identity key that is stored by the server for the target account/identity type.</p></td>
+        </tr>
       
-    </tr>
-    
     
   </tbody>
 </table>

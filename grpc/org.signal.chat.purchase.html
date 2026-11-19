@@ -732,8 +732,8 @@ Once the payment is complete, the paymentIntentId can be used with CreateBoostRe
 <p>Once the payment is complete, call ConfirmPayPalBoost with the payment ID
 and token.</p>
 <p>The PayPal approval page presented to the user may be localized. Callers
-should set their language preferences via an "Accept-Language" header on
-the request:
+should set their language preferences via gRPC metadata on the request with
+the key "Accept-Language" header:
 https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
   </div>
   
@@ -916,8 +916,8 @@ cancelling a subscription from storekit to keep server data up to date.</p></p>
   <div class="block">
     <p><p>Returns a PayPal billing agreement approval URL and token that can be used to set up PayPal as a payment method.</p>
 <p>The presented billing agreement may be localized. Callers should set their
-language preferences via an "Accept-Language" header on the request:
-https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
+language preferences via gRPC metadata on the request with the key
+"Accept-Language": https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
   </div>
   
 </div>

@@ -3053,8 +3053,6 @@ paths:
           description: "The request contained a payment address, but payments are\
             \ not supported in the region of the account’s phone number or the caller's\
             \ ASN if the account does not have a phone number."
-        "412":
-          description: The requesting account has the profiles_v2 capability
         "422":
           description: Invalid request format
       security:
@@ -4216,9 +4214,11 @@ components:
             - TRANSFER
             - ATTACHMENT_BACKFILL
             - SPARSE_POST_QUANTUM_RATCHET
-            - PROFILES_V2
             - USERNAME_CHANGE_SYNC_MESSAGE
             - OPTIONAL_PHONE_NUMBER
+            - REPLY_PRIVATELY
+            - CONTACT_DELETE
+            - ADMIN_REMOVE_AND_DELETE
         registrationLock:
           type: string
         unidentifiedAccessKey:
@@ -4263,9 +4263,11 @@ components:
             - TRANSFER
             - ATTACHMENT_BACKFILL
             - SPARSE_POST_QUANTUM_RATCHET
-            - PROFILES_V2
             - USERNAME_CHANGE_SYNC_MESSAGE
             - OPTIONAL_PHONE_NUMBER
+            - REPLY_PRIVATELY
+            - CONTACT_DELETE
+            - ADMIN_REMOVE_AND_DELETE
     ApnRegistrationId:
       required:
       - apnRegistrationId
@@ -5859,12 +5861,12 @@ components:
     DonationPermit:
       type: object
       properties:
-        expiration:
-          type: string
-          format: date-time
         spendId:
           type: string
           format: byte
+        expiration:
+          type: string
+          format: date-time
         internalContentsForJNI:
           type: string
           format: byte
