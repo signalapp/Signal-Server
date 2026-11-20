@@ -361,15 +361,20 @@ class FoundationDbMessagePublisher {
               .thenCombine(
                   transaction.getRange(beginKeyCursor, endKeyExclusive, maxMessages, false, StreamingMode.EXACT).asList(),
                   (_, keyValues) -> keyValues)
-              .thenApply(keyValues -> {
-                final int keyValuesSize = keyValues.size();
-
-                if (keyValuesSize > 0 && !hasEmittedEntry()) {
-                  // We're about to emit our first message; increment the "sent head of queue since last ACK" counter
-                  incrementReadsSinceHeadAcknowledged(transaction);
+              .thenCompose(keyValues -> {
+                if (!keyValues.isEmpty() && !hasEmittedEntry()) {
+                  // We're about to emit our first message; increment the "sent head of queue since last ACK" counter.
+                  // We want to do this in a separate transaction because doing it in the current transaction would
+                  // make it a read/write transaction, which introduces the possibility for conflicts since we're now
+                  // actually committing the transaction.
+                  return incrementReadsSinceLastAcknowledgedMessage()
+                      .thenApply(_ -> keyValues);
                 }
 
-                if (keyValuesSize < maxMessages && !terminateOnQueueEmpty) {
+                return CompletableFuture.completedFuture(keyValues);
+              })
+              .thenApply(keyValues -> {
+                if (keyValues.size() < maxMessages && !terminateOnQueueEmpty) {
                   setWatch(transaction);
                 }
 
@@ -454,8 +459,11 @@ class FoundationDbMessagePublisher {
     return this.messagePublisher;
   }
 
-  private void incrementReadsSinceHeadAcknowledged(final Transaction transaction) {
-    transaction.mutate(MutationType.ADD, readsSinceLastAcknowledgedMessageKey, ONE_LITTLE_ENDIAN);
+  private CompletableFuture<Void> incrementReadsSinceLastAcknowledgedMessage() {
+    return database.runAsync(transaction -> {
+      transaction.mutate(MutationType.ADD, readsSinceLastAcknowledgedMessageKey, ONE_LITTLE_ENDIAN);
+      return CompletableFuture.completedFuture(null);
+    }, FaultTolerantDatabase.Context.INCREMENT_READS_SINCE_LAST_ACKNOWLEDGED_MESSAGE);
   }
 
   private synchronized void setWatch(final Transaction transaction) {
